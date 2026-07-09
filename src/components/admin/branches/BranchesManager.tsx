@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Image from "next/image";
 import BranchesToolbar from "@/components/admin/branches/BranchesToolbar";
 import BranchEditPanel from "@/components/admin/branches/BranchEditPanel";
 import { adminBranches } from "@/lib/adminData";
@@ -42,7 +43,15 @@ export default function BranchesManager() {
       <div className="grid gap-6 sm:grid-cols-2">
         {filtered.map((branch) => (
           <div key={branch.id} className="overflow-hidden rounded-2xl bg-white shadow-sm">
-            <div className="h-32 bg-gradient-to-br from-rose to-coral" />
+            <div className="relative h-40 overflow-hidden">
+              <Image
+                src={branch.image}
+                alt={branch.name}
+                fill
+                className="object-cover object-center"
+                sizes="(max-width: 640px) 100vw, 50vw"
+              />
+            </div>
             <div className="p-5">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-ink">{branch.name}</h3>

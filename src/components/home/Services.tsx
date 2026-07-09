@@ -30,6 +30,7 @@ export default function Services() {
               next={service.next}
               singlePrice={service.singlePrice}
               packPrice={service.packPrice}
+              image={service.image}
             />
           ))}
         </div>

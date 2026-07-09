@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Phone } from "lucide-react";
+import { Phone } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchContacts, branchServiceCategories } from "@/lib/data";
 
@@ -26,23 +26,7 @@ export default function BranchExplorer({
     <section className="mx-auto max-w-7xl px-6 py-10">
       <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
         <div>
-          <p className="mb-2 text-sm font-semibold text-ink">Branch</p>
-          <div className="relative">
-            <select
-              value={branchId}
-              onChange={(e) => setBranchId(e.target.value)}
-              className="w-full appearance-none rounded-full border border-ink/10 bg-white px-4 py-2.5 pr-9 text-sm font-medium text-ink"
-            >
-              {branchContacts.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
-          </div>
-
-          <div className="mt-4 rounded-2xl border border-ink/10 p-4">
+          <div className="rounded-2xl border border-ink/10 p-4">
             <p className="text-xs font-semibold uppercase text-ink/40">
               {branch.area}
             </p>

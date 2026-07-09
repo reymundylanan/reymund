@@ -58,18 +58,18 @@ export default function FrontDeskTopbar() {
   }, [profile?.branchId]);
 
   return (
-    <header className="flex items-center justify-between border-b border-ink/10 bg-white px-6 py-4">
-      <div className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/50 w-full max-w-sm">
-        <Search className="h-4 w-4" />
+    <header className="flex items-center justify-between border-b border-ink/10 bg-white px-6 py-5">
+      <div className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2.5 text-base text-ink/50 w-full max-w-sm">
+        <Search className="h-5 w-5" />
         <input
           type="text"
           placeholder="Search clients, phone numbers, or bookings..."
-          className="w-full text-sm outline-none placeholder:text-ink/40"
+          className="w-full text-base outline-none placeholder:text-ink/40"
         />
       </div>
 
       <div className="flex items-center gap-4">
-        <span className="rounded-full bg-blush px-4 py-2 text-sm font-semibold text-coral-dark">
+        <span className="rounded-full bg-blush px-5 py-2.5 text-base font-semibold text-coral-dark">
           Branch: {profile?.branchName ?? "Not assigned"}
         </span>
 
@@ -79,7 +79,7 @@ export default function FrontDeskTopbar() {
             aria-label="Notifications"
             className="relative rounded-full p-2 text-ink/70 hover:bg-blush"
           >
-            <Bell className="h-5 w-5" />
+            <Bell className="h-6 w-6" />
             {notifications.length > 0 && (
               <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-coral text-[10px] font-semibold text-white">
                 {notifications.length}
@@ -121,12 +121,12 @@ export default function FrontDeskTopbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blush text-sm font-semibold text-coral-dark">
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-blush text-base font-semibold text-coral-dark">
             {profile?.fullName?.charAt(0) ?? "?"}
           </span>
-          <div className="text-sm">
-            <p className="font-medium text-ink">{profile?.fullName ?? "—"}</p>
-            <p className="text-xs text-ink/50">
+          <div>
+            <p className="text-base font-medium text-ink">{profile?.fullName ?? "—"}</p>
+            <p className="text-sm text-ink/50">
               {profile ? roleLabels[profile.role] : ""}
             </p>
           </div>

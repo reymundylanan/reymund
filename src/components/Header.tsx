@@ -135,7 +135,7 @@ export default function Header() {
             </span>
           </Link>
 
-          <ul className="hidden items-center gap-8 text-sm font-medium text-ink/80 md:flex">
+          <ul className="hidden items-center gap-8 text-lg font-medium text-ink/80 md:flex">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
               return (
@@ -184,7 +184,7 @@ export default function Header() {
             ) : (
               <button
                 onClick={open}
-                className="rounded-full bg-coral px-5 py-2 text-sm font-semibold text-white transition hover:bg-coral-dark"
+                className="rounded-full bg-coral px-5 py-2 text-lg font-semibold text-white transition hover:bg-coral-dark"
               >
                 Login
               </button>

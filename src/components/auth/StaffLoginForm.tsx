@@ -59,8 +59,10 @@ export default function StaffLoginForm({
 
     if (profile.role === "admin") {
       router.push("/admin");
-    } else if (profile.role === "front_desk" || profile.role === "specialist") {
+    } else if (profile.role === "front_desk") {
       router.push("/frontdesk");
+    } else if (profile.role === "specialist") {
+      router.push("/staff");
     } else {
       router.push("/");
     }

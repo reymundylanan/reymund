@@ -22,10 +22,8 @@ export const criticalAlerts = [
 ];
 
 export const revenueByBranch = [
-  { branch: "GlowSync BGC Flagship", value: 95 },
-  { branch: "GlowSync Makati Central", value: 80 },
-  { branch: "GlowSync Quezon City Park", value: 40 },
-  { branch: "GlowSync Cebu IT Park", value: 100 },
+  { branch: "One Cecilia Center", value: 95 },
+  { branch: "Robinsons Pagadian", value: 80 },
 ];
 
 export const recentActivity = [
@@ -171,10 +169,8 @@ export const paymentStats = [
 ];
 
 export const regionFilters = [
-  { label: "All Regions", count: 12 },
-  { label: "Metro Manila", count: 8 },
-  { label: "Visayas", count: 2 },
-  { label: "Mindanao", count: 2 },
+  { label: "All Regions", count: 2 },
+  { label: "Zamboanga del Sur", count: 2 },
 ];
 
 export const reportTemplates = [
@@ -210,39 +206,23 @@ export const auditLogs = [
 
 export const adminBranches = [
   {
-    id: "b1",
-    name: "GlowSync BGC Flagship",
-    address: "28th St, Bonifacio Global City, Taguig",
-    region: "Metro Manila",
-    manager: "Isabella",
-    hours: "9:00 AM - 8:00 PM",
+    id: "one-cecilia-center",
+    name: "One Cecilia Center",
+    address: "3rd Floor, One Cecilia Center, corner Alano Street, R. Magsaysay St, Pagadian City, Zamboanga del Sur",
+    region: "Zamboanga del Sur",
+    manager: "",
+    hours: "10:00 AM - 4:00 PM",
     status: "Active",
+    image: "/images/branches/branches1.jpg",
   },
   {
-    id: "b2",
-    name: "GlowSync Makati Central",
-    address: "Ayala Ave, Makati, Metro Manila",
-    region: "Metro Manila",
-    manager: "Marcus",
-    hours: "9:00 AM - 8:00 PM",
+    id: "robinson-mall",
+    name: "Robinsons Pagadian",
+    address: "F.S. Pajares Ave cor P.L. Urro St, cor Vicencio Sagun St, San Francisco District, Pagadian City, Zamboanga del Sur",
+    region: "Zamboanga del Sur",
+    manager: "",
+    hours: "10:00 AM - 4:00 PM",
     status: "Active",
-  },
-  {
-    id: "b3",
-    name: "GlowSync Quezon City Park",
-    address: "Katipunan Ave, Quezon City",
-    region: "Metro Manila",
-    manager: "Sophia",
-    hours: "9:00 AM - 8:00 PM",
-    status: "Maintenance",
-  },
-  {
-    id: "b4",
-    name: "GlowSync Cebu IT Park",
-    address: "Lahug, Cebu City, Cebu",
-    region: "Visayas",
-    manager: "Elena",
-    hours: "9:00 AM - 8:00 PM",
-    status: "Active",
+    image: "/images/services/spaservice.jpg",
   },
 ];

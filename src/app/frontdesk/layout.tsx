@@ -3,11 +3,11 @@ import FrontDeskTopbar from "@/components/frontdesk/FrontDeskTopbar";
 
 export default function FrontDeskLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-[#f7f8fa]">
+    <div className="flex h-screen overflow-hidden bg-[#f7f8fa]">
       <FrontDeskSidebar />
-      <div className="flex-1">
+      <div className="flex flex-1 flex-col overflow-hidden">
         <FrontDeskTopbar />
-        <main className="p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6">{children}</main>
       </div>
     </div>
   );

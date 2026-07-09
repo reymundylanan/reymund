@@ -44,7 +44,7 @@ export default function FrontDeskSidebar() {
           G
         </span>
         {!collapsed && (
-          <span className="whitespace-nowrap text-sm font-semibold text-ink">
+          <span className="whitespace-nowrap text-base font-bold text-ink">
             Glowsync Desk
           </span>
         )}
@@ -58,13 +58,13 @@ export default function FrontDeskSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+              className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition ${
                 active
                   ? "bg-coral text-white"
                   : "text-ink/60 hover:bg-blush hover:text-ink"
               }`}
             >
-              <Icon className="h-4 w-4 shrink-0" />
+              <Icon className="h-5 w-5 shrink-0" />
               {!collapsed && (
                 <span className="whitespace-nowrap">{item.label}</span>
               )}
@@ -76,18 +76,18 @@ export default function FrontDeskSidebar() {
       <div className="space-y-1 border-t border-ink/10 px-3 py-4">
         <button
           onClick={() => setCollapsed((c) => !c)}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink/60 hover:bg-blush"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-ink/60 hover:bg-blush"
         >
           <ChevronLeft
-            className={`h-4 w-4 shrink-0 transition-transform ${collapsed ? "rotate-180" : ""}`}
+            className={`h-5 w-5 shrink-0 transition-transform ${collapsed ? "rotate-180" : ""}`}
           />
           {!collapsed && <span className="whitespace-nowrap">Collapse Sidebar</span>}
         </button>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink/60 hover:bg-blush"
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-ink/60 hover:bg-blush"
         >
-          <LogOut className="h-4 w-4 shrink-0" />
+          <LogOut className="h-5 w-5 shrink-0" />
           {!collapsed && <span className="whitespace-nowrap">Logout</span>}
         </button>
       </div>

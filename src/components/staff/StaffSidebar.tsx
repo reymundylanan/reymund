@@ -3,28 +3,24 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Building2,
-  CalendarCheck,
+  BarChart2,
+  CalendarDays,
   ChevronLeft,
   LayoutDashboard,
   LogOut,
-  Settings,
-  Users,
-  Wallet,
+  Users2,
 } from "lucide-react";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/users", label: "Users & Roles", icon: Users },
-  { href: "/admin/bookings", label: "Bookings Management", icon: CalendarCheck },
-  { href: "/admin/payments", label: "Payments & Financials", icon: Wallet },
-  { href: "/admin/branches", label: "Branches & Services", icon: Building2 },
-  { href: "/admin/reports", label: "Reports & System Settings", icon: Settings },
+  { href: "/staff", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/staff/schedule", label: "My Schedule", icon: CalendarDays },
+  { href: "/staff/clients", label: "My Clients", icon: Users2 },
+  { href: "/staff/performance", label: "Performance", icon: BarChart2 },
 ];
 
-export default function AdminSidebar() {
+export default function StaffSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
@@ -43,11 +39,11 @@ export default function AdminSidebar() {
     >
       <div className="flex items-center gap-2 px-5 py-5">
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-coral text-sm font-bold text-white">
-          G
+          B
         </span>
         {!collapsed && (
           <span className="whitespace-nowrap text-base font-bold text-ink">
-            GlowSync Admin
+            Blush Staff Portal
           </span>
         )}
       </div>
@@ -81,23 +77,22 @@ export default function AdminSidebar() {
           className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-ink/60 hover:bg-blush"
         >
           <ChevronLeft
-            className={`h-5 w-5 shrink-0 transition-transform ${collapsed ? "rotate-180" : ""}`}
+            className={`h-4 w-4 shrink-0 transition-transform ${collapsed ? "rotate-180" : ""}`}
           />
-          {!collapsed && <span className="whitespace-nowrap">Collapse Sidebar</span>}
+          {!collapsed && <span className="whitespace-nowrap">Collapse</span>}
         </button>
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-ink/60 hover:bg-blush"
         >
-          <LogOut className="h-5 w-5 shrink-0" />
+          <LogOut className="h-4 w-4 shrink-0" />
           {!collapsed && <span className="whitespace-nowrap">Logout</span>}
         </button>
       </div>
 
       {!collapsed && (
         <p className="border-t border-ink/10 px-5 py-3 text-[11px] text-ink/40">
-          © 2026 GlowSync Admin Portal. All rights reserved. System Version
-          2.4.0-stable
+          © 2026 Blush Spa &amp; Aesthetics · Staff Portal
         </p>
       )}
     </aside>

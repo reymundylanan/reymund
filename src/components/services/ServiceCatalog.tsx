@@ -113,6 +113,7 @@ export default function ServiceCatalog() {
               next={service.next}
               singlePrice={service.singlePrice}
               packPrice={service.packPrice}
+              image={service.image}
             />
           ))}
         </div>

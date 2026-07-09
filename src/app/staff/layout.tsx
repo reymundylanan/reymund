@@ -1,12 +1,12 @@
-import AdminSidebar from "@/components/admin/AdminSidebar";
-import AdminTopbar from "@/components/admin/AdminTopbar";
+import StaffSidebar from "@/components/staff/StaffSidebar";
+import StaffTopbar from "@/components/staff/StaffTopbar";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function StaffLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-[#f7f8fa]">
-      <AdminSidebar />
+      <StaffSidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <AdminTopbar />
+        <StaffTopbar />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-6">{children}</main>
       </div>
     </div>

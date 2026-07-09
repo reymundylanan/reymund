@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Clock, Star } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
 
@@ -12,6 +13,7 @@ type ServiceCardProps = {
   next: string;
   singlePrice: number;
   packPrice: number;
+  image: string;
 };
 
 export default function ServiceCard({
@@ -23,12 +25,20 @@ export default function ServiceCard({
   next,
   singlePrice,
   packPrice,
+  image,
 }: ServiceCardProps) {
   const { open } = useBooking();
 
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm">
-      <div className="relative h-32 bg-gradient-to-br from-rose to-coral">
+      <div className="relative h-40 overflow-hidden">
+        <Image
+          src={image}
+          alt={name}
+          fill
+          className="object-cover object-center"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+        />
         <span className="absolute left-3 top-3 rounded-full bg-black/40 px-2.5 py-1 text-xs font-medium text-white">
           {badge}
         </span>

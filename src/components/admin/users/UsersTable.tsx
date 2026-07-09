@@ -7,11 +7,12 @@ import ClientViewPanel from "@/components/admin/users/ClientViewPanel";
 import CreateUserModal from "@/components/admin/users/CreateUserModal";
 import type { ClientUser, StaffUser } from "@/components/admin/users/types";
 
-const tabs = ["Administrators", "Front Desk", "Clients"];
+const tabs = ["Administrators", "Front Desk", "Specialists", "Clients"];
 
 const tabRoleMap: Record<string, StaffUser["role"] | null> = {
   Administrators: "admin",
   "Front Desk": "front_desk",
+  Specialists: "specialist",
 };
 
 const roleLabels: Record<StaffUser["role"], string> = {

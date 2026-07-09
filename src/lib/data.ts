@@ -8,6 +8,7 @@ export type Service = {
   next: string;
   singlePrice: number;
   packPrice: number;
+  image: string;
 };
 
 export const services: Service[] = [
@@ -22,6 +23,7 @@ export const services: Service[] = [
     next: "Today",
     singlePrice: 1999,
     packPrice: 7500,
+    image: "/images/services/spaservice.jpg",
   },
   {
     id: "immune-booster-cocktail",
@@ -34,6 +36,7 @@ export const services: Service[] = [
     next: "Today",
     singlePrice: 899,
     packPrice: 3999,
+    image: "/images/about/about1.jpg",
   },
   {
     id: "cinderella-super-whitening-drip",
@@ -46,6 +49,7 @@ export const services: Service[] = [
     next: "Today",
     singlePrice: 2500,
     packPrice: 9999,
+    image: "/images/hero/salon1.jpg",
   },
   {
     id: "snow-white-slimming-drip",
@@ -58,6 +62,7 @@ export const services: Service[] = [
     next: "Today",
     singlePrice: 2500,
     packPrice: 9999,
+    image: "/images/branches/branches1.jpg",
   },
 ];
 
@@ -72,6 +77,7 @@ export type CatalogService = {
   next: string;
   singlePrice: number;
   packPrice: number;
+  image: string;
 };
 
 export const catalogCategories = [
@@ -95,6 +101,7 @@ export const catalogServices: CatalogService[] = [
     next: "Today",
     singlePrice: 500,
     packPrice: 16500,
+    image: "/images/services/spaservice.jpg",
   },
   {
     id: "bra-line-back",
@@ -108,6 +115,7 @@ export const catalogServices: CatalogService[] = [
     next: "Today",
     singlePrice: 800,
     packPrice: 3999,
+    image: "/images/hero/salon1.jpg",
   },
   {
     id: "love-handle",
@@ -121,6 +129,7 @@ export const catalogServices: CatalogService[] = [
     next: "Today",
     singlePrice: 6000,
     packPrice: 9999,
+    image: "/images/services/spaservice.jpg",
   },
   {
     id: "hips",
@@ -134,6 +143,7 @@ export const catalogServices: CatalogService[] = [
     next: "Today",
     singlePrice: 1999,
     packPrice: 7500,
+    image: "/images/about/about1.jpg",
   },
   {
     id: "tummy",
@@ -147,6 +157,7 @@ export const catalogServices: CatalogService[] = [
     next: "Today",
     singlePrice: 899,
     packPrice: 3999,
+    image: "/images/about/about1.jpg",
   },
   {
     id: "arms",
@@ -160,6 +171,7 @@ export const catalogServices: CatalogService[] = [
     next: "Today",
     singlePrice: 2500,
     packPrice: 9999,
+    image: "/images/hero/salon1.jpg",
   },
 ];
 

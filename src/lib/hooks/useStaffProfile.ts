@@ -8,6 +8,7 @@ export type StaffProfile = {
   role: "admin" | "front_desk" | "specialist";
   branchId: string | null;
   branchName: string | null;
+  avatarUrl: string | null;
 };
 
 export function useStaffProfile() {
@@ -26,7 +27,7 @@ export function useStaffProfile() {
 
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, role, branch_id, branches(name)")
+        .select("full_name, role, branch_id, avatar_url, branches(name)")
         .eq("id", auth.user.id)
         .single();
 
@@ -41,6 +42,7 @@ export function useStaffProfile() {
           role: data.role,
           branchId: data.branch_id,
           branchName,
+          avatarUrl: data.avatar_url ?? null,
         });
       }
       setLoading(false);

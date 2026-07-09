@@ -17,7 +17,7 @@ export default function CreateUserModal({
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"admin" | "front_desk">("front_desk");
+  const [role, setRole] = useState<"admin" | "front_desk" | "specialist">("specialist");
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -153,6 +153,7 @@ export default function CreateUserModal({
                 onChange={(e) => setRole(e.target.value as typeof role)}
                 className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
               >
+                <option value="specialist">Specialist</option>
                 <option value="front_desk">Front Desk</option>
                 <option value="admin">Admin</option>
               </select>

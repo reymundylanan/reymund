@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   title: "GlowSync — Synchronized Care for Your Natural Glow",
   description:
     "Book wellness spa services, manage appointments, and synchronize your glow with GlowSync.",
+  icons: {
+    icon: "/images/logo/salonlogo.png",
+  },
 };
 
 export default function RootLayout({
