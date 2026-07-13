@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import BranchesToolbar from "@/components/admin/branches/BranchesToolbar";
-import BranchEditPanel from "@/components/admin/branches/BranchEditPanel";
+import BranchDetailView from "@/components/admin/branches/BranchDetailView";
 import { adminBranches } from "@/lib/adminData";
 
 const statusStyles: Record<string, string> = {
@@ -30,6 +30,10 @@ export default function BranchesManager() {
       return matchesRegion && matchesQuery;
     });
   }, [region, query]);
+
+  if (selected) {
+    return <BranchDetailView branch={selected} onBack={() => setSelected(null)} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -63,7 +67,7 @@ export default function BranchesManager() {
               </div>
               <p className="mt-1 text-sm text-ink/60">{branch.address}</p>
               <p className="mt-2 text-xs text-ink/50">
-                Manager: {branch.manager} &bull; {branch.hours}
+                Manager: {branch.manager || "—"} &bull; {branch.hours}
               </p>
               <button
                 onClick={() => setSelected(branch)}
@@ -81,10 +85,6 @@ export default function BranchesManager() {
           </p>
         )}
       </div>
-
-      {selected && (
-        <BranchEditPanel branch={selected} onClose={() => setSelected(null)} />
-      )}
     </div>
   );
 }
