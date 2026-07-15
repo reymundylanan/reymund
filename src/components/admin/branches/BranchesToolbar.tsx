@@ -18,7 +18,7 @@ export default function BranchesToolbar({
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-ink">Branches &amp; Services</h1>
+          <h1 className="text-2xl font-bold text-ink">Branches &amp; Services</h1>
           <p className="text-sm text-ink/50">
             Centrally manage physical salon locations, regional service
             pricing, seasonal promotions, and optimized staff scheduling

@@ -27,15 +27,10 @@ import { branchServiceCategories } from "@/lib/data";
 
 type Branch = (typeof adminBranches)[number];
 
-const TABS = ["Overview", "Services", "Staff", "Gallery", "Schedule", "Pricing", "Promotions", "Reviews", "Analytics", "Settings"];
+const TABS = ["Overview", "Services", "Staff", "Gallery", "Promotions", "Reviews", "Analytics"];
 
 const MOCK_STATS = [
   { label: "Today's Appointments", value: "28" },
-  { label: "Available Staff", value: "15" },
-  { label: "Services Offered", value: "32" },
-  { label: "Monthly Revenue", value: "₱182,500" },
-  { label: "Avg. Rating", value: "4.9", stars: true },
-  { label: "Total Customers", value: "1,248" },
 ];
 
 const SERVICE_CATEGORIES = [
@@ -84,7 +79,15 @@ type ServiceRow = {
   branches: string[];
   addonName?: string;
   addonPrice?: string;
+  addons?: { name: string; price: string }[];
   hairOptions?: { type: string; subType?: string | null; prices?: { short: string; medium: string; long: string } } | null;
+  browsType?: string | null;
+  bodyWellnessType?: string | null;
+  facialOptions?: { isPremium: boolean; hasAddons: boolean } | null;
+  laserType?: string | null;
+  slimmingType?: string | null;
+  nonSurgicalType?: string | null;
+  doctorType?: string | null;
 };
 
 function buildInitialServices(): ServiceRow[] {
@@ -129,6 +132,23 @@ const emptyForm = {
   branches: [] as string[],
   addonName: "",
   addonPrice: "",
+  addons: [] as { name: string; price: string }[],
+  hairType: "" as "" | "Classic" | "Premium",
+  hairSubType: "" as "" | "Hair Color" | "Straightening" | "Treatment",
+  hairPriceShort: "",
+  hairPriceMedium: "",
+  hairPriceLong: "",
+  browsType: "" as "" | "Eyelash Extensions" | "Semi Permanent Tattoo",
+  bodyWellnessType: "" as "" | "Body Waxing",
+  facialIsPremium: false,
+  facialHasAddons: false,
+  nailHasAddons: false,
+  nailAddonPrice: "",
+  enablePrice5: false,
+  laserType: "" as "" | "Pico Snow Whitening Laser" | "Diode Hair Removal Laser" | "IPL (Intense, Pulse, Light)" | "Laser Treatment",
+  slimmingType: "" as "" | "7D HIFU Ultra Lift" | "PowerSculpt" | "Exislim / Exilift",
+  nonSurgicalType: "" as "" | "MesoLipo" | "Add On",
+  doctorType: "" as "" | "Beauty-Tox" | "Non-Surgical Augmentation",
 };
 
 export default function BranchDetailView({ branch, onBack }: { branch: Branch; onBack: () => void }) {
@@ -138,9 +158,14 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [branchUuid, setBranchUuid] = useState<string | null>(null);
   const [loadingServices, setLoadingServices] = useState(true);
+  const [staffMembers, setStaffMembers] = useState<{ id: string; fullName: string; department: string; phone: string | null; avatarUrl: string | null }[]>([]);
+  const [loadingStaff, setLoadingStaff] = useState(false);
+  const [staffCount, setStaffCount] = useState<number>(0);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [confirmDeleteName, setConfirmDeleteName] = useState<string | null>(null);
   const [confirmBranch, setConfirmBranch] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
   const [filterCat, setFilterCat] = useState("All Categories");
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -166,6 +191,25 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
   const [savingBranch, setSavingBranch] = useState(false);
   const [branchSaveError, setBranchSaveError] = useState<string | null>(null);
 
+  async function loadStaff(uuid: string) {
+    setLoadingStaff(true);
+    const { data } = await supabase
+      .from("staff_members")
+      .select("id, full_name, department, phone, avatar_url")
+      .eq("branch_id", uuid)
+      .order("full_name", { ascending: true });
+    setStaffMembers(
+      (data ?? []).map((r: { id: string; full_name: string; department: string; phone: string | null; avatar_url: string | null }) => ({
+        id: r.id,
+        fullName: r.full_name,
+        department: r.department,
+        phone: r.phone,
+        avatarUrl: r.avatar_url,
+      }))
+    );
+    setLoadingStaff(false);
+  }
+
   async function loadServices(uuid: string) {
     setLoadingServices(true);
     const { data } = await supabase
@@ -189,7 +233,15 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
         displayOrder: 1,
         imageUrl: "",
         branches: [branch.name],
+        addons: (r.addons as ServiceRow["addons"]) ?? [],
         hairOptions: (r.hair_options as ServiceRow["hairOptions"]) ?? null,
+        browsType: (r.brows_type as string) ?? null,
+        bodyWellnessType: (r.body_wellness_type as string) ?? null,
+        facialOptions: (r.facial_options as ServiceRow["facialOptions"]) ?? null,
+        laserType: (r.laser_type as string) ?? null,
+        slimmingType: (r.slimming_type as string) ?? null,
+        nonSurgicalType: (r.non_surgical_type as string) ?? null,
+        doctorType: (r.doctor_type as string) ?? null,
       }))
     );
     setLoadingServices(false);
@@ -206,6 +258,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
         if (data?.id) {
           setBranchUuid(data.id);
           loadServices(data.id);
+          supabase.from("staff_members").select("id", { count: "exact", head: true }).eq("branch_id", data.id).then(({ count }) => setStaffCount(count ?? 0));
           const hydrated = {
             name: (data.name as string) || branch.name,
             address: (data.address as string) || branch.address,
@@ -247,12 +300,26 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
   function openAdd() {
     setEditing(null);
     setForm({ ...emptyForm, branches: [branch.name] });
+    setModalError(null);
     setModalOpen(true);
   }
 
-  function openEdit(svc: ServiceRow) {
+  async function openEdit(svc: ServiceRow) {
     setEditing(svc);
+    // Find all branches that have this service
+    const { data: instances } = await supabase
+      .from("branch_services")
+      .select("branch_id")
+      .eq("name", svc.name);
+    const branchIds = (instances ?? []).map((r: { branch_id: string }) => r.branch_id);
+    let allBranchNames: string[] = [branch.name];
+    if (branchIds.length > 0) {
+      const { data: branchRows } = await supabase.from("branches").select("name").in("id", branchIds);
+      allBranchNames = (branchRows ?? []).map((r: { name: string }) => r.name);
+      if (!allBranchNames.includes(branch.name)) allBranchNames.push(branch.name);
+    }
     setForm({
+      ...emptyForm,
       name: svc.name,
       category: svc.category,
       department: svc.department,
@@ -264,10 +331,28 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
       description: svc.description,
       benefits: svc.benefits,
       status: svc.status,
-      branches: svc.branches,
+      branches: allBranchNames,
       addonName: svc.addonName ?? "",
       addonPrice: svc.addonPrice ?? "",
+      addons: svc.addons ?? [],
+      hairType: (svc.hairOptions?.type as "" | "Classic" | "Premium") ?? "",
+      hairSubType: (svc.hairOptions?.subType as "" | "Hair Color" | "Straightening" | "Treatment") ?? "",
+      hairPriceShort: svc.hairOptions?.prices?.short ?? "",
+      hairPriceMedium: svc.hairOptions?.prices?.medium ?? "",
+      hairPriceLong: svc.hairOptions?.prices?.long ?? "",
+      browsType: (svc.browsType as "" | "Eyelash Extensions" | "Semi Permanent Tattoo") ?? "",
+      bodyWellnessType: (svc.bodyWellnessType as "" | "Body Waxing") ?? "",
+      facialIsPremium: svc.facialOptions?.isPremium ?? false,
+      facialHasAddons: svc.facialOptions?.hasAddons ?? false,
+      nailHasAddons: Array.isArray(svc.addons) && svc.addons.length > 0,
+      nailAddonPrice: (svc.addons?.[0] as { price?: string } | undefined)?.price ?? "",
+      enablePrice5: svc.price5 != null && svc.category === "Premium Treatments",
+      laserType: (svc.laserType as "" | "Pico Snow Whitening Laser" | "Diode Hair Removal Laser" | "IPL (Intense, Pulse, Light)" | "Laser Treatment") ?? "",
+      slimmingType: (svc.slimmingType as "" | "7D HIFU Ultra Lift" | "PowerSculpt" | "Exislim / Exilift") ?? "",
+      nonSurgicalType: (svc.nonSurgicalType as "" | "MesoLipo" | "Add On") ?? "",
+      doctorType: (svc.doctorType as "" | "Beauty-Tox" | "Non-Surgical Augmentation") ?? "",
     });
+    setModalError(null);
     setModalOpen(true);
   }
 
@@ -282,7 +367,15 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
       department: form.department,
       duration: form.duration || null,
       price: form.category === "Hair Services" ? 0 : Number(form.price1.replace(/,/g, "")),
-      price_41: form.price5 ? Number(form.price5) : null,
+      price_41: (form.category === "Laser Services" && form.laserType !== "Laser Treatment" && form.price5)
+        ? Number(form.price5.toString().replace(/,/g, ""))
+        : (form.category === "Cocktail Drips" && form.price5)
+        ? Number(form.price5.toString().replace(/,/g, ""))
+        : (form.category === "Slimming Services" && form.price5)
+        ? Number(form.price5.toString().replace(/,/g, ""))
+        : (form.category === "Non-Surgical Liposuction" && form.nonSurgicalType === "Add On" && form.price5)
+        ? Number(form.price5.toString().replace(/,/g, ""))
+        : (form.enablePrice5 && form.price5 ? Number(form.price5.toString().replace(/,/g, "")) : null),
       description: form.description || null,
       benefits: form.benefits || null,
       status: form.status,
@@ -297,10 +390,111 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
             },
           }
         : null,
+      addons: form.category === "Nail Care" ? (form.nailHasAddons ? [{ hasAddons: true }] : null) : null,
+      brows_type: form.category === "Brows & Lashes" && form.browsType ? form.browsType : null,
+      body_wellness_type: form.category === "Body & Wellness" && form.bodyWellnessType ? form.bodyWellnessType : null,
+      facial_options: form.category === "Facial Services"
+        ? { isPremium: form.facialIsPremium, hasAddons: form.facialHasAddons }
+        : null,
+      laser_type: form.category === "Laser Services" && form.laserType ? form.laserType : null,
+      slimming_type: form.category === "Slimming Services" && form.slimmingType ? form.slimmingType : null,
+      non_surgical_type: form.category === "Non-Surgical Liposuction" && form.nonSurgicalType ? form.nonSurgicalType : null,
+      doctor_type: form.category === "Doctor's Procedure" && form.doctorType ? form.doctorType : null,
     };
 
     if (editing) {
-      await supabase.from("branch_services").update(basePayload).eq("id", editing.id);
+      // Check if the edited result conflicts with a different existing service in current branch
+      const { data: conflictRows } = await supabase
+        .from("branch_services")
+        .select("id, slimming_type, laser_type, brows_type, body_wellness_type, non_surgical_type, doctor_type, price, duration")
+        .eq("branch_id", branchUuid!)
+        .eq("name", basePayload.name)
+        .eq("category", basePayload.category)
+        .neq("id", editing.id);
+      const conflict = ((conflictRows ?? []) as Array<{
+        id: string; slimming_type: string | null; laser_type: string | null;
+        brows_type: string | null; body_wellness_type: string | null;
+        non_surgical_type: string | null; doctor_type: string | null; price: number | null; duration: string | null;
+      }>).find(
+        (r) =>
+          r.slimming_type === basePayload.slimming_type &&
+          r.laser_type === basePayload.laser_type &&
+          r.brows_type === basePayload.brows_type &&
+          r.body_wellness_type === basePayload.body_wellness_type &&
+          r.non_surgical_type === basePayload.non_surgical_type &&
+          r.doctor_type === basePayload.doctor_type &&
+          r.price === basePayload.price &&
+          r.duration === (basePayload.duration ?? null)
+      );
+      if (conflict) {
+        setModalError(`"${basePayload.name}" already exists in this branch with the same type, price, and duration.`);
+        setSaving(false);
+        return;
+      }
+
+      // Dedup: only delete rows that are exact same variant (type-specific fields match), not different variants
+      const { data: sameNameRows } = await supabase
+        .from("branch_services")
+        .select("id, slimming_type, laser_type, brows_type, body_wellness_type, non_surgical_type, doctor_type")
+        .eq("branch_id", branchUuid!)
+        .eq("name", editing.name)
+        .neq("id", editing.id);
+      const dupIds = ((sameNameRows ?? []) as Array<{
+        id: string; slimming_type: string | null; laser_type: string | null;
+        brows_type: string | null; body_wellness_type: string | null; non_surgical_type: string | null; doctor_type: string | null;
+      }>)
+        .filter(
+          (r) =>
+            r.slimming_type === (editing.slimmingType || null) &&
+            r.laser_type === (editing.laserType || null) &&
+            r.brows_type === (editing.browsType || null) &&
+            r.body_wellness_type === (editing.bodyWellnessType || null) &&
+            r.non_surgical_type === (editing.nonSurgicalType || null) &&
+            r.doctor_type === (editing.doctorType || null)
+        )
+        .map((r) => r.id);
+      if (dupIds.length > 0) {
+        await supabase.from("branch_services").delete().in("id", dupIds);
+      }
+
+      const { error: updateErr } = await supabase.from("branch_services").update(basePayload).eq("id", editing.id);
+      if (updateErr) {
+        setModalError("Update failed: " + updateErr.message);
+        setSaving(false);
+        return;
+      }
+      // For other selected branches, update or insert (deduplicate by exact variant)
+      const otherBranches = form.branches.filter((b) => b !== branch.name);
+      if (otherBranches.length > 0) {
+        const { data: branchRows } = await supabase.from("branches").select("id, name").in("name", otherBranches);
+        for (const b of (branchRows ?? []) as { id: string; name: string }[]) {
+          const { data: allRows } = await supabase
+            .from("branch_services")
+            .select("id, slimming_type, laser_type, brows_type, body_wellness_type, non_surgical_type, doctor_type")
+            .eq("branch_id", b.id)
+            .eq("name", editing.name);
+          const matchingRows = ((allRows ?? []) as Array<{
+            id: string; slimming_type: string | null; laser_type: string | null;
+            brows_type: string | null; body_wellness_type: string | null; non_surgical_type: string | null; doctor_type: string | null;
+          }>).filter(
+            (r) =>
+              r.slimming_type === (editing.slimmingType || null) &&
+              r.laser_type === (editing.laserType || null) &&
+              r.brows_type === (editing.browsType || null) &&
+              r.body_wellness_type === (editing.bodyWellnessType || null) &&
+              r.non_surgical_type === (editing.nonSurgicalType || null) &&
+              r.doctor_type === (editing.doctorType || null)
+          );
+          if (matchingRows.length > 0) {
+            await supabase.from("branch_services").update(basePayload).eq("id", matchingRows[0].id);
+            if (matchingRows.length > 1) {
+              await supabase.from("branch_services").delete().in("id", matchingRows.slice(1).map((r) => r.id));
+            }
+          } else {
+            await supabase.from("branch_services").insert({ ...basePayload, branch_id: b.id });
+          }
+        }
+      }
     } else {
       // look up UUIDs for all selected branches
       const { data: branchRows } = await supabase
@@ -308,13 +502,60 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
         .select("id, name")
         .in("name", form.branches);
 
+      const branchIds = (branchRows ?? []).map((b: { id: string }) => b.id);
+
+      if (branchIds.length > 0) {
+        const { data: existing } = await supabase
+          .from("branch_services")
+          .select("id, slimming_type, laser_type, brows_type, body_wellness_type, non_surgical_type, doctor_type, price, duration")
+          .in("branch_id", branchIds)
+          .eq("name", basePayload.name)
+          .eq("category", basePayload.category);
+
+        const duplicates = (
+          (existing ?? []) as Array<{
+            id: string;
+            slimming_type: string | null;
+            laser_type: string | null;
+            brows_type: string | null;
+            body_wellness_type: string | null;
+            non_surgical_type: string | null;
+            doctor_type: string | null;
+            price: number | null;
+            duration: string | null;
+          }>
+        ).filter(
+          (r) =>
+            r.slimming_type === basePayload.slimming_type &&
+            r.laser_type === basePayload.laser_type &&
+            r.brows_type === basePayload.brows_type &&
+            r.body_wellness_type === basePayload.body_wellness_type &&
+            r.non_surgical_type === basePayload.non_surgical_type &&
+            r.doctor_type === basePayload.doctor_type &&
+            r.price === basePayload.price &&
+            r.duration === (basePayload.duration ?? null)
+        );
+
+        if (duplicates.length > 0) {
+          setModalError(`"${basePayload.name}" already exists in one or more selected branches.`);
+          setSaving(false);
+          return;
+        }
+      }
+
       const rows = (branchRows ?? []).map((b: { id: string; name: string }) => ({
         ...basePayload,
         branch_id: b.id,
       }));
 
       if (rows.length > 0) {
-        await supabase.from("branch_services").insert(rows);
+        const { error: insertErr } = await supabase.from("branch_services").insert(rows);
+        if (insertErr) {
+          console.error("Insert error:", insertErr.message);
+          setModalError("Save failed: " + insertErr.message);
+          setSaving(false);
+          return;
+        }
       }
     }
 
@@ -323,14 +564,55 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
     loadServices(branchUuid);
   }
 
-  async function handleDelete(id: string) {
+  function handleDelete(id: string, name: string) {
     setConfirmDeleteId(id);
+    setConfirmDeleteName(name);
   }
 
-  async function confirmDelete() {
+  async function confirmDelete(allBranches: boolean) {
     if (!confirmDeleteId || !branchUuid) return;
-    await supabase.from("branch_services").delete().eq("id", confirmDeleteId);
+    if (allBranches && confirmDeleteName) {
+      const { data: ref } = await supabase
+        .from("branch_services")
+        .select("name, category, laser_type, slimming_type, brows_type, body_wellness_type, non_surgical_type, doctor_type")
+        .eq("id", confirmDeleteId)
+        .single();
+      if (ref) {
+        const { data: candidates } = await supabase
+          .from("branch_services")
+          .select("id, laser_type, slimming_type, brows_type, body_wellness_type, non_surgical_type, doctor_type")
+          .eq("name", ref.name as string)
+          .eq("category", ref.category as string);
+        const idsToDelete = (
+          (candidates ?? []) as Array<{
+            id: string;
+            laser_type: string | null;
+            slimming_type: string | null;
+            brows_type: string | null;
+            body_wellness_type: string | null;
+            non_surgical_type: string | null;
+            doctor_type: string | null;
+          }>
+        )
+          .filter(
+            (r) =>
+              r.laser_type === ref.laser_type &&
+              r.slimming_type === ref.slimming_type &&
+              r.brows_type === ref.brows_type &&
+              r.body_wellness_type === ref.body_wellness_type &&
+              r.non_surgical_type === ref.non_surgical_type &&
+              r.doctor_type === ref.doctor_type
+          )
+          .map((r) => r.id);
+        if (idsToDelete.length > 0) {
+          await supabase.from("branch_services").delete().in("id", idsToDelete);
+        }
+      }
+    } else {
+      await supabase.from("branch_services").delete().eq("id", confirmDeleteId);
+    }
     setConfirmDeleteId(null);
+    setConfirmDeleteName(null);
     loadServices(branchUuid);
   }
 
@@ -382,12 +664,12 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
     <div className="space-y-6">
       {/* Breadcrumb + actions */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <nav className="flex items-center gap-1.5 text-sm text-ink/50">
+        <nav className="flex items-center gap-2 text-base text-ink/50">
           <button onClick={onBack} className="hover:text-coral-dark">Branches &amp; Services</button>
-          <ChevronRight className="h-3.5 w-3.5" />
+          <ChevronRight className="h-4 w-4" />
           <button onClick={onBack} className="hover:text-coral-dark">Branches</button>
-          <ChevronRight className="h-3.5 w-3.5" />
-          <span className="font-medium text-ink">{branchForm.name}</span>
+          <ChevronRight className="h-4 w-4" />
+          <span className="font-semibold text-ink">{branchForm.name}</span>
         </nav>
       </div>
 
@@ -419,18 +701,21 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                 {branchForm.instagramLabel || branchForm.instagram}
               </p>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="mt-5 grid grid-cols-3 gap-3">
               {MOCK_STATS.map((stat) => (
                 <div key={stat.label} className="rounded-xl border border-ink/8 p-4">
                   <p className="text-sm font-medium text-ink/50">{stat.label}</p>
                   <p className="mt-1.5 text-2xl font-bold text-ink">{stat.value}</p>
-                  {stat.stars && (
-                    <div className="flex gap-0.5 mt-1">
-                      {[1,2,3,4,5].map((i) => <Star key={i} className="h-5 w-5 fill-gold text-gold" />)}
-                    </div>
-                  )}
                 </div>
               ))}
+              <div className="rounded-xl border border-ink/8 p-4">
+                <p className="text-sm font-medium text-ink/50">Available Staff</p>
+                <p className="mt-1.5 text-2xl font-bold text-ink">{staffCount}</p>
+              </div>
+              <div className="rounded-xl border border-ink/8 p-4">
+                <p className="text-sm font-medium text-ink/50">Services Offered</p>
+                <p className="mt-1.5 text-2xl font-bold text-ink">{services.length}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -440,7 +725,10 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
           {TABS.map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => {
+                setActiveTab(tab);
+                if (tab === "Staff" && branchUuid) loadStaff(branchUuid);
+              }}
               className={`shrink-0 px-5 py-4 text-lg font-medium transition-colors ${
                 activeTab === tab ? "border-b-2 border-coral text-coral-dark" : "text-ink/40 hover:text-ink"
               }`}
@@ -492,7 +780,10 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
             {!loadingServices && grouped.length === 0 && services.length > 0 && (
               <p className="py-8 text-center text-sm text-ink/40">No services match your search.</p>
             )}
-            {grouped.map((group) => (
+            {grouped.map((group) => {
+              const groupHasDesc = group.rows.some((r) => r.description);
+              const groupHasBenefits = group.rows.some((r) => r.benefits);
+              return (
               <div key={group.label}>
                 <table className="w-full text-base">
                   <thead>
@@ -500,24 +791,63 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                       <th className="pb-3 text-left">Service</th>
                       <th className="pb-3 text-left">Department</th>
                       <th className="pb-3 text-left">Category</th>
+                      {groupHasDesc && <th className="pb-3 text-left">Description</th>}
+                      {groupHasBenefits && <th className="pb-3 text-left">Benefits</th>}
                       <th className="pb-3 text-left">Duration</th>
-                      <th className="pb-3 text-left">Per Session</th>
+                      <th className="pb-3 text-left">{["Premium Treatments", "Laser Services", "Cocktail Drips", "Slimming Services"].includes(group.label) ? "Per Session" : "Price"}</th>
                       <th className="pb-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {group.rows.map((svc) => (
                       <tr key={svc.id} className="border-b border-ink/5 last:border-0">
-                        <td className="py-4">
+                        <td className="py-4 max-w-[260px]">
                           <p className="font-semibold text-ink">{svc.name}</p>
                           {svc.hairOptions && (
                             <p className="text-sm text-ink/50 mt-0.5">
                               {svc.hairOptions.type}{svc.hairOptions.subType ? ` · ${svc.hairOptions.subType}` : ""}
                             </p>
                           )}
+                          {svc.browsType && (
+                            <p className="text-sm text-ink/50 mt-0.5">{svc.browsType}</p>
+                          )}
+                          {svc.bodyWellnessType && (
+                            <p className="text-sm text-ink/50 mt-0.5">{svc.bodyWellnessType}</p>
+                          )}
+                          {svc.facialOptions?.isPremium && (
+                            <p className="text-sm text-ink/50 mt-0.5">Premium Facial Treatment</p>
+                          )}
+                          {svc.facialOptions?.hasAddons && (
+                            <p className="text-sm text-ink/50 mt-0.5">Add On</p>
+                          )}
+                          {svc.addons && svc.addons.length > 0 && (
+                            <p className="text-sm text-ink/50 mt-0.5">Add On</p>
+                          )}
+                          {svc.laserType && (
+                            <p className="text-sm text-ink/50 mt-0.5">{svc.laserType}</p>
+                          )}
+                          {svc.slimmingType && (
+                            <p className="text-sm text-ink/50 mt-0.5">{svc.slimmingType}</p>
+                          )}
+                          {svc.nonSurgicalType && (
+                            <p className="text-sm text-ink/50 mt-0.5">{svc.nonSurgicalType}</p>
+                          )}
+                          {svc.doctorType && (
+                            <p className="text-sm text-ink/50 mt-0.5">{svc.doctorType}</p>
+                          )}
                         </td>
                         <td className="py-4 text-ink/60">{svc.department}</td>
                         <td className="py-4 font-semibold text-ink">{svc.category}</td>
+                        {groupHasDesc && (
+                          <td className="py-4 max-w-[200px]">
+                            {svc.description && <p className="text-sm text-ink/50 leading-snug line-clamp-2">{svc.description}</p>}
+                          </td>
+                        )}
+                        {groupHasBenefits && (
+                          <td className="py-4 max-w-[200px]">
+                            {svc.benefits && <p className="text-sm text-ink/50 leading-snug line-clamp-2">{svc.benefits}</p>}
+                          </td>
+                        )}
                         <td className="py-4">
                           <span className="flex items-center gap-1.5 text-ink/60">
                             <Clock className="h-4 w-4 shrink-0" />
@@ -531,6 +861,40 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                               <div className="flex gap-2"><span className="w-16 text-sm text-ink/40">Medium</span><span className="text-sm font-semibold">₱{svc.hairOptions.prices.medium || "—"}</span></div>
                               <div className="flex gap-2"><span className="w-16 text-sm text-ink/40">Long</span><span className="text-sm font-semibold">₱{svc.hairOptions.prices.long || "—"}</span></div>
                             </div>
+                          ) : svc.category === "Premium Treatments" ? (
+                            <div className="space-y-0.5">
+                              <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">Per Session</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
+                              {svc.price5 != null && <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">2+1</span><span className="text-sm font-semibold">₱{svc.price5.toLocaleString()}.00</span></div>}
+                            </div>
+                          ) : svc.category === "Non-Surgical Liposuction" && svc.nonSurgicalType === "Add On" ? (
+                            <div className="space-y-0.5">
+                              <span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}{svc.price5 != null ? ` – ₱${svc.price5.toLocaleString()}` : ""}</span>
+                            </div>
+                          ) : svc.category === "Slimming Services" ? (
+                            <div className="space-y-0.5">
+                              <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">Per Session</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
+                              {svc.price5 != null && <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">2+1</span><span className="text-sm font-semibold">₱{svc.price5.toLocaleString()}.00</span></div>}
+                            </div>
+                          ) : svc.category === "Cocktail Drips" ? (
+                            <div className="space-y-0.5">
+                              <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">Per Session</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
+                              {svc.price5 != null && <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">5+2</span><span className="text-sm font-semibold">₱{svc.price5.toLocaleString()}.00</span></div>}
+                            </div>
+                          ) : svc.category === "Laser Services" ? (
+                            <div className="space-y-0.5">
+                              {svc.laserType === "Laser Treatment" ? (
+                                <div className="flex gap-2"><span className="w-24 text-sm text-ink/40">Per Body Area</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
+                              ) : (
+                                <>
+                                  <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">Per Session</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
+                                  {svc.price5 != null && <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">4+1</span><span className="text-sm font-semibold">₱{svc.price5.toLocaleString()}.00</span></div>}
+                                </>
+                              )}
+                            </div>
+                          ) : svc.category === "Doctor's Procedure" && svc.doctorType === "Non-Surgical Augmentation" ? (
+                            <div className="space-y-0.5">
+                              <div className="flex gap-2"><span className="text-sm text-ink/40">Starts at:</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
+                            </div>
                           ) : (
                             <span className="font-semibold">₱{svc.price1.toLocaleString()}.00</span>
                           )}
@@ -540,7 +904,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                             <button onClick={() => openEdit(svc)} className="rounded-lg p-2.5 text-ink/40 hover:bg-blush hover:text-coral-dark">
                               <Pencil className="h-6 w-6" />
                             </button>
-                            <button onClick={() => handleDelete(svc.id)} className="rounded-lg p-2.5 text-ink/40 hover:bg-red-50 hover:text-red-500">
+                            <button onClick={() => handleDelete(svc.id, svc.name)} className="rounded-lg p-2.5 text-ink/40 hover:bg-red-50 hover:text-red-500">
                               <Trash2 className="h-6 w-6" />
                             </button>
                           </div>
@@ -550,14 +914,85 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                   </tbody>
                 </table>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
 
-      {activeTab !== "Services" && (
+      {activeTab === "Staff" && (
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <div className="mb-5 flex items-center justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-ink">Staff Members</h3>
+              <p className="text-base text-ink/40">{staffMembers.length} staff assigned to {branch.name}</p>
+            </div>
+          </div>
+          {loadingStaff ? (
+            <div className="py-12 text-center text-base text-ink/40">Loading staff...</div>
+          ) : staffMembers.length === 0 ? (
+            <div className="py-12 text-center text-base text-ink/40">No staff assigned to this branch yet.</div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-ink/10">
+              <table className="w-full text-base">
+                <thead>
+                  <tr className="border-b border-ink/10 text-sm font-semibold uppercase text-ink/40">
+                    <th className="px-6 py-4 text-left">Staff</th>
+                    <th className="px-6 py-4 text-left">Department</th>
+                    <th className="px-6 py-4 text-left">Phone</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staffMembers.map((s) => (
+                    <tr key={s.id} className="border-b border-ink/5 last:border-0">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-4">
+                          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blush text-base font-bold text-coral-dark overflow-hidden">
+                            {s.avatarUrl
+                              ? <img src={s.avatarUrl} alt={s.fullName} className="h-full w-full object-cover" />
+                              : s.fullName.charAt(0).toUpperCase()}
+                          </span>
+                          <span className="text-base font-medium text-ink">{s.fullName}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-base text-ink/60">{s.department}</td>
+                      <td className="px-6 py-4 text-base text-ink/60">{s.phone ?? <span className="text-ink/30">—</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab !== "Services" && activeTab !== "Staff" && (
         <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
           <p className="text-ink/40">{activeTab} — coming soon.</p>
+        </div>
+      )}
+
+      {/* Duplicate Service Warning Modal */}
+      {modalError && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl text-center">
+            <div className="mb-4 flex justify-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-50">
+                <svg className="h-8 w-8 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="mb-2 text-base font-semibold text-ink">Service Already Exists</h3>
+            <p className="mb-6 text-sm text-ink/60">{modalError}</p>
+            <button
+              type="button"
+              onClick={() => setModalError(null)}
+              className="w-full rounded-full bg-[#C8694A] py-2.5 text-sm font-medium text-white hover:bg-[#b85a3b] transition-colors"
+            >
+              OK
+            </button>
+          </div>
         </div>
       )}
 
@@ -567,7 +1002,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
           <div className="w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl max-h-[90vh]">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold text-ink">{editing ? "Edit Service" : "Add Service"}</h2>
-              <button onClick={() => setModalOpen(false)} className="text-ink/40 hover:text-ink"><X className="h-5 w-5" /></button>
+              <button onClick={() => { setModalOpen(false); setModalError(null); }} className="text-ink/40 hover:text-ink"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSave}>
               {/* Service Name — full width */}
@@ -647,6 +1082,146 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                 </div>
               )}
 
+              {/* Facial Services options */}
+              {form.category === "Facial Services" && (
+                <div className="mb-5 rounded-xl border border-ink/10 bg-blush/20 p-4 space-y-3">
+                  <label className="text-sm font-medium text-ink/70">Service Type <span className="text-ink/30">(Optional)</span></label>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, facialIsPremium: !form.facialIsPremium })}
+                      className={`flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-colors ${form.facialIsPremium ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/60 hover:border-coral hover:text-coral"}`}
+                    >
+                      Premium Facial Treatment
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, facialHasAddons: !form.facialHasAddons })}
+                      className={`flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-colors ${form.facialHasAddons ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/60 hover:border-coral hover:text-coral"}`}
+                    >
+                      Add On
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Body & Wellness type selector */}
+              {form.category === "Body & Wellness" && (
+                <div className="mb-5 rounded-xl border border-ink/10 bg-blush/20 p-4 space-y-3">
+                  <label className="text-sm font-medium text-ink/70">Service Type <span className="text-ink/30">(Optional)</span></label>
+                  <div className="flex gap-3">
+                    {(["Body Waxing"] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setForm({ ...form, bodyWellnessType: form.bodyWellnessType === t ? "" : t })}
+                        className={`rounded-lg border px-5 py-2.5 text-sm font-semibold transition-colors ${form.bodyWellnessType === t ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/60 hover:border-coral hover:text-coral"}`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Laser Services type selector */}
+              {form.category === "Laser Services" && (
+                <div className="mb-5 rounded-xl border border-ink/10 bg-blush/20 p-4">
+                  <label className="text-sm font-medium text-ink/70">Service Type <span className="text-ink/40 font-normal">(Optional)</span></label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {(["Pico Snow Whitening Laser", "Diode Hair Removal Laser", "IPL (Intense, Pulse, Light)", "Laser Treatment"] as const).map((t) => (
+                      <button key={t} type="button"
+                        onClick={() => setForm({ ...form, laserType: form.laserType === t ? "" : t, price5: "" })}
+                        className={`rounded-lg border py-2.5 text-sm font-semibold transition-colors ${form.laserType === t ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/60 hover:border-coral hover:text-coral"}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Doctor's Procedure type selector */}
+              {form.category === "Doctor's Procedure" && (
+                <div className="mb-5 rounded-xl border border-ink/10 bg-blush/20 p-4">
+                  <label className="text-sm font-medium text-ink/70">Service Type <span className="text-ink/40 font-normal">(Optional)</span></label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {(["Beauty-Tox", "Non-Surgical Augmentation"] as const).map((t) => (
+                      <button key={t} type="button"
+                        onClick={() => setForm({ ...form, doctorType: form.doctorType === t ? "" : t })}
+                        className={`rounded-lg border py-2.5 text-sm font-semibold transition-colors ${form.doctorType === t ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/60 hover:border-coral hover:text-coral"}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Non-Surgical Liposuction type selector */}
+              {form.category === "Non-Surgical Liposuction" && (
+                <div className="mb-5 rounded-xl border border-ink/10 bg-blush/20 p-4">
+                  <label className="text-sm font-medium text-ink/70">Service Type <span className="text-ink/40 font-normal">(Optional)</span></label>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {(["MesoLipo", "Add On"] as const).map((t) => (
+                      <button key={t} type="button"
+                        onClick={() => setForm({ ...form, nonSurgicalType: form.nonSurgicalType === t ? "" : t })}
+                        className={`rounded-lg border py-2.5 text-sm font-semibold transition-colors ${form.nonSurgicalType === t ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/60 hover:border-coral hover:text-coral"}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Slimming Services type selector */}
+              {form.category === "Slimming Services" && (
+                <div className="mb-5 rounded-xl border border-ink/10 bg-blush/20 p-4">
+                  <label className="text-sm font-medium text-ink/70">Service Type <span className="text-ink/40 font-normal">(Optional)</span></label>
+                  <div className="mt-2 flex flex-col gap-2">
+                    {(["7D HIFU Ultra Lift", "PowerSculpt", "Exislim / Exilift"] as const).map((t) => (
+                      <button key={t} type="button"
+                        onClick={() => setForm({ ...form, slimmingType: form.slimmingType === t ? "" : t, price5: "" })}
+                        className={`rounded-lg border py-2.5 text-sm font-semibold transition-colors ${form.slimmingType === t ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/60 hover:border-coral hover:text-coral"}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Brows & Lashes type selector */}
+              {form.category === "Brows & Lashes" && (
+                <div className="mb-5 rounded-xl border border-ink/10 bg-blush/20 p-4 space-y-3">
+                  <label className="text-sm font-medium text-ink/70">Service Type <span className="text-ink/30">(Optional)</span></label>
+                  <div className="flex gap-3">
+                    {(["Eyelash Extensions", "Semi Permanent Tattoo"] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setForm({ ...form, browsType: t })}
+                        className={`flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-colors ${form.browsType === t ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/60 hover:border-coral hover:text-coral"}`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Nail Care add-ons */}
+              {form.category === "Nail Care" && (
+                <div className="mb-5 rounded-xl border border-ink/10 bg-blush/20 p-4">
+                  <label className="text-sm font-medium text-ink/70">Service Type <span className="text-ink/30">(Optional)</span></label>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, nailHasAddons: !form.nailHasAddons })}
+                      className={`flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-colors ${form.nailHasAddons ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/60 hover:border-coral hover:text-coral"}`}
+                    >
+                      Add On
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="grid gap-6 sm:grid-cols-2">
                 {/* Left column */}
@@ -662,39 +1237,198 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                     </select>
                   </div>
 
+                  {form.category === "Laser Services" ? (
+                    <div className="space-y-3">
+                      {form.laserType === "Laser Treatment" ? (
+                        <div>
+                          <label className="text-sm font-medium text-ink/70">Per Body Area <span className="text-red-500">*</span></label>
+                          <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                            <span className="text-sm text-ink/50">₱</span>
+                            <input required type="text" inputMode="numeric" value={form.price1}
+                              onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price1: raw ? Number(raw).toLocaleString() : "" }); }}
+                              placeholder="0" className="w-full text-sm outline-none" />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-sm font-medium text-ink/70">Per Session <span className="text-red-500">*</span></label>
+                            <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                              <span className="text-sm text-ink/50">₱</span>
+                              <input required type="text" inputMode="numeric" value={form.price1}
+                                onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price1: raw ? Number(raw).toLocaleString() : "" }); }}
+                                placeholder="0" className="w-full text-sm outline-none" />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-ink/70">4+1 <span className="text-red-500">*</span></label>
+                            <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                              <span className="text-sm text-ink/50">₱</span>
+                              <input required type="text" inputMode="numeric" value={form.price5}
+                                onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price5: raw ? Number(raw).toLocaleString() : "" }); }}
+                                placeholder="0" className="w-full text-sm outline-none" />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-sm font-medium text-ink/70">Duration <span className="text-ink/30">(Optional)</span></label>
+                        <select value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                          className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-coral">
+                          <option value="">— Select —</option>
+                          {DURATION_OPTIONS.map((d) => <option key={d}>{d}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ) : form.category === "Slimming Services" ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-sm font-medium text-ink/70">Per Session <span className="text-red-500">*</span></label>
+                          <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                            <span className="text-sm text-ink/50">₱</span>
+                            <input required type="text" inputMode="numeric" value={form.price1}
+                              onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price1: raw ? Number(raw).toLocaleString() : "" }); }}
+                              placeholder="0" className="w-full text-sm outline-none" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-ink/70">2+1 <span className="text-red-500">*</span></label>
+                          <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                            <span className="text-sm text-ink/50">₱</span>
+                            <input required type="text" inputMode="numeric" value={form.price5}
+                              onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price5: raw ? Number(raw).toLocaleString() : "" }); }}
+                              placeholder="0" className="w-full text-sm outline-none" />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-ink/70">Duration <span className="text-ink/30">(Optional)</span></label>
+                        <select value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                          className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-coral">
+                          <option value="">— Select —</option>
+                          {DURATION_OPTIONS.map((d) => <option key={d}>{d}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ) : form.category === "Cocktail Drips" ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-sm font-medium text-ink/70">Per Session <span className="text-red-500">*</span></label>
+                          <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                            <span className="text-sm text-ink/50">₱</span>
+                            <input required type="text" inputMode="numeric" value={form.price1}
+                              onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price1: raw ? Number(raw).toLocaleString() : "" }); }}
+                              placeholder="0" className="w-full text-sm outline-none" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-ink/70">5+2 <span className="text-red-500">*</span></label>
+                          <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                            <span className="text-sm text-ink/50">₱</span>
+                            <input required type="text" inputMode="numeric" value={form.price5}
+                              onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price5: raw ? Number(raw).toLocaleString() : "" }); }}
+                              placeholder="0" className="w-full text-sm outline-none" />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-ink/70">Duration <span className="text-ink/30">(Optional)</span></label>
+                        <select value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                          className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-coral">
+                          <option value="">— Select —</option>
+                          {DURATION_OPTIONS.map((d) => <option key={d}>{d}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ) : form.category === "Premium Treatments" ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-sm font-medium text-ink/70">Per Session <span className="text-red-500">*</span></label>
+                          <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                            <span className="text-sm text-ink/50">₱</span>
+                            <input required type="text" inputMode="numeric" value={form.price1}
+                              onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price1: raw ? Number(raw).toLocaleString() : "" }); }}
+                              placeholder="0" className="w-full text-sm outline-none" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-ink/70">2+1 <span className="text-red-500">*</span></label>
+                          <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                            <span className="text-sm text-ink/50">₱</span>
+                            <input required type="text" inputMode="numeric" value={form.price5}
+                              onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price5: raw ? Number(raw).toLocaleString() : "" }); }}
+                              placeholder="0" className="w-full text-sm outline-none" />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-ink/70">Duration <span className="text-ink/30">(Optional)</span></label>
+                        <select value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                          className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-coral">
+                          <option value="">— Select —</option>
+                          {DURATION_OPTIONS.map((d) => <option key={d}>{d}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ) : form.category === "Non-Surgical Liposuction" && form.nonSurgicalType === "Add On" ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-sm font-medium text-ink/70">Price (From) <span className="text-red-500">*</span></label>
+                          <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                            <span className="text-sm text-ink/50">₱</span>
+                            <input required type="text" inputMode="numeric" value={form.price1}
+                              onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price1: raw ? Number(raw).toLocaleString() : "" }); }}
+                              placeholder="0" className="w-full text-sm outline-none" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-ink/70">Price (To) <span className="text-ink/40 font-normal">(Optional)</span></label>
+                          <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                            <span className="text-sm text-ink/50">₱</span>
+                            <input type="text" inputMode="numeric" value={form.price5}
+                              onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price5: raw ? Number(raw).toLocaleString() : "" }); }}
+                              placeholder="0" className="w-full text-sm outline-none" />
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-ink/70">Duration <span className="text-ink/30">(Optional)</span></label>
+                        <select value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                          className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-coral">
+                          <option value="">— Select —</option>
+                          {DURATION_OPTIONS.map((d) => <option key={d}>{d}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
                   <div className="grid grid-cols-2 gap-3">
                     {form.category !== "Hair Services" && (
                     <div>
-                      <label className="text-sm font-medium text-ink/70">Price <span className="text-red-500">*</span></label>
+                      <label className="text-sm font-medium text-ink/70">
+                        {form.category === "Doctor's Procedure" && form.doctorType === "Non-Surgical Augmentation" ? "Starts at:" : "Price"} <span className="text-red-500">*</span>
+                      </label>
                       <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
                         <span className="text-sm text-ink/50">₱</span>
-                        <input
-                          required={form.category !== "Hair Services"}
-                          type="text"
-                          inputMode="numeric"
-                          value={form.price1}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/[^0-9]/g, "");
-                            setForm({ ...form, price1: raw ? Number(raw).toLocaleString() : "" });
-                          }}
-                          placeholder="0"
-                          className="w-full text-sm outline-none"
-                        />
+                        <input required={form.category !== "Hair Services"} type="text" inputMode="numeric" value={form.price1}
+                          onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price1: raw ? Number(raw).toLocaleString() : "" }); }}
+                          placeholder="0" className="w-full text-sm outline-none" />
                       </div>
                     </div>
                     )}
                     <div>
                       <label className="text-sm font-medium text-ink/70">Duration <span className="text-ink/30">(Optional)</span></label>
-                      <select
-                        value={form.duration}
-                        onChange={(e) => setForm({ ...form, duration: e.target.value })}
-                        className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-coral"
-                      >
+                      <select value={form.duration} onChange={(e) => setForm({ ...form, duration: e.target.value })}
+                        className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-coral">
                         <option value="">— Select —</option>
                         {DURATION_OPTIONS.map((d) => <option key={d}>{d}</option>)}
                       </select>
                     </div>
                   </div>
+                  )}
 
                   <div>
                     <label className="text-sm font-medium text-ink/70">Assigned Branches</label>
@@ -822,19 +1556,25 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
               <Trash2 className="h-6 w-6 text-red-500" />
             </div>
             <h3 className="mt-4 text-center text-lg font-semibold text-ink">Remove Service?</h3>
-            <p className="mt-2 text-center text-sm text-ink/50">This service will be permanently deleted and cannot be recovered.</p>
-            <div className="mt-6 flex gap-3">
+            <p className="mt-2 text-center text-sm text-ink/50">Remove from this branch only, or from all branches?</p>
+            <div className="mt-6 flex flex-col gap-2">
               <button
-                onClick={() => setConfirmDeleteId(null)}
-                className="flex-1 rounded-full border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-coral"
+                onClick={() => confirmDelete(true)}
+                className="w-full rounded-full bg-red-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-600"
               >
-                Cancel
+                Remove from All Branches
               </button>
               <button
-                onClick={confirmDelete}
-                className="flex-1 rounded-full bg-red-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-600"
+                onClick={() => confirmDelete(false)}
+                className="w-full rounded-full border border-red-200 px-4 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50"
               >
-                Remove
+                This Branch Only
+              </button>
+              <button
+                onClick={() => { setConfirmDeleteId(null); setConfirmDeleteName(null); }}
+                className="w-full rounded-full border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-coral"
+              >
+                Cancel
               </button>
             </div>
           </div>
