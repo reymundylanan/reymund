@@ -309,6 +309,7 @@ export const branchContacts: BranchContact[] = [
 
 export type BranchService = {
   name: string;
+  department?: string;
   duration: string;
   price: number;
 };

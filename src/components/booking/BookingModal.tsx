@@ -23,6 +23,7 @@ type DbService = {
   id: string;
   name: string;
   category: string;
+  department: string;
   duration: string;
   price: number;
   displayPrice: string;
@@ -43,7 +44,7 @@ type Step =
 type AppointmentType = "solo" | "group";
 
 const TABS: { id: Step; label: string }[] = [
-  { id: "branch", label: "Branch" },
+  { id: "branch", label: "Branches" },
   { id: "services", label: "Services" },
   { id: "professional", label: "Professional" },
   { id: "time", label: "Time" },
@@ -85,13 +86,33 @@ function formatPhoneInput(digits: string) {
   return [d.slice(0, 3), d.slice(3, 6), d.slice(6, 10)].filter(Boolean).join(" ");
 }
 
+function generateTimeSlots(startHour: number, endHour: number): string[] {
+  const slots: string[] = [];
+  let h = startHour;
+  let m = 0;
+  while (h * 60 + m <= endHour * 60) {
+    const meridiem = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    slots.push(`${h12}:${m.toString().padStart(2, "0")} ${meridiem}`);
+    m += 30;
+    if (m >= 60) { m -= 60; h++; }
+  }
+  return slots;
+}
+
+const BRANCH_TIME_SLOTS: Record<string, string[]> = {
+  "one-cecilia-center": generateTimeSlots(8, 18),
+  "robinson-mall": generateTimeSlots(10, 20),
+};
+
 function isBeforeToday(date: Date) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return date.getTime() < today.getTime();
 }
 
-function parseDurationMinutes(durationLabel: string) {
+function parseDurationMinutes(durationLabel: string | null | undefined) {
+  if (!durationLabel) return 60;
   const minutesMatch = durationLabel.match(/(\d+)\s*mins?/);
   const hoursMatch = durationLabel.match(/(\d+)\s*hour/);
   return minutesMatch
@@ -188,13 +209,13 @@ export default function BookingModal({
       }
       const { data } = await supabase
         .from("branch_services")
-        .select("id, name, category, duration, price, price_41, hair_options")
+        .select("id, name, category, department, duration, price, price_41, hair_options")
         .eq("branch_id", uuid)
         .eq("status", "Active")
         .order("category")
         .order("name");
       const services: DbService[] = (data ?? []).map((s: {
-        id: string; name: string; category: string; duration: string;
+        id: string; name: string; category: string; department: string; duration: string;
         price: number; price_41: number | null;
         hair_options: { prices?: { short: string; medium: string; long: string } } | null;
       }) => {
@@ -212,10 +233,11 @@ export default function BookingModal({
         } else if (s.price_41) {
           displayPrice = `₱${(s.price ?? 0).toLocaleString()} – ₱${s.price_41.toLocaleString()}`;
         }
-        return { id: s.id, name: s.name, category: s.category, duration: s.duration, price, displayPrice };
+        return { id: s.id, name: s.name, category: s.category, department: s.department, duration: s.duration, price, displayPrice };
       });
       setDbServices(services);
-      setCategoryId("");
+      const cats = Array.from(new Set(services.map((s) => s.category)));
+      if (cats.length > 0) setCategoryId(cats[0]);
       setServicesLoading(false);
     })();
   }, [step, branchId]);
@@ -368,16 +390,7 @@ export default function BookingModal({
       <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white">
         <div className="flex items-center justify-between border-b border-ink/10 px-6 py-4">
           <div>
-            <p className="font-semibold text-ink">Blush Spa &amp; Aesthetics</p>
-            <p className="flex items-center gap-2 text-xs text-ink/50">
-              <span className="inline-flex items-center gap-1 font-medium text-ink">
-                <Star className="h-3 w-3 fill-gold text-gold" />
-                {branch.rating} (3)
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3 w-3" /> {branch.address}
-              </span>
-            </p>
+            <p className="text-2xl font-bold italic text-ink" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>Blush Spa &amp; Aesthetics</p>
           </div>
           <button onClick={close} aria-label="Close" className="text-ink/40 hover:text-ink">
             <X className="h-5 w-5" />
@@ -394,7 +407,7 @@ export default function BookingModal({
               <button
                 key={tab.id}
                 onClick={() => goToTab(tab.id)}
-                className={`px-4 py-3 text-sm font-medium ${
+                className={`px-4 py-3 text-base font-medium ${
                   step === tab.id
                     ? "border-b-2 border-coral text-coral-dark"
                     : "text-ink/40"
@@ -476,18 +489,23 @@ export default function BookingModal({
                 <div className="py-12 text-center text-sm text-ink/40">No services available for this branch.</div>
               ) : (
                 <>
-                  <select
-                    value={categoryId}
-                    onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full rounded-lg border border-ink/15 px-3 py-2 text-sm text-ink outline-none focus:border-coral"
-                  >
-                    <option value="">All Categories</option>
+                  <div className="flex flex-wrap gap-2">
                     {Array.from(new Set(dbServices.map((s) => s.category))).map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
+                      <button
+                        key={cat}
+                        onClick={() => setCategoryId(cat)}
+                        className={`rounded-full px-3 py-1.5 text-xs font-semibold uppercase tracking-wide ${
+                          categoryId === cat
+                            ? "bg-coral text-white"
+                            : "text-ink/50 hover:text-coral-dark"
+                        }`}
+                      >
+                        {cat}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                   <div className="mt-4 space-y-3">
-                    {(categoryId ? dbServices.filter((s) => s.category === categoryId) : dbServices).map((svc) => {
+                    {dbServices.filter((s) => s.category === categoryId).map((svc) => {
                       const isSelected = selectedServices.some(
                         (s) => s.name === svc.name && s.duration === svc.duration
                       );
@@ -513,7 +531,7 @@ export default function BookingModal({
                                 } else {
                                   setSelectedServices((prev) => [
                                     ...prev,
-                                    { name: svc.name, duration: svc.duration, price: svc.price },
+                                    { name: svc.name, department: svc.department, duration: svc.duration, price: svc.price },
                                   ]);
                                 }
                               }}
@@ -567,11 +585,15 @@ export default function BookingModal({
               )}
 
               {!staffLoading && (() => {
-                const departments = Array.from(new Set(staffMembers.map((s) => s.department)));
+                const selectedDepts = new Set(selectedServices.map((s) => s.department).filter(Boolean));
+                const filteredStaff = selectedDepts.size > 0
+                  ? staffMembers.filter((s) => selectedDepts.has(s.department))
+                  : staffMembers;
+                const departments = Array.from(new Set(filteredStaff.map((s) => s.department)));
                 return departments.map((dept) => (
                   <div key={dept}>
                     <p className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-ink/40">{dept}</p>
-                    {staffMembers.filter((s) => s.department === dept).map((pro) => (
+                    {filteredStaff.filter((s) => s.department === dept).map((pro) => (
                       <div
                         key={pro.id}
                         className={`flex items-center justify-between rounded-xl border p-4 mb-2 ${
@@ -628,9 +650,9 @@ export default function BookingModal({
                     }
                     className="text-ink/40 hover:text-ink disabled:opacity-20 disabled:hover:text-ink/40"
                   >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-5 w-5" />
                   </button>
-                  <p className="text-sm font-semibold text-ink">
+                  <p className="text-base font-bold text-ink">
                     {calendarMonth.toLocaleDateString("en-US", {
                       month: "long",
                       year: "numeric",
@@ -644,16 +666,16 @@ export default function BookingModal({
                     }
                     className="text-ink/40 hover:text-ink"
                   >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-5 w-5" />
                   </button>
                 </div>
 
-                <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs text-ink/40">
+                <div className="mt-3 grid grid-cols-7 gap-1 text-center text-sm font-medium text-ink/40">
                   {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
                     <span key={d}>{d}</span>
                   ))}
                 </div>
-                <div className="mt-1 grid grid-cols-7 gap-1 text-center text-sm">
+                <div className="mt-1 grid grid-cols-7 gap-1 text-center text-base">
                   {buildMonthGrid(calendarMonth).map((day, i) => {
                     const cellDate = day
                       ? new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
@@ -682,11 +704,11 @@ export default function BookingModal({
               </div>
 
               <div className="space-y-2 overflow-y-auto">
-                {timeSlots.map((time) => (
+                {(BRANCH_TIME_SLOTS[branchId ?? ""] ?? timeSlots).map((time) => (
                   <button
                     key={time}
                     onClick={() => setSelectedTime(time)}
-                    className={`block w-full rounded-lg border px-3 py-2 text-sm ${
+                    className={`block w-full rounded-lg border px-3 py-2.5 text-base ${
                       selectedTime === time
                         ? "border-coral bg-blush text-coral-dark"
                         : "border-ink/10 text-ink/70 hover:border-coral"
