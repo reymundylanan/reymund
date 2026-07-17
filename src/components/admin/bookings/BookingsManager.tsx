@@ -40,28 +40,18 @@ export default function BookingsManager() {
 
       if (error) console.error("[bookings] fetch error:", error.message);
 
-      const rows: DbAppointment[] = ((data ?? []) as {
-        id: string;
-        booking_code: string;
-        scheduled_date: string;
-        start_time: string;
-        duration_minutes: number;
-        status: string;
-        notes: string | null;
-        appointment_type: string;
-        profiles: { full_name: string } | null;
-        branches: { name: string } | null;
-      }[]).map((r) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows: DbAppointment[] = ((data ?? []) as any[]).map((r) => ({
         id: r.id,
         booking_code: r.booking_code,
         scheduled_date: r.scheduled_date,
         start_time: r.start_time,
         duration_minutes: r.duration_minutes,
         status: (r.status as DbAppointment["status"]) ?? "pending",
-        notes: r.notes,
+        notes: r.notes ?? null,
         appointment_type: r.appointment_type,
-        client_name: r.profiles?.full_name ?? "Unknown",
-        branch_name: r.branches?.name ?? "—",
+        client_name: (Array.isArray(r.profiles) ? r.profiles[0]?.full_name : r.profiles?.full_name) ?? "Unknown",
+        branch_name: (Array.isArray(r.branches) ? r.branches[0]?.name : r.branches?.name) ?? "—",
       }));
 
       setAppointments(rows);
