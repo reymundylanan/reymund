@@ -27,7 +27,16 @@ type DbService = {
   duration: string;
   price: number;
   displayPrice: string;
+  serviceType: string | null;
+  hairPrices: { short: number; medium: number; long: number } | null;
+  price41: number | null;
 };
+
+function getPackageLabel(category: string): string {
+  if (category === "Cocktail Drips") return "5+2";
+  if (category === "Laser Services") return "4+1";
+  return "2+1";
+}
 
 type Step =
   | "type"
@@ -180,12 +189,14 @@ export default function BookingModal({
   const [servicesLoading, setServicesLoading] = useState(false);
   const [profileMember, setProfileMember] = useState<StaffMember | null>(null);
   const [zoomedAvatar, setZoomedAvatar] = useState<string | null>(null);
+  const [showSelectedPanel, setShowSelectedPanel] = useState(false);
 
   useEffect(() => {
     setBranchUuid(null);
     setDbServices([]);
     setSelectedServices([]);
     setCategoryId("");
+    setShowSelectedPanel(false);
   }, [branchId]);
 
   useEffect(() => {
@@ -209,7 +220,7 @@ export default function BookingModal({
       }
       const { data } = await supabase
         .from("branch_services")
-        .select("id, name, category, department, duration, price, price_41, hair_options")
+        .select("id, name, category, department, duration, price, price_41, hair_options, facial_options, brows_type, body_wellness_type, laser_type, slimming_type, non_surgical_type, doctor_type, addons")
         .eq("branch_id", uuid)
         .eq("status", "Active")
         .order("category")
@@ -217,23 +228,45 @@ export default function BookingModal({
       const services: DbService[] = (data ?? []).map((s: {
         id: string; name: string; category: string; department: string; duration: string;
         price: number; price_41: number | null;
-        hair_options: { prices?: { short: string; medium: string; long: string } } | null;
+        hair_options: { type?: string; subType?: string | null; prices?: { short: string; medium: string; long: string } } | null;
+        facial_options: { isPremium?: boolean } | null;
+        brows_type: string | null; body_wellness_type: string | null;
+        laser_type: string | null; slimming_type: string | null;
+        non_surgical_type: string | null; doctor_type: string | null;
+        addons: { hasAddons?: boolean }[] | null;
       }) => {
         let displayPrice = `₱${(s.price ?? 0).toLocaleString()}.00`;
         let price = s.price ?? 0;
+        let hairPrices: DbService["hairPrices"] = null;
+        const price41 = s.price_41 ?? null;
         if (s.hair_options?.prices) {
           const p = s.hair_options.prices;
-          const vals = [p.short, p.medium, p.long]
-            .map((v) => Number(String(v).replace(/,/g, "")))
-            .filter((v) => !isNaN(v) && v > 0);
-          if (vals.length > 0) {
-            price = Math.min(...vals);
-            displayPrice = `From ₱${price.toLocaleString()}`;
-          }
-        } else if (s.price_41) {
-          displayPrice = `₱${(s.price ?? 0).toLocaleString()} – ₱${s.price_41.toLocaleString()}`;
+          const parse = (v: string) => Number(String(v).replace(/,/g, ""));
+          hairPrices = { short: parse(p.short), medium: parse(p.medium), long: parse(p.long) };
+          const vals = [hairPrices.short, hairPrices.medium, hairPrices.long].filter((v) => !isNaN(v) && v > 0);
+          if (vals.length > 0) { price = Math.min(...vals); displayPrice = `From ₱${price.toLocaleString()}`; }
         }
-        return { id: s.id, name: s.name, category: s.category, department: s.department, duration: s.duration, price, displayPrice };
+        let serviceType: string | null = null;
+        switch (s.category) {
+          case "Brows & Lashes": serviceType = s.brows_type; break;
+          case "Body & Wellness": serviceType = s.body_wellness_type; break;
+          case "Laser Services": serviceType = s.laser_type; break;
+          case "Slimming Services": serviceType = s.slimming_type; break;
+          case "Non-Surgical Liposuction": serviceType = s.non_surgical_type; break;
+          case "Doctor's Procedure": serviceType = s.doctor_type; break;
+          case "Hair Services": {
+            const h = s.hair_options;
+            if (h?.type) serviceType = h.subType ? `${h.type} · ${h.subType}` : h.type;
+            break;
+          }
+          case "Facial Services":
+            serviceType = s.facial_options?.isPremium ? "Premium" : null;
+            break;
+          case "Nail Care":
+            serviceType = s.addons?.some((a) => a.hasAddons) ? "Add On" : null;
+            break;
+        }
+        return { id: s.id, name: s.name, category: s.category, department: s.department, duration: s.duration, price, displayPrice, serviceType, hairPrices, price41 };
       });
       setDbServices(services);
       const cats = Array.from(new Set(services.map((s) => s.category)));
@@ -391,6 +424,11 @@ export default function BookingModal({
         <div className="flex items-center justify-between border-b border-ink/10 px-6 py-4">
           <div>
             <p className="text-2xl font-bold italic text-ink" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>Blush Spa &amp; Aesthetics</p>
+            {branchId && (
+              <p className="mt-0.5 text-base text-ink/65">
+                {branchContacts.find((b) => b.id === branchId)?.name ?? ""}
+              </p>
+            )}
           </div>
           <button onClick={close} aria-label="Close" className="text-ink/40 hover:text-ink">
             <X className="h-5 w-5" />
@@ -506,9 +544,109 @@ export default function BookingModal({
                   </div>
                   <div className="mt-4 space-y-3">
                     {dbServices.filter((s) => s.category === categoryId).map((svc) => {
-                      const isSelected = selectedServices.some(
-                        (s) => s.name === svc.name && s.duration === svc.duration
-                      );
+                      const isSelected = selectedServices.some((s) => s.id === svc.id);
+                      if (svc.hairPrices) {
+                        const sizes = [
+                          { label: "Short", price: svc.hairPrices.short },
+                          { label: "Medium", price: svc.hairPrices.medium },
+                          { label: "Long", price: svc.hairPrices.long },
+                        ] as const;
+                        return (
+                          <div key={svc.id} className="rounded-xl border border-ink/10 overflow-hidden">
+                            <div className="flex items-center gap-2 border-b border-ink/10 px-4 py-3">
+                              <p className="font-medium text-ink">{svc.name}</p>
+                              {svc.serviceType && (
+                                <span className="rounded-full bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral-dark">
+                                  {svc.serviceType}
+                                </span>
+                              )}
+                            </div>
+                            {sizes.map(({ label, price }) => {
+                              const sizeId = `${svc.id}·${label}`;
+                              const entryName = `${svc.name} · ${label}`;
+                              const isSizeSelected = selectedServices.some((s) => s.id === sizeId);
+                              return (
+                                <div
+                                  key={label}
+                                  className={`flex items-center justify-between px-4 py-3 ${
+                                    isSizeSelected ? "bg-blush" : ""
+                                  }`}
+                                >
+                                  <span className="text-sm text-ink/70">{label}</span>
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-semibold text-gold">₱{price.toLocaleString()}</span>
+                                    <button
+                                      onClick={() => {
+                                        if (isSizeSelected) {
+                                          setSelectedServices((prev) => prev.filter((s) => s.id !== sizeId));
+                                        } else {
+                                          setSelectedServices((prev) => [
+                                            ...prev,
+                                            { id: sizeId, name: entryName, category: svc.category, department: svc.department, duration: svc.duration, price },
+                                          ]);
+                                        }
+                                      }}
+                                      className={`rounded-full px-4 py-1.5 text-xs font-semibold ${
+                                        isSizeSelected
+                                          ? "bg-coral text-white"
+                                          : "border border-ink/15 text-ink/70 hover:border-coral"
+                                      }`}
+                                    >
+                                      {isSizeSelected ? <Check className="h-3.5 w-3.5" /> : "Select"}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
+                      if (svc.price41 && ["Slimming Services", "Premium Treatments", "Cocktail Drips", "Laser Services"].includes(svc.category)) {
+                        const pkgLabel = getPackageLabel(svc.category);
+                        const tiers = [
+                          { tierId: `${svc.id}·per-session`, label: "Per Session", price: svc.price },
+                          { tierId: `${svc.id}·pkg`, label: pkgLabel, price: svc.price41 },
+                        ];
+                        return (
+                          <div key={svc.id} className="rounded-xl border border-ink/10 overflow-hidden">
+                            <div className="flex items-center gap-2 border-b border-ink/10 px-4 py-3">
+                              <p className="font-medium text-ink">{svc.name}</p>
+                              {svc.serviceType && (
+                                <span className="rounded-full bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral-dark">
+                                  {svc.serviceType}
+                                </span>
+                              )}
+                              {svc.duration && <span className="text-xs text-ink/40">({svc.duration})</span>}
+                            </div>
+                            {tiers.map(({ tierId, label, price }) => {
+                              const isTierSelected = selectedServices.some((s) => s.id === tierId);
+                              return (
+                                <div key={tierId} className={`flex items-center justify-between px-4 py-3 ${isTierSelected ? "bg-blush" : ""}`}>
+                                  <span className="text-sm text-ink/70">{label}</span>
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-semibold text-gold">₱{price.toLocaleString()}</span>
+                                    <button
+                                      onClick={() => {
+                                        if (isTierSelected) {
+                                          setSelectedServices((prev) => prev.filter((s) => s.id !== tierId));
+                                        } else {
+                                          setSelectedServices((prev) => [
+                                            ...prev.filter((s) => !tiers.some((t) => t.tierId === s.id)),
+                                            { id: tierId, name: `${svc.name} · ${label}`, category: svc.category, department: svc.department, duration: svc.duration, price },
+                                          ]);
+                                        }
+                                      }}
+                                      className={`rounded-full px-4 py-1.5 text-xs font-semibold ${isTierSelected ? "bg-coral text-white" : "border border-ink/15 text-ink/70 hover:border-coral"}`}
+                                    >
+                                      {isTierSelected ? "Unselect" : "Select"}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
                       return (
                         <div
                           key={svc.id}
@@ -518,20 +656,25 @@ export default function BookingModal({
                         >
                           <div>
                             <p className="font-medium text-ink">{svc.name}</p>
-                            <p className="text-xs text-ink/50">({svc.duration})</p>
+                            {svc.serviceType && (
+                              <span className="inline-block rounded-full bg-coral/10 px-2 py-0.5 text-xs font-medium text-coral-dark">
+                                {svc.serviceType}
+                              </span>
+                            )}
+                            {svc.duration && (
+                              <p className="text-xs text-ink/50">({svc.duration})</p>
+                            )}
                           </div>
                           <div className="flex items-center gap-3">
                             <span className="font-semibold text-gold">{svc.displayPrice}</span>
                             <button
                               onClick={() => {
                                 if (isSelected) {
-                                  setSelectedServices((prev) =>
-                                    prev.filter((s) => !(s.name === svc.name && s.duration === svc.duration))
-                                  );
+                                  setSelectedServices((prev) => prev.filter((s) => s.id !== svc.id));
                                 } else {
                                   setSelectedServices((prev) => [
                                     ...prev,
-                                    { name: svc.name, department: svc.department, duration: svc.duration, price: svc.price },
+                                    { id: svc.id, name: svc.name, category: svc.category, department: svc.department, duration: svc.duration, price: svc.price },
                                   ]);
                                 }
                               }}
@@ -936,16 +1079,51 @@ export default function BookingModal({
           )}
         </div>
 
+        {showSelectedPanel && (step === "services" || step === "professional" || step === "time") && selectedServices.length > 0 && (
+          <div className="border-t border-ink/10 bg-white px-6 py-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-base font-semibold text-ink">Selected Services</p>
+              <button
+                onClick={() => { setSelectedServices([]); setShowSelectedPanel(false); }}
+                className="rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/60 hover:border-coral hover:text-coral-dark"
+              >
+                Unselect All
+              </button>
+            </div>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {selectedServices.map((s) => (
+                <div key={s.id ?? s.name} className="flex items-center justify-between rounded-lg bg-blush px-3 py-2">
+                  <div>
+                    <p className="text-base font-medium text-ink">{s.name}</p>
+                    {s.category && (
+                      <p className="text-sm text-ink/50">{s.category}</p>
+                    )}
+                    <p className="text-sm text-gold font-semibold">₱{(s.price ?? 0).toLocaleString()}</p>
+                  </div>
+                  <button
+                    onClick={() => setSelectedServices((prev) => prev.filter((x) => (x.id ?? x.name) !== (s.id ?? s.name)))}
+                    className="ml-3 rounded-full p-1 text-ink/40 hover:bg-ink/10 hover:text-coral"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between border-t border-ink/10 px-6 py-4">
           <div className="text-sm text-ink/60">
             {(step === "services" || step === "professional" || step === "time") && selectedServices.length > 0 ? (
-              <>
-                <span className="font-medium text-ink">{selectedServices.length} service{selectedServices.length > 1 ? "s" : ""}</span>{" "}
-                &bull; Total{" "}
-                <span className="font-semibold text-gold">
-                  ₱{subtotal.toLocaleString()}.00
-                </span>
-              </>
+              <button
+                onClick={() => setShowSelectedPanel((v) => !v)}
+                className="flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-sm hover:border-coral hover:text-coral-dark transition"
+              >
+                <span className="font-semibold text-coral">{selectedServices.length} service{selectedServices.length > 1 ? "s" : ""}</span>
+                <span className="text-ink/50">&bull; Total</span>
+                <span className="font-semibold text-gold">₱{subtotal.toLocaleString()}.00</span>
+                <ChevronRight className={`h-3.5 w-3.5 text-ink/40 transition-transform ${showSelectedPanel ? "-rotate-90" : "rotate-90"}`} />
+              </button>
             ) : null}
           </div>
 

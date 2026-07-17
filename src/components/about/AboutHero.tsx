@@ -26,9 +26,6 @@ export default function AboutHero() {
           professional spa and aesthetic services, crafted with precision
           and delivered with a heart for quality care.
         </p>
-        <button className="mt-6 rounded-full bg-coral px-6 py-3 text-sm font-semibold text-white hover:bg-coral-dark">
-          Explore Services
-        </button>
       </div>
     </section>
   );

@@ -124,14 +124,14 @@ export default function Header() {
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/images/logo/salonlogo.png"
+              src="/images/logo/blushnewlogo.jpeg"
               alt="Blush Spa & Aesthetics"
               width={46}
               height={46}
               className="h-[46px] w-[46px] object-contain"
             />
             <span className="text-xl font-semibold text-coral-dark">
-              GlowSync
+              Blush Spa & Aesthetics
             </span>
           </Link>
 
@@ -158,7 +158,7 @@ export default function Header() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleOpenBookings}
-                  className="relative hidden rounded-full border border-rose/60 px-3 py-1.5 text-xs font-semibold text-coral-dark hover:bg-blush sm:inline"
+                  className="relative hidden rounded-full border border-rose/60 px-5 py-2 text-sm font-semibold text-coral-dark hover:bg-blush sm:inline"
                 >
                   My Bookings
                   {unseenCount > 0 && (

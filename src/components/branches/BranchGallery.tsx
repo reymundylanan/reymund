@@ -2,10 +2,10 @@ import { Star } from "lucide-react";
 
 export default function BranchGallery({
   name = "Blush Spa Aesthetics - Pagadian",
-  street = "Corner Alano Street, R. Magsaysay St.",
+  hours,
 }: {
   name?: string;
-  street?: string;
+  hours?: string;
 }) {
   return (
     <section className="mx-auto max-w-7xl px-6 pt-10">
@@ -20,8 +20,7 @@ export default function BranchGallery({
           </span>
           (3)
         </span>
-        <span>&bull; Open until 9:00 PM</span>
-        <span>&bull; {street}</span>
+        {hours && <span>&bull; Open {hours}</span>}
       </div>
 
       <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">

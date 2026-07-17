@@ -4,11 +4,11 @@ export default function ServicesHero() {
   return (
     <section className="relative flex min-h-[28rem] items-center overflow-hidden px-6 py-24 text-center text-white">
       <Image
-        src="/images/services/spaservice.jpg"
+        src="/images/services/services.png"
         alt=""
         fill
         priority
-        className="object-cover"
+        className="object-cover object-[center_30%]"
       />
       <div className="absolute inset-0 bg-gradient-to-br from-[#1f2a20]/65 via-[#2c3a2a]/55 to-[#3a2a22]/50" />
 

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export type StaffProfile = {
   fullName: string;
-  role: "admin" | "front_desk" | "specialist";
+  role: "admin" | "front_desk";
   branchId: string | null;
   branchName: string | null;
   avatarUrl: string | null;

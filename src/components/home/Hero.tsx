@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { Search, SlidersHorizontal, Star } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchServiceCategories } from "@/lib/data";
@@ -14,12 +13,13 @@ export default function Hero() {
   return (
     <section className="relative">
       <div className="relative isolate overflow-hidden px-6 pb-28 pt-16 text-white sm:pb-32">
-        <Image
-          src="/images/hero/salon1.jpg"
-          alt=""
-          fill
-          priority
-          className="object-cover"
+        <video
+          src="/images/hero/blushspavid.mp4"
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-br from-[#1f2a20]/65 via-[#2c3a2a]/55 to-[#3a2a22]/50" />
         <div className="relative mx-auto flex max-w-7xl flex-col items-start gap-6">

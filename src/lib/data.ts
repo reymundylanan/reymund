@@ -299,7 +299,7 @@ export const branchContacts: BranchContact[] = [
     area: "Pagadian",
     address:
       "F.S. Pajares Ave cor P.L. Urro St, cor Vicencio Sagun St, San Francisco District, Pagadian City, Zamboanga del Sur",
-    phone: "+63 970 081 0473",
+    phone: "+63 916 560 6052",
     email: "blushspaxaesthetics@gmail.com",
     facebook: "#",
     open: true,
@@ -308,7 +308,9 @@ export const branchContacts: BranchContact[] = [
 ];
 
 export type BranchService = {
+  id?: string;
   name: string;
+  category?: string;
   department?: string;
   duration: string;
   price: number;
@@ -338,7 +340,7 @@ export const aboutLocations: AboutLocation[] = [
   {
     id: "robinson-pagadian",
     name: "Robinson Pagadian Branch",
-    subtitle: "Robinson Galleria, Pagadian City",
+    subtitle: "Robinsons Mall, Pagadian City",
     description:
       "Experience premium relaxation during your city stroll. Our Robinsons branch offers express aesthetic services and therapeutic spa packages in a modern mall setting.",
   },

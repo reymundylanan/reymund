@@ -5,20 +5,19 @@ import { Download, MoreHorizontal, Search, UserPlus } from "lucide-react";
 import UserEditPanel from "@/components/admin/users/UserEditPanel";
 import ClientViewPanel from "@/components/admin/users/ClientViewPanel";
 import CreateUserModal from "@/components/admin/users/CreateUserModal";
+import StaffMembersPanel from "@/components/admin/users/StaffMembersPanel";
 import type { ClientUser, StaffUser } from "@/components/admin/users/types";
 
-const tabs = ["Administrators", "Front Desk", "Specialists", "Clients"];
+const tabs = ["Administrators", "Front Desk", "Staff", "Clients"];
 
 const tabRoleMap: Record<string, StaffUser["role"] | null> = {
   Administrators: "admin",
   "Front Desk": "front_desk",
-  Specialists: "specialist",
 };
 
-const roleLabels: Record<StaffUser["role"], string> = {
+const roleLabels: Record<string, string> = {
   admin: "Admin",
   front_desk: "Front Desk",
-  specialist: "Specialist",
 };
 
 export default function UsersTable({
@@ -57,6 +56,7 @@ export default function UsersTable({
   }, [tab, clientsLoaded]);
 
   const isClientsTab = tab === "Clients";
+  const isStaffTab = tab === "Staff";
 
   const filtered = useMemo(() => {
     const role = tabRoleMap[tab];
@@ -95,7 +95,7 @@ export default function UsersTable({
           <button className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
             <Download className="h-4 w-4" /> Export Data
           </button>
-          {!isClientsTab && (
+          {!isClientsTab && !isStaffTab && (
             <button
               onClick={() => setShowCreate(true)}
               className="flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark"
@@ -127,13 +127,17 @@ export default function UsersTable({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name or email..."
+            placeholder={isStaffTab ? "Search name, dept. or branch..." : "Search name or email..."}
             className="w-48 text-sm outline-none placeholder:text-ink/40"
           />
         </div>
       </div>
 
-      {isClientsTab ? (
+      {isStaffTab ? (
+        <div className="mt-4">
+          <StaffMembersPanel query={query} />
+        </div>
+      ) : isClientsTab ? (
         <table className="mt-4 w-full text-left text-sm">
           <thead>
             <tr className="text-xs uppercase text-ink/40">
@@ -237,11 +241,13 @@ export default function UsersTable({
         </table>
       )}
 
-      <p className="mt-4 text-sm text-ink/50">
-        {isClientsTab
-          ? `Showing ${filteredClients.length} of ${clients.length} client accounts`
-          : `Showing ${filtered.length} of ${users.length} staff accounts`}
-      </p>
+      {!isStaffTab && (
+        <p className="mt-4 text-sm text-ink/50">
+          {isClientsTab
+            ? `Showing ${filteredClients.length} of ${clients.length} client accounts`
+            : `Showing ${filtered.length} of ${users.length} staff accounts`}
+        </p>
+      )}
 
       {activeUser && (
         <UserEditPanel

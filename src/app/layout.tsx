@@ -15,11 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GlowSync — Synchronized Care for Your Natural Glow",
+  title: "Blush Spa & Aesthetics",
   description:
     "Book wellness spa services, manage appointments, and synchronize your glow with GlowSync.",
   icons: {
-    icon: "/images/logo/salonlogo.png",
+    icon: "/images/logo/cropblushicon2.png",
   },
 };
 
