@@ -581,7 +581,7 @@ export default function BookingModal({
                                           setSelectedServices((prev) => prev.filter((s) => s.id !== sizeId));
                                         } else {
                                           setSelectedServices((prev) => [
-                                            ...prev.filter((s) => !s.id.startsWith(`${svc.id}·`)),
+                                            ...prev.filter((s) => !s.id?.startsWith(`${svc.id}·`)),
                                             { id: sizeId, name: entryName, category: svc.category, department: svc.department, duration: svc.duration, price },
                                           ]);
                                         }
