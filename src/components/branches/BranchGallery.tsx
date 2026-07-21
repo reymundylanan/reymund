@@ -1,12 +1,18 @@
+import Image from "next/image";
 import { Star } from "lucide-react";
+import BranchGalleryModal from "@/components/branches/BranchGalleryModal";
 
 export default function BranchGallery({
   name = "Blush Spa Aesthetics - Pagadian",
   hours,
+  photos = [],
 }: {
   name?: string;
   hours?: string;
+  photos?: string[];
 }) {
+  const [main, second, third] = photos;
+
   return (
     <section className="mx-auto max-w-7xl px-6 pt-10">
       <h1 className="text-3xl font-semibold text-ink">{name}</h1>
@@ -24,14 +30,28 @@ export default function BranchGallery({
       </div>
 
       <div className="relative mt-6 grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr]">
-        <div className="h-72 rounded-2xl bg-gradient-to-br from-rose to-coral" />
-        <div className="grid gap-3">
-          <div className="h-[8.5rem] rounded-2xl bg-gradient-to-br from-coral to-ink/40" />
-          <div className="h-[8.5rem] rounded-2xl bg-gradient-to-br from-ink/30 to-coral-dark" />
+        {/* Main large photo */}
+        <div className="relative h-72 overflow-hidden rounded-2xl bg-gradient-to-br from-rose to-coral">
+          {main && (
+            <Image src={main} alt="Branch gallery" fill className="object-cover" sizes="(max-width: 640px) 100vw, 66vw" />
+          )}
         </div>
-        <button className="absolute bottom-4 right-4 rounded-full bg-white px-4 py-2 text-xs font-semibold text-ink shadow-sm">
-          See all images
-        </button>
+
+        {/* Two small photos */}
+        <div className="grid gap-3">
+          <div className="relative h-[8.5rem] overflow-hidden rounded-2xl bg-gradient-to-br from-coral to-ink/40">
+            {second && (
+              <Image src={second} alt="Branch gallery" fill className="object-cover" sizes="33vw" />
+            )}
+          </div>
+          <div className="relative h-[8.5rem] overflow-hidden rounded-2xl bg-gradient-to-br from-ink/30 to-coral-dark">
+            {third && (
+              <Image src={third} alt="Branch gallery" fill className="object-cover" sizes="33vw" />
+            )}
+          </div>
+        </div>
+
+        <BranchGalleryModal photos={photos} />
       </div>
     </section>
   );

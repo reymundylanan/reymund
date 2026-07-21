@@ -6,7 +6,7 @@ import BranchExplorer, { type DbBranchService, type BranchCategory, type BranchI
 
 type BranchRow = { id: string; name: string; address: string; phone: string; hours: string | null; facebook: string | null; facebook_label: string | null; instagram: string | null; instagram_label: string | null };
 
-async function fetchBranchData(branchName: string): Promise<{ info: BranchInfo; categories: BranchCategory[] }> {
+async function fetchBranchData(branchName: string): Promise<{ info: BranchInfo; categories: BranchCategory[]; galleryPhotos: string[] }> {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SECRET_KEY!
@@ -30,34 +30,42 @@ async function fetchBranchData(branchName: string): Promise<{ info: BranchInfo; 
     instagram_label: branchRow?.instagram_label ?? "",
   };
 
-  if (!branchRow?.id) return { info, categories: [] };
+  if (!branchRow?.id) return { info, categories: [], galleryPhotos: [] };
 
-  const { data } = await supabase
-    .from("branch_services")
-    .select("id, name, category, department, duration, price, price_41, brows_type, body_wellness_type, laser_type, slimming_type, non_surgical_type, doctor_type, hair_options, facial_options, addons")
-    .eq("branch_id", branchRow.id)
-    .eq("status", "Active")
-    .order("category")
-    .order("name");
+  const [{ data: servicesData }, { data: galleryData }] = await Promise.all([
+    supabase
+      .from("branch_services")
+      .select("id, name, category, department, duration, price, price_41, brows_type, body_wellness_type, laser_type, slimming_type, non_surgical_type, doctor_type, hair_options, facial_options, addons")
+      .eq("branch_id", branchRow.id)
+      .eq("status", "Active")
+      .order("category")
+      .order("name"),
+    supabase
+      .from("branch_gallery")
+      .select("image_url")
+      .eq("branch_id", branchRow.id)
+      .order("created_at", { ascending: false }),
+  ]);
 
   const map = new Map<string, DbBranchService[]>();
-  for (const svc of (data ?? []) as DbBranchService[]) {
+  for (const svc of (servicesData ?? []) as DbBranchService[]) {
     if (!map.has(svc.category)) map.set(svc.category, []);
     map.get(svc.category)!.push(svc);
   }
 
   const categories = Array.from(map.entries()).map(([name, services]) => ({ name, services }));
-  return { info, categories };
+  const galleryPhotos = (galleryData ?? []).map((r: { image_url: string }) => r.image_url);
+  return { info, categories, galleryPhotos };
 }
 
 export default async function BranchDetailPage() {
-  const { info, categories } = await fetchBranchData("One Cecilia Center");
+  const { info, categories, galleryPhotos } = await fetchBranchData("One Cecilia Center");
 
   return (
     <>
       <Header />
       <main className="flex-1">
-        <BranchGallery hours={info.hours} />
+        <BranchGallery hours={info.hours} photos={galleryPhotos} />
         <BranchExplorer defaultBranchId="one-cecilia-center" categories={categories} branchInfo={info} />
       </main>
       <Footer />

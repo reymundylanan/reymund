@@ -13,4 +13,5 @@ export type ClientUser = {
   fullName: string;
   email: string;
   createdAt: string;
+  isRestricted?: boolean;
 };

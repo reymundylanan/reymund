@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { BookingProvider } from "@/components/booking/BookingContext";
 import { LoginModalProvider } from "@/components/auth/LoginModalContext";
+import ChatWidgetWrapper from "@/components/ChatWidgetWrapper";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <LoginModalProvider>
           <BookingProvider>{children}</BookingProvider>
+          <ChatWidgetWrapper />
         </LoginModalProvider>
       </body>
     </html>

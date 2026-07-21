@@ -261,8 +261,8 @@ export default function UsersTable({
         <ClientViewPanel
           client={activeClient}
           onClose={() => setActiveClient(null)}
-          onDeleted={() => {
-            setClientsLoaded(false);
+          onRestricted={(id, restricted) => {
+            setClients((prev) => prev.map((c) => c.id === id ? { ...c, isRestricted: restricted } : c));
           }}
         />
       )}

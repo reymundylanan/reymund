@@ -966,7 +966,11 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
         </div>
       )}
 
-      {activeTab !== "Services" && activeTab !== "Staff" && (
+      {activeTab === "Gallery" && (
+        <GalleryTab branchUuid={branchUuid} />
+      )}
+
+      {activeTab !== "Services" && activeTab !== "Staff" && activeTab !== "Gallery" && (
         <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
           <p className="text-ink/40">{activeTab} — coming soon.</p>
         </div>
@@ -1692,6 +1696,128 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
               <span className="text-[10px] font-medium text-ink/50">{label}</span>
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type GalleryPhoto = { id: string; image_url: string; storage_path: string };
+
+function GalleryTab({ branchUuid }: { branchUuid: string | null }) {
+  const supabase = createClient();
+  const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<GalleryPhoto | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function loadPhotos(uuid: string) {
+    const { data, error } = await supabase
+      .from("branch_gallery")
+      .select("id, image_url, storage_path")
+      .eq("branch_id", uuid)
+      .order("created_at", { ascending: false });
+    if (error) console.error("[gallery] load error:", error.message);
+    setPhotos((data as GalleryPhoto[]) ?? []);
+  }
+
+  useEffect(() => {
+    if (branchUuid) loadPhotos(branchUuid);
+  }, [branchUuid]);
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!branchUuid || !e.target.files?.length) return;
+    setUploading(true);
+    setUploadError(null);
+    let failed = 0;
+    for (const file of Array.from(e.target.files)) {
+      const ext = file.name.split(".").pop();
+      const storagePath = `${branchUuid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("branch-gallery").upload(storagePath, file, { upsert: false });
+      if (uploadErr) { console.error("[gallery] upload error:", uploadErr.message); failed++; continue; }
+      const { data: { publicUrl } } = supabase.storage.from("branch-gallery").getPublicUrl(storagePath);
+      const { error: dbErr } = await supabase.from("branch_gallery").insert({ branch_id: branchUuid, storage_path: storagePath, image_url: publicUrl });
+      if (dbErr) { console.error("[gallery] db insert error:", dbErr.message); failed++; }
+    }
+    if (failed > 0) setUploadError(`${failed} file(s) failed. Check that storage bucket policies are set.`);
+    await loadPhotos(branchUuid);
+    setUploading(false);
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  async function handleDelete(photo: GalleryPhoto) {
+    await supabase.storage.from("branch-gallery").remove([photo.storage_path]);
+    await supabase.from("branch_gallery").delete().eq("id", photo.id);
+    setPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    setConfirmDelete(null);
+  }
+
+  return (
+    <div className="rounded-2xl bg-white p-6 shadow-sm">
+      <div className="mb-5 flex items-center justify-between">
+        <h3 className="font-semibold text-ink">Branch Gallery</h3>
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading || !branchUuid}
+          className="flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark disabled:opacity-50"
+        >
+          <ImageIcon className="h-4 w-4" />
+          {uploading ? "Uploading…" : "Upload Photos"}
+        </button>
+        <input ref={inputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
+      </div>
+
+      {uploadError && (
+        <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{uploadError}</div>
+      )}
+
+      {photos.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-ink/30">
+          <ImageIcon className="mb-3 h-10 w-10" />
+          <p className="text-sm">No photos yet. Upload some to get started.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {photos.map((photo) => (
+            <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-xl bg-ink/5">
+              <Image src={photo.image_url} alt="" fill className="object-cover" sizes="(max-width: 640px) 50vw, 25vw" />
+              <button
+                onClick={() => setConfirmDelete(photo)}
+                className="absolute right-2 top-2 hidden rounded-full bg-red-500 p-2.5 text-white hover:bg-red-600 group-hover:flex"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl text-center">
+            <div className="mb-4 flex justify-center">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-red-50">
+                <Trash2 className="h-7 w-7 text-red-500" />
+              </div>
+            </div>
+            <h3 className="mb-1 text-base font-semibold text-ink">Delete Photo?</h3>
+            <p className="mb-6 text-sm text-ink/50">This photo will be permanently removed from this branch&apos;s gallery. This cannot be undone.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 rounded-full border border-ink/15 py-2.5 text-sm font-medium text-ink/70 hover:bg-ink/5"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(confirmDelete)}
+                className="flex-1 rounded-full bg-red-500 py-2.5 text-sm font-semibold text-white hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -23,10 +23,6 @@ export default function Hero() {
         />
         <div className="absolute inset-0 bg-gradient-to-br from-[#1f2a20]/65 via-[#2c3a2a]/55 to-[#3a2a22]/50" />
         <div className="relative mx-auto flex max-w-7xl flex-col items-start gap-6">
-          <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-1.5 text-xs font-medium backdrop-blur">
-            <Star className="h-3.5 w-3.5 fill-gold text-gold" />
-            Ranked #1 Wellness Spa in Pagadian
-          </span>
 
           <h1 className="max-w-2xl text-4xl font-semibold leading-tight sm:text-5xl">
             Synchronized Care for

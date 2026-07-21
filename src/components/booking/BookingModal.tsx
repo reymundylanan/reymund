@@ -347,6 +347,17 @@ export default function BookingModal({
         return false;
       }
 
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("restricted")
+        .eq("id", authData.user.id)
+        .single();
+      if (profile?.restricted) {
+        setSaveError("Your account has been restricted. Please contact us for assistance.");
+        setSaving(false);
+        return false;
+      }
+
       const { data: branchRow } = await supabase
         .from("branches")
         .select("id")

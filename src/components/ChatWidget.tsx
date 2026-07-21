@@ -8,7 +8,7 @@ type Message = { role: "user" | "assistant"; content: string };
 const GREETING: Message = {
   role: "assistant",
   content:
-    "Hi! I'm the GlowSync assistant. Ask me about services, prices, or branches — I can help you decide what to book.",
+    "Hi! I'm the Blush Assistant. Ask me about services, prices, or branches — I can help you decide what to book.",
 };
 
 export default function ChatWidget() {
@@ -53,13 +53,13 @@ export default function ChatWidget() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-40">
+    <div className="fixed bottom-6 right-6 z-[60]">
       {open && (
-        <div className="mb-3 flex h-[28rem] w-80 flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="mb-3 flex h-[36rem] w-96 flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
           <div className="flex items-center justify-between bg-coral px-4 py-3 text-white">
-            <p className="text-sm font-semibold">GlowSync Assistant</p>
-            <button onClick={() => setOpen(false)} aria-label="Close chat">
-              <X className="h-4 w-4" />
+            <p className="text-base font-bold tracking-wide"><span className="uppercase">Blush</span> Assistant</p>
+            <button onClick={() => setOpen(false)} aria-label="Close chat" className="rounded-full p-1 hover:bg-white/20">
+              <X className="h-6 w-6" />
             </button>
           </div>
 
@@ -89,7 +89,7 @@ export default function ChatWidget() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              placeholder="Ask about services, prices..."
+              placeholder="Type your message..."
               className="flex-1 rounded-full border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
             />
             <button
