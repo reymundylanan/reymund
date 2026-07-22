@@ -41,13 +41,10 @@ export default function AdminSidebar() {
         collapsed ? "w-20" : "w-64"
       }`}
     >
-      <div className="flex items-center gap-2 px-5 py-5">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-coral text-sm font-bold text-white">
-          G
-        </span>
+      <div className="flex items-center justify-center px-5 py-5">
         {!collapsed && (
-          <span className="whitespace-nowrap text-base font-bold text-ink">
-            GlowSync Admin
+          <span className="whitespace-nowrap text-2xl font-bold text-ink">
+            BLUSH Admin
           </span>
         )}
       </div>

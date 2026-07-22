@@ -99,7 +99,10 @@ export default function MyBookingsPanel({
             </p>
           )}
           {bookings.map((b) => (
-            <div key={b.id} className="rounded-xl border border-ink/10 p-4">
+            <div key={b.id} className={`rounded-xl border p-4 ${b.status === "cancelled" ? "border-red-200 bg-red-50/40" : "border-ink/10"}`}>
+              {b.status === "cancelled" && (
+                <p className="mb-2 text-xs font-semibold text-red-600 uppercase tracking-wide">⚠ Booking Cancelled</p>
+              )}
               <div className="flex items-start justify-between gap-3">
                 <p className="text-base font-medium text-ink">
                   {b.notes ?? "Appointment"}

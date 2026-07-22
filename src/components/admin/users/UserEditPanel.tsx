@@ -236,30 +236,6 @@ export default function UserEditPanel({
           </div>
         </div>
 
-        <div className="mt-6 border-t border-ink/10 pt-4">
-          <p className="text-sm font-semibold text-ink">Role Permissions</p>
-          <p className="text-xs text-ink/40">
-            Configure access for &quot;{roleLabels[user.role]}&quot;
-          </p>
-          <div className="mt-3 space-y-2">
-            {permissions.map((perm) => (
-              <label
-                key={perm}
-                className="flex items-center justify-between rounded-lg border border-ink/10 px-3 py-2 text-sm text-ink/70"
-              >
-                {perm}
-                <input
-                  type="checkbox"
-                  checked={!!granted[perm]}
-                  onChange={() =>
-                    setGranted((g) => ({ ...g, [perm]: !g[perm] }))
-                  }
-                  className="rounded border-ink/20"
-                />
-              </label>
-            ))}
-          </div>
-        </div>
 
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
         {saved && (

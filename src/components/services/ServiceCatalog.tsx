@@ -146,47 +146,38 @@ export default function ServiceCatalog({ services }: { services: DbService[] }) 
       </div>
 
       {filteredServices.length > 0 ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredServices.map((svc) => (
+        <div className="space-y-10">
+          {Array.from(
+            filteredServices.reduce((map, svc) => {
+              const type = getServiceType(svc) ?? "General";
+              if (!map.has(type)) map.set(type, []);
+              map.get(type)!.push(svc);
+              return map;
+            }, new Map<string, typeof filteredServices>())
+          ).map(([type, group]) => (
+            <div key={type}>
+              <h4 className="mb-4 text-base font-semibold uppercase tracking-widest text-ink/40">{type}</h4>
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {group.map((svc) => (
             <div key={svc.id} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm">
-              <div className="relative h-40 overflow-hidden bg-blush">
-                {svc.image_url ? (
-                  <Image src={svc.image_url} alt={svc.name} fill className="object-cover" sizes="33vw" />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <Image
-                      src={(CATEGORY_META[svc.category] ?? FALLBACK).image}
-                      alt={svc.name}
-                      fill
-                      className="object-cover object-center opacity-30"
-                      sizes="33vw"
-                    />
-                  </div>
-                )}
-              </div>
               <div className="flex flex-1 flex-col gap-3 p-4">
                 <div>
-                  <h3 className="font-semibold text-ink">{svc.name}</h3>
-                  {getServiceType(svc) && (
-                    <span className="mt-1 inline-block rounded-full bg-blush px-2.5 py-0.5 text-xs font-medium text-coral-dark">
-                      {getServiceType(svc)}
-                    </span>
-                  )}
+                  <h3 className="text-lg font-semibold text-ink">{svc.name}</h3>
                 </div>
                 {(svc.description || svc.benefits) && (
-                  <p className="line-clamp-2 text-sm text-ink/60">
+                  <p className="line-clamp-2 text-base text-ink/60">
                     {svc.description || svc.benefits}
                   </p>
                 )}
                 {svc.duration && (
-                  <div className="flex items-center gap-1 text-xs text-ink/50">
-                    <Clock className="h-3.5 w-3.5" />{svc.duration}
+                  <div className="flex items-center gap-1 text-sm text-ink/50">
+                    <Clock className="h-4 w-4" />{svc.duration}
                   </div>
                 )}
                 <div className="mt-auto border-t border-ink/10 pt-3">
                   {svc.hair_options?.prices ? (
                     <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-0.5 text-xs text-ink/60">
+                      <div className="space-y-0.5 text-sm text-ink/60">
                         {(["short", "medium", "long"] as const).map((size) => {
                           const raw = svc.hair_options!.prices![size];
                           const val = Number(String(raw).replace(/,/g, ""));
@@ -199,28 +190,31 @@ export default function ServiceCatalog({ services }: { services: DbService[] }) 
                       </div>
                       <button
                         onClick={() => open({ name: svc.name, duration: svc.duration ?? "", price: svc.price ?? 0 })}
-                        className="shrink-0 rounded-full bg-coral px-3 py-1.5 text-xs font-semibold text-white hover:bg-coral-dark"
+                        className="shrink-0 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark"
                       >
                         Book Now
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center justify-between text-base">
                       <div>
-                        <span className="font-semibold text-gold">₱{(svc.price ?? 0).toLocaleString()}</span>
+                        <span className="text-2xl font-bold text-gold">₱{(svc.price ?? 0).toLocaleString()}</span>
                         {svc.price_41 && (
-                          <p className="text-xs text-ink/50">Package <span className="font-semibold text-gold">₱{svc.price_41.toLocaleString()}</span></p>
+                          <p className="text-base text-ink/50">Package <span className="font-semibold text-gold">₱{svc.price_41.toLocaleString()}</span></p>
                         )}
                       </div>
                       <button
                         onClick={() => open({ name: svc.name, duration: svc.duration ?? "", price: svc.price ?? 0 })}
-                        className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold text-white hover:bg-coral-dark"
+                        className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark"
                       >
                         Book Now
                       </button>
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+                ))}
               </div>
             </div>
           ))}

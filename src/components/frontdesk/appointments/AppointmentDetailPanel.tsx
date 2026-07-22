@@ -43,6 +43,8 @@ export default function AppointmentDetailPanel({
   onConfirmed?: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState(appointment.status);
 
@@ -63,6 +65,27 @@ export default function AppointmentDetailPanel({
 
     setStatus("confirmed");
     setConfirming(false);
+    onConfirmed?.();
+  }
+
+  async function handleCancel() {
+    setCancelling(true);
+    setError(null);
+    const supabase = createClient();
+    const { error: updateError } = await supabase
+      .from("appointments")
+      .update({ status: "cancelled" })
+      .eq("id", appointment.id);
+
+    if (updateError) {
+      setError(updateError.message);
+      setCancelling(false);
+      return;
+    }
+
+    setStatus("cancelled");
+    setCancelling(false);
+    setConfirmCancel(false);
     onConfirmed?.();
   }
 
@@ -146,18 +169,63 @@ export default function AppointmentDetailPanel({
 
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
-        {status === "pending" ? (
-          <button
-            onClick={handleConfirm}
-            disabled={confirming}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark disabled:opacity-50"
-          >
-            <Check className="h-4 w-4" />
-            {confirming ? "Confirming..." : "Confirm Booking"}
-          </button>
+        {status === "cancelled" ? (
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-3 text-center text-sm text-red-600">
+            Booking cancelled.
+          </div>
+        ) : status === "confirmed" ? (
+          <div className="mt-6 space-y-2">
+            <div className="rounded-xl border border-green-200 bg-green-50 p-3 text-center text-sm text-green-700">
+              Booking confirmed.
+            </div>
+            {!confirmCancel ? (
+              <button
+                onClick={() => setConfirmCancel(true)}
+                className="w-full rounded-full border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
+              >
+                Cancel Booking
+              </button>
+            ) : (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
+                <p className="text-sm text-red-700 text-center font-medium">Cancel this booking?</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setConfirmCancel(false)} className="flex-1 rounded-full border border-ink/15 py-2 text-sm text-ink/60 hover:border-ink/30">Keep</button>
+                  <button onClick={handleCancel} disabled={cancelling} className="flex-1 rounded-full bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">
+                    {cancelling ? "Cancelling..." : "Yes, Cancel"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
-          <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-3 text-center text-sm text-green-700">
-            Booking confirmed.
+          <div className="mt-6 space-y-2">
+            <button
+              onClick={handleConfirm}
+              disabled={confirming}
+              className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              style={{ backgroundColor: "#8D6F5D" }}
+            >
+              <Check className="h-4 w-4" />
+              {confirming ? "Confirming..." : "Confirm Booking"}
+            </button>
+            {!confirmCancel ? (
+              <button
+                onClick={() => setConfirmCancel(true)}
+                className="w-full rounded-full border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50"
+              >
+                Cancel Booking
+              </button>
+            ) : (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
+                <p className="text-sm text-red-700 text-center font-medium">Cancel this booking?</p>
+                <div className="flex gap-2">
+                  <button onClick={() => setConfirmCancel(false)} className="flex-1 rounded-full border border-ink/15 py-2 text-sm text-ink/60 hover:border-ink/30">Keep</button>
+                  <button onClick={handleCancel} disabled={cancelling} className="flex-1 rounded-full bg-red-500 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">
+                    {cancelling ? "Cancelling..." : "Yes, Cancel"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

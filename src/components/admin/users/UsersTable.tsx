@@ -84,23 +84,23 @@ export default function UsersTable({
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-ink">Users &amp; Roles</h2>
-          <p className="text-sm text-ink/50">
+          <h2 className="text-xl font-semibold text-ink">Users &amp; Roles</h2>
+          <p className="text-base text-ink/50">
             {isClientsTab
               ? "Customer accounts created via Google or Facebook sign-in."
               : "Manage system access for Admin and Front Desk staff accounts."}
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
-            <Download className="h-4 w-4" /> Export Data
+          <button className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-base font-medium text-ink/70 hover:border-coral">
+            <Download className="h-5 w-5" /> Export Data
           </button>
           {!isClientsTab && !isStaffTab && (
             <button
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark"
+              className="flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-base font-semibold text-white hover:bg-coral-dark"
             >
-              <UserPlus className="h-4 w-4" /> Add New User
+              <UserPlus className="h-5 w-5" /> Add New User
             </button>
           )}
         </div>
@@ -112,7 +112,7 @@ export default function UsersTable({
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`rounded-full px-4 py-2 text-sm font-medium ${
+              className={`rounded-full px-4 py-2 text-base font-medium ${
                 tab === t
                   ? "bg-coral text-white"
                   : "text-ink/50 hover:text-coral-dark"
@@ -122,13 +122,13 @@ export default function UsersTable({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/50">
-          <Search className="h-4 w-4" />
+        <div className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-base text-ink/50">
+          <Search className="h-5 w-5" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={isStaffTab ? "Search name, dept. or branch..." : "Search name or email..."}
-            className="w-48 text-sm outline-none placeholder:text-ink/40"
+            className="w-48 text-base outline-none placeholder:text-ink/40"
           />
         </div>
       </div>
@@ -138,36 +138,36 @@ export default function UsersTable({
           <StaffMembersPanel query={query} />
         </div>
       ) : isClientsTab ? (
-        <table className="mt-4 w-full text-left text-sm">
+        <table className="mt-4 w-full text-left text-base">
           <thead>
-            <tr className="text-xs uppercase text-ink/40">
-              <th className="py-2">Client Profile</th>
-              <th className="py-2">Email</th>
-              <th className="py-2">Joined</th>
-              <th className="py-2">Actions</th>
+            <tr className="text-sm uppercase text-ink/40">
+              <th className="py-3">Client Profile</th>
+              <th className="py-3">Email</th>
+              <th className="py-3">Joined</th>
+              <th className="py-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredClients.map((client) => (
               <tr key={client.id} className="border-t border-ink/5">
-                <td className="py-3">
+                <td className="py-4">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blush text-sm font-semibold text-coral-dark">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blush text-base font-semibold text-coral-dark">
                       {client.fullName.charAt(0)}
                     </span>
                     <p className="font-medium text-ink">{client.fullName}</p>
                   </div>
                 </td>
-                <td className="py-3 text-ink/70">{client.email}</td>
-                <td className="py-3 text-ink/50">
+                <td className="py-4 text-ink/70">{client.email}</td>
+                <td className="py-4 text-ink/50">
                   {new Date(client.createdAt).toLocaleDateString()}
                 </td>
-                <td className="py-3">
+                <td className="py-4">
                   <button
                     onClick={() => setActiveClient(client)}
                     className="rounded-full p-2 text-ink/40 hover:bg-blush hover:text-ink"
                   >
-                    <MoreHorizontal className="h-4 w-4" />
+                    <MoreHorizontal className="h-5 w-5" />
                   </button>
                 </td>
               </tr>
@@ -189,43 +189,43 @@ export default function UsersTable({
           </tbody>
         </table>
       ) : (
-        <table className="mt-4 w-full text-left text-sm">
+        <table className="mt-4 w-full text-left text-base">
           <thead>
-            <tr className="text-xs uppercase text-ink/40">
-              <th className="py-2">User Profile</th>
-              <th className="py-2">Role</th>
-              <th className="py-2">Branch</th>
-              <th className="py-2">Joined</th>
-              <th className="py-2">Actions</th>
+            <tr className="text-sm uppercase text-ink/40">
+              <th className="py-3">User Profile</th>
+              <th className="py-3">Role</th>
+              <th className="py-3">Branch</th>
+              <th className="py-3">Joined</th>
+              <th className="py-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((user) => (
               <tr key={user.id} className="border-t border-ink/5">
-                <td className="py-3">
+                <td className="py-4">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blush text-sm font-semibold text-coral-dark">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blush text-base font-semibold text-coral-dark">
                       {user.fullName.charAt(0)}
                     </span>
                     <div>
                       <p className="font-medium text-ink">{user.fullName}</p>
-                      <p className="text-xs text-ink/50">
+                      <p className="text-sm text-ink/50">
                         @{user.username ?? "—"}
                       </p>
                     </div>
                   </div>
                 </td>
-                <td className="py-3 text-ink/70">{roleLabels[user.role]}</td>
-                <td className="py-3 text-ink/70">{user.branchName ?? "—"}</td>
-                <td className="py-3 text-ink/50">
+                <td className="py-4 text-ink/70">{roleLabels[user.role]}</td>
+                <td className="py-4 text-ink/70">{user.branchName ?? "—"}</td>
+                <td className="py-4 text-ink/50">
                   {new Date(user.createdAt).toLocaleDateString()}
                 </td>
-                <td className="py-3">
+                <td className="py-4">
                   <button
                     onClick={() => setActiveUser(user)}
                     className="rounded-full p-2 text-ink/40 hover:bg-blush hover:text-ink"
                   >
-                    <MoreHorizontal className="h-4 w-4" />
+                    <MoreHorizontal className="h-5 w-5" />
                   </button>
                 </td>
               </tr>
@@ -242,7 +242,7 @@ export default function UsersTable({
       )}
 
       {!isStaffTab && (
-        <p className="mt-4 text-sm text-ink/50">
+        <p className="mt-4 text-base text-ink/50">
           {isClientsTab
             ? `Showing ${filteredClients.length} of ${clients.length} client accounts`
             : `Showing ${filtered.length} of ${users.length} staff accounts`}

@@ -159,7 +159,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-ink/50">{members.length} staff member{members.length !== 1 ? "s" : ""}</p>
+        <p className="text-base text-ink/50">{members.length} staff member{members.length !== 1 ? "s" : ""}</p>
         <button
           onClick={openAdd}
           className="flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark"
@@ -176,9 +176,9 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
         <p className="py-12 text-center text-sm text-ink/40">No staff members match your search.</p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-ink/10">
-          <table className="w-full text-sm">
+          <table className="w-full text-base">
             <thead>
-              <tr className="border-b border-ink/10 text-xs font-semibold uppercase text-ink/40">
+              <tr className="border-b border-ink/10 text-sm font-semibold uppercase text-ink/40">
                 <th className="px-4 py-3 text-left">Staff</th>
                 <th className="px-4 py-3 text-left">Department</th>
                 <th className="px-4 py-3 text-left">Branch</th>
@@ -189,9 +189,9 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
             <tbody>
               {filtered.map((m) => (
                 <tr key={m.id} className="border-b border-ink/5 last:border-0">
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-4">
                     <div className="flex items-center gap-3">
-                      <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blush text-sm font-bold text-coral-dark overflow-hidden">
+                      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blush text-base font-bold text-coral-dark overflow-hidden">
                         {m.avatar_url
                           ? <Image src={m.avatar_url} alt={m.full_name} fill className="object-cover" />
                           : m.full_name.charAt(0).toUpperCase()}
@@ -199,18 +199,18 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                       <span className="font-medium text-ink">{m.full_name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-ink/60">{m.department}</td>
-                  <td className="px-4 py-3 text-ink/60">
+                  <td className="px-4 py-4 text-ink/60">{m.department}</td>
+                  <td className="px-4 py-4 text-ink/60">
                     {(m.branches as { name: string } | null)?.name ?? <span className="text-ink/30">—</span>}
                   </td>
-                  <td className="px-4 py-3 text-ink/60">{m.phone ?? <span className="text-ink/30">—</span>}</td>
+                  <td className="px-4 py-4 text-ink/60">{m.phone ?? <span className="text-ink/30">—</span>}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openEdit(m)} className="rounded-lg p-1.5 text-ink/40 hover:bg-blush hover:text-coral-dark">
-                        <Pencil className="h-4 w-4" />
+                      <button onClick={() => openEdit(m)} className="rounded-lg p-2 text-ink/40 hover:bg-blush hover:text-coral-dark">
+                        <Pencil className="h-5 w-5" />
                       </button>
-                      <button onClick={() => handleDelete(m.id)} className="rounded-lg p-1.5 text-ink/40 hover:bg-red-50 hover:text-red-500">
-                        <Trash2 className="h-4 w-4" />
+                      <button onClick={() => handleDelete(m.id)} className="rounded-lg p-2 text-ink/40 hover:bg-red-50 hover:text-red-500">
+                        <Trash2 className="h-5 w-5" />
                       </button>
                     </div>
                   </td>

@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import BranchesToolbar from "@/components/admin/branches/BranchesToolbar";
 import BranchDetailView from "@/components/admin/branches/BranchDetailView";
 import { adminBranches } from "@/lib/adminData";
+import { createClient } from "@/lib/supabase/client";
 
 const statusStyles: Record<string, string> = {
   Active: "bg-green-100 text-green-700",
@@ -15,9 +16,36 @@ const statusStyles: Record<string, string> = {
 export default function BranchesManager() {
   const [region, setRegion] = useState("All Regions");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<(typeof adminBranches)[number] | null>(
-    null
-  );
+  const [selected, setSelected] = useState<(typeof adminBranches)[number] | null>(null);
+  const [dbImages, setDbImages] = useState<Record<string, string>>({});
+  const [cardPositions, setCardPositions] = useState<Record<string, { x: number; y: number }>>({});
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.from("branches").select("name, image_url").then(({ data }) => {
+      if (!data) return;
+      const map: Record<string, string> = {};
+      for (const row of data) {
+        if (row.name && row.image_url) map[row.name] = row.image_url;
+      }
+      setDbImages(map);
+    });
+  }, []);
+
+  useEffect(() => {
+    const pos: Record<string, { x: number; y: number }> = {};
+    for (const b of adminBranches) {
+      try {
+        const stored = localStorage.getItem(`branch_pos_${b.name}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          pos[b.name] = { x: parsed.cardPosX ?? 50, y: parsed.cardPosY ?? 50 };
+        }
+      } catch {}
+    }
+    setCardPositions(pos);
+  }, [refreshKey]);
 
   const filtered = useMemo(() => {
     return adminBranches.filter((b) => {
@@ -32,7 +60,7 @@ export default function BranchesManager() {
   }, [region, query]);
 
   if (selected) {
-    return <BranchDetailView branch={selected} onBack={() => setSelected(null)} />;
+    return <BranchDetailView branch={selected} onBack={() => { setSelected(null); setRefreshKey((k) => k + 1); }} />;
   }
 
   return (
@@ -49,10 +77,11 @@ export default function BranchesManager() {
           <div key={branch.id} className="overflow-hidden rounded-2xl bg-white shadow-sm">
             <div className="relative h-40 overflow-hidden">
               <Image
-                src={branch.image}
+                src={dbImages[branch.name] ?? branch.image}
                 alt={branch.name}
                 fill
-                className="object-cover object-center"
+                className="object-cover"
+                style={{ objectPosition: `${cardPositions[branch.name]?.x ?? 50}% ${cardPositions[branch.name]?.y ?? 50}%` }}
                 sizes="(max-width: 640px) 100vw, 50vw"
               />
             </div>

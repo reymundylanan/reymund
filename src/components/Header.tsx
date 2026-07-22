@@ -48,11 +48,12 @@ export default function Header() {
     const seen = seenBookingIds();
     const unseen = (data ?? []).filter((row) => !seen.includes(row.id));
     setUnseenCount(unseen.length);
-  }, [user?.id]);
+  }, [user]);
 
   useEffect(() => {
     if (!user?.id) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     checkUnseen();
 
     const supabase = createClient();
@@ -69,7 +70,10 @@ export default function Header() {
         (payload) => {
           const next = payload.new as { status: string };
           const prev = payload.old as { status: string };
-          if (next.status === "confirmed" && prev.status !== "confirmed") {
+          if (
+            (next.status === "confirmed" && prev.status !== "confirmed") ||
+            (next.status === "cancelled" && prev.status !== "cancelled")
+          ) {
             setUnseenCount((n) => n + 1);
           }
         }

@@ -3,10 +3,10 @@ import Footer from "@/components/Footer";
 import ServicesHero from "@/components/services/ServicesHero";
 import ServiceCatalog, { type DbService } from "@/components/services/ServiceCatalog";
 import ConsultCta from "@/components/services/ConsultCta";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 async function fetchServices(): Promise<DbService[]> {
-  const supabase = createAdminClient();
+  const supabase = await createClient();
 
   const { data: branchRow, error: branchErr } = await supabase
     .from("branches")

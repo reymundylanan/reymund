@@ -878,36 +878,36 @@ export default function BookingModal({
           {step === "confirm" && (
             <div className="space-y-4">
               <div className="rounded-xl border border-ink/10 p-4">
-                <p className="font-medium text-ink">{serviceNames} with {professionalLabel}</p>
-                <p className="mt-1 text-sm text-ink/60">
+                <p className="text-base font-semibold text-ink">{serviceNames} with {professionalLabel}</p>
+                <p className="mt-1 text-base text-ink/60">
                   {selectedDate ? formatDate(selectedDate) : "Select a date"} &bull;{" "}
                   {selectedTime
                     ? `${selectedTime} - ${endTime(selectedTime, `${totalDuration} mins`)}`
                     : "Select a time"}
                 </p>
-                <p className="mt-2 font-semibold text-gold">₱{subtotal.toLocaleString()}.00</p>
+                <p className="mt-2 text-lg font-semibold text-gold">₱{subtotal.toLocaleString()}.00</p>
               </div>
               {appointmentType === "group" && (
-                <p className="text-xs text-ink/50">
+                <p className="text-sm text-ink/50">
                   Group appointments require full payment to confirm the slot.
                 </p>
               )}
               <div>
-                <label className="text-xs font-medium uppercase text-ink/40">
+                <label className="text-sm font-medium uppercase text-ink/40">
                   Contact Number
                 </label>
-                <div className="mt-1 flex items-center gap-2 rounded-lg border border-ink/15 px-3 py-2 transition-colors focus-within:border-coral focus-within:ring-2 focus-within:ring-coral/20">
-                  <span className="text-sm text-ink/50">+63</span>
+                <div className="mt-1 flex items-center gap-2 rounded-lg border border-ink/15 px-3 py-2.5 transition-colors focus-within:border-coral focus-within:ring-2 focus-within:ring-coral/20">
+                  <span className="text-base text-ink/50">+63</span>
                   <input
                     value={formatPhoneInput(contactPhone)}
                     onChange={(e) =>
                       setContactPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
                     }
                     placeholder="9XX XXX XXXX"
-                    className="w-full text-sm outline-none"
+                    className="w-full text-base outline-none"
                   />
                 </div>
-                <p className="mt-1 text-xs text-ink/40">
+                <p className="mt-1 text-sm text-ink/40">
                   So the branch can reach you about this appointment.
                 </p>
               </div>
@@ -1075,13 +1075,13 @@ export default function BookingModal({
               <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700">
                 <Check className="h-7 w-7" />
               </span>
-              <h2 className="text-lg font-semibold text-ink">Booking confirmed!</h2>
-              <p className="text-sm text-ink/60">
+              <h2 className="text-xl font-semibold text-ink">Booking confirmed!</h2>
+              <p className="text-base text-ink/60">
                 {serviceNames} on{" "}
                 {selectedDate ? formatDate(selectedDate) : ""} at {selectedTime}.
               </p>
               {payLater && (
-                <p className="text-sm text-ink/60">
+                <p className="text-base text-ink/60">
                   Please settle payment of ₱{total.toLocaleString()}.00 at the
                   branch on your appointment date.
                 </p>
@@ -1139,6 +1139,15 @@ export default function BookingModal({
           </div>
 
           {step === "type" && null}
+
+          {step === "payment-choice" && (
+            <button
+              onClick={() => setStep("confirm")}
+              className="flex items-center gap-1 text-base font-medium text-ink/50 hover:text-ink ml-auto"
+            >
+              ← Back
+            </button>
+          )}
 
           {step === "branch" && (
             <button

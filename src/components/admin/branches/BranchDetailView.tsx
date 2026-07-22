@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
+import BranchImageCropper from "@/components/admin/branches/BranchImageCropper";
 import {
   BarChart2,
   Calendar,
@@ -187,6 +188,10 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
   const [branchDraft, setBranchDraft] = useState(initialBranchForm);
   const [branchImageFile, setBranchImageFile] = useState<File | null>(null);
   const [branchImagePreview, setBranchImagePreview] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [imgPosX, setImgPosX] = useState(50);
+  const [imgPosY, setImgPosY] = useState(50);
+  const [imgPosXCard, setImgPosXCard] = useState(50);
   const branchFileRef = useRef<HTMLInputElement>(null);
   const [savingBranch, setSavingBranch] = useState(false);
   const [branchSaveError, setBranchSaveError] = useState<string | null>(null);
@@ -272,6 +277,15 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
           };
           setBranchForm(hydrated);
           setBranchDraft(hydrated);
+          try {
+            const stored = localStorage.getItem(`branch_pos_${branch.name}`);
+            if (stored) {
+              const pos = JSON.parse(stored);
+              if (pos.posX !== undefined) setImgPosX(pos.posX);
+              if (pos.cardPosX !== undefined) setImgPosXCard(pos.cardPosX);
+              if (pos.cardPosY !== undefined) setImgPosY(pos.cardPosY);
+            }
+          } catch {}
         } else {
           setLoadingServices(false);
         }
@@ -654,8 +668,12 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
     }
 
     setBranchForm({ ...branchDraft, imageUrl });
+    try {
+      localStorage.setItem(`branch_pos_${branchDraft.name}`, JSON.stringify({ posX: imgPosX, cardPosX: imgPosXCard, cardPosY: imgPosY }));
+    } catch {}
     setBranchImageFile(null);
     setBranchImagePreview(null);
+    setCropSrc(null);
     setSavingBranch(false);
     setEditBranchOpen(false);
   }
@@ -677,7 +695,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
       <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
         <div className="flex flex-col gap-6 p-6 lg:flex-row">
           <div className="relative h-52 w-full shrink-0 overflow-hidden rounded-xl lg:h-auto lg:w-64">
-            <Image src={branchImagePreview ?? branchForm.imageUrl} alt={branchForm.name} fill className="object-cover object-center" />
+            <Image src={branchImagePreview ?? branchForm.imageUrl} alt={branchForm.name} fill className="object-cover" style={{ objectPosition: `${imgPosXCard}% ${imgPosY}%` }} />
           </div>
           <div className="flex-1">
             <div className="flex items-start justify-between gap-3">
@@ -1596,20 +1614,36 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
             <form onSubmit={handleSaveBranch} className="mt-5 space-y-4">
               {/* Photo upload */}
               <div
-                className="relative h-36 w-full overflow-hidden rounded-xl cursor-pointer group"
+                className="relative w-full overflow-hidden rounded-xl cursor-pointer group"
                 onClick={() => branchFileRef.current?.click()}
               >
-                <Image
+                <img
                   src={branchImagePreview ?? branchDraft.imageUrl}
                   alt="Branch photo"
-                  fill
-                  className="object-cover object-center"
+                  className="w-full max-h-48 object-contain rounded-xl"
                 />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
                   <ImageIcon className="h-6 w-6 text-white" />
                   <span className="text-xs font-medium text-white">Change Photo</span>
                 </div>
               </div>
+              {branchImagePreview && (
+                <div className="space-y-2 rounded-xl border border-ink/10 p-3">
+                  <p className="text-xs font-medium uppercase text-ink/40">Adjust Position on Card</p>
+                  <div className="flex items-center gap-2">
+                    <span className="w-14 shrink-0 text-xs text-ink/50">Left ↔</span>
+                    <input type="range" min={0} max={100} value={imgPosXCard} onChange={(e) => setImgPosXCard(Number(e.target.value))} className="flex-1 accent-coral" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-14 shrink-0 text-xs text-ink/50">Top ↕</span>
+                    <input type="range" min={0} max={100} value={imgPosY} onChange={(e) => setImgPosY(Number(e.target.value))} className="flex-1 accent-coral" />
+                  </div>
+                  <div className="relative h-20 w-full overflow-hidden rounded-lg">
+                    <img src={branchImagePreview} alt="card preview" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `${imgPosXCard}% ${imgPosY}%` }} />
+                    <p className="absolute bottom-1 right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white">Card preview</p>
+                  </div>
+                </div>
+              )}
               <input
                 ref={branchFileRef}
                 type="file"
@@ -1618,8 +1652,11 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
+                  const url = URL.createObjectURL(file);
                   setBranchImageFile(file);
-                  setBranchImagePreview(URL.createObjectURL(file));
+                  setBranchImagePreview(url);
+                  setImgPosX(50);
+                  setImgPosY(50);
                   e.target.value = "";
                 }}
               />
@@ -1675,6 +1712,18 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
             </form>
           </div>
         </div>
+      )}
+
+      {cropSrc && (
+        <BranchImageCropper
+          src={cropSrc}
+          onDone={(dataUrl, file) => {
+            setBranchImagePreview(dataUrl);
+            setBranchImageFile(file);
+            setCropSrc(null);
+          }}
+          onCancel={() => setCropSrc(null)}
+        />
       )}
 
       {showFab && (

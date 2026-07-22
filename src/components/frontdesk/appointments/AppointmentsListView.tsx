@@ -64,6 +64,7 @@ export default function AppointmentsListView() {
         "id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, notes, client:profiles(full_name, phone), payments(method, status, amount)"
       )
       .eq("branch_id", profile.branchId)
+      .not("client_id", "is", null)
       .order("scheduled_date", { ascending: true })
       .order("start_time", { ascending: true });
 
@@ -123,33 +124,33 @@ export default function AppointmentsListView() {
           {toast}
         </div>
       )}
-      <table className="w-full text-left text-sm">
+      <table className="w-full text-left text-base">
         <thead>
-          <tr className="text-xs uppercase text-ink/40">
-            <th className="py-2">Client</th>
-            <th className="py-2">Service / Note</th>
-            <th className="py-2">Date</th>
-            <th className="py-2">Time</th>
-            <th className="py-2">Type</th>
-            <th className="py-2">Status</th>
-            <th className="py-2">Actions</th>
+          <tr className="text-sm uppercase text-ink/40">
+            <th className="py-3">Client</th>
+            <th className="py-3">Service / Note</th>
+            <th className="py-3">Date</th>
+            <th className="py-3">Time</th>
+            <th className="py-3">Type</th>
+            <th className="py-3">Status</th>
+            <th className="py-3">Actions</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r) => (
             <tr key={r.id} className="border-t border-ink/5">
-              <td className="py-3 font-medium text-ink">
+              <td className="py-4 font-medium text-ink">
                 {clientInfo(r.client).full_name}
               </td>
-              <td className="py-3 text-ink/70">{r.notes ?? "—"}</td>
-              <td className="py-3 text-ink/50">
+              <td className="py-4 text-ink/70">{r.notes ?? "—"}</td>
+              <td className="py-4 text-ink/50">
                 {new Date(r.scheduled_date).toLocaleDateString()}
               </td>
-              <td className="py-3 text-ink/50">{formatTime(r.start_time)}</td>
-              <td className="py-3 text-ink/50 capitalize">{r.appointment_type}</td>
-              <td className="py-3">
+              <td className="py-4 text-ink/50">{formatTime(r.start_time)}</td>
+              <td className="py-4 text-ink/50 capitalize">{r.appointment_type}</td>
+              <td className="py-4">
                 <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${
+                  className={`rounded-full px-2.5 py-1 text-sm font-medium capitalize ${
                     statusStyles[r.status] ?? "bg-ink/10 text-ink/50"
                   }`}
                 >
