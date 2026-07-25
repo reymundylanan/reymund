@@ -231,6 +231,9 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       valid_until: p.valid_until ?? "",
       is_active: p.is_active,
       extra_branch_ids: [],
+      serviceType: "" as "" | "MesoLipo",
+      mesolipoRFPrice: "",
+      mesolipoExislimPrice: "",
     });
     setSaveError(null);
     setModalOpen(true);
