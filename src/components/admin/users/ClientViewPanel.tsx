@@ -58,7 +58,7 @@ export default function ClientViewPanel({
           </span>
           <div>
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-ink">{client.fullName}</p>
+              <p className="text-base font-semibold text-ink">{client.fullName}</p>
               {isRestricted && (
                 <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-600">Restricted</span>
               )}
@@ -67,7 +67,7 @@ export default function ClientViewPanel({
           </div>
         </div>
 
-        <div className="mt-6 space-y-3 rounded-xl border border-ink/10 p-3 text-sm">
+        <div className="mt-6 space-y-3 rounded-xl border border-ink/10 p-4 text-base">
           <div className="flex justify-between">
             <span className="text-ink/40">Account Type</span>
             <span className="text-ink/70">Customer</span>
@@ -90,7 +90,7 @@ export default function ClientViewPanel({
           </div>
         </div>
 
-        <p className="mt-4 text-xs text-ink/40">
+        <p className="mt-4 text-sm text-ink/40">
           Customers register and sign in themselves via Google or Facebook —
           their profile details can&apos;t be edited from here.
         </p>

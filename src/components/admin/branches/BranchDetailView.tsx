@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import BranchImageCropper from "@/components/admin/branches/BranchImageCropper";
+import PromotionsTab from "@/components/admin/branches/PromotionsTab";
 import {
   BarChart2,
   Calendar,
@@ -28,7 +29,7 @@ import { branchServiceCategories } from "@/lib/data";
 
 type Branch = (typeof adminBranches)[number];
 
-const TABS = ["Overview", "Services", "Staff", "Gallery", "Promotions", "Reviews", "Analytics"];
+const TABS = ["Overview", "Services", "Staff", "Gallery", "Promo Packages", "Reviews", "Analytics"];
 
 const MOCK_STATS = [
   { label: "Today's Appointments", value: "28" },
@@ -89,6 +90,7 @@ type ServiceRow = {
   slimmingType?: string | null;
   nonSurgicalType?: string | null;
   doctorType?: string | null;
+  cocktailType?: string | null;
 };
 
 function buildInitialServices(): ServiceRow[] {
@@ -121,7 +123,7 @@ const HAIR_SUBTYPES = ["Hair Color", "Straightening", "Treatment"] as const;
 const emptyForm = {
   name: "",
   category: "",
-  department: DEPARTMENTS[0],
+  department: "",
   duration: "",
   price1: "",
   perSession: "1",
@@ -152,10 +154,31 @@ const emptyForm = {
   doctorType: "" as "" | "Beauty-Tox" | "Non-Surgical Augmentation",
 };
 
+function parseTime12h(s: string): number | null {
+  const m = s.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  let h = parseInt(m[1]);
+  const min = parseInt(m[2]);
+  const p = m[3].toUpperCase();
+  if (p === "PM" && h !== 12) h += 12;
+  if (p === "AM" && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+function isOpenNow(hours: string, now: Date): boolean {
+  const parts = hours.split(" - ");
+  if (parts.length !== 2) return false;
+  const open = parseTime12h(parts[0]);
+  const close = parseTime12h(parts[1]);
+  if (open == null || close == null) return false;
+  const cur = now.getHours() * 60 + now.getMinutes();
+  return cur >= open && cur < close;
+}
+
 export default function BranchDetailView({ branch, onBack }: { branch: Branch; onBack: () => void }) {
   const supabase = createClient();
   const [activeTab, setActiveTab] = useState("Services");
-  const [showFab, setShowFab] = useState(true);
+  const [now, setNow] = useState(new Date());
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [branchUuid, setBranchUuid] = useState<string | null>(null);
   const [loadingServices, setLoadingServices] = useState(true);
@@ -247,10 +270,16 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
         slimmingType: (r.slimming_type as string) ?? null,
         nonSurgicalType: (r.non_surgical_type as string) ?? null,
         doctorType: (r.doctor_type as string) ?? null,
+        cocktailType: (r.cocktail_type as string) ?? null,
       }))
     );
     setLoadingServices(false);
   }
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     supabase
@@ -365,6 +394,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
       slimmingType: (svc.slimmingType as "" | "7D HIFU Ultra Lift" | "PowerSculpt" | "Exislim / Exilift") ?? "",
       nonSurgicalType: (svc.nonSurgicalType as "" | "MesoLipo" | "Add On") ?? "",
       doctorType: (svc.doctorType as "" | "Beauty-Tox" | "Non-Surgical Augmentation") ?? "",
+      cocktailType: (svc.cocktailType as "" | "Add On") ?? "",
     });
     setModalError(null);
     setModalOpen(true);
@@ -414,6 +444,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
       slimming_type: form.category === "Slimming Services" && form.slimmingType ? form.slimmingType : null,
       non_surgical_type: form.category === "Non-Surgical Liposuction" && form.nonSurgicalType ? form.nonSurgicalType : null,
       doctor_type: form.category === "Doctor's Procedure" && form.doctorType ? form.doctorType : null,
+      cocktail_type: form.category === "Cocktail Drips" && form.cocktailType ? form.cocktailType : null,
     };
 
     if (editing) {
@@ -701,7 +732,17 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <h2 className="text-3xl font-bold text-ink">{branchForm.name}</h2>
-                <span className="rounded-full bg-green-100 px-3 py-1 text-base font-semibold text-green-700">{branch.status}</span>
+                {branch.status === "Active" ? (
+                  isOpenNow(branchForm.hours, now) ? (
+                    <span className="rounded-full bg-green-100 px-3 py-1 text-base font-semibold text-green-700">Open</span>
+                  ) : (
+                    <span className="rounded-full bg-red-100 px-3 py-1 text-base font-semibold text-red-600">Closed</span>
+                  )
+                ) : (
+                  <span className={`rounded-full px-3 py-1 text-base font-semibold ${
+                    branch.status === "Maintenance" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"
+                  }`}>{branch.status}</span>
+                )}
               </div>
               <button onClick={() => { setBranchDraft(branchForm); setBranchImageFile(null); setBranchImagePreview(null); setEditBranchOpen(true); }} className="flex shrink-0 items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral hover:text-coral">
                 <Pencil className="h-4 w-4" /> Edit Branch
@@ -812,7 +853,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                       {groupHasDesc && <th className="pb-3 text-left">Description</th>}
                       {groupHasBenefits && <th className="pb-3 text-left">Benefits</th>}
                       <th className="pb-3 text-left">Duration</th>
-                      <th className="pb-3 text-left">{["Premium Treatments", "Laser Services", "Cocktail Drips", "Slimming Services"].includes(group.label) ? "Per Session" : "Price"}</th>
+                      <th className="pb-3 text-left">{filterCat === "All Categories" || ["Premium Treatments", "Laser Services", "Cocktail Drips", "Slimming Services"].includes(group.label) ? "Per Session" : "Price"}</th>
                       <th className="pb-3 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -852,6 +893,9 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                           )}
                           {svc.doctorType && (
                             <p className="text-sm text-ink/50 mt-0.5">{svc.doctorType}</p>
+                          )}
+                          {svc.cocktailType && (
+                            <p className="text-sm text-ink/50 mt-0.5">{svc.cocktailType}</p>
                           )}
                         </td>
                         <td className="py-4 text-ink/60">{svc.department}</td>
@@ -895,7 +939,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                             </div>
                           ) : svc.category === "Cocktail Drips" ? (
                             <div className="space-y-0.5">
-                              <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">Per Session</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
+                              <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">{svc.cocktailType === "Add On" ? "Price" : "Per Session"}</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
                               {svc.price5 != null && <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">5+2</span><span className="text-sm font-semibold">₱{svc.price5.toLocaleString()}.00</span></div>}
                             </div>
                           ) : svc.category === "Laser Services" ? (
@@ -988,7 +1032,11 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
         <GalleryTab branchUuid={branchUuid} />
       )}
 
-      {activeTab !== "Services" && activeTab !== "Staff" && activeTab !== "Gallery" && (
+      {activeTab === "Promo Packages" && branchUuid && (
+        <PromotionsTab branchId={branchUuid} />
+      )}
+
+      {activeTab !== "Services" && activeTab !== "Staff" && activeTab !== "Gallery" && activeTab !== "Promo Packages" && (
         <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
           <p className="text-ink/40">{activeTab} — coming soon.</p>
         </div>
@@ -1245,6 +1293,21 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                 </div>
               )}
 
+              {form.category === "Cocktail Drips" && (
+                <div className="mb-5 rounded-xl border border-ink/10 bg-blush/20 p-4">
+                  <label className="text-sm font-medium text-ink/70">Service Type <span className="text-ink/40 font-normal">(Optional)</span></label>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, cocktailType: form.cocktailType === "Add On" ? "" : "Add On" })}
+                      className={`flex-1 rounded-lg border py-2.5 text-sm font-semibold transition-colors ${form.cocktailType === "Add On" ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/60 hover:border-coral hover:text-coral"}`}
+                    >
+                      Add On
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="grid gap-6 sm:grid-cols-2">
                 {/* Left column */}
                 <div className="space-y-4">
@@ -1255,6 +1318,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                       onChange={(e) => setForm({ ...form, department: e.target.value })}
                       className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2.5 text-sm outline-none focus:border-coral"
                     >
+                      <option value="">— Select —</option>
                       {DEPARTMENTS.map((d) => <option key={d}>{d}</option>)}
                     </select>
                   </div>
@@ -1335,9 +1399,9 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                     </div>
                   ) : form.category === "Cocktail Drips" ? (
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className={form.cocktailType === "Add On" ? "" : "grid grid-cols-2 gap-3"}>
                         <div>
-                          <label className="text-sm font-medium text-ink/70">Per Session <span className="text-red-500">*</span></label>
+                          <label className="text-sm font-medium text-ink/70">{form.cocktailType === "Add On" ? "Price" : "Per Session"} <span className="text-red-500">*</span></label>
                           <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
                             <span className="text-sm text-ink/50">₱</span>
                             <input required type="text" inputMode="numeric" value={form.price1}
@@ -1345,15 +1409,17 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                               placeholder="0" className="w-full text-sm outline-none" />
                           </div>
                         </div>
-                        <div>
-                          <label className="text-sm font-medium text-ink/70">5+2 <span className="text-red-500">*</span></label>
-                          <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
-                            <span className="text-sm text-ink/50">₱</span>
-                            <input required type="text" inputMode="numeric" value={form.price5}
-                              onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price5: raw ? Number(raw).toLocaleString() : "" }); }}
-                              placeholder="0" className="w-full text-sm outline-none" />
+                        {form.cocktailType !== "Add On" && (
+                          <div>
+                            <label className="text-sm font-medium text-ink/70">5+2 <span className="text-red-500">*</span></label>
+                            <div className="mt-1 flex items-center gap-1 rounded-lg border border-ink/15 px-3 py-2 focus-within:border-coral">
+                              <span className="text-sm text-ink/50">₱</span>
+                              <input required type="text" inputMode="numeric" value={form.price5}
+                                onChange={(e) => { const raw = e.target.value.replace(/[^0-9]/g, ""); setForm({ ...form, price5: raw ? Number(raw).toLocaleString() : "" }); }}
+                                placeholder="0" className="w-full text-sm outline-none" />
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                       <div>
                         <label className="text-sm font-medium text-ink/70">Duration <span className="text-ink/30">(Optional)</span></label>
@@ -1454,11 +1520,11 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
 
                   <div>
                     <label className="text-sm font-medium text-ink/70">Assigned Branches</label>
-                    <div className="mt-2 space-y-2">
+                    <div className="mt-2 space-y-2 rounded-lg border border-ink/15 px-3 py-2.5">
                       {BRANCH_OPTIONS.map((b) => {
                         const isCurrentBranch = b === branch.name;
                         return (
-                          <label key={b} className="flex items-center gap-2 text-sm text-ink/70 cursor-pointer">
+                          <label key={b} className="flex items-center gap-3 text-base text-ink cursor-pointer py-1">
                             <input
                               type="checkbox"
                               checked={form.branches.includes(b)}
@@ -1473,7 +1539,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                                   setForm({ ...form, branches: form.branches.filter((x) => x !== b) });
                                 }
                               }}
-                              className="accent-coral"
+                              className="h-4 w-5 accent-coral"
                             />
                             <span>{b}</span>
                           </label>
@@ -1627,23 +1693,21 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                   <span className="text-xs font-medium text-white">Change Photo</span>
                 </div>
               </div>
-              {branchImagePreview && (
-                <div className="space-y-2 rounded-xl border border-ink/10 p-3">
-                  <p className="text-xs font-medium uppercase text-ink/40">Adjust Position on Card</p>
-                  <div className="flex items-center gap-2">
-                    <span className="w-14 shrink-0 text-xs text-ink/50">Left ↔</span>
-                    <input type="range" min={0} max={100} value={imgPosXCard} onChange={(e) => setImgPosXCard(Number(e.target.value))} className="flex-1 accent-coral" />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-14 shrink-0 text-xs text-ink/50">Top ↕</span>
-                    <input type="range" min={0} max={100} value={imgPosY} onChange={(e) => setImgPosY(Number(e.target.value))} className="flex-1 accent-coral" />
-                  </div>
-                  <div className="relative h-20 w-full overflow-hidden rounded-lg">
-                    <img src={branchImagePreview} alt="card preview" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `${imgPosXCard}% ${imgPosY}%` }} />
-                    <p className="absolute bottom-1 right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white">Card preview</p>
-                  </div>
+              <div className="space-y-2 rounded-xl border border-ink/10 p-3">
+                <p className="text-xs font-medium uppercase text-ink/40">Adjust Position on Card</p>
+                <div className="flex items-center gap-2">
+                  <span className="w-14 shrink-0 text-xs text-ink/50">Left ↔</span>
+                  <input type="range" min={0} max={100} value={imgPosXCard} onChange={(e) => setImgPosXCard(Number(e.target.value))} className="flex-1 accent-coral" />
                 </div>
-              )}
+                <div className="flex items-center gap-2">
+                  <span className="w-14 shrink-0 text-xs text-ink/50">Top ↕</span>
+                  <input type="range" min={0} max={100} value={imgPosY} onChange={(e) => setImgPosY(Number(e.target.value))} className="flex-1 accent-coral" />
+                </div>
+                <div className="relative h-20 w-full overflow-hidden rounded-lg">
+                  <img src={branchImagePreview ?? branchDraft.imageUrl} alt="card preview" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: `${imgPosXCard}% ${imgPosY}%` }} />
+                  <p className="absolute bottom-1 right-1 rounded bg-black/50 px-1.5 py-0.5 text-[10px] text-white">Card preview</p>
+                </div>
+              </div>
               <input
                 ref={branchFileRef}
                 type="file"
@@ -1657,6 +1721,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                   setBranchImagePreview(url);
                   setImgPosX(50);
                   setImgPosY(50);
+                  setImgPosXCard(50);
                   e.target.value = "";
                 }}
               />
@@ -1726,27 +1791,6 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
         />
       )}
 
-      {showFab && (
-        <div className="fixed bottom-8 right-8 z-40 flex flex-col items-center gap-3 rounded-2xl bg-white p-4 shadow-2xl">
-          <button onClick={() => setShowFab(false)} className="self-end rounded-full bg-red-50 p-1.5 text-red-400 hover:bg-red-100">
-            <X className="h-4 w-4" />
-          </button>
-          {[
-            { icon: Plus, label: "Add Service", action: openAdd, color: "text-purple-600 bg-purple-50" },
-            { icon: Users, label: "Add Staff", action: () => {}, color: "text-green-600 bg-green-50" },
-            { icon: ImageIcon, label: "Upload Banner", action: () => {}, color: "text-blue-600 bg-blue-50" },
-            { icon: BarChart2, label: "View Analytics", action: () => {}, color: "text-coral bg-blush" },
-            { icon: Settings, label: "Branch Settings", action: () => {}, color: "text-ink/60 bg-ink/5" },
-          ].map(({ icon: Icon, label, action, color }) => (
-            <button key={label} onClick={action} className="flex flex-col items-center gap-1 group">
-              <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${color} group-hover:opacity-80`}>
-                <Icon className="h-5 w-5" />
-              </span>
-              <span className="text-[10px] font-medium text-ink/50">{label}</span>
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

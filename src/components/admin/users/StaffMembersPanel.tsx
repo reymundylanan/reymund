@@ -45,6 +45,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -141,8 +142,13 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this staff member?")) return;
-    await supabase.from("staff_members").delete().eq("id", id);
+    setConfirmDeleteId(id);
+  }
+
+  async function confirmDeleteStaff() {
+    if (!confirmDeleteId) return;
+    await supabase.from("staff_members").delete().eq("id", confirmDeleteId);
+    setConfirmDeleteId(null);
     load();
   }
 
@@ -334,6 +340,32 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
           onDone={handleCropDone}
           onCancel={() => setCropSrc(null)}
         />
+      )}
+
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 mx-auto">
+              <Trash2 className="h-6 w-6 text-red-500" />
+            </div>
+            <h3 className="mt-4 text-center text-lg font-semibold text-ink">Remove Staff Member?</h3>
+            <p className="mt-2 text-center text-sm text-ink/50">This will permanently delete the staff member. This action cannot be undone.</p>
+            <div className="mt-6 flex flex-col gap-2">
+              <button
+                onClick={confirmDeleteStaff}
+                className="w-full rounded-full bg-red-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-600"
+              >
+                Yes, Remove
+              </button>
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="w-full rounded-full border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-coral"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

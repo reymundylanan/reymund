@@ -7,33 +7,53 @@ import BranchDetailView from "@/components/admin/branches/BranchDetailView";
 import { adminBranches } from "@/lib/adminData";
 import { createClient } from "@/lib/supabase/client";
 
-const statusStyles: Record<string, string> = {
-  Active: "bg-green-100 text-green-700",
-  Maintenance: "bg-amber-100 text-amber-700",
-  Inactive: "bg-red-100 text-red-600",
-};
+function parseTime12h(s: string): number | null {
+  const m = s.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  let h = parseInt(m[1]);
+  const min = parseInt(m[2]);
+  const p = m[3].toUpperCase();
+  if (p === "PM" && h !== 12) h += 12;
+  if (p === "AM" && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+function isOpenNow(hours: string, now: Date): boolean {
+  const parts = hours.split(" - ");
+  if (parts.length !== 2) return false;
+  const open = parseTime12h(parts[0]);
+  const close = parseTime12h(parts[1]);
+  if (open == null || close == null) return false;
+  const cur = now.getHours() * 60 + now.getMinutes();
+  return cur >= open && cur < close;
+}
 
 export default function BranchesManager() {
   const [region, setRegion] = useState("All Regions");
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<(typeof adminBranches)[number] | null>(null);
   const [dbImages, setDbImages] = useState<Record<string, string>>({});
+  const [dbHours, setDbHours] = useState<Record<string, string>>({});
   const [cardPositions, setCardPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [refreshKey, setRefreshKey] = useState(0);
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.from("branches").select("name, image_url").then(({ data }) => {
+    supabase.from("branches").select("name, image_url, hours").then(({ data }) => {
       if (!data) return;
-      const map: Record<string, string> = {};
+      const imgs: Record<string, string> = {};
+      const hrs: Record<string, string> = {};
       for (const row of data) {
-        if (row.name && row.image_url) map[row.name] = row.image_url;
+        if (row.name && row.image_url) imgs[row.name] = row.image_url;
+        if (row.name && row.hours) {
+          hrs[row.name] = typeof row.hours === "string" ? row.hours : String(row.hours);
+        }
       }
-      setDbImages(map);
+      setDbImages(imgs);
+      setDbHours(hrs);
     });
-  }, []);
 
-  useEffect(() => {
     const pos: Record<string, { x: number; y: number }> = {};
     for (const b of adminBranches) {
       try {
@@ -46,6 +66,11 @@ export default function BranchesManager() {
     }
     setCardPositions(pos);
   }, [refreshKey]);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   const filtered = useMemo(() => {
     return adminBranches.filter((b) => {
@@ -88,15 +113,23 @@ export default function BranchesManager() {
             <div className="p-5">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-ink">{branch.name}</h3>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[branch.status]}`}
-                >
-                  {branch.status}
-                </span>
+                {branch.status === "Active" ? (
+                  isOpenNow(dbHours[branch.name] ?? branch.hours, now) ? (
+                    <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">Open</span>
+                  ) : (
+                    <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-600">Closed</span>
+                  )
+                ) : (
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                    branch.status === "Maintenance" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-600"
+                  }`}>
+                    {branch.status}
+                  </span>
+                )}
               </div>
               <p className="mt-1 text-sm text-ink/60">{branch.address}</p>
               <p className="mt-2 text-xs text-ink/50">
-                Manager: {branch.manager || "—"} &bull; {branch.hours}
+                Manager: {branch.manager || "—"} &bull; {dbHours[branch.name] ?? branch.hours}
               </p>
               <button
                 onClick={() => setSelected(branch)}

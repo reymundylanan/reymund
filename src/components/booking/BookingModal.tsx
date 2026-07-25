@@ -19,6 +19,13 @@ type StaffMember = {
   avatar_url: string | null;
 };
 
+type SpaPackage = {
+  id: string;
+  badge: string;
+  price: number;
+  description: string;
+};
+
 type DbService = {
   id: string;
   name: string;
@@ -186,6 +193,7 @@ export default function BookingModal({
   const [staffLoading, setStaffLoading] = useState(false);
   const [branchUuid, setBranchUuid] = useState<string | null>(null);
   const [dbServices, setDbServices] = useState<DbService[]>([]);
+  const [spaPackages, setSpaPackages] = useState<SpaPackage[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
   const [profileMember, setProfileMember] = useState<StaffMember | null>(null);
   const [zoomedAvatar, setZoomedAvatar] = useState<string | null>(null);
@@ -194,6 +202,7 @@ export default function BookingModal({
   useEffect(() => {
     setBranchUuid(null);
     setDbServices([]);
+    setSpaPackages([]);
     setSelectedServices([]);
     setCategoryId("");
     setShowSelectedPanel(false);
@@ -203,6 +212,7 @@ export default function BookingModal({
     if (step !== "services" || !branchId) return;
     setServicesLoading(true);
     setDbServices([]);
+    setSpaPackages([]);
     const selectedBranch = branchContacts.find((b) => b.id === branchId);
     if (!selectedBranch) { setServicesLoading(false); return; }
     const supabase = createClient();
@@ -218,6 +228,19 @@ export default function BookingModal({
         uuid = branchRow.id;
         setBranchUuid(uuid);
       }
+
+      if (appointmentType === "group") {
+        const { data: promos } = await supabase
+          .from("branch_promotions")
+          .select("id, badge, price, description")
+          .eq("branch_id", uuid)
+          .eq("category", "Spa Package")
+          .order("price");
+        setSpaPackages((promos ?? []) as SpaPackage[]);
+        setServicesLoading(false);
+        return;
+      }
+
       const { data } = await supabase
         .from("branch_services")
         .select("id, name, category, department, duration, price, price_41, hair_options, facial_options, brows_type, body_wellness_type, laser_type, slimming_type, non_surgical_type, doctor_type, addons")
@@ -273,7 +296,7 @@ export default function BookingModal({
       if (cats.length > 0) setCategoryId(cats[0]);
       setServicesLoading(false);
     })();
-  }, [step, branchId]);
+  }, [step, branchId, appointmentType]);
 
   useEffect(() => {
     if (step !== "professional" || !branchId) return;
@@ -452,7 +475,7 @@ export default function BookingModal({
           step !== "otp" &&
           step !== "success" && (
           <div className="flex border-b border-ink/10 px-6">
-            {TABS.map((tab) => (
+            {TABS.filter((tab) => !(appointmentType === "group" && tab.id === "professional")).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => goToTab(tab.id)}
@@ -493,8 +516,8 @@ export default function BookingModal({
                 }}
                 className="rounded-2xl border border-ink/10 p-6 text-left hover:border-coral"
               >
-                <p className="font-semibold text-ink">Group appointment</p>
-                <p className="mt-1 text-sm text-ink/60">For yourself &amp; others</p>
+                <p className="font-semibold text-ink">Spa Party Packages</p>
+                <p className="mt-1 text-sm text-ink/60">Exclusive packages for groups</p>
                 <span className="mt-4 inline-block rounded-full bg-coral px-4 py-2 text-xs font-semibold text-white">
                   Book Now
                 </span>
@@ -504,10 +527,19 @@ export default function BookingModal({
 
           {step === "branch" && (
             <div className="space-y-3">
-              <p className="text-sm font-semibold text-ink">
-                Choose a branch
-              </p>
-              {branchContacts.map((b) => (
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-ink">Choose a branch</p>
+                <button
+                  onClick={() => setStep("type")}
+                  className="text-base font-medium text-ink/50 hover:text-ink"
+                >
+                  ← Back
+                </button>
+              </div>
+              {(appointmentType === "group"
+                ? branchContacts.filter((b) => b.id === "one-cecilia-center")
+                : branchContacts
+              ).map((b) => (
                 <button
                   key={b.id}
                   onClick={() => setBranchId(b.id)}
@@ -530,8 +562,65 @@ export default function BookingModal({
             </div>
           )}
 
-          {step === "services" && (
+          {step === "services" && appointmentType === "group" && (
             <div>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold text-ink">Choose a package</p>
+                <button
+                  onClick={() => setStep("branch")}
+                  className="text-base font-medium text-ink/50 hover:text-ink"
+                >
+                  ← Back
+                </button>
+              </div>
+              {servicesLoading ? (
+                <div className="py-12 text-center text-sm text-ink/40">Loading packages...</div>
+              ) : spaPackages.length === 0 ? (
+                <div className="py-12 text-center text-sm text-ink/40">No spa packages available.</div>
+              ) : (
+                <div className="space-y-4">
+                  {spaPackages.map((pkg) => {
+                    const isSelected = selectedServices.some((s) => s.id === pkg.id);
+                    const inclusions = pkg.description ? pkg.description.split("\n").filter(Boolean) : [];
+                    return (
+                      <button
+                        key={pkg.id}
+                        onClick={() => setSelectedServices([{ id: pkg.id, name: `${pkg.badge} Spa Package`, category: "Spa Package", department: "Spa", duration: "3 hrs", price: pkg.price }])}
+                        className={`w-full rounded-2xl border p-5 text-left transition ${isSelected ? "border-coral bg-blush" : "border-ink/10 hover:border-coral/50"}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`rounded-full border px-3 py-0.5 text-xs font-bold tracking-wider ${isSelected ? "border-coral text-coral-dark" : "border-gold text-gold"}`}>{pkg.badge}</span>
+                          <span className="text-xl font-bold text-ink">Php {pkg.price.toLocaleString()}</span>
+                        </div>
+                        {inclusions.length > 0 && (
+                          <ul className="mt-3 space-y-1">
+                            {inclusions.map((inc, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-ink/70">
+                                <span className="mt-0.5 text-gold">✓</span>
+                                {inc}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === "services" && appointmentType !== "group" && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm font-semibold text-ink">Choose services</p>
+                <button
+                  onClick={() => setStep("branch")}
+                  className="text-base font-medium text-ink/50 hover:text-ink"
+                >
+                  ← Back
+                </button>
+              </div>
               {servicesLoading ? (
                 <div className="py-12 text-center text-sm text-ink/40">Loading services...</div>
               ) : dbServices.length === 0 ? (
@@ -709,6 +798,15 @@ export default function BookingModal({
 
           {step === "professional" && (
             <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-ink">Choose a professional</p>
+                <button
+                  onClick={() => setStep("services")}
+                  className="text-base font-medium text-ink/50 hover:text-ink"
+                >
+                  ← Back
+                </button>
+              </div>
               <button
                 onClick={() => setProfessionalId("any")}
                 className={`flex w-full items-center justify-between rounded-xl border p-4 text-left ${
@@ -792,6 +890,16 @@ export default function BookingModal({
           )}
 
           {step === "time" && (
+            <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-ink">Pick a date & time</p>
+              <button
+                onClick={() => setStep(appointmentType === "group" ? "services" : "professional")}
+                className="text-base font-medium text-ink/50 hover:text-ink"
+              >
+                ← Back
+              </button>
+            </div>
             <div className="grid gap-6 sm:grid-cols-[1fr_180px]">
               <div>
                 <div className="flex items-center justify-between">
@@ -873,10 +981,20 @@ export default function BookingModal({
                 ))}
               </div>
             </div>
+            </div>
           )}
 
           {step === "confirm" && (
             <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-ink">Booking summary</p>
+                <button
+                  onClick={() => setStep("time")}
+                  className="text-base font-medium text-ink/50 hover:text-ink"
+                >
+                  ← Back
+                </button>
+              </div>
               <div className="rounded-xl border border-ink/10 p-4">
                 <p className="text-base font-semibold text-ink">{serviceNames} with {professionalLabel}</p>
                 <p className="mt-1 text-base text-ink/60">
@@ -889,7 +1007,7 @@ export default function BookingModal({
               </div>
               {appointmentType === "group" && (
                 <p className="text-sm text-ink/50">
-                  Group appointments require full payment to confirm the slot.
+                  Spa Party Packages require full payment to confirm the slot.
                 </p>
               )}
               <div>
@@ -915,6 +1033,16 @@ export default function BookingModal({
           )}
 
           {step === "payment-choice" && (
+            <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-ink">Choose payment option</p>
+              <button
+                onClick={() => setStep("confirm")}
+                className="text-base font-medium text-ink/50 hover:text-ink"
+              >
+                ← Back
+              </button>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <button
                 onClick={() => setStep("checkout")}
@@ -942,6 +1070,7 @@ export default function BookingModal({
                   date.
                 </p>
               </button>
+            </div>
             </div>
           )}
           {step === "payment-choice" && saveError && (
@@ -1140,15 +1269,6 @@ export default function BookingModal({
 
           {step === "type" && null}
 
-          {step === "payment-choice" && (
-            <button
-              onClick={() => setStep("confirm")}
-              className="flex items-center gap-1 text-base font-medium text-ink/50 hover:text-ink ml-auto"
-            >
-              ← Back
-            </button>
-          )}
-
           {step === "branch" && (
             <button
               disabled={!branchId}
@@ -1162,7 +1282,14 @@ export default function BookingModal({
           {step === "services" && (
             <button
               disabled={selectedServices.length === 0}
-              onClick={() => setStep("professional")}
+              onClick={() => {
+                if (appointmentType === "group") {
+                  setProfessionalId("any");
+                  setStep("time");
+                } else {
+                  setStep("professional");
+                }
+              }}
               className="rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark disabled:opacity-40"
             >
               Continue
