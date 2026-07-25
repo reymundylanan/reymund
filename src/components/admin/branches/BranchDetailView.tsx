@@ -152,6 +152,7 @@ const emptyForm = {
   slimmingType: "" as "" | "7D HIFU Ultra Lift" | "PowerSculpt" | "Exislim / Exilift",
   nonSurgicalType: "" as "" | "MesoLipo" | "Add On",
   doctorType: "" as "" | "Beauty-Tox" | "Non-Surgical Augmentation",
+  cocktailType: "" as "" | "Add On",
 };
 
 function parseTime12h(s: string): number | null {
