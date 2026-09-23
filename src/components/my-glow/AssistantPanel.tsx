@@ -7,7 +7,6 @@ const SUGGESTED_PROMPTS = [
   "Recommend a service for me",
   "Check my bookings",
   "Track my Glow Journey",
-  "Find the best time to book",
   "Ask about promotions",
 ];
 
