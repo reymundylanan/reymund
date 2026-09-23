@@ -40,6 +40,7 @@ function ReviewForm({
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   async function handleSubmit() {
     if (rating === 0) {
@@ -50,7 +51,24 @@ function ReviewForm({
     setError(null);
     const err = await onSubmit(rating, text);
     setSubmitting(false);
-    if (err) setError(err);
+    if (err) {
+      setError(err);
+      return;
+    }
+    // Close the resubmission window immediately — don't wait on the
+    // parent's router.refresh() to eventually re-render with fresh props,
+    // since that refresh signal isn't awaitable from here.
+    setSubmitted(true);
+    setRating(0);
+    setText("");
+  }
+
+  if (submitted) {
+    return (
+      <div className="rounded-2xl border border-ink/10 bg-blush/40 p-4 text-sm text-ink/70">
+        Thanks for your review! ✓
+      </div>
+    );
   }
 
   return (

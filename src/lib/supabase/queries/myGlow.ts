@@ -48,6 +48,7 @@ type RawAppointmentRow = {
   start_time: string;
   duration_minutes: number;
   status: string;
+  notes: string | null;
   service: Rel<{ name: string }>;
   professional: Rel<{ name: string }>;
   branch: Rel<{ name: string }>;
@@ -58,10 +59,10 @@ export async function getUpcomingAppointment(
   clientId: string
 ): Promise<UpcomingAppointment | null> {
   const today = new Date().toISOString().slice(0, 10);
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, scheduled_date, start_time, duration_minutes, status, service:services(name), professional:professionals(name), branch:branches(name)"
+      "id, scheduled_date, start_time, duration_minutes, status, notes, service:services(name), professional:professionals(name), branch:branches(name)"
     )
     .eq("client_id", clientId)
     .in("status", ["confirmed", "pending"])
@@ -71,6 +72,7 @@ export async function getUpcomingAppointment(
     .limit(1)
     .maybeSingle();
 
+  if (error) console.error("getUpcomingAppointment failed:", error);
   if (!data) return null;
   const row = data as unknown as RawAppointmentRow;
   return {
@@ -78,7 +80,10 @@ export async function getUpcomingAppointment(
     scheduledDate: row.scheduled_date,
     startTime: row.start_time,
     durationMinutes: row.duration_minutes,
-    serviceName: one(row.service)?.name ?? null,
+    // Booking currently only records service/therapist as free text in
+    // `notes` (see BookingModal.tsx) — service_id/professional_id are
+    // never written, so the structured join is almost always null.
+    serviceName: one(row.service)?.name ?? row.notes ?? null,
     professionalName: one(row.professional)?.name ?? null,
     branchName: one(row.branch)?.name ?? null,
   };
@@ -89,22 +94,23 @@ export async function getRecentAppointments(
   clientId: string,
   limit = 10
 ): Promise<RecentAppointment[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, scheduled_date, start_time, status, service:services(name), professional:professionals(name)"
+      "id, scheduled_date, start_time, status, notes, service:services(name), professional:professionals(name)"
     )
     .eq("client_id", clientId)
     .order("scheduled_date", { ascending: false })
     .order("start_time", { ascending: false })
     .limit(limit);
 
+  if (error) console.error("getRecentAppointments failed:", error);
   return ((data as unknown as RawAppointmentRow[]) ?? []).map((row) => ({
     id: row.id,
     scheduledDate: row.scheduled_date,
     startTime: row.start_time,
     status: row.status,
-    serviceName: one(row.service)?.name ?? null,
+    serviceName: one(row.service)?.name ?? row.notes ?? null,
     professionalName: one(row.professional)?.name ?? null,
   }));
 }
@@ -113,18 +119,24 @@ export async function getReviewableProfessionals(
   supabase: SupabaseClient,
   clientId: string
 ): Promise<ReviewableProfessional[]> {
-  const { data: completed } = await supabase
+  const { data: completed, error: completedError } = await supabase
     .from("appointments")
     .select("professional_id, professional:professionals(name)")
     .eq("client_id", clientId)
     .eq("status", "completed")
-    .not("professional_id", "is", null);
+    .not("professional_id", "is", null)
+    .order("scheduled_date", { ascending: false })
+    .order("start_time", { ascending: false });
 
-  const { data: reviewed } = await supabase
+  if (completedError) console.error("getReviewableProfessionals (completed) failed:", completedError);
+
+  const { data: reviewed, error: reviewedError } = await supabase
     .from("reviews")
     .select("professional_id")
     .eq("client_id", clientId)
     .not("professional_id", "is", null);
+
+  if (reviewedError) console.error("getReviewableProfessionals (reviewed) failed:", reviewedError);
 
   const reviewedIds = new Set(
     (reviewed ?? []).map((r) => r.professional_id as string)
@@ -154,13 +166,15 @@ export async function getMyReviews(
   supabase: SupabaseClient,
   clientId: string
 ): Promise<MyReview[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("reviews")
     .select(
       "id, rating, text, created_at, professional_id, branch_id, professional:professionals(name), branch:branches(name)"
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
+
+  if (error) console.error("getMyReviews failed:", error);
 
   type ReviewRow = {
     id: string;
@@ -192,7 +206,7 @@ export async function getDefaultBranch(
   supabase: SupabaseClient,
   clientId: string
 ): Promise<DefaultBranch> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("appointments")
     .select("branch:branches(id, name)")
     .eq("client_id", clientId)
@@ -200,6 +214,8 @@ export async function getDefaultBranch(
     .order("scheduled_date", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  if (error) console.error("getDefaultBranch failed:", error);
 
   const branch = one(
     (data as { branch: Rel<{ id: string; name: string }> } | null)?.branch ?? null
