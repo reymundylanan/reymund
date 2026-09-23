@@ -44,6 +44,7 @@ async function fetchBranchData(branchName: string): Promise<{ info: BranchInfo; 
       .from("branch_gallery")
       .select("image_url")
       .eq("branch_id", branchRow.id)
+      .eq("category", "gallery")
       .order("created_at", { ascending: false }),
   ]);
 

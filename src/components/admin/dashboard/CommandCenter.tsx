@@ -1,13 +1,19 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import { Building2, ClipboardList, UserPlus } from "lucide-react";
-
-const actions = [
-  { label: "Add Branch", icon: Building2, href: "/admin/branches" },
-  { label: "Manage Staff", icon: UserPlus, href: null },
-  { label: "Add Menu", icon: ClipboardList, href: "/admin/branches" },
-];
+import AddMenuModal from "@/components/admin/dashboard/AddMenuModal";
 
 export default function CommandCenter() {
+  const [showAddMenu, setShowAddMenu] = useState(false);
+
+  const actions = [
+    { label: "Add Branch", icon: Building2, href: "/admin/branches", onClick: null },
+    { label: "Manage Staff", icon: UserPlus, href: null, onClick: null },
+    { label: "Add Menu", icon: ClipboardList, href: null, onClick: () => setShowAddMenu(true) },
+  ];
+
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <h3 className="font-semibold text-ink">Admin Command Center</h3>
@@ -21,13 +27,22 @@ export default function CommandCenter() {
               <span className="text-xs font-medium text-ink/70">{action.label}</span>
             </>
           );
-          return action.href ? (
-            <Link key={action.label} href={action.href} className={cls}>{content}</Link>
-          ) : (
-            <button key={action.label} className={cls}>{content}</button>
+          if (action.href) {
+            return (
+              <Link key={action.label} href={action.href} className={cls}>
+                {content}
+              </Link>
+            );
+          }
+          return (
+            <button key={action.label} onClick={action.onClick ?? undefined} className={cls}>
+              {content}
+            </button>
           );
         })}
       </div>
+
+      {showAddMenu && <AddMenuModal onClose={() => setShowAddMenu(false)} />}
     </div>
   );
 }
