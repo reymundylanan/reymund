@@ -42,6 +42,21 @@ function toDateKey(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+function getWeekLabel(weekDates: Date[]): string {
+  const start = weekDates[0];
+  const end = weekDates[weekDates.length - 1];
+  const startMonth = start.toLocaleDateString("en-US", { month: "long" });
+  const endMonth = end.toLocaleDateString("en-US", { month: "long" });
+
+  if (start.getFullYear() !== end.getFullYear()) {
+    return `${startMonth} ${start.getFullYear()} – ${endMonth} ${end.getFullYear()}`;
+  }
+  if (startMonth !== endMonth) {
+    return `${startMonth} – ${endMonth} ${start.getFullYear()}`;
+  }
+  return `${startMonth} ${start.getFullYear()}`;
+}
+
 export default function BookingsCalendar({
   appointments,
   onSelect,
@@ -54,6 +69,8 @@ export default function BookingsCalendar({
 
   return (
     <div className="overflow-x-auto rounded-2xl bg-white p-4 shadow-sm">
+      <p className="px-1 pb-2 text-sm font-semibold text-ink">{getWeekLabel(weekDates)}</p>
+
       <div className="grid grid-cols-[64px_repeat(7,1fr)] gap-px">
         <div />
         {weekDates.map((d) => (
