@@ -92,7 +92,7 @@ export default function BookingsManager() {
           Loading bookings…
         </div>
       ) : view === "calendar" ? (
-        <BookingsCalendar onSelect={() => {}} />
+        <BookingsCalendar appointments={filteredAppointments} onSelect={() => {}} />
       ) : (
         <BookingsListView appointments={filteredAppointments} />
       )}

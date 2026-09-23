@@ -1,14 +1,18 @@
-import { appointments, weekDays } from "@/lib/adminData";
-import type { Appointment } from "@/lib/adminData";
+import type { DbAppointment } from "@/components/admin/bookings/BookingsManager";
 
 const START_HOUR = 8;
 const END_HOUR = 20;
 const ROW_HEIGHT = 48;
 
-const statusStyles: Record<Appointment["status"], string> = {
+const statusStyles: Record<string, string> = {
   confirmed: "border-l-4 border-coral bg-blush",
+  checked_in: "border-l-4 border-coral bg-blush",
+  in_service: "border-l-4 border-coral bg-blush",
+  completed: "border-l-4 border-coral bg-blush",
   pending: "border-l-4 border-amber-400 bg-amber-50",
   conflict: "border-l-4 border-red-500 bg-red-50",
+  no_show: "border-l-4 border-red-500 bg-red-50",
+  cancelled: "border-l-4 border-red-500 bg-red-50",
 };
 
 const hours = Array.from(
@@ -22,25 +26,50 @@ function formatHour(h: number) {
   return `${h12.toString().padStart(2, "0")} ${meridiem}`;
 }
 
+function getCurrentWeekDates(): Date[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - today.getDay());
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + i);
+    return d;
+  });
+}
+
+function toDateKey(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
 export default function BookingsCalendar({
+  appointments,
   onSelect,
 }: {
-  onSelect: (a: Appointment) => void;
+  appointments: DbAppointment[];
+  onSelect: (a: DbAppointment) => void;
 }) {
+  const weekDates = getCurrentWeekDates();
   const gridHeight = (END_HOUR - START_HOUR) * ROW_HEIGHT;
 
   return (
     <div className="overflow-x-auto rounded-2xl bg-white p-4 shadow-sm">
       <div className="grid grid-cols-[64px_repeat(7,1fr)] gap-px">
         <div />
-        {weekDays.map((d) => (
-          <div key={d} className="px-2 py-2 text-center text-sm font-medium text-ink/70">
-            {d}
+        {weekDates.map((d) => (
+          <div
+            key={d.toISOString()}
+            className="px-2 py-2 text-center text-sm font-medium text-ink/70"
+          >
+            {d.toLocaleDateString("en-US", { weekday: "short" })} {d.getDate()}
           </div>
         ))}
       </div>
 
-      <div className="relative grid grid-cols-[64px_repeat(7,1fr)] gap-px" style={{ height: gridHeight }}>
+      <div
+        className="relative grid grid-cols-[64px_repeat(7,1fr)] gap-px"
+        style={{ height: gridHeight }}
+      >
         <div>
           {hours.slice(0, -1).map((h) => (
             <div
@@ -53,31 +82,38 @@ export default function BookingsCalendar({
           ))}
         </div>
 
-        {weekDays.map((_, dayIndex) => (
-          <div key={dayIndex} className="relative border-l border-ink/5">
-            {hours.slice(0, -1).map((h) => (
-              <div key={h} style={{ height: ROW_HEIGHT }} className="border-t border-ink/5" />
-            ))}
+        {weekDates.map((date) => {
+          const dateKey = toDateKey(date);
+          const dayAppointments = appointments.filter((a) => a.scheduled_date === dateKey);
+          return (
+            <div key={dateKey} className="relative border-l border-ink/5">
+              {hours.slice(0, -1).map((h) => (
+                <div key={h} style={{ height: ROW_HEIGHT }} className="border-t border-ink/5" />
+              ))}
 
-            {appointments
-              .filter((a) => a.day === dayIndex)
-              .map((a) => {
-                const top = (a.startHour - START_HOUR) * ROW_HEIGHT;
-                const height = a.duration * ROW_HEIGHT;
+              {dayAppointments.map((a) => {
+                const [h, m] = a.start_time.split(":").map(Number);
+                const startHour = h + m / 60;
+                const duration = a.duration_minutes / 60;
+                const top = Math.max(0, (startHour - START_HOUR) * ROW_HEIGHT);
+                const height = Math.max(20, duration * ROW_HEIGHT);
                 return (
                   <button
                     key={a.id}
                     onClick={() => onSelect(a)}
                     style={{ top, height }}
-                    className={`absolute left-1 right-1 rounded-md p-1.5 text-left text-[11px] leading-tight ${statusStyles[a.status]}`}
+                    className={`absolute left-1 right-1 overflow-hidden rounded-md p-1.5 text-left text-[11px] leading-tight ${
+                      statusStyles[a.status] ?? "border-l-4 border-ink/20 bg-ink/5"
+                    }`}
                   >
-                    <p className="font-semibold text-ink">{a.service}</p>
-                    <p className="text-ink/60">{a.specialist}</p>
+                    <p className="truncate font-semibold text-ink">{a.notes ?? "Appointment"}</p>
+                    <p className="truncate text-ink/60">{a.client_name}</p>
                   </button>
                 );
               })}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
