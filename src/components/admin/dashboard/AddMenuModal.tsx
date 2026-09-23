@@ -145,7 +145,7 @@ export default function AddMenuModal({ onClose }: { onClose: () => void }) {
             </label>
           )}
           {photos.length > 0 && (
-            <p className="mt-2 text-center text-xs text-ink/40">
+            <p className="mt-2 text-center text-base text-ink/50">
               {photos.length} photo{photos.length > 1 ? "s" : ""} uploaded
             </p>
           )}
