@@ -1,14 +1,23 @@
-import { revenueByBranch } from "@/lib/adminData";
+import type { RevenueByBranchItem } from "@/lib/supabase/queries/adminDashboard";
 
-export default function RevenueByBranch() {
+export default function RevenueByBranch({
+  revenueByBranch,
+}: {
+  revenueByBranch: RevenueByBranchItem[];
+}) {
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <h3 className="font-semibold text-ink">Revenue by Branch</h3>
       <p className="text-xs text-ink/40">
-        Performance comparison across top performing locations
+        Performance comparison across top performing locations this month
       </p>
 
       <div className="mt-5 space-y-4">
+        {revenueByBranch.length === 0 && (
+          <p className="py-4 text-center text-sm text-ink/40">
+            No settled payments recorded this month yet.
+          </p>
+        )}
         {revenueByBranch.map((b) => (
           <div key={b.branch}>
             <div className="flex justify-between text-sm">

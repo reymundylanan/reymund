@@ -1,7 +1,7 @@
-import { bookingTrends } from "@/lib/adminData";
+import type { BookingTrendPoint } from "@/lib/supabase/queries/adminDashboard";
 
-export default function BookingTrends() {
-  const max = Math.max(...bookingTrends.map((d) => d.value));
+export default function BookingTrends({ bookingTrends }: { bookingTrends: BookingTrendPoint[] }) {
+  const max = Math.max(1, ...bookingTrends.map((d) => d.value));
   const width = 560;
   const height = 160;
   const step = width / (bookingTrends.length - 1);
