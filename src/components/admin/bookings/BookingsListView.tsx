@@ -42,7 +42,6 @@ export default function BookingsListView({
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="text-xs uppercase text-ink/40">
-            <th className="py-2">Booking ID</th>
             <th className="py-2">Customer</th>
             <th className="py-2">Branch</th>
             <th className="py-2">Service</th>
@@ -59,8 +58,7 @@ export default function BookingsListView({
                 key={a.id}
                 className="border-t border-ink/5"
               >
-                <td className="py-3 font-medium text-ink">{a.booking_code}</td>
-                <td className="py-3 text-ink/70">{a.client_name}</td>
+                <td className="py-3 font-medium text-ink">{a.client_name}</td>
                 <td className="py-3 text-ink/70">{a.branch_name}</td>
                 <td className="py-3 text-ink/70">{service}</td>
                 <td className="py-3 text-ink/70">{specialist}</td>
