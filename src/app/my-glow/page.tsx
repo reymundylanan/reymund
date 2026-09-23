@@ -9,6 +9,7 @@ import {
   getMyReviews,
   getDefaultBranch,
 } from "@/lib/supabase/queries/myGlow";
+import UpcomingBookingCard from "@/components/my-glow/UpcomingBookingCard";
 
 export default async function MyGlowPage() {
   const supabase = await createClient();
@@ -36,13 +37,16 @@ export default async function MyGlowPage() {
     <>
       <Header />
       <main className="flex-1 bg-blush/30 px-6 py-10">
-        <pre className="mx-auto max-w-4xl overflow-auto rounded-2xl bg-white p-6 text-xs">
-          {JSON.stringify(
-            { profile, upcoming, recent, reviewable, myReviews, defaultBranch },
-            null,
-            2
-          )}
-        </pre>
+        <div className="mx-auto max-w-4xl space-y-6">
+          <UpcomingBookingCard appointment={upcoming} />
+          <pre className="overflow-auto rounded-2xl bg-white p-6 text-xs">
+            {JSON.stringify(
+              { profile, recent, reviewable, myReviews, defaultBranch },
+              null,
+              2
+            )}
+          </pre>
+        </div>
       </main>
       <Footer />
     </>
