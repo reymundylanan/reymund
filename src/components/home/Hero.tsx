@@ -1,14 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import { Search, SlidersHorizontal, Star } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchServiceCategories } from "@/lib/data";
+import MenuGalleryModal from "@/components/home/MenuGalleryModal";
 
 const filters = ["Popular", "Massage", "Facial", "Body"];
 
 export default function Hero() {
   const { open } = useBooking();
   const defaultService = branchServiceCategories[0].services[0];
+  const [showMenu, setShowMenu] = useState(false);
 
   return (
     <section className="relative">
@@ -42,7 +45,10 @@ export default function Hero() {
             >
               Book an Experience
             </button>
-            <button className="rounded-full border border-white/60 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
+            <button
+              onClick={() => setShowMenu(true)}
+              className="rounded-full border border-white/60 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
               View Menu
             </button>
           </div>
@@ -76,6 +82,8 @@ export default function Hero() {
           </div>
         </div>
       </div>
+
+      {showMenu && <MenuGalleryModal onClose={() => setShowMenu(false)} />}
     </section>
   );
 }
