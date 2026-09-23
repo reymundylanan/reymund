@@ -11,6 +11,7 @@ import DashboardStats from "@/components/frontdesk/dashboard/DashboardStats";
 import TodaySchedule from "@/components/frontdesk/dashboard/TodaySchedule";
 import TherapistsOnDuty from "@/components/frontdesk/dashboard/TherapistsOnDuty";
 import AlertsPanel from "@/components/frontdesk/dashboard/AlertsPanel";
+import LobbyQueue from "@/components/frontdesk/dashboard/LobbyQueue";
 
 export default async function FrontDeskDashboardPage() {
   const supabase = await createClient();
@@ -57,6 +58,8 @@ export default async function FrontDeskDashboardPage() {
           </div>
 
           <AlertsPanel verifications={verifications} />
+
+          <LobbyQueue />
         </>
       )}
     </div>
