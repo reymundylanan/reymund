@@ -2,7 +2,7 @@
 
 import { CalendarDays, List, Plus } from "lucide-react";
 
-const filters = ["One Cecilia Center", "Robinsons Pagadian", "All Specialists", "All Statuses"];
+const filters = ["One Cecilia Center", "Robinsons Pagadian"];
 
 export default function BookingsToolbar({
   view,
