@@ -7,7 +7,7 @@ import {
   getRecentAppointments,
   getReviewableProfessionals,
   getMyReviews,
-  getDefaultBranch,
+  getVisitedBranches,
 } from "@/lib/supabase/queries/myGlow";
 import UpcomingBookingCard from "@/components/my-glow/UpcomingBookingCard";
 import MyServicesList from "@/components/my-glow/MyServicesList";
@@ -30,13 +30,13 @@ export default async function MyGlowPage() {
 
   if (!profile || profile.role !== "customer") redirect("/");
 
-  const [upcoming, recent, reviewable, myReviews, defaultBranch] =
+  const [upcoming, recent, reviewable, myReviews, visitedBranches] =
     await Promise.all([
       getUpcomingAppointment(supabase, auth.user.id),
       getRecentAppointments(supabase, auth.user.id),
       getReviewableProfessionals(supabase, auth.user.id),
       getMyReviews(supabase, auth.user.id),
-      getDefaultBranch(supabase, auth.user.id),
+      getVisitedBranches(supabase, auth.user.id),
     ]);
 
   return (
@@ -52,7 +52,7 @@ export default async function MyGlowPage() {
               <ReviewsPanel
                 clientId={auth.user.id}
                 reviewable={reviewable}
-                defaultBranch={defaultBranch}
+                visitedBranches={visitedBranches}
                 myReviews={myReviews}
               />
             </div>

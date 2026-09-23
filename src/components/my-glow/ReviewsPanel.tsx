@@ -6,7 +6,6 @@ import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   submitReview,
-  type DefaultBranch,
   type MyReview,
   type ReviewableProfessional,
 } from "@/lib/supabase/queries/myGlow";
@@ -31,9 +30,11 @@ function StarPicker({
 
 function ReviewForm({
   targetLabel,
+  extra,
   onSubmit,
 }: {
   targetLabel: string;
+  extra?: React.ReactNode;
   onSubmit: (rating: number, text: string) => Promise<string | null>;
 }) {
   const [rating, setRating] = useState(0);
@@ -74,6 +75,7 @@ function ReviewForm({
   return (
     <div className="rounded-2xl border border-ink/10 p-4">
       <p className="text-sm font-medium text-ink">{targetLabel}</p>
+      {extra}
       <div className="mt-2">
         <StarPicker value={rating} onChange={setRating} />
       </div>
@@ -96,15 +98,48 @@ function ReviewForm({
   );
 }
 
+function BranchReviewForm({
+  branches,
+  onSubmit,
+}: {
+  branches: { id: string; name: string }[];
+  onSubmit: (branchId: string, rating: number, text: string) => Promise<string | null>;
+}) {
+  const [branchId, setBranchId] = useState(branches[0].id);
+  const selected = branches.find((b) => b.id === branchId) ?? branches[0];
+
+  return (
+    <ReviewForm
+      targetLabel={branches.length > 1 ? "Review Our Spa" : `Review ${selected.name}`}
+      extra={
+        branches.length > 1 ? (
+          <select
+            value={branchId}
+            onChange={(e) => setBranchId(e.target.value)}
+            className="mt-1 w-full rounded-xl border border-ink/15 p-2 text-sm text-ink outline-none focus:border-coral"
+          >
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        ) : undefined
+      }
+      onSubmit={(rating, text) => onSubmit(branchId, rating, text)}
+    />
+  );
+}
+
 export default function ReviewsPanel({
   clientId,
   reviewable,
-  defaultBranch,
+  visitedBranches,
   myReviews,
 }: {
   clientId: string;
   reviewable: ReviewableProfessional[];
-  defaultBranch: DefaultBranch;
+  visitedBranches: { id: string; name: string }[];
   myReviews: MyReview[];
 }) {
   const [tab, setTab] = useState<"write" | "mine">("write");
@@ -160,11 +195,11 @@ export default function ReviewsPanel({
             </div>
           )}
 
-          {defaultBranch ? (
-            <ReviewForm
-              targetLabel={`Review ${defaultBranch.name}`}
-              onSubmit={(rating, text) =>
-                handleSubmit({ branchId: defaultBranch.id }, rating, text)
+          {visitedBranches.length > 0 ? (
+            <BranchReviewForm
+              branches={visitedBranches}
+              onSubmit={(branchId, rating, text) =>
+                handleSubmit({ branchId }, rating, text)
               }
             />
           ) : (

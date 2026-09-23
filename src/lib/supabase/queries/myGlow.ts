@@ -33,8 +33,6 @@ export type MyReview = {
   targetName: string;
 };
 
-export type DefaultBranch = { id: string; name: string } | null;
-
 type Rel<T> = T | T[] | null;
 
 function one<T>(v: Rel<T>): T | null {
@@ -202,25 +200,31 @@ export async function getMyReviews(
   });
 }
 
-export async function getDefaultBranch(
+export async function getVisitedBranches(
   supabase: SupabaseClient,
   clientId: string
-): Promise<DefaultBranch> {
+): Promise<{ id: string; name: string }[]> {
   const { data, error } = await supabase
     .from("appointments")
     .select("branch:branches(id, name)")
     .eq("client_id", clientId)
     .not("branch_id", "is", null)
-    .order("scheduled_date", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("scheduled_date", { ascending: false });
 
-  if (error) console.error("getDefaultBranch failed:", error);
+  if (error) console.error("getVisitedBranches failed:", error);
 
-  const branch = one(
-    (data as { branch: Rel<{ id: string; name: string }> } | null)?.branch ?? null
-  );
-  return branch ? { id: branch.id, name: branch.name } : null;
+  type Row = { branch: Rel<{ id: string; name: string }> };
+  const seen = new Set<string>();
+  const result: { id: string; name: string }[] = [];
+
+  for (const row of (data as unknown as Row[]) ?? []) {
+    const branch = one(row.branch);
+    if (!branch || seen.has(branch.id)) continue;
+    seen.add(branch.id);
+    result.push(branch);
+  }
+
+  return result;
 }
 
 export async function submitReview(
