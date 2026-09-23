@@ -8,7 +8,7 @@ export default function BranchGalleryModal({ photos }: { photos: string[] }) {
   const [gridOpen, setGridOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  if (photos.length <= 3) return null;
+  if (photos.length === 0) return null;
 
   function openLightbox(i: number) {
     setLightboxIndex(i);
