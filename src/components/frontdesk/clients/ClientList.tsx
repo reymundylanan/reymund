@@ -1,16 +1,20 @@
 "use client";
 
-import { BadgeCheck, Plus, Search, User } from "lucide-react";
-import { clients, type Client } from "@/lib/frontdeskData";
+import { BadgeCheck, Search, User } from "lucide-react";
+import type { FrontDeskClient } from "@/lib/supabase/queries/frontdeskClients";
 
 export default function ClientList({
+  clients,
+  loading,
   selectedId,
   onSelect,
   query,
   onQueryChange,
 }: {
-  selectedId: string;
-  onSelect: (c: Client) => void;
+  clients: FrontDeskClient[];
+  loading: boolean;
+  selectedId: string | null;
+  onSelect: (c: FrontDeskClient) => void;
   query: string;
   onQueryChange: (q: string) => void;
 }) {
@@ -20,12 +24,7 @@ export default function ClientList({
 
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-ink">Client Directory</h2>
-        <button className="flex items-center gap-1.5 rounded-full bg-coral px-3 py-1.5 text-xs font-semibold text-white hover:bg-coral-dark">
-          <Plus className="h-3.5 w-3.5" /> New Client
-        </button>
-      </div>
+      <h2 className="font-semibold text-ink">Client Directory</h2>
 
       <div className="mt-4 flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/50">
         <Search className="h-4 w-4" />
@@ -47,6 +46,12 @@ export default function ClientList({
       </div>
 
       <div className="mt-4 space-y-1">
+        {loading && (
+          <p className="py-6 text-center text-sm text-ink/40">Loading clients…</p>
+        )}
+        {!loading && filtered.length === 0 && (
+          <p className="py-6 text-center text-sm text-ink/40">No clients found.</p>
+        )}
         {filtered.map((c) => (
           <button
             key={c.id}
