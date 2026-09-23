@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -41,10 +42,17 @@ export default function AdminSidebar() {
         collapsed ? "w-20" : "w-64"
       }`}
     >
-      <div className="flex items-center justify-center px-5 py-5">
+      <div className="flex items-center justify-center gap-2 px-5 py-5">
+        <Image
+          src="/images/logo/blushnewlogo.jpeg"
+          alt="Blush Spa & Aesthetics"
+          width={40}
+          height={40}
+          className="h-10 w-10 shrink-0 object-contain"
+        />
         {!collapsed && (
-          <span className="whitespace-nowrap text-2xl font-bold text-ink">
-            BLUSH Admin
+          <span className="whitespace-nowrap text-lg font-semibold text-coral-dark">
+            Blush Spa &amp; Aesthetics
           </span>
         )}
       </div>
