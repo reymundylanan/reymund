@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, List, Plus } from "lucide-react";
+import { CalendarDays, List } from "lucide-react";
 
 export const BRANCH_FILTERS = ["All Branches", "One Cecilia Center", "Robinsons Pagadian"];
 
@@ -52,12 +52,6 @@ export default function BookingsToolbar({
             <List className="h-3.5 w-3.5" /> List
           </button>
         </div>
-        <button className="rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
-          Bulk Confirm
-        </button>
-        <button className="flex items-center gap-1.5 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
-          <Plus className="h-4 w-4" /> New Booking
-        </button>
       </div>
     </div>
   );
