@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
 import type { DbAppointment } from "@/components/admin/bookings/BookingsManager";
 
 const START_HOUR = 8;
@@ -46,23 +46,6 @@ function toDateKey(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-function weekOffsetForDate(target: Date): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todaySunday = new Date(today);
-  todaySunday.setDate(today.getDate() - today.getDay());
-
-  const targetDay = new Date(target);
-  targetDay.setHours(0, 0, 0, 0);
-  const targetSunday = new Date(targetDay);
-  targetSunday.setDate(targetDay.getDate() - targetDay.getDay());
-
-  const diffDays = Math.round(
-    (targetSunday.getTime() - todaySunday.getTime()) / 86400000
-  );
-  return Math.round(diffDays / 7);
-}
-
 function getWeekLabel(weekDates: Date[]): string {
   const start = weekDates[0];
   const end = weekDates[weekDates.length - 1];
@@ -86,7 +69,6 @@ export default function BookingsCalendar({
   onSelect: (a: DbAppointment) => void;
 }) {
   const [weekOffset, setWeekOffset] = useState(0);
-  const [showJump, setShowJump] = useState(false);
   const weekDates = getWeekDates(weekOffset);
   const gridHeight = (END_HOUR - START_HOUR) * ROW_HEIGHT;
 
@@ -109,26 +91,13 @@ export default function BookingsCalendar({
           <ChevronRight className="h-4 w-4" />
         </button>
         <button
-          onClick={() => setShowJump((v) => !v)}
-          aria-label="Jump to date"
-          className={`rounded-full p-1.5 text-ink/50 hover:bg-blush hover:text-coral-dark ${
-            showJump ? "bg-blush text-coral-dark" : ""
-          }`}
+          onClick={() => setWeekOffset(0)}
+          aria-label="Jump to this week"
+          title="Jump to this week"
+          className="rounded-full p-1.5 text-ink/50 hover:bg-blush hover:text-coral-dark"
         >
-          <CalendarDays className="h-4 w-4" />
+          <ChevronsRight className="h-4 w-4" />
         </button>
-        {showJump && (
-          <input
-            type="date"
-            autoFocus
-            onChange={(e) => {
-              if (!e.target.value) return;
-              setWeekOffset(weekOffsetForDate(new Date(`${e.target.value}T00:00:00`)));
-              setShowJump(false);
-            }}
-            className="rounded-lg border border-ink/15 px-2 py-1 text-sm text-ink outline-none focus:border-coral"
-          />
-        )}
       </div>
 
       <div className="grid grid-cols-[64px_repeat(7,1fr)] gap-px">
