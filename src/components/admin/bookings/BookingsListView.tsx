@@ -41,7 +41,7 @@ export default function BookingsListView({
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <table className="w-full text-left text-sm">
         <thead>
-          <tr className="text-sm uppercase text-ink/40">
+          <tr className="text-base uppercase text-ink/40">
             <th className="py-2">Customer</th>
             <th className="py-2">Branch</th>
             <th className="py-2">Service</th>
