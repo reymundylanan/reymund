@@ -202,8 +202,7 @@ export default function AppointmentDetailPanel({
             <button
               onClick={handleConfirm}
               disabled={confirming}
-              className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-              style={{ backgroundColor: "#8D6F5D" }}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark disabled:opacity-50"
             >
               <Check className="h-4 w-4" />
               {confirming ? "Confirming..." : "Confirm Booking"}

@@ -64,19 +64,18 @@ export default function FrontDeskTopbar() {
   }, [profile?.branchId]);
 
   return (
-    <header className="flex items-center justify-between bg-white px-6 py-5" style={{ borderBottom: "1px solid #CFBCA8" }}>
-      <div className="flex items-center gap-2 rounded-full px-4 py-2.5 text-base w-full max-w-sm" style={{ border: "1px solid #CFBCA8", color: "#8D6F5D" }}>
+    <header className="flex items-center justify-between border-b border-ink/10 bg-white px-6 py-5">
+      <div className="flex w-full max-w-sm items-center gap-2 rounded-full border border-ink/10 px-4 py-2.5 text-base text-ink/50">
         <Search className="h-5 w-5" />
         <input
           type="text"
           placeholder="Search clients, phone numbers, or bookings..."
-          className="w-full text-base outline-none"
-          style={{ color: "#8D6F5D" }}
+          className="w-full text-base outline-none placeholder:text-ink/40"
         />
       </div>
 
       <div className="flex items-center gap-4">
-        <span className="rounded-full px-5 py-2.5 text-base font-semibold" style={{ backgroundColor: "#DDD5CE", color: "#8D6F5D" }}>
+        <span className="rounded-full bg-blush px-5 py-2.5 text-base font-semibold text-coral-dark">
           Branch: {profile?.branchName ?? "Not assigned"}
         </span>
 
@@ -84,25 +83,23 @@ export default function FrontDeskTopbar() {
           <button
             onClick={() => setOpen((o) => !o)}
             aria-label="Notifications"
-            className="relative rounded-full p-2 transition"
-            style={{ color: "#8D6F5D" }}
+            className="relative rounded-full p-2 text-ink/60 transition hover:bg-blush"
           >
             <Bell className="h-6 w-6" />
             {notifications.length > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: "#C89D4B" }}>
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-coral text-[10px] font-semibold text-white">
                 {notifications.length}
               </span>
             )}
           </button>
           {open && (
-            <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white p-3 shadow-lg" style={{ border: "1px solid #CFBCA8" }}>
+            <div className="absolute right-0 mt-2 w-72 rounded-2xl border border-ink/10 bg-white p-3 shadow-lg">
               <div className="flex items-center justify-between px-1 pb-2">
-                <p className="text-sm font-semibold" style={{ color: "#8D6F5D" }}>Notifications</p>
+                <p className="text-sm font-semibold text-ink">Notifications</p>
                 {notifications.length > 0 && (
                   <button
                     onClick={() => setNotifications([])}
-                    className="text-xs font-medium"
-                    style={{ color: "#C89D4B" }}
+                    className="text-xs font-medium text-coral-dark"
                   >
                     Clear
                   </button>
@@ -117,10 +114,9 @@ export default function FrontDeskTopbar() {
                   notifications.map((n) => (
                     <div
                       key={n.id}
-                      className="rounded-xl p-2 text-sm"
-                      style={{ border: "1px solid #CFBCA8" }}
+                      className="rounded-xl border border-ink/10 p-2 text-sm"
                     >
-                      <p style={{ color: "#8D6F5D" }}>{n.message}</p>
+                      <p className="text-ink">{n.message}</p>
                       <p className="mt-0.5 text-xs text-ink/40">{n.createdAt}</p>
                     </div>
                   ))
@@ -131,12 +127,12 @@ export default function FrontDeskTopbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full text-base font-semibold" style={{ backgroundColor: "#CFBCA8", color: "#8D6F5D" }}>
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-blush text-base font-semibold text-coral-dark">
             {profile?.fullName?.charAt(0) ?? "?"}
           </span>
           <div>
-            <p className="text-lg font-medium" style={{ color: "#8D6F5D" }}>{profile?.fullName ?? "—"}</p>
-            <p className="text-base" style={{ color: "#CFBCA8" }}>
+            <p className="text-lg font-medium text-ink">{profile?.fullName ?? "—"}</p>
+            <p className="text-base text-ink/50">
               {profile ? roleLabels[profile.role] : ""}
             </p>
           </div>

@@ -88,8 +88,8 @@ export default function StaffShiftGrid() {
               </div>
               <div className="relative h-12 border-t border-ink/5" style={{ width: gridWidth }}>
                 <div
-                  style={{ left, width, borderLeft: "4px solid #8D6F5D", backgroundColor: "#CFBCA8", color: "#8D6F5D" }}
-                  className="absolute top-1 h-10 truncate rounded-md px-2 py-1 text-xs font-medium"
+                  style={{ left, width }}
+                  className="absolute top-1 h-10 truncate rounded-md border-l-4 border-coral bg-blush px-2 py-1 text-xs font-medium text-coral-dark"
                 >
                   On Shift
                 </div>

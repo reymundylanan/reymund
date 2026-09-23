@@ -35,14 +35,13 @@ export default function FrontDeskSidebar() {
 
   return (
     <aside
-      className={`flex h-screen flex-col transition-all ${
+      className={`flex h-screen flex-col border-r border-ink/10 bg-white transition-all ${
         collapsed ? "w-20" : "w-64"
       }`}
-      style={{ backgroundColor: "#8D6F5D", borderRight: "1px solid #7a5f4f" }}
     >
       <div className="flex items-center justify-center px-5 py-6">
         {!collapsed && (
-          <span className="whitespace-nowrap text-2xl font-bold" style={{ color: "#C89D4B" }}>
+          <span className="whitespace-nowrap text-2xl font-bold text-ink">
             BLUSH Desk
           </span>
         )}
@@ -56,24 +55,11 @@ export default function FrontDeskSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition"
-              style={
+              className={`flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition ${
                 active
-                  ? { backgroundColor: "#C89D4B", color: "#fff" }
-                  : { color: "rgba(255,255,255,0.75)" }
-              }
-              onMouseEnter={(e) => {
-                if (!active) {
-                  (e.currentTarget as HTMLElement).style.backgroundColor = "#7a5f4f";
-                  (e.currentTarget as HTMLElement).style.color = "#fff";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!active) {
-                  (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
-                  (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.75)";
-                }
-              }}
+                  ? "bg-coral text-white"
+                  : "text-ink/60 hover:bg-blush hover:text-ink"
+              }`}
             >
               <Icon className="h-5 w-5 shrink-0" />
               {!collapsed && (
@@ -84,19 +70,10 @@ export default function FrontDeskSidebar() {
         })}
       </nav>
 
-      <div className="space-y-1 px-3 py-4" style={{ borderTop: "1px solid #7a5f4f" }}>
+      <div className="space-y-1 border-t border-ink/10 px-3 py-4">
         <button
           onClick={() => setCollapsed((c) => !c)}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition"
-          style={{ color: "rgba(255,255,255,0.6)" }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.backgroundColor = "#7a5f4f";
-            (e.currentTarget as HTMLElement).style.color = "#fff";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
-            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
-          }}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-base font-medium text-ink/60 hover:bg-blush hover:text-ink"
         >
           <ChevronLeft
             className={`h-5 w-5 shrink-0 transition-transform ${collapsed ? "rotate-180" : ""}`}
@@ -105,16 +82,7 @@ export default function FrontDeskSidebar() {
         </button>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition"
-          style={{ color: "rgba(255,255,255,0.6)" }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLElement).style.backgroundColor = "#7a5f4f";
-            (e.currentTarget as HTMLElement).style.color = "#fff";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
-            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
-          }}
+          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-base font-medium text-ink/60 hover:bg-blush hover:text-ink"
         >
           <LogOut className="h-5 w-5 shrink-0" />
           {!collapsed && <span className="whitespace-nowrap">Logout</span>}
@@ -122,7 +90,7 @@ export default function FrontDeskSidebar() {
       </div>
 
       {!collapsed && (
-        <p className="px-5 py-3 text-[11px]" style={{ borderTop: "1px solid #7a5f4f", color: "rgba(255,255,255,0.3)" }}>
+        <p className="border-t border-ink/10 px-5 py-3 text-[11px] text-ink/40">
           © 2024 Blush Spa &amp; Aesthetics &bull; System Online &bull; Ver
           1.4.2-stable &bull; Support Center
         </p>
