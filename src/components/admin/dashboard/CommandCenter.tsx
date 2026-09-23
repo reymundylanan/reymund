@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { Building2, PackageSearch, UserPlus } from "lucide-react";
+import { Building2, ClipboardList, UserPlus } from "lucide-react";
 
 const actions = [
   { label: "Add Branch", icon: Building2, href: "/admin/branches" },
   { label: "Manage Staff", icon: UserPlus, href: null },
-  { label: "Inventory Check", icon: PackageSearch, href: null },
+  { label: "Add Menu", icon: ClipboardList, href: "/admin/branches" },
 ];
 
 export default function CommandCenter() {
