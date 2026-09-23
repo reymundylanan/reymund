@@ -17,7 +17,7 @@ export default function AssistantPanel({ firstName }: { firstName: string }) {
   );
 
   return (
-    <div className="flex h-full min-h-[420px] flex-col rounded-3xl border border-rose/60 bg-white p-5">
+    <div className="flex h-[600px] flex-col rounded-3xl border border-rose/60 bg-white p-5">
       <div className="mb-3 flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-coral-dark" />
         <h3 className="text-lg font-semibold text-ink">AI Assistant</h3>
