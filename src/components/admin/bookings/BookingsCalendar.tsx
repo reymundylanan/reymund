@@ -78,25 +78,25 @@ export default function BookingsCalendar({
         <button
           onClick={() => setWeekOffset((w) => w - 1)}
           aria-label="Previous week"
-          className="rounded-full p-1.5 text-ink/50 hover:bg-blush hover:text-coral-dark"
+          className="rounded-full p-2.5 text-ink/50 hover:bg-blush hover:text-coral-dark"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-6 w-6" />
         </button>
-        <p className="text-sm font-semibold text-ink">{getWeekLabel(weekDates)}</p>
+        <p className="text-lg font-semibold text-ink">{getWeekLabel(weekDates)}</p>
         <button
           onClick={() => setWeekOffset((w) => w + 1)}
           aria-label="Next week"
-          className="rounded-full p-1.5 text-ink/50 hover:bg-blush hover:text-coral-dark"
+          className="rounded-full p-2.5 text-ink/50 hover:bg-blush hover:text-coral-dark"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-6 w-6" />
         </button>
         <button
           onClick={() => setWeekOffset(0)}
           aria-label="Jump to this week"
           title="Jump to this week"
-          className="rounded-full p-1.5 text-ink/50 hover:bg-blush hover:text-coral-dark"
+          className="rounded-full p-2.5 text-ink/50 hover:bg-blush hover:text-coral-dark"
         >
-          <ChevronsRight className="h-4 w-4" />
+          <ChevronsRight className="h-6 w-6" />
         </button>
       </div>
 
