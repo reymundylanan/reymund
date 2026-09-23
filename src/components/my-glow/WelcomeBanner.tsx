@@ -12,11 +12,11 @@ export default function WelcomeBanner({ firstName }: { firstName: string }) {
     <div className="rounded-3xl bg-ink p-8 text-white">
       <p className="text-2xl">Welcome back, {firstName}!</p>
       <h1 className="mt-2 text-4xl font-semibold">
-        Indulge in <span className="italic text-gold">Absolute Serenity</span>
+        Indulge in <span className="italic text-gold">Beauty &amp; Serenity</span>
       </h1>
       <p className="mt-3 max-w-xl text-white/80">
-        Rejuvenate your mind, body, and soul with our curated selection of
-        luxury spa treatments.
+        Experience premium spa and aesthetic treatments designed to relax
+        your mind, refresh your body, and elevate your self-care.
       </p>
 
       <div className="mt-6 flex flex-wrap gap-6">
