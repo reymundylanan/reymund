@@ -66,9 +66,6 @@ export async function getAdminStats(supabase: SupabaseClient): Promise<AdminStat
     revenueLast,
     pendingThis,
     pendingLast,
-    promosActive,
-    promosThis,
-    promosLast,
   ] = await Promise.all([
     supabase.from("appointments").select("id", { count: "exact", head: true }).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
     supabase.from("appointments").select("id", { count: "exact", head: true }).gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
@@ -76,9 +73,6 @@ export async function getAdminStats(supabase: SupabaseClient): Promise<AdminStat
     supabase.from("payments").select("amount").eq("status", "settled").gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
     supabase.from("payments").select("id", { count: "exact", head: true }).eq("status", "pending").gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
     supabase.from("payments").select("id", { count: "exact", head: true }).eq("status", "pending").gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
-    supabase.from("branch_promotions").select("id", { count: "exact", head: true }).eq("is_active", true),
-    supabase.from("branch_promotions").select("id", { count: "exact", head: true }).gte("created_at", thisMonth.start).lt("created_at", thisMonth.end),
-    supabase.from("branch_promotions").select("id", { count: "exact", head: true }).gte("created_at", lastMonth.start).lt("created_at", lastMonth.end),
   ]);
 
   const revenueThisTotal = (revenueThis.data ?? []).reduce((sum, r) => sum + Number(r.amount), 0);
@@ -87,7 +81,6 @@ export async function getAdminStats(supabase: SupabaseClient): Promise<AdminStat
   const bookingsTrend = trendFrom(bookingsThis.count ?? 0, bookingsLast.count ?? 0);
   const revenueTrend = trendFrom(revenueThisTotal, revenueLastTotal);
   const pendingTrend = trendFrom(pendingThis.count ?? 0, pendingLast.count ?? 0);
-  const promosDelta = (promosThis.count ?? 0) - (promosLast.count ?? 0);
 
   return [
     {
@@ -107,13 +100,6 @@ export async function getAdminStats(supabase: SupabaseClient): Promise<AdminStat
       value: (pendingThis.count ?? 0).toLocaleString(),
       trend: pendingTrend.trend,
       trendUp: !pendingTrend.trendUp,
-      note: "vs last month",
-    },
-    {
-      label: "Active Promotions",
-      value: (promosActive.count ?? 0).toLocaleString(),
-      trend: `${promosDelta >= 0 ? "+" : ""}${promosDelta}`,
-      trendUp: promosDelta >= 0,
       note: "vs last month",
     },
   ];

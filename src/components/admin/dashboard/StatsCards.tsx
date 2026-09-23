@@ -3,7 +3,7 @@ import type { AdminStat } from "@/lib/supabase/queries/adminDashboard";
 
 export default function StatsCards({ stats }: { stats: AdminStat[] }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 sm:grid-cols-3">
       {stats.map((stat) => (
         <div key={stat.label} className="rounded-2xl bg-white p-5 shadow-sm">
           <p className="text-sm text-ink/50">{stat.label}</p>
