@@ -108,18 +108,6 @@ export default function BookingDetailsPanel({
             </div>
           </div>
         </div>
-
-        <div className="mt-6 flex flex-col gap-2 border-t border-ink/10 pt-4">
-          <button className="rounded-full bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark">
-            Confirm Booking
-          </button>
-          <button className="rounded-full border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-coral">
-            Payments &amp; Refunds
-          </button>
-          <button className="rounded-full border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50">
-            Reschedule / Cancel
-          </button>
-        </div>
       </div>
     </div>
   );
