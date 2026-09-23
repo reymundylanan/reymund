@@ -10,7 +10,7 @@ import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { createClient } from "@/lib/supabase/client";
 import MyBookingsPanel from "@/components/MyBookingsPanel";
 
-const navLinks = [
+const baseNavLinks = [
   { label: "Services", href: "/services" },
   { label: "Branches", href: "/branches" },
   { label: "Teams", href: "/#team" },
@@ -28,6 +28,10 @@ function seenBookingIds(): string[] {
 export default function Header() {
   const { open } = useLoginModal();
   const { user } = useCurrentUser();
+  const navLinks =
+    user?.role === "customer"
+      ? [...baseNavLinks, { label: "My Glow", href: "/my-glow" }]
+      : baseNavLinks;
   const router = useRouter();
   const pathname = usePathname();
   const [bookingsOpen, setBookingsOpen] = useState(false);
