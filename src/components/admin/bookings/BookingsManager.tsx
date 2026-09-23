@@ -5,6 +5,7 @@ import BookingsToolbar from "@/components/admin/bookings/BookingsToolbar";
 import BookingsStats from "@/components/admin/bookings/BookingsStats";
 import BookingsCalendar from "@/components/admin/bookings/BookingsCalendar";
 import BookingsListView from "@/components/admin/bookings/BookingsListView";
+import BookingDetailsPanel from "@/components/admin/bookings/BookingDetailsPanel";
 import { createClient } from "@/lib/supabase/client";
 
 export type DbAppointment = {
@@ -13,7 +14,7 @@ export type DbAppointment = {
   scheduled_date: string;
   start_time: string;
   duration_minutes: number;
-  status: "confirmed" | "pending" | "conflict";
+  status: string;
   notes: string | null;
   appointment_type: string;
   client_name: string;
@@ -25,6 +26,7 @@ export default function BookingsManager() {
   const [appointments, setAppointments] = useState<DbAppointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [branchFilter, setBranchFilter] = useState("All Branches");
+  const [selected, setSelected] = useState<DbAppointment | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -48,7 +50,7 @@ export default function BookingsManager() {
         scheduled_date: r.scheduled_date,
         start_time: r.start_time,
         duration_minutes: r.duration_minutes,
-        status: (r.status as DbAppointment["status"]) ?? "pending",
+        status: r.status ?? "pending",
         notes: r.notes ?? null,
         appointment_type: r.appointment_type,
         client_name: (Array.isArray(r.profiles) ? r.profiles[0]?.full_name : r.profiles?.full_name) ?? "Unknown",
@@ -92,9 +94,13 @@ export default function BookingsManager() {
           Loading bookings…
         </div>
       ) : view === "calendar" ? (
-        <BookingsCalendar appointments={filteredAppointments} onSelect={() => {}} />
+        <BookingsCalendar appointments={filteredAppointments} onSelect={setSelected} />
       ) : (
         <BookingsListView appointments={filteredAppointments} />
+      )}
+
+      {selected && (
+        <BookingDetailsPanel appointment={selected} onClose={() => setSelected(null)} />
       )}
     </div>
   );

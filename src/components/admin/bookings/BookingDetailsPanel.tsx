@@ -3,10 +3,15 @@
 import { X } from "lucide-react";
 import type { DbAppointment } from "@/components/admin/bookings/BookingsManager";
 
-const statusStyles: Record<DbAppointment["status"], string> = {
+const statusStyles: Record<string, string> = {
   confirmed: "bg-green-100 text-green-700",
+  checked_in: "bg-blue-100 text-blue-700",
+  in_service: "bg-blue-100 text-blue-700",
+  completed: "bg-green-100 text-green-700",
   pending: "bg-amber-100 text-amber-700",
   conflict: "bg-red-100 text-red-600",
+  no_show: "bg-red-100 text-red-600",
+  cancelled: "bg-red-100 text-red-600",
 };
 
 function parseService(notes: string | null) {
@@ -93,8 +98,12 @@ export default function BookingDetailsPanel({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-ink/50">Status</span>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${statusStyles[appointment.status]}`}>
-                {appointment.status}
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-medium capitalize ${
+                  statusStyles[appointment.status] ?? "bg-ink/10 text-ink/50"
+                }`}
+              >
+                {appointment.status.replace("_", " ")}
               </span>
             </div>
           </div>
