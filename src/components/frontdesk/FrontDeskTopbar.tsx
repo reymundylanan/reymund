@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, Search } from "lucide-react";
+import Image from "next/image";
+import { Bell } from "lucide-react";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { createClient } from "@/lib/supabase/client";
 
@@ -65,13 +66,17 @@ export default function FrontDeskTopbar() {
 
   return (
     <header className="flex items-center justify-between border-b border-ink/10 bg-white px-6 py-5">
-      <div className="flex w-full max-w-sm items-center gap-2 rounded-full border border-ink/10 px-4 py-2.5 text-base text-ink/50">
-        <Search className="h-5 w-5" />
-        <input
-          type="text"
-          placeholder="Search clients, phone numbers, or bookings..."
-          className="w-full text-base outline-none placeholder:text-ink/40"
+      <div className="flex items-center gap-2">
+        <Image
+          src="/images/logo/blushnewlogo.jpeg"
+          alt="Blush Spa & Aesthetics"
+          width={40}
+          height={40}
+          className="h-10 w-10 shrink-0 object-contain"
         />
+        <span className="whitespace-nowrap text-lg font-semibold text-coral-dark">
+          Blush Spa &amp; Aesthetics
+        </span>
       </div>
 
       <div className="flex items-center gap-4">
