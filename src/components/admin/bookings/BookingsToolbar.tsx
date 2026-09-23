@@ -2,22 +2,31 @@
 
 import { CalendarDays, List, Plus } from "lucide-react";
 
-const filters = ["One Cecilia Center", "Robinsons Pagadian"];
+export const BRANCH_FILTERS = ["All Branches", "One Cecilia Center", "Robinsons Pagadian"];
 
 export default function BookingsToolbar({
   view,
   onViewChange,
+  branchFilter,
+  onBranchFilterChange,
 }: {
   view: "calendar" | "list";
   onViewChange: (v: "calendar" | "list") => void;
+  branchFilter: string;
+  onBranchFilterChange: (b: string) => void;
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex flex-wrap gap-2">
-        {filters.map((f) => (
+        {BRANCH_FILTERS.map((f) => (
           <button
             key={f}
-            className="rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral"
+            onClick={() => onBranchFilterChange(f)}
+            className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+              branchFilter === f
+                ? "border-coral bg-coral text-white"
+                : "border-ink/15 text-ink/70 hover:border-coral"
+            }`}
           >
             {f}
           </button>

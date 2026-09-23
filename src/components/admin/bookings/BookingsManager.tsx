@@ -24,6 +24,7 @@ export default function BookingsManager() {
   const [view, setView] = useState<"calendar" | "list">("list");
   const [appointments, setAppointments] = useState<DbAppointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [branchFilter, setBranchFilter] = useState("All Branches");
 
   useEffect(() => {
     async function load() {
@@ -60,9 +61,14 @@ export default function BookingsManager() {
     load();
   }, []);
 
-  const confirmed = appointments.filter((a) => a.status === "confirmed").length;
-  const pending = appointments.filter((a) => a.status === "pending").length;
-  const conflict = appointments.filter((a) => a.status === "conflict").length;
+  const filteredAppointments =
+    branchFilter === "All Branches"
+      ? appointments
+      : appointments.filter((a) => a.branch_name === branchFilter);
+
+  const confirmed = filteredAppointments.filter((a) => a.status === "confirmed").length;
+  const pending = filteredAppointments.filter((a) => a.status === "pending").length;
+  const conflict = filteredAppointments.filter((a) => a.status === "conflict").length;
 
   return (
     <div className="space-y-6">
@@ -74,7 +80,12 @@ export default function BookingsManager() {
       </div>
 
       <BookingsStats confirmed={confirmed} pending={pending} conflict={conflict} />
-      <BookingsToolbar view={view} onViewChange={setView} />
+      <BookingsToolbar
+        view={view}
+        onViewChange={setView}
+        branchFilter={branchFilter}
+        onBranchFilterChange={setBranchFilter}
+      />
 
       {loading ? (
         <div className="rounded-2xl bg-white p-10 text-center text-sm text-ink/40 shadow-sm">
@@ -83,7 +94,7 @@ export default function BookingsManager() {
       ) : view === "calendar" ? (
         <BookingsCalendar onSelect={() => {}} />
       ) : (
-        <BookingsListView appointments={appointments} />
+        <BookingsListView appointments={filteredAppointments} />
       )}
     </div>
   );
