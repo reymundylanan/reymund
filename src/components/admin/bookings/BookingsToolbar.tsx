@@ -2,7 +2,7 @@
 
 import { CalendarDays, List, Plus } from "lucide-react";
 
-const filters = ["All Branches", "All Specialists", "All Statuses"];
+const filters = ["One Cecilia Center", "Robinsons Pagadian", "All Specialists", "All Statuses"];
 
 export default function BookingsToolbar({
   view,
@@ -22,9 +22,6 @@ export default function BookingsToolbar({
             {f}
           </button>
         ))}
-        <span className="rounded-full bg-blush px-4 py-2 text-sm font-medium text-coral-dark">
-          Nov 19 - Nov 25, 2023
-        </span>
       </div>
 
       <div className="flex items-center gap-2">
