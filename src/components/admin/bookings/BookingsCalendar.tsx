@@ -1,3 +1,7 @@
+"use client";
+
+import { useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { DbAppointment } from "@/components/admin/bookings/BookingsManager";
 
 const START_HOUR = 8;
@@ -26,11 +30,11 @@ function formatHour(h: number) {
   return `${h12.toString().padStart(2, "0")} ${meridiem}`;
 }
 
-function getCurrentWeekDates(): Date[] {
+function getWeekDates(weekOffset: number): Date[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const sunday = new Date(today);
-  sunday.setDate(today.getDate() - today.getDay());
+  sunday.setDate(today.getDate() - today.getDay() + weekOffset * 7);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(sunday);
     d.setDate(sunday.getDate() + i);
@@ -64,12 +68,29 @@ export default function BookingsCalendar({
   appointments: DbAppointment[];
   onSelect: (a: DbAppointment) => void;
 }) {
-  const weekDates = getCurrentWeekDates();
+  const [weekOffset, setWeekOffset] = useState(0);
+  const weekDates = getWeekDates(weekOffset);
   const gridHeight = (END_HOUR - START_HOUR) * ROW_HEIGHT;
 
   return (
     <div className="overflow-x-auto rounded-2xl bg-white p-4 shadow-sm">
-      <p className="px-1 pb-2 text-sm font-semibold text-ink">{getWeekLabel(weekDates)}</p>
+      <div className="mb-2 flex items-center justify-center gap-4">
+        <button
+          onClick={() => setWeekOffset((w) => w - 1)}
+          aria-label="Previous week"
+          className="rounded-full p-1.5 text-ink/50 hover:bg-blush hover:text-coral-dark"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <p className="text-sm font-semibold text-ink">{getWeekLabel(weekDates)}</p>
+        <button
+          onClick={() => setWeekOffset((w) => w + 1)}
+          aria-label="Next week"
+          className="rounded-full p-1.5 text-ink/50 hover:bg-blush hover:text-coral-dark"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
 
       <div className="grid grid-cols-[64px_repeat(7,1fr)] gap-px">
         <div />
