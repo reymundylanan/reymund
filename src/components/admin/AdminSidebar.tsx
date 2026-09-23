@@ -41,7 +41,15 @@ export default function AdminSidebar() {
         collapsed ? "w-20" : "w-64"
       }`}
     >
-      <nav className="flex-1 overflow-y-auto space-y-1 px-3 pt-5">
+      <div className="flex items-center justify-center px-5 py-5">
+        {!collapsed && (
+          <span className="whitespace-nowrap text-2xl font-bold text-ink">
+            BLUSH Admin
+          </span>
+        )}
+      </div>
+
+      <nav className="flex-1 overflow-y-auto space-y-1 px-3">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
