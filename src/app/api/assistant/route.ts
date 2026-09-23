@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { branchContacts, branchServiceCategories } from "@/lib/data";
+import { getUpcomingAppointment } from "@/lib/supabase/queries/myGlow";
+import { getTierProgress } from "@/lib/myGlowTiers";
 
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
 
-function buildSystemPrompt() {
+function buildSystemPrompt(userContext: string) {
   const branches = branchContacts
     .map((b) => `- ${b.name} (${b.area}): ${b.address}`)
     .join("\n");
@@ -13,9 +15,7 @@ function buildSystemPrompt() {
     .map(
       (cat) =>
         `${cat.label}:\n` +
-        cat.services
-          .map((s) => `  - ${s.name} (${s.duration}) — ₱${s.price}`)
-          .join("\n")
+        cat.services.map((s) => `  - ${s.name} (${s.duration}) — ₱${s.price}`).join("\n")
     )
     .join("\n");
 
@@ -23,6 +23,8 @@ function buildSystemPrompt() {
 Help customers pick services, compare branches, and understand pricing and the booking flow.
 Be brief and friendly. Do not invent services, prices, or branches beyond what's listed below.
 You cannot book on the customer's behalf — direct them to use the "Book an Experience" / "Book Now" buttons on the site.
+
+${userContext}
 
 Branches:
 ${branches}
@@ -41,7 +43,7 @@ export async function POST(request: Request) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("full_name, role, loyalty_points")
     .eq("id", auth.user.id)
     .single();
 
@@ -65,6 +67,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Assistant is not configured." }, { status: 500 });
   }
 
+  const upcoming = await getUpcomingAppointment(supabase, auth.user.id);
+  const tier = getTierProgress(profile.loyalty_points);
+
+  const userContext = `The customer you're talking to is ${profile.full_name}.
+Their loyalty status: ${tier.points} Glow Points, ${tier.tier} tier.
+${
+  upcoming
+    ? `Their next booking is ${upcoming.serviceName ?? "a service"}${
+        upcoming.professionalName ? ` with ${upcoming.professionalName}` : ""
+      } on ${upcoming.scheduledDate} at ${upcoming.startTime}.`
+    : "They have no upcoming bookings."
+}`;
+
   const contents = messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
@@ -76,7 +91,7 @@ export async function POST(request: Request) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: buildSystemPrompt() }] },
+        system_instruction: { parts: [{ text: buildSystemPrompt(userContext) }] },
         contents,
       }),
     }
