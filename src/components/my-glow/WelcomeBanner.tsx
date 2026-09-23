@@ -10,7 +10,7 @@ const actions = [
 export default function WelcomeBanner({ firstName }: { firstName: string }) {
   return (
     <div className="rounded-3xl bg-ink p-8 text-white">
-      <p className="text-lg">Welcome back, {firstName}! 👋</p>
+      <p className="text-2xl">Welcome back, {firstName}!</p>
       <h1 className="mt-2 text-4xl font-semibold">
         Indulge in <span className="italic text-gold">Absolute Serenity</span>
       </h1>
