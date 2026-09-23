@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
 type MenuPhoto = { id: string; imageUrl: string };
 
 export default function MenuGalleryModal({ onClose }: { onClose: () => void }) {
   const [photos, setPhotos] = useState<MenuPhoto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/menu-photos")
@@ -20,6 +20,14 @@ export default function MenuGalleryModal({ onClose }: { onClose: () => void }) {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  function prev() {
+    setLightboxIndex((i) => (i === null ? 0 : (i - 1 + photos.length) % photos.length));
+  }
+
+  function next() {
+    setLightboxIndex((i) => (i === null ? 0 : (i + 1) % photos.length));
+  }
 
   return (
     <>
@@ -43,10 +51,10 @@ export default function MenuGalleryModal({ onClose }: { onClose: () => void }) {
                 Menu photos coming soon.
               </p>
             )}
-            {photos.map((p) => (
+            {photos.map((p, i) => (
               <button
                 key={p.id}
-                onClick={() => setLightboxUrl(p.imageUrl)}
+                onClick={() => setLightboxIndex(i)}
                 className="group relative aspect-[3/4] overflow-hidden rounded-xl"
               >
                 <Image
@@ -62,30 +70,56 @@ export default function MenuGalleryModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
 
-      {lightboxUrl && (
+      {lightboxIndex !== null && photos[lightboxIndex] && (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setLightboxUrl(null)}
+          onClick={() => setLightboxIndex(null)}
         >
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              prev();
+            }}
+            aria-label="Previous photo"
+            className="absolute left-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+
           <div
             className="relative h-[85vh] w-[85vw] max-w-3xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              onClick={() => setLightboxUrl(null)}
+              onClick={() => setLightboxIndex(null)}
               aria-label="Close preview"
               className="absolute -right-3 -top-3 z-10 rounded-full bg-white p-1.5 text-ink shadow-lg hover:bg-blush"
             >
               <X className="h-5 w-5" />
             </button>
             <Image
-              src={lightboxUrl}
+              src={photos[lightboxIndex].imageUrl}
               alt="Menu full size"
               fill
               className="object-contain"
               sizes="85vw"
             />
           </div>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              next();
+            }}
+            aria-label="Next photo"
+            className="absolute right-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+
+          <span className="absolute bottom-6 text-sm text-white/60">
+            {lightboxIndex + 1} / {photos.length}
+          </span>
         </div>
       )}
     </>
