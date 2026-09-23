@@ -12,6 +12,8 @@ import {
 import UpcomingBookingCard from "@/components/my-glow/UpcomingBookingCard";
 import MyServicesList from "@/components/my-glow/MyServicesList";
 import GlowRewardsCard from "@/components/my-glow/GlowRewardsCard";
+import WelcomeBanner from "@/components/my-glow/WelcomeBanner";
+import GlowJourneyBanner from "@/components/my-glow/GlowJourneyBanner";
 
 export default async function MyGlowPage() {
   const supabase = await createClient();
@@ -40,12 +42,14 @@ export default async function MyGlowPage() {
       <Header />
       <main className="flex-1 bg-blush/30 px-6 py-10">
         <div className="mx-auto max-w-4xl space-y-6">
+          <WelcomeBanner firstName={profile.full_name.split(" ")[0]} />
           <UpcomingBookingCard appointment={upcoming} />
           <MyServicesList appointments={recent} />
           <GlowRewardsCard points={profile.loyalty_points} />
           <pre className="overflow-auto rounded-2xl bg-white p-6 text-xs">
             {JSON.stringify({ reviewable, myReviews, defaultBranch }, null, 2)}
           </pre>
+          <GlowJourneyBanner />
         </div>
       </main>
       <Footer />
