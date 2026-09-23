@@ -10,9 +10,6 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-ink">Dashboard Overview</h1>
-        <p className="text-sm text-ink/50">
-          Welcome back, Admin. Here&apos;s what&apos;s happening across GlowSync today.
-        </p>
       </div>
 
       <StatsCards />
