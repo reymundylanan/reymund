@@ -14,6 +14,7 @@ import MyServicesList from "@/components/my-glow/MyServicesList";
 import GlowRewardsCard from "@/components/my-glow/GlowRewardsCard";
 import WelcomeBanner from "@/components/my-glow/WelcomeBanner";
 import GlowJourneyBanner from "@/components/my-glow/GlowJourneyBanner";
+import ReviewsPanel from "@/components/my-glow/ReviewsPanel";
 
 export default async function MyGlowPage() {
   const supabase = await createClient();
@@ -46,9 +47,12 @@ export default async function MyGlowPage() {
           <UpcomingBookingCard appointment={upcoming} />
           <MyServicesList appointments={recent} />
           <GlowRewardsCard points={profile.loyalty_points} />
-          <pre className="overflow-auto rounded-2xl bg-white p-6 text-xs">
-            {JSON.stringify({ reviewable, myReviews, defaultBranch }, null, 2)}
-          </pre>
+          <ReviewsPanel
+            clientId={auth.user.id}
+            reviewable={reviewable}
+            defaultBranch={defaultBranch}
+            myReviews={myReviews}
+          />
           <GlowJourneyBanner />
         </div>
       </main>
