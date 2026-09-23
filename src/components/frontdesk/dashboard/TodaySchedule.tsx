@@ -1,47 +1,63 @@
-import { todaySchedule } from "@/lib/frontdeskData";
+import type { ScheduleItem } from "@/lib/supabase/queries/frontdeskDashboard";
 
 const statusStyles: Record<string, string> = {
-  Finished: "bg-ink/10 text-ink/50",
-  "In Service": "bg-coral text-white",
-  "Checked In": "bg-green-100 text-green-700",
-  "No-Show": "bg-red-100 text-red-600",
-  "No Booking": "bg-amber-50 text-amber-600",
+  completed: "bg-ink/10 text-ink/50",
+  in_service: "bg-coral text-white",
+  checked_in: "bg-green-100 text-green-700",
+  confirmed: "bg-blue-100 text-blue-700",
+  pending: "bg-amber-50 text-amber-600",
+  no_show: "bg-red-100 text-red-600",
+  conflict: "bg-red-100 text-red-600",
+  cancelled: "bg-red-100 text-red-600",
 };
 
-export default function TodaySchedule() {
+const statusLabels: Record<string, string> = {
+  completed: "Finished",
+  in_service: "In Service",
+  checked_in: "Checked In",
+  confirmed: "Upcoming",
+  pending: "Upcoming",
+  no_show: "No-Show",
+  conflict: "Conflict",
+  cancelled: "Cancelled",
+};
+
+export default function TodaySchedule({ schedule }: { schedule: ScheduleItem[] }) {
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-ink">Today&apos;s Schedule</h2>
-        <button className="text-xs font-medium text-coral-dark">
-          View Full Queue
-        </button>
       </div>
       <p className="text-xs text-ink/40">
-        Live view of appointments and therapist availability
+        Live view of today&apos;s appointments at your branch
       </p>
 
       <div className="mt-4 space-y-3">
-        {todaySchedule.map((item) => (
+        {schedule.length === 0 && (
+          <p className="py-6 text-center text-sm text-ink/40">
+            No appointments scheduled for today.
+          </p>
+        )}
+        {schedule.map((item) => (
           <div
             key={item.id}
             className="flex items-center justify-between rounded-xl border border-ink/10 p-3"
           >
             <div className="flex items-center gap-4">
-              <span className="w-16 shrink-0 text-xs font-medium text-ink/50">
+              <span className="w-20 shrink-0 text-xs font-medium text-ink/50">
                 {item.time}
               </span>
               <div>
                 <p className="text-sm font-medium text-ink">{item.client}</p>
-                <p className="text-xs text-ink/50">
-                  {item.service} &bull; {item.therapist}
-                </p>
+                <p className="text-xs text-ink/50">{item.service}</p>
               </div>
             </div>
             <span
-              className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[item.status]}`}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                statusStyles[item.status] ?? "bg-ink/10 text-ink/50"
+              }`}
             >
-              {item.status}
+              {statusLabels[item.status] ?? item.status}
             </span>
           </div>
         ))}
