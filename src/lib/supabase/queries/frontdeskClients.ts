@@ -109,3 +109,15 @@ export async function getClientServiceHistory(
     status: row.status,
   }));
 }
+
+export async function setClientVip(
+  supabase: SupabaseClient,
+  clientId: string,
+  isVip: boolean
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("set_client_vip", {
+    target_id: clientId,
+    is_vip: isVip,
+  });
+  return { error: error?.message ?? null };
+}

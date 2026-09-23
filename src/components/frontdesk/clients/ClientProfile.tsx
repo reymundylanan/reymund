@@ -10,11 +10,13 @@ import {
   MessageSquare,
   Phone,
   Send,
+  Star,
   User,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   getClientServiceHistory,
+  setClientVip,
   type ClientServiceHistoryItem,
   type FrontDeskClient,
 } from "@/lib/supabase/queries/frontdeskClients";
@@ -33,10 +35,18 @@ const statusStyles: Record<string, string> = {
   cancelled: "bg-red-100 text-red-600",
 };
 
-export default function ClientProfile({ client }: { client: FrontDeskClient }) {
+export default function ClientProfile({
+  client,
+  onVipChange,
+}: {
+  client: FrontDeskClient;
+  onVipChange: (isVip: boolean) => void;
+}) {
   const [tab, setTab] = useState(tabs[0]);
   const [history, setHistory] = useState<ClientServiceHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [vipUpdating, setVipUpdating] = useState(false);
+  const [vipError, setVipError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -46,6 +56,19 @@ export default function ClientProfile({ client }: { client: FrontDeskClient }) {
       setLoading(false);
     });
   }, [client.id]);
+
+  async function handleToggleVip() {
+    setVipUpdating(true);
+    setVipError(null);
+    const supabase = createClient();
+    const { error } = await setClientVip(supabase, client.id, !client.vip);
+    setVipUpdating(false);
+    if (error) {
+      setVipError(error);
+      return;
+    }
+    onVipChange(!client.vip);
+  }
 
   const completed = history.filter((h) => h.status === "completed");
   const visitsThisYear = completed.filter(
@@ -94,13 +117,24 @@ export default function ClientProfile({ client }: { client: FrontDeskClient }) {
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <button className="rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
-            Edit Profile
+        <div className="flex flex-col items-end gap-1">
+          <button
+            onClick={handleToggleVip}
+            disabled={vipUpdating}
+            className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${
+              client.vip
+                ? "border border-ink/15 text-ink/70 hover:border-coral"
+                : "bg-coral text-white hover:bg-coral-dark"
+            }`}
+          >
+            <Star className="h-4 w-4" />
+            {vipUpdating
+              ? "Updating…"
+              : client.vip
+                ? "Remove VIP"
+                : "Make VIP"}
           </button>
-          <button className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
-            Book Service
-          </button>
+          {vipError && <p className="text-xs text-red-600">{vipError}</p>}
         </div>
       </div>
 

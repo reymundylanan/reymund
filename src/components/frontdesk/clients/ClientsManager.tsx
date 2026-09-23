@@ -34,7 +34,14 @@ export default function ClientsManager() {
         onQueryChange={setQuery}
       />
       {selected ? (
-        <ClientProfile client={selected} />
+        <ClientProfile
+          client={selected}
+          onVipChange={(isVip) =>
+            setClients((prev) =>
+              prev.map((c) => (c.id === selected.id ? { ...c, vip: isVip } : c))
+            )
+          }
+        />
       ) : (
         <div className="flex items-center justify-center rounded-2xl bg-white p-6 text-sm text-ink/40 shadow-sm">
           {loading ? "Loading clients…" : "No clients found."}
