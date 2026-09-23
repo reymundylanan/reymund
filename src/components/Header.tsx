@@ -183,9 +183,9 @@ export default function Header() {
                 <button
                   onClick={handleLogout}
                   aria-label="Logout"
-                  className="rounded-full p-2 text-ink/50 hover:bg-blush hover:text-coral-dark"
+                  className="rounded-full p-3 text-ink/50 hover:bg-blush hover:text-coral-dark"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-6 w-6" />
                 </button>
               </div>
             ) : (
