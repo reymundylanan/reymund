@@ -75,17 +75,6 @@ export default function MenuGalleryModal({ onClose }: { onClose: () => void }) {
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
           onClick={() => setLightboxIndex(null)}
         >
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              prev();
-            }}
-            aria-label="Previous photo"
-            className="absolute left-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </button>
-
           <div
             className="relative h-[85vh] w-[85vw] max-w-3xl"
             onClick={(e) => e.stopPropagation()}
@@ -97,6 +86,26 @@ export default function MenuGalleryModal({ onClose }: { onClose: () => void }) {
             >
               <X className="h-5 w-5" />
             </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                prev();
+              }}
+              aria-label="Previous photo"
+              className="absolute -left-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-2 text-ink shadow-lg hover:bg-blush"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                next();
+              }}
+              aria-label="Next photo"
+              className="absolute -right-3 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-2 text-ink shadow-lg hover:bg-blush"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
             <Image
               src={photos[lightboxIndex].imageUrl}
               alt="Menu full size"
@@ -104,22 +113,10 @@ export default function MenuGalleryModal({ onClose }: { onClose: () => void }) {
               className="object-contain"
               sizes="85vw"
             />
+            <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-sm text-white/60">
+              {lightboxIndex + 1} / {photos.length}
+            </span>
           </div>
-
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              next();
-            }}
-            aria-label="Next photo"
-            className="absolute right-4 rounded-full bg-white/10 p-3 text-white hover:bg-white/20"
-          >
-            <ChevronRight className="h-6 w-6" />
-          </button>
-
-          <span className="absolute bottom-6 text-sm text-white/60">
-            {lightboxIndex + 1} / {photos.length}
-          </span>
         </div>
       )}
     </>
