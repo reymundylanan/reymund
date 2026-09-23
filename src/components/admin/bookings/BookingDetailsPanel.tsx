@@ -44,8 +44,8 @@ export default function BookingDetailsPanel({
   const { service, specialist, amount } = parseService(appointment.notes);
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/40">
-      <div className="h-full w-full max-w-md overflow-y-auto bg-white p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-ink">Booking Details</h2>
           <button onClick={onClose} className="text-ink/40 hover:text-ink">
