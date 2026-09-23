@@ -16,7 +16,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
           >
             <X className="h-5 w-5" />
           </button>
-          <p className="text-2xl font-semibold text-coral-dark">GlowSync</p>
+          <p className="text-2xl font-semibold text-coral-dark">BLUSH</p>
           <h1 className="mt-3 text-2xl font-semibold text-ink">Login</h1>
           <p className="mt-2 text-sm text-ink/60">
             Continue with Google or Facebook to book and manage your
