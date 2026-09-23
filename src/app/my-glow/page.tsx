@@ -15,6 +15,7 @@ import GlowRewardsCard from "@/components/my-glow/GlowRewardsCard";
 import WelcomeBanner from "@/components/my-glow/WelcomeBanner";
 import GlowJourneyBanner from "@/components/my-glow/GlowJourneyBanner";
 import ReviewsPanel from "@/components/my-glow/ReviewsPanel";
+import AssistantPanel from "@/components/my-glow/AssistantPanel";
 
 export default async function MyGlowPage() {
   const supabase = await createClient();
@@ -42,17 +43,26 @@ export default async function MyGlowPage() {
     <>
       <Header />
       <main className="flex-1 bg-blush/30 px-6 py-10">
-        <div className="mx-auto max-w-4xl space-y-6">
+        <div className="mx-auto max-w-7xl space-y-6">
           <WelcomeBanner firstName={profile.full_name.split(" ")[0]} />
-          <UpcomingBookingCard appointment={upcoming} />
-          <MyServicesList appointments={recent} />
-          <GlowRewardsCard points={profile.loyalty_points} />
-          <ReviewsPanel
-            clientId={auth.user.id}
-            reviewable={reviewable}
-            defaultBranch={defaultBranch}
-            myReviews={myReviews}
-          />
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="space-y-6">
+              <UpcomingBookingCard appointment={upcoming} />
+              <ReviewsPanel
+                clientId={auth.user.id}
+                reviewable={reviewable}
+                defaultBranch={defaultBranch}
+                myReviews={myReviews}
+              />
+            </div>
+            <div className="space-y-6">
+              <MyServicesList appointments={recent} />
+              <GlowRewardsCard points={profile.loyalty_points} />
+            </div>
+            <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
+          </div>
+
           <GlowJourneyBanner />
         </div>
       </main>
