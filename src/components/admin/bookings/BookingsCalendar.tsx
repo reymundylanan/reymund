@@ -6,7 +6,9 @@ import type { DbAppointment } from "@/components/admin/bookings/BookingsManager"
 
 const START_HOUR = 8;
 const END_HOUR = 20;
-const ROW_HEIGHT = 48;
+const SLOT_MINUTES = 30;
+const ROW_HEIGHT = 24; // px per 30-min slot — matches the actual booking flow's 30-min increments
+const PIXELS_PER_HOUR = ROW_HEIGHT * (60 / SLOT_MINUTES);
 
 const statusStyles: Record<string, string> = {
   confirmed: "border-l-4 border-coral bg-blush",
@@ -19,15 +21,17 @@ const statusStyles: Record<string, string> = {
   cancelled: "border-l-4 border-red-500 bg-red-50",
 };
 
-const hours = Array.from(
-  { length: END_HOUR - START_HOUR + 1 },
-  (_, i) => START_HOUR + i
+const timeSlots = Array.from(
+  { length: ((END_HOUR - START_HOUR) * 60) / SLOT_MINUTES + 1 },
+  (_, i) => START_HOUR * 60 + i * SLOT_MINUTES
 );
 
-function formatHour(h: number) {
+function formatSlot(totalMinutes: number) {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
   const meridiem = h >= 12 ? "PM" : "AM";
   const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12.toString().padStart(2, "0")} ${meridiem}`;
+  return `${h12}:${m.toString().padStart(2, "0")} ${meridiem}`;
 }
 
 function getWeekDates(weekOffset: number): Date[] {
@@ -70,7 +74,7 @@ export default function BookingsCalendar({
 }) {
   const [weekOffset, setWeekOffset] = useState(0);
   const weekDates = getWeekDates(weekOffset);
-  const gridHeight = (END_HOUR - START_HOUR) * ROW_HEIGHT;
+  const gridHeight = (END_HOUR - START_HOUR) * PIXELS_PER_HOUR;
 
   return (
     <div className="overflow-x-auto rounded-2xl bg-white p-4 shadow-sm">
@@ -117,13 +121,15 @@ export default function BookingsCalendar({
         style={{ height: gridHeight }}
       >
         <div>
-          {hours.slice(0, -1).map((h) => (
+          {timeSlots.slice(0, -1).map((slot) => (
             <div
-              key={h}
+              key={slot}
               style={{ height: ROW_HEIGHT }}
-              className="border-t border-ink/5 pr-2 text-right text-xs text-ink/40"
+              className={`pr-2 text-right text-[11px] text-ink/40 ${
+                slot % 60 === 0 ? "border-t border-ink/10" : "border-t border-ink/5"
+              }`}
             >
-              {formatHour(h)}
+              {slot % 60 === 0 ? formatSlot(slot) : ""}
             </div>
           ))}
         </div>
@@ -133,16 +139,20 @@ export default function BookingsCalendar({
           const dayAppointments = appointments.filter((a) => a.scheduled_date === dateKey);
           return (
             <div key={dateKey} className="relative border-l border-ink/5">
-              {hours.slice(0, -1).map((h) => (
-                <div key={h} style={{ height: ROW_HEIGHT }} className="border-t border-ink/5" />
+              {timeSlots.slice(0, -1).map((slot) => (
+                <div
+                  key={slot}
+                  style={{ height: ROW_HEIGHT }}
+                  className={slot % 60 === 0 ? "border-t border-ink/10" : "border-t border-ink/5"}
+                />
               ))}
 
               {dayAppointments.map((a) => {
                 const [h, m] = a.start_time.split(":").map(Number);
                 const startHour = h + m / 60;
                 const duration = a.duration_minutes / 60;
-                const top = Math.max(0, (startHour - START_HOUR) * ROW_HEIGHT);
-                const height = Math.max(20, duration * ROW_HEIGHT);
+                const top = Math.max(0, (startHour - START_HOUR) * PIXELS_PER_HOUR);
+                const height = Math.max(20, duration * PIXELS_PER_HOUR);
                 return (
                   <button
                     key={a.id}
