@@ -23,7 +23,7 @@ export default function AssistantPanel({ firstName }: { firstName: string }) {
         <h3 className="text-lg font-semibold text-ink">AI Assistant</h3>
       </div>
 
-      <div ref={containerRef} className="flex-1 space-y-3 overflow-y-auto">
+      <div ref={containerRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto">
         {messages.map((m, i) => (
           <div
             key={i}
