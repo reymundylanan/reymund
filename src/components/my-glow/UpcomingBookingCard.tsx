@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { UpcomingAppointment } from "@/lib/supabase/queries/myGlow";
+import { getServiceImage } from "@/lib/serviceImage";
 
 function formatTime(time: string) {
   const [h, m] = time.split(":").map(Number);
@@ -48,7 +49,7 @@ export default function UpcomingBookingCard({
 
       <div className="mt-4 flex gap-4">
         <Image
-          src="/images/services/spaservice.jpg"
+          src={getServiceImage(appointment.serviceName)}
           alt={appointment.serviceName ?? "Service"}
           width={96}
           height={96}
