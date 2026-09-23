@@ -12,7 +12,7 @@ const SUGGESTED_PROMPTS = [
 ];
 
 export default function AssistantPanel({ firstName }: { firstName: string }) {
-  const { messages, input, setInput, sending, send, bottomRef } = useAssistantChat(
+  const { messages, input, setInput, sending, send, containerRef } = useAssistantChat(
     `Hi ${firstName}! ✨ How can I help you today?`
   );
 
@@ -23,7 +23,7 @@ export default function AssistantPanel({ firstName }: { firstName: string }) {
         <h3 className="text-lg font-semibold text-ink">AI Assistant</h3>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto">
+      <div ref={containerRef} className="flex-1 space-y-3 overflow-y-auto">
         {messages.map((m, i) => (
           <div
             key={i}
@@ -39,7 +39,6 @@ export default function AssistantPanel({ firstName }: { firstName: string }) {
             Typing…
           </div>
         )}
-        <div ref={bottomRef} />
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">

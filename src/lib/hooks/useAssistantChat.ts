@@ -10,7 +10,7 @@ export function useAssistantChat(greeting: string) {
   ]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   async function send(text?: string) {
     const content = (text ?? input).trim();
@@ -42,9 +42,15 @@ export function useAssistantChat(greeting: string) {
       ]);
     } finally {
       setSending(false);
-      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      // Scroll only the chat's own message list, not the whole page —
+      // scrollIntoView() would walk up every scrollable ancestor,
+      // including the surrounding dashboard layout.
+      setTimeout(() => {
+        const el = containerRef.current;
+        if (el) el.scrollTop = el.scrollHeight;
+      }, 50);
     }
   }
 
-  return { messages, input, setInput, sending, send, bottomRef };
+  return { messages, input, setInput, sending, send, containerRef };
 }

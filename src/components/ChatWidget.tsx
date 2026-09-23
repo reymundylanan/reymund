@@ -9,7 +9,7 @@ const GREETING =
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
-  const { messages, input, setInput, sending, send, bottomRef } = useAssistantChat(GREETING);
+  const { messages, input, setInput, sending, send, containerRef } = useAssistantChat(GREETING);
 
   return (
     <div className="fixed bottom-6 right-6 z-[60]">
@@ -28,7 +28,10 @@ export default function ChatWidget() {
             </button>
           </div>
 
-          <div className="flex-1 space-y-3 overflow-y-auto scrollbar-hidden p-4">
+          <div
+            ref={containerRef}
+            className="flex-1 space-y-3 overflow-y-auto scrollbar-hidden p-4"
+          >
             {messages.map((m, i) => (
               <div
                 key={i}
@@ -44,7 +47,6 @@ export default function ChatWidget() {
                 Typing…
               </div>
             )}
-            <div ref={bottomRef} />
           </div>
 
           <div className="flex items-center gap-2 border-t border-ink/10 p-3">
