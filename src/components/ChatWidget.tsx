@@ -30,7 +30,7 @@ export default function ChatWidget() {
 
           <div
             ref={containerRef}
-            className="min-h-0 flex-1 space-y-3 overflow-y-auto scrollbar-hidden p-4"
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain scrollbar-hidden p-4"
           >
             {messages.map((m, i) => (
               <div
