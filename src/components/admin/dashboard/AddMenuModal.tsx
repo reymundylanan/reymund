@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Trash2, Upload, X } from "lucide-react";
+import { Trash2, Upload, X } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 
@@ -144,6 +144,11 @@ export default function AddMenuModal({ onClose }: { onClose: () => void }) {
               />
             </label>
           )}
+          {photos.length > 0 && (
+            <p className="mt-2 text-center text-xs text-ink/40">
+              {photos.length} photo{photos.length > 1 ? "s" : ""} uploaded
+            </p>
+          )}
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
 
           <div className="mt-4 grid grid-cols-3 gap-3">
@@ -167,9 +172,6 @@ export default function AddMenuModal({ onClose }: { onClose: () => void }) {
                     sizes="150px"
                   />
                 </button>
-                <span className="absolute left-1 top-1 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
-                  <CheckCircle2 className="h-3 w-3" /> Uploaded
-                </span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
