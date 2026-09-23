@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { Calendar, ClipboardList, Gift, Star } from "lucide-react";
+import { Calendar, ClipboardList, Star } from "lucide-react";
 
 const actions = [
   { label: "Book Appointment", href: "/services", icon: Calendar },
   { label: "My Bookings", href: "#services", icon: ClipboardList },
   { label: "My Reviews", href: "#reviews", icon: Star },
-  { label: "My Rewards", href: "#rewards", icon: Gift },
 ];
 
 export default function WelcomeBanner({ firstName }: { firstName: string }) {
