@@ -23,9 +23,14 @@ export default function LobbyQueue() {
                 <p className="text-xs text-ink/50">{q.service}</p>
               </div>
             </div>
-            <span className="text-xs font-medium text-ink/40">
-              {q.waitingMinutes}m
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium text-ink/40">
+                {q.waitingMinutes}m
+              </span>
+              <button className="rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50">
+                No Show
+              </button>
+            </div>
           </div>
         ))}
       </div>
