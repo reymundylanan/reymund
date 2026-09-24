@@ -40,34 +40,23 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
 
   const [showForm, setShowForm] = useState(false);
   const [staffMemberId, setStaffMemberId] = useState("");
-  const [rangeAnchor, setRangeAnchor] = useState<Date | null>(null);
-  const [startDate, setStartDate] = useState(() => new Date());
-  const [endDate, setEndDate] = useState(() => new Date());
+  const [selectedDates, setSelectedDates] = useState<Date[]>(() => [new Date()]);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"submit" | "cancel" | null>(null);
 
-  function pickRangeDay(day: Date) {
-    if (!rangeAnchor) {
-      setRangeAnchor(day);
-      setStartDate(day);
-      setEndDate(day);
-      return;
-    }
-    let s = rangeAnchor;
-    let e = day;
-    if (e.getTime() < s.getTime()) {
-      [s, e] = [e, s];
-    }
-    const diffDays = Math.round((e.getTime() - s.getTime()) / 86400000);
-    if (diffDays > 6) {
-      e = new Date(s);
-      e.setDate(e.getDate() + 6);
-    }
-    setStartDate(s);
-    setEndDate(e);
-    setRangeAnchor(null);
+  function toggleDate(day: Date) {
+    const key = toDateKey(day);
+    setSelectedDates((prev) => {
+      const exists = prev.some((d) => toDateKey(d) === key);
+      if (exists) {
+        if (prev.length === 1) return prev;
+        return prev.filter((d) => toDateKey(d) !== key);
+      }
+      if (prev.length >= 7) return prev;
+      return [...prev, day].sort((a, b) => a.getTime() - b.getTime());
+    });
   }
 
   useEffect(() => {
@@ -111,18 +100,13 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
       setFormError("Please enter a reason.");
       return;
     }
-    if (toDateKey(endDate) < toDateKey(startDate)) {
-      setFormError("End date can't be before the start date.");
-      return;
-    }
     setSaving(true);
     setFormError(null);
     const supabase = createClient();
     const { error } = await submitLeaveRequest(supabase, {
       staffMemberId,
       branchId: profile.branchId,
-      startDate: toDateKey(startDate),
-      endDate: toDateKey(endDate),
+      dates: selectedDates.map(toDateKey).sort(),
       reason,
     });
     setSaving(false);
@@ -140,7 +124,6 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
     setReason("");
     setFormError(null);
     setPendingAction(null);
-    setRangeAnchor(null);
   }
 
   return (
@@ -158,10 +141,7 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
             <button
               onClick={() => {
                 setShowForm(true);
-                setRangeAnchor(null);
-                const today = new Date();
-                setStartDate(today);
-                setEndDate(today);
+                setSelectedDates([new Date()]);
                 setReason("");
                 setFormError(null);
               }}
@@ -188,14 +168,15 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
               </div>
 
               <div>
-                <label className="text-sm font-medium text-ink/70">Dates (tap a day, then tap another to pick a range — up to 7 days)</label>
+                <label className="text-sm font-medium text-ink/70">
+                  Dates (tap each day you need — up to 7)
+                </label>
                 <p className="mt-1 text-sm font-medium text-coral-dark">
-                  {toDateKey(startDate) === toDateKey(endDate)
-                    ? formatDate(toDateKey(startDate))
-                    : `${formatDate(toDateKey(startDate))} – ${formatDate(toDateKey(endDate))}`}
+                  {selectedDates.map((d) => formatDate(toDateKey(d))).join(", ")}
+                  {selectedDates.length >= 7 && " (max reached)"}
                 </p>
                 <div className="mt-1">
-                  <MonthCalendar rangeStart={startDate} rangeEnd={endDate} onSelect={pickRangeDay} />
+                  <MonthCalendar selectedDates={selectedDates} onSelect={toggleDate} />
                 </div>
               </div>
 
@@ -244,8 +225,7 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
                   <div>
                     <p className="text-sm font-medium text-ink">{req.staff_member?.full_name ?? "Unknown"}</p>
                     <p className="text-xs text-ink/50">
-                      {formatDate(req.start_date)}
-                      {req.end_date !== req.start_date ? ` – ${formatDate(req.end_date)}` : ""}
+                      {req.dates.map(formatDate).join(", ")}
                       {req.reason ? ` · ${req.reason}` : ""}
                     </p>
                   </div>
@@ -270,7 +250,7 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
                   <span className="font-medium text-ink">
                     {staff.find((s) => s.id === staffMemberId)?.full_name ?? "this staff member"}
                   </span>{" "}
-                  from {formatDate(toDateKey(startDate))} to {formatDate(toDateKey(endDate))}. It will show as
+                  for {selectedDates.map((d) => formatDate(toDateKey(d))).join(", ")}. It will show as
                   Pending until an admin approves or denies it — front desk can't decide this here.
                 </p>
               </>

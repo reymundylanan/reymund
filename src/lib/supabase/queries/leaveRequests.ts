@@ -6,8 +6,7 @@ export type LeaveRequest = {
   id: string;
   staff_member_id: string;
   branch_id: string;
-  start_date: string;
-  end_date: string;
+  dates: string[];
   reason: string | null;
   status: LeaveRequestStatus;
   created_at: string;
@@ -29,7 +28,7 @@ export async function getLeaveRequestsForBranch(
   const { data, error } = await supabase
     .from("leave_requests")
     .select(
-      "id, staff_member_id, branch_id, start_date, end_date, reason, status, created_at, decided_at, staff_member:staff_members(full_name, department)"
+      "id, staff_member_id, branch_id, dates, reason, status, created_at, decided_at, staff_member:staff_members(full_name, department)"
     )
     .eq("branch_id", branchId)
     .order("created_at", { ascending: false });
@@ -50,13 +49,12 @@ export async function getLeaveRequestsForBranch(
 
 export async function submitLeaveRequest(
   supabase: SupabaseClient,
-  input: { staffMemberId: string; branchId: string; startDate: string; endDate: string; reason: string }
+  input: { staffMemberId: string; branchId: string; dates: string[]; reason: string }
 ): Promise<{ error: string | null }> {
   const { error } = await supabase.from("leave_requests").insert({
     staff_member_id: input.staffMemberId,
     branch_id: input.branchId,
-    start_date: input.startDate,
-    end_date: input.endDate,
+    dates: input.dates,
     reason: input.reason || null,
     status: "pending",
   });
