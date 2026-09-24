@@ -139,6 +139,10 @@ export default function StaffTimeline({
 
       {staff.length === 0 ? (
         <p className="text-sm text-ink/50">No staff assigned to this branch yet.</p>
+      ) : dayRows.length === 0 ? (
+        <p className="rounded-xl bg-blush/40 py-6 text-center text-sm text-ink/50">
+          No appointments scheduled for this date. Use the date picker above to check a different day.
+        </p>
       ) : (
         <div className="overflow-x-auto">
           <div className="flex">
