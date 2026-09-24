@@ -26,6 +26,9 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase.auth.getUser();
 
     if (!data.user) {
+      const params = new URLSearchParams(window.location.search);
+      params.set("intent", "booking");
+      window.history.replaceState(null, "", `${window.location.pathname}?${params.toString()}`);
       openLogin();
       return;
     }

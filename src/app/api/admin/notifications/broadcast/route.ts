@@ -42,17 +42,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Subject and message are required." }, { status: 400 });
   }
 
-  const { data: recipients, error: recipientsError } = await supabase
-    .from("profiles")
-    .select("email")
-    .eq("role", "customer")
-    .not("email", "is", null);
+  const emails: string[] = [];
+  const PAGE_SIZE = 1000;
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data: page, error: recipientsError } = await supabase
+      .from("profiles")
+      .select("email")
+      .eq("role", "customer")
+      .not("email", "is", null)
+      .range(offset, offset + PAGE_SIZE - 1);
 
-  if (recipientsError) {
-    return NextResponse.json({ error: recipientsError.message }, { status: 500 });
+    if (recipientsError) {
+      return NextResponse.json({ error: recipientsError.message }, { status: 500 });
+    }
+
+    const rows = (page as { email: string }[]) ?? [];
+    emails.push(...rows.map((r) => r.email));
+    if (rows.length < PAGE_SIZE) break;
   }
 
-  const emails = ((recipients as { email: string }[]) ?? []).map((r) => r.email);
   if (emails.length === 0) {
     return NextResponse.json({ error: "No eligible recipients." }, { status: 400 });
   }
@@ -72,17 +80,24 @@ export async function POST(request: Request) {
   const html = buildEmailHtml(subject, message, linkUrl);
 
   let sentCount = 0;
+  let lastError: string | null = null;
   const CHUNK_SIZE = 100;
   for (let i = 0; i < emails.length; i += CHUNK_SIZE) {
     const chunk = emails.slice(i, i + CHUNK_SIZE);
     const { data: batchResult, error: sendError } = await resend.batch.send(
-      chunk.map((to) => ({ from, to, subject, html }))
+      chunk.map((to) => ({ from, to, subject, html })),
+      { batchValidation: "permissive" }
     );
     if (sendError) {
       console.error("Resend batch send failed:", sendError);
+      lastError = sendError.message;
       continue;
     }
     sentCount += batchResult?.data?.length ?? 0;
+    if (batchResult && "errors" in batchResult && batchResult.errors?.length) {
+      console.error("Resend per-recipient failures:", batchResult.errors);
+      lastError = batchResult.errors[0]?.message ?? lastError;
+    }
   }
 
   await supabase.from("notification_broadcasts").insert({
@@ -92,6 +107,13 @@ export async function POST(request: Request) {
     sent_by: auth.user.id,
     recipient_count: sentCount,
   });
+
+  if (sentCount === 0) {
+    return NextResponse.json(
+      { error: lastError ?? "Failed to send — no emails went out.", sentCount, totalRecipients: emails.length },
+      { status: 502 }
+    );
+  }
 
   return NextResponse.json({ sentCount, totalRecipients: emails.length });
 }

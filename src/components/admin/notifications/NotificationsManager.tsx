@@ -34,39 +34,47 @@ export default function NotificationsManager({
     setSending(true);
     setError(null);
     setResult(null);
-    const res = await fetch("/api/admin/notifications/broadcast", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, message }),
-    });
-    const data = await res.json();
-    setSending(false);
-    setConfirming(false);
+    try {
+      const res = await fetch("/api/admin/notifications/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, message }),
+      });
+      const data = await res.json().catch(() => null);
 
-    if (!res.ok) {
-      setError(data.error ?? "Failed to send.");
-      return;
+      if (!res.ok || !data) {
+        setError(data?.error ?? "Failed to send. Please try again.");
+        return;
+      }
+
+      setResult(
+        data.sentCount < data.totalRecipients
+          ? `Sent to ${data.sentCount} of ${data.totalRecipients} — some deliveries failed.`
+          : `Sent to ${data.sentCount} client${data.sentCount === 1 ? "" : "s"}.`
+      );
+      setHistory((prev) => [
+        {
+          id:
+            typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          subject,
+          message,
+          link_path: "/?intent=booking",
+          recipient_count: data.sentCount,
+          created_at: new Date().toISOString(),
+          sent_by_name: "You",
+        },
+        ...prev,
+      ]);
+      setSubject("");
+      setMessage("");
+    } catch {
+      setError("Network error — please check your connection and try again.");
+    } finally {
+      setSending(false);
+      setConfirming(false);
     }
-
-    setResult(
-      data.sentCount < data.totalRecipients
-        ? `Sent to ${data.sentCount} of ${data.totalRecipients} — some deliveries failed.`
-        : `Sent to ${data.sentCount} client${data.sentCount === 1 ? "" : "s"}.`
-    );
-    setHistory((prev) => [
-      {
-        id: crypto.randomUUID(),
-        subject,
-        message,
-        link_path: "/?intent=booking",
-        recipient_count: data.sentCount,
-        created_at: new Date().toISOString(),
-        sent_by_name: "You",
-      },
-      ...prev,
-    ]);
-    setSubject("");
-    setMessage("");
   }
 
   const canSend = subject.trim().length > 0 && message.trim().length > 0 && initialRecipientCount > 0;
