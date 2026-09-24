@@ -96,8 +96,8 @@ export default function AddMenuModal({ onClose }: { onClose: () => void }) {
         <div className="scrollbar-hidden max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-ink">Add Menu</h2>
-            <button onClick={onClose} className="text-ink/40 hover:text-ink">
-              <X className="h-5 w-5" />
+            <button onClick={onClose} aria-label="Close" className="text-ink/40 hover:text-ink">
+              <X className="h-6 w-6" />
             </button>
           </div>
 
