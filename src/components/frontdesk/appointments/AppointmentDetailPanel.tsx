@@ -94,8 +94,8 @@ export default function AppointmentDetailPanel({
       <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-ink">Booking Details</h2>
-          <button onClick={onClose} className="text-ink/40 hover:text-ink">
-            <X className="h-5 w-5" />
+          <button onClick={onClose} aria-label="Close" className="text-ink/40 hover:text-ink">
+            <X className="h-6 w-6" />
           </button>
         </div>
 
