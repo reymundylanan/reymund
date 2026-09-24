@@ -40,12 +40,35 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
 
   const [showForm, setShowForm] = useState(false);
   const [staffMemberId, setStaffMemberId] = useState("");
+  const [rangeAnchor, setRangeAnchor] = useState<Date | null>(null);
   const [startDate, setStartDate] = useState(() => new Date());
   const [endDate, setEndDate] = useState(() => new Date());
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<"submit" | "cancel" | null>(null);
+
+  function pickRangeDay(day: Date) {
+    if (!rangeAnchor) {
+      setRangeAnchor(day);
+      setStartDate(day);
+      setEndDate(day);
+      return;
+    }
+    let s = rangeAnchor;
+    let e = day;
+    if (e.getTime() < s.getTime()) {
+      [s, e] = [e, s];
+    }
+    const diffDays = Math.round((e.getTime() - s.getTime()) / 86400000);
+    if (diffDays > 6) {
+      e = new Date(s);
+      e.setDate(e.getDate() + 6);
+    }
+    setStartDate(s);
+    setEndDate(e);
+    setRangeAnchor(null);
+  }
 
   useEffect(() => {
     if (!profile?.branchId) {
@@ -84,6 +107,10 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
 
   async function submit() {
     if (!profile?.branchId || !staffMemberId) return;
+    if (!reason.trim()) {
+      setFormError("Please enter a reason.");
+      return;
+    }
     if (toDateKey(endDate) < toDateKey(startDate)) {
       setFormError("End date can't be before the start date.");
       return;
@@ -113,6 +140,7 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
     setReason("");
     setFormError(null);
     setPendingAction(null);
+    setRangeAnchor(null);
   }
 
   return (
@@ -128,7 +156,15 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
         <div className="mt-4 flex-1 space-y-4 overflow-y-auto">
           {!showForm ? (
             <button
-              onClick={() => setShowForm(true)}
+              onClick={() => {
+                setShowForm(true);
+                setRangeAnchor(null);
+                const today = new Date();
+                setStartDate(today);
+                setEndDate(today);
+                setReason("");
+                setFormError(null);
+              }}
               className="flex w-full items-center justify-center gap-1.5 rounded-full border border-coral px-4 py-2 text-sm font-semibold text-coral-dark hover:bg-blush"
             >
               <Plus className="h-4 w-4" /> New Request
@@ -151,23 +187,22 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
                 </select>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium text-ink/70">Start date</label>
-                  <div className="mt-1">
-                    <MonthCalendar selectedDate={startDate} onSelect={setStartDate} />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-ink/70">End date</label>
-                  <div className="mt-1">
-                    <MonthCalendar selectedDate={endDate} onSelect={setEndDate} initialMonth={startDate} />
-                  </div>
+              <div>
+                <label className="text-sm font-medium text-ink/70">Dates (tap a day, then tap another to pick a range — up to 7 days)</label>
+                <p className="mt-1 text-sm font-medium text-coral-dark">
+                  {toDateKey(startDate) === toDateKey(endDate)
+                    ? formatDate(toDateKey(startDate))
+                    : `${formatDate(toDateKey(startDate))} – ${formatDate(toDateKey(endDate))}`}
+                </p>
+                <div className="mt-1">
+                  <MonthCalendar rangeStart={startDate} rangeEnd={endDate} onSelect={pickRangeDay} />
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-medium text-ink/70">Reason</label>
+                <label className="text-sm font-medium text-ink/70">
+                  Reason <span className="text-red-500">*</span>
+                </label>
                 <textarea
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
@@ -189,7 +224,7 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
                 </button>
                 <button
                   onClick={() => setPendingAction("submit")}
-                  disabled={saving || !staffMemberId}
+                  disabled={saving || !staffMemberId || !reason.trim()}
                   className="flex-1 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
                   {saving ? "Submitting..." : "Submit Request"}

@@ -27,13 +27,17 @@ export default function MonthCalendar({
   selectedDate,
   onSelect,
   initialMonth,
+  rangeStart,
+  rangeEnd,
 }: {
-  selectedDate: Date | null;
+  selectedDate?: Date | null;
   onSelect: (date: Date) => void;
   initialMonth?: Date;
+  rangeStart?: Date | null;
+  rangeEnd?: Date | null;
 }) {
   const [calendarMonth, setCalendarMonth] = useState(() =>
-    startOfMonth(initialMonth ?? selectedDate ?? new Date())
+    startOfMonth(initialMonth ?? selectedDate ?? rangeStart ?? new Date())
   );
 
   function shiftMonth(delta: number) {
@@ -72,7 +76,12 @@ export default function MonthCalendar({
           const cellDate = day
             ? new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
             : null;
-          const isSelected = cellDate && selectedDate ? toDateKey(cellDate) === toDateKey(selectedDate) : false;
+          const cellKey = cellDate ? toDateKey(cellDate) : null;
+          const isSelected = cellKey && selectedDate ? cellKey === toDateKey(selectedDate) : false;
+          const isRangeEndpoint =
+            cellKey && ((rangeStart && cellKey === toDateKey(rangeStart)) || (rangeEnd && cellKey === toDateKey(rangeEnd)));
+          const isInRangeMiddle =
+            cellDate && rangeStart && rangeEnd ? cellDate > rangeStart && cellDate < rangeEnd : false;
           return (
             <button
               key={i}
@@ -81,9 +90,11 @@ export default function MonthCalendar({
               className={`aspect-square w-8 justify-self-center rounded-full ${
                 !day
                   ? ""
-                  : isSelected
+                  : isSelected || isRangeEndpoint
                     ? "bg-coral text-white"
-                    : "hover:bg-blush"
+                    : isInRangeMiddle
+                      ? "bg-blush text-coral-dark"
+                      : "hover:bg-blush"
               }`}
             >
               {day ?? ""}
