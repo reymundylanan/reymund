@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Calendar, Check, Clock, ChevronLeft, ChevronRight, ChevronsRight, X } from "lucide-react";
 import {
   parseService,
@@ -8,6 +9,7 @@ import {
   type AppointmentRow,
 } from "@/components/frontdesk/appointments/utils";
 import type { StaffRow } from "@/components/frontdesk/appointments/AppointmentsManager";
+import MonthCalendar from "@/components/frontdesk/staff/MonthCalendar";
 
 const START_HOUR = 9;
 const END_HOUR = 20.5;
@@ -51,6 +53,7 @@ export default function StaffTimeline({
   onPrevDay,
   onNextDay,
   onToday,
+  onSelectDate,
   onSelect,
 }: {
   staff: StaffRow[];
@@ -60,8 +63,10 @@ export default function StaffTimeline({
   onPrevDay: () => void;
   onNextDay: () => void;
   onToday: () => void;
+  onSelectDate: (date: Date) => void;
   onSelect: (id: string) => void;
 }) {
+  const [showPicker, setShowPicker] = useState(false);
   const gridWidth = (slots.length - 1) * COL_WIDTH;
   const dateKey = toDateKey(selectedDate);
   const dayRows = rows.filter((r) => r.scheduled_date === dateKey);
@@ -88,15 +93,33 @@ export default function StaffTimeline({
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <p className="flex items-center gap-2 text-base font-semibold text-ink">
-          <Calendar className="h-4 w-4 text-coral-dark" />
-          {selectedDate.toLocaleDateString("en-US", {
-            weekday: "long",
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-        </p>
+        <div className="relative">
+          <button
+            onClick={() => setShowPicker((s) => !s)}
+            className="flex items-center gap-2 rounded-full px-2 py-1 text-base font-semibold text-ink hover:bg-blush"
+          >
+            <Calendar className="h-4 w-4 text-coral-dark" />
+            {selectedDate.toLocaleDateString("en-US", {
+              weekday: "long",
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+          </button>
+          {showPicker && (
+            <div className="absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2">
+              <MonthCalendar
+                selectedDate={selectedDate}
+                onSelect={(d) => {
+                  onSelectDate(d);
+                  setShowPicker(false);
+                }}
+                initialMonth={selectedDate}
+                disablePast={false}
+              />
+            </div>
+          )}
+        </div>
         <button
           onClick={onNextDay}
           aria-label="Next day"

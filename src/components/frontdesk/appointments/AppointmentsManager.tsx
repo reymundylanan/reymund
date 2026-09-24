@@ -175,6 +175,7 @@ export default function AppointmentsManager() {
           onPrevDay={() => setCalendarDate((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1))}
           onNextDay={() => setCalendarDate((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1))}
           onToday={() => setCalendarDate(startOfDay(new Date()))}
+          onSelectDate={(date) => setCalendarDate(startOfDay(date))}
           onSelect={(id) => setActiveId(id)}
         />
       ) : (

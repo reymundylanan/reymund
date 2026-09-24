@@ -34,11 +34,13 @@ export default function MonthCalendar({
   selectedDates,
   onSelect,
   initialMonth,
+  disablePast = true,
 }: {
   selectedDate?: Date | null;
   selectedDates?: Date[];
   onSelect: (date: Date) => void;
   initialMonth?: Date;
+  disablePast?: boolean;
 }) {
   const [calendarMonth, setCalendarMonth] = useState(() =>
     startOfMonth(initialMonth ?? selectedDate ?? selectedDates?.[0] ?? new Date())
@@ -81,7 +83,7 @@ export default function MonthCalendar({
             ? new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
             : null;
           const cellKey = cellDate ? toDateKey(cellDate) : null;
-          const isPast = cellDate ? isBeforeToday(cellDate) : false;
+          const isPast = disablePast && cellDate ? isBeforeToday(cellDate) : false;
           const isSelected = cellKey && selectedDate ? cellKey === toDateKey(selectedDate) : false;
           const isInSelectedDates = cellKey && selectedDates ? selectedDates.some((d) => toDateKey(d) === cellKey) : false;
           return (
