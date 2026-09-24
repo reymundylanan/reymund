@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Clock, ChevronLeft, ChevronRight, ChevronsRight, X } from "lucide-react";
+import { Calendar, Check, Clock, ChevronLeft, ChevronRight, ChevronsRight, X } from "lucide-react";
 import {
   parseService,
   toDateKey,
@@ -88,7 +88,8 @@ export default function StaffTimeline({
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <p className="text-base font-semibold text-ink">
+        <p className="flex items-center gap-2 text-base font-semibold text-ink">
+          <Calendar className="h-4 w-4 text-coral-dark" />
           {selectedDate.toLocaleDateString("en-US", {
             weekday: "long",
             month: "short",
