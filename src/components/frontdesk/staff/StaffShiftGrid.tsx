@@ -92,11 +92,11 @@ export default function StaffShiftGrid({
             return (
               <div key={member.id} className="flex items-center justify-between py-3">
                 <div>
-                  <p className="text-sm font-medium text-ink">{member.full_name}</p>
-                  <p className="text-xs text-ink/50">{member.department ?? ""}</p>
+                  <p className="text-base font-medium text-ink">{member.full_name}</p>
+                  <p className="text-sm text-ink/50">{member.department ?? ""}</p>
                 </div>
                 {offRecord ? (
-                  <span className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-600">
+                  <span className="flex items-center gap-2 rounded-full bg-red-50 px-4 py-1.5 text-sm font-medium text-red-600">
                     {PERIOD_LABEL[offRecord.period]}
                     <button
                       onClick={() =>
@@ -109,11 +109,11 @@ export default function StaffShiftGrid({
                       aria-label={`Remove off block for ${member.full_name}`}
                       className="hover:text-red-800"
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4" />
                     </button>
                   </span>
                 ) : (
-                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+                  <span className="rounded-full bg-green-50 px-4 py-1.5 text-sm font-medium text-green-700">
                     On Duty
                   </span>
                 )}
