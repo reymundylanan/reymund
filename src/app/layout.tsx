@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { BookingProvider } from "@/components/booking/BookingContext";
 import { LoginModalProvider } from "@/components/auth/LoginModalContext";
 import ChatWidgetWrapper from "@/components/ChatWidgetWrapper";
+import IntentHandler from "@/components/notifications/IntentHandler";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,7 +38,12 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <LoginModalProvider>
-          <BookingProvider>{children}</BookingProvider>
+          <BookingProvider>
+            {children}
+            <Suspense fallback={null}>
+              <IntentHandler />
+            </Suspense>
+          </BookingProvider>
           <ChatWidgetWrapper />
         </LoginModalProvider>
       </body>
