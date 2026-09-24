@@ -59,23 +59,17 @@ export async function upsertStaffOff(
   supabase: SupabaseClient,
   input: { staffMemberId: string; branchId: string; shiftDate: string; period: StaffOffPeriod }
 ): Promise<{ error: string | null }> {
-  const { error: deleteError } = await supabase
-    .from("staff_shifts")
-    .delete()
-    .eq("staff_member_id", input.staffMemberId)
-    .eq("shift_date", input.shiftDate);
+  const { error } = await supabase.from("staff_shifts").upsert(
+    {
+      staff_member_id: input.staffMemberId,
+      branch_id: input.branchId,
+      shift_date: input.shiftDate,
+      period: input.period,
+    },
+    { onConflict: "staff_member_id,shift_date" }
+  );
 
-  if (deleteError) return { error: deleteError.message };
-
-  const { error: insertError } = await supabase.from("staff_shifts").insert({
-    staff_member_id: input.staffMemberId,
-    branch_id: input.branchId,
-    shift_date: input.shiftDate,
-    period: input.period,
-  });
-
-  if (insertError) return { error: insertError.message };
-  return { error: null };
+  return { error: error?.message ?? null };
 }
 
 export async function removeStaffOff(

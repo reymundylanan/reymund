@@ -19,6 +19,15 @@ do $$ begin
     check (period in ('full_day', 'morning', 'afternoon'));
 exception when duplicate_object then null; end $$;
 
+-- One off-record per staff member per date — lets the app upsert atomically
+-- instead of a delete-then-insert (which could lose a block if the insert
+-- half failed after the delete half succeeded).
+do $$ begin
+  alter table staff_shifts
+    add constraint staff_shifts_member_date_unique
+    unique (staff_member_id, shift_date);
+exception when duplicate_object then null; end $$;
+
 alter table staff_shifts enable row level security;
 
 drop policy if exists "public read staff_shifts" on staff_shifts;

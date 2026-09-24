@@ -34,6 +34,7 @@ export default function StaffShiftGrid({
       return;
     }
     setLoading(true);
+    let cancelled = false;
     const supabase = createClient();
     const dateKey = toDateKey(selectedDate);
     Promise.all([
@@ -44,10 +45,14 @@ export default function StaffShiftGrid({
         .order("full_name"),
       getStaffShiftsForDate(supabase, profile.branchId, dateKey),
     ]).then(([staffRes, records]) => {
+      if (cancelled) return;
       setStaff((staffRes.data as StaffRow[]) ?? []);
       setOffRecords(records);
       setLoading(false);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [profile?.branchId, selectedDate, refreshKey]);
 
   async function handleRemove(id: string) {

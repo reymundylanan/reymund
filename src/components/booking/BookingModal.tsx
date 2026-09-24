@@ -353,6 +353,7 @@ export default function BookingModal({
       setStaffOffDays([]);
       return;
     }
+    let cancelled = false;
     const supabase = createClient();
     const monthStart = startOfMonth(calendarMonth);
     const monthEnd = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
@@ -361,8 +362,18 @@ export default function BookingModal({
       professionalId,
       toDateKey(monthStart),
       toDateKey(monthEnd)
-    ).then(setStaffOffDays);
+    ).then((records) => {
+      if (!cancelled) setStaffOffDays(records);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [professionalId, calendarMonth]);
+
+  useEffect(() => {
+    setSelectedDay(null);
+    setSelectedTime(null);
+  }, [professionalId]);
 
   useEffect(() => {
     if (step !== "otp") return;
@@ -431,11 +442,16 @@ export default function BookingModal({
 
       if (professionalId && professionalId !== "any") {
         const dateKey = toDateKey(selectedDate);
-        const { data: conflictRows } = await supabase
+        const { data: conflictRows, error: conflictError } = await supabase
           .from("staff_shifts")
           .select("period")
           .eq("staff_member_id", professionalId)
           .eq("shift_date", dateKey);
+        if (conflictError) {
+          setSaveError("Couldn't verify therapist availability. Please try again.");
+          setSaving(false);
+          return false;
+        }
         const conflicts = (conflictRows as { period: StaffOffRecord["period"] }[]) ?? [];
         const blockingConflict = conflicts.some(
           (r) =>
