@@ -56,9 +56,9 @@ export default function StaffScheduleHeader({
         <div className="flex gap-2">
           <button
             onClick={onAddBlock}
-            className="flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-medium text-ink/60 hover:border-coral"
+            className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-ink/60 hover:border-coral"
           >
-            <Plus className="h-3.5 w-3.5" /> Add Block
+            <Plus className="h-4 w-4" /> Add Block
           </button>
         </div>
       </div>
