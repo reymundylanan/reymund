@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
+import { Check, Clock, ChevronLeft, ChevronRight, ChevronsRight, X } from "lucide-react";
 import {
   parseService,
   toDateKey,
@@ -24,6 +24,25 @@ function formatHour(h: number) {
   return `${hour12}:${min}`;
 }
 
+const STATUS_ICON: Record<string, typeof Check> = {
+  confirmed: Check,
+  checked_in: Check,
+  in_service: Check,
+  completed: Check,
+  pending: Clock,
+  cancelled: X,
+  no_show: X,
+};
+
+const STATUS_BLOCK_STYLE: Record<string, string> = {
+  pending: "border-l-4 border-amber-400 bg-amber-50 text-amber-800",
+  cancelled: "border-l-4 border-ink/25 bg-ink/5 text-ink/40 line-through",
+  no_show: "border-l-4 border-ink/25 bg-ink/5 text-ink/40 line-through",
+};
+
+const DEFAULT_BLOCK_STYLE = "border-l-4 border-coral bg-blush text-ink";
+const CONFLICT_BLOCK_STYLE = "border-l-4 border-red-500 bg-red-50 text-red-700";
+
 export default function StaffTimeline({
   staff,
   rows,
@@ -45,7 +64,7 @@ export default function StaffTimeline({
 }) {
   const gridWidth = (slots.length - 1) * COL_WIDTH;
   const dateKey = toDateKey(selectedDate);
-  const dayRows = rows.filter((r) => r.scheduled_date === dateKey && r.status !== "cancelled");
+  const dayRows = rows.filter((r) => r.scheduled_date === dateKey);
 
   const byStaff = new Map<string, AppointmentRow[]>();
   let unmatchedCount = 0;
@@ -128,18 +147,19 @@ export default function StaffTimeline({
                       const left = (startHour - START_HOUR) * COL_WIDTH * 2;
                       const width = (r.duration_minutes / 60) * COL_WIDTH * 2;
                       const isConflict = conflictIds.has(r.id);
+                      const StatusIcon = STATUS_ICON[r.status];
+                      const blockStyle = isConflict
+                        ? CONFLICT_BLOCK_STYLE
+                        : (STATUS_BLOCK_STYLE[r.status] ?? DEFAULT_BLOCK_STYLE);
                       return (
                         <button
                           key={r.id}
                           onClick={() => onSelect(r.id)}
                           style={{ left, width }}
-                          className={`absolute top-1 h-10 truncate rounded-md px-2 py-1 text-left text-xs font-medium ${
-                            isConflict
-                              ? "border-l-4 border-red-500 bg-red-50 text-red-700"
-                              : "border-l-4 border-coral bg-blush text-ink"
-                          }`}
+                          className={`absolute top-1 flex h-10 items-center gap-1 rounded-md px-2 py-1 text-left text-xs font-medium ${blockStyle}`}
                         >
-                          {service}
+                          {StatusIcon && <StatusIcon className="h-3 w-3 shrink-0" />}
+                          <span className="truncate">{service}</span>
                         </button>
                       );
                     })}
