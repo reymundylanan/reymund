@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { toDateKey, upsertStaffOff, type StaffOffPeriod } from "@/lib/supabase/queries/staffShifts";
+import MonthCalendar from "@/components/frontdesk/staff/MonthCalendar";
 
 type StaffRow = { id: string; full_name: string; department: string | null };
 
@@ -13,25 +14,6 @@ const PERIOD_OPTIONS: { value: StaffOffPeriod; label: string }[] = [
   { value: "morning", label: "Morning (before 1:00 PM)" },
   { value: "afternoon", label: "Afternoon (1:00 PM onward)" },
 ];
-
-const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function buildMonthGrid(monthDate: Date) {
-  const first = startOfMonth(monthDate);
-  const daysInMonth = new Date(
-    monthDate.getFullYear(),
-    monthDate.getMonth() + 1,
-    0
-  ).getDate();
-  const leading = first.getDay();
-  const cells: (number | null)[] = Array.from({ length: leading }, () => null);
-  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-  return cells;
-}
 
 export default function AddStaffBlockModal({
   defaultDate,
@@ -45,7 +27,6 @@ export default function AddStaffBlockModal({
   const { profile } = useStaffProfile();
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [staffMemberId, setStaffMemberId] = useState("");
-  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(defaultDate));
   const [selectedDate, setSelectedDate] = useState(() => new Date(defaultDate));
   const [period, setPeriod] = useState<StaffOffPeriod>("full_day");
   const [saving, setSaving] = useState(false);
@@ -65,10 +46,6 @@ export default function AddStaffBlockModal({
         if (rows.length > 0) setStaffMemberId((prev) => prev || rows[0].id);
       });
   }, [profile?.branchId]);
-
-  function shiftMonth(delta: number) {
-    setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
-  }
 
   async function submit() {
     if (!profile?.branchId || !staffMemberId) return;
@@ -118,56 +95,8 @@ export default function AddStaffBlockModal({
 
           <div>
             <label className="text-sm font-medium text-ink/70">Date</label>
-            <div className="mt-1 rounded-xl border border-ink/15 p-2.5">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => shiftMonth(-1)}
-                  aria-label="Previous month"
-                  className="rounded-full p-1 text-ink/40 hover:bg-blush hover:text-coral-dark"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <p className="text-sm font-semibold text-ink">
-                  {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                </p>
-                <button
-                  onClick={() => shiftMonth(1)}
-                  aria-label="Next month"
-                  className="rounded-full p-1 text-ink/40 hover:bg-blush hover:text-coral-dark"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="mt-2 grid grid-cols-7 gap-0.5 text-center text-[11px] font-medium text-ink/40">
-                {WEEKDAY_LABELS.map((d) => (
-                  <span key={d}>{d}</span>
-                ))}
-              </div>
-              <div className="mt-0.5 grid grid-cols-7 gap-0.5 text-center text-xs">
-                {buildMonthGrid(calendarMonth).map((day, i) => {
-                  const cellDate = day
-                    ? new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
-                    : null;
-                  const isSelected = cellDate ? toDateKey(cellDate) === toDateKey(selectedDate) : false;
-                  return (
-                    <button
-                      key={i}
-                      disabled={!day}
-                      onClick={() => cellDate && setSelectedDate(cellDate)}
-                      className={`aspect-square w-8 justify-self-center rounded-full ${
-                        !day
-                          ? ""
-                          : isSelected
-                            ? "bg-coral text-white"
-                            : "hover:bg-blush"
-                      }`}
-                    >
-                      {day ?? ""}
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="mt-1">
+              <MonthCalendar selectedDate={selectedDate} onSelect={setSelectedDate} initialMonth={defaultDate} />
             </div>
           </div>
 
