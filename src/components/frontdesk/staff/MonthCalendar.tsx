@@ -51,7 +51,7 @@ export default function MonthCalendar({
   }
 
   return (
-    <div className="rounded-xl border border-ink/15 bg-white p-2.5 shadow-lg">
+    <div className="w-72 rounded-xl border border-ink/15 bg-white p-3.5 shadow-lg">
       <div className="flex items-center justify-between">
         <button
           onClick={() => shiftMonth(-1)}
@@ -72,12 +72,12 @@ export default function MonthCalendar({
         </button>
       </div>
 
-      <div className="mt-2 grid grid-cols-7 gap-0.5 text-center text-[11px] font-medium text-ink/40">
+      <div className="mt-2 grid grid-cols-7 gap-1 text-center text-xs font-medium text-ink/40">
         {WEEKDAY_LABELS.map((d) => (
           <span key={d}>{d}</span>
         ))}
       </div>
-      <div className="mt-0.5 grid grid-cols-7 gap-0.5 text-center text-xs">
+      <div className="mt-1 grid grid-cols-7 gap-1 text-center text-sm">
         {buildMonthGrid(calendarMonth).map((day, i) => {
           const cellDate = day
             ? new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
@@ -91,7 +91,7 @@ export default function MonthCalendar({
               key={i}
               disabled={!day || isPast}
               onClick={() => cellDate && !isPast && onSelect(cellDate)}
-              className={`aspect-square w-8 justify-self-center rounded-full ${
+              className={`aspect-square w-9 justify-self-center rounded-full ${
                 !day
                   ? ""
                   : isPast
