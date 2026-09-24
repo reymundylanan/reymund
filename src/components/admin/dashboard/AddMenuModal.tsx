@@ -93,7 +93,7 @@ export default function AddMenuModal({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-        <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="scrollbar-hidden max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-ink">Add Menu</h2>
             <button onClick={onClose} className="text-ink/40 hover:text-ink">
