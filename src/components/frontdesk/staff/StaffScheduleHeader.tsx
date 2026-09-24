@@ -35,7 +35,7 @@ export default function StaffScheduleHeader({
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <p className="text-sm text-ink/50">{label}</p>
+            <p className="text-base text-ink/60">{label}</p>
             <button
               onClick={onNextDay}
               aria-label="Next day"
