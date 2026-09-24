@@ -45,6 +45,7 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<"submit" | "cancel" | null>(null);
 
   useEffect(() => {
     if (!profile?.branchId) {
@@ -105,6 +106,13 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
     setReason("");
     setShowForm(false);
     await refreshRequests();
+  }
+
+  function discardForm() {
+    setShowForm(false);
+    setReason("");
+    setFormError(null);
+    setPendingAction(null);
   }
 
   return (
@@ -173,17 +181,14 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
 
               <div className="flex gap-2">
                 <button
-                  onClick={() => {
-                    setShowForm(false);
-                    setFormError(null);
-                  }}
+                  onClick={() => setPendingAction("cancel")}
                   disabled={saving}
                   className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 hover:border-ink/30 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={submit}
+                  onClick={() => setPendingAction("submit")}
                   disabled={saving || !staffMemberId}
                   className="flex-1 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 >
@@ -218,6 +223,59 @@ export default function ManageLeaveRequestsModal({ onClose }: { onClose: () => v
           </div>
         </div>
       </div>
+
+      {pendingAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+            {pendingAction === "submit" ? (
+              <>
+                <h2 className="font-semibold text-ink">Submit this request?</h2>
+                <p className="mt-2 text-sm text-ink/60">
+                  This sends a leave request for{" "}
+                  <span className="font-medium text-ink">
+                    {staff.find((s) => s.id === staffMemberId)?.full_name ?? "this staff member"}
+                  </span>{" "}
+                  from {formatDate(toDateKey(startDate))} to {formatDate(toDateKey(endDate))}. It will show as
+                  Pending until an admin approves or denies it — front desk can't decide this here.
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 className="font-semibold text-ink">Discard this request?</h2>
+                <p className="mt-2 text-sm text-ink/60">
+                  What you've entered on this form will be lost.
+                </p>
+              </>
+            )}
+
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setPendingAction(null)}
+                disabled={saving}
+                className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 hover:border-ink/30 disabled:opacity-50"
+              >
+                Go back
+              </button>
+              <button
+                onClick={() => {
+                  if (pendingAction === "submit") {
+                    setPendingAction(null);
+                    submit();
+                  } else {
+                    discardForm();
+                  }
+                }}
+                disabled={saving}
+                className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 ${
+                  pendingAction === "submit" ? "bg-coral" : "bg-red-600 hover:bg-red-700"
+                }`}
+              >
+                {pendingAction === "submit" ? "Yes, Submit" : "Yes, Discard"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
