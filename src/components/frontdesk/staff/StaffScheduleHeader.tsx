@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, ChevronsRight, LayoutList, Plus, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsRight, LayoutList, Plus } from "lucide-react";
 
 export default function StaffScheduleHeader({
   date,
@@ -65,9 +65,6 @@ export default function StaffScheduleHeader({
             className="flex items-center gap-1.5 rounded-full border border-ink/10 px-3 py-1.5 text-xs font-medium text-ink/60 hover:border-coral"
           >
             <Plus className="h-3.5 w-3.5" /> Add Block
-          </button>
-          <button className="flex items-center gap-1.5 rounded-full bg-coral px-3 py-1.5 text-xs font-semibold text-white">
-            <Upload className="h-3.5 w-3.5" /> Publish to GlowSync
           </button>
         </div>
       </div>
