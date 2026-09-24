@@ -58,7 +58,7 @@ export default function StaffScheduleHeader({
             onClick={onAddBlock}
             className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-ink/60 hover:border-coral"
           >
-            <Plus className="h-4 w-4" /> Add Block
+            <Plus className="h-4 w-4" /> Add Day Off
           </button>
         </div>
       </div>

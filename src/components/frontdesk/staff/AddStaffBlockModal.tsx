@@ -70,7 +70,7 @@ export default function AddStaffBlockModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-ink">Add Block</h2>
+          <h2 className="font-semibold text-ink">Add Day Off</h2>
           <button onClick={onClose} aria-label="Close" className="text-ink/40 hover:text-ink">
             <X className="h-5 w-5" />
           </button>
@@ -122,7 +122,7 @@ export default function AddStaffBlockModal({
             disabled={saving || !staffMemberId}
             className="w-full rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Save Block"}
+            {saving ? "Saving..." : "Save Day Off"}
           </button>
         </div>
       </div>
