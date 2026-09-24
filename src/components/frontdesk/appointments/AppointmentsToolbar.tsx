@@ -15,12 +15,6 @@ export default function AppointmentsToolbar({
   onQueryChange: (q: string) => void;
   branchName?: string | null;
 }) {
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -62,11 +56,6 @@ export default function AppointmentsToolbar({
             placeholder="Search by name or phone..."
             className="w-56 text-sm outline-none placeholder:text-ink/40"
           />
-        </div>
-        <div className="flex gap-2">
-          <span className="rounded-full bg-blush px-4 py-2 text-sm font-medium text-coral-dark">
-            Date: {today}
-          </span>
         </div>
       </div>
     </div>

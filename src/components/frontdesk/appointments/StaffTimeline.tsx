@@ -1,15 +1,17 @@
-import { appointmentTimeline } from "@/lib/frontdeskData";
-import type { TherapistTimeline } from "@/lib/frontdeskData";
+"use client";
+
+import { ChevronLeft, ChevronRight, ChevronsRight } from "lucide-react";
+import {
+  parseService,
+  toDateKey,
+  toMinutes,
+  type AppointmentRow,
+} from "@/components/frontdesk/appointments/utils";
+import type { StaffRow } from "@/components/frontdesk/appointments/AppointmentsManager";
 
 const START_HOUR = 9;
 const END_HOUR = 20.5;
 const COL_WIDTH = 64;
-
-const blockStyles: Record<TherapistTimeline["blocks"][number]["type"], string> = {
-  normal: "border-l-4 border-coral bg-blush text-ink",
-  break: "border-l-4 border-ink/30 bg-ink/5 text-ink/50",
-  conflict: "border-l-4 border-red-500 bg-red-50 text-red-700",
-};
 
 const slots: number[] = [];
 for (let h = START_HOUR; h <= END_HOUR; h += 0.5) slots.push(h);
@@ -22,53 +24,139 @@ function formatHour(h: number) {
   return `${hour12}:${min}`;
 }
 
-export default function StaffTimeline() {
+export default function StaffTimeline({
+  staff,
+  rows,
+  conflictIds,
+  selectedDate,
+  onPrevDay,
+  onNextDay,
+  onToday,
+  onSelect,
+}: {
+  staff: StaffRow[];
+  rows: AppointmentRow[];
+  conflictIds: Set<string>;
+  selectedDate: Date;
+  onPrevDay: () => void;
+  onNextDay: () => void;
+  onToday: () => void;
+  onSelect: (id: string) => void;
+}) {
   const gridWidth = (slots.length - 1) * COL_WIDTH;
+  const dateKey = toDateKey(selectedDate);
+  const dayRows = rows.filter((r) => r.scheduled_date === dateKey && r.status !== "cancelled");
+
+  const byStaff = new Map<string, AppointmentRow[]>();
+  let unmatchedCount = 0;
+  for (const r of dayRows) {
+    const { specialist } = parseService(r.notes);
+    const match = staff.find((s) => s.full_name.toLowerCase() === specialist.toLowerCase());
+    if (match) {
+      byStaff.set(match.id, [...(byStaff.get(match.id) ?? []), r]);
+    } else {
+      unmatchedCount++;
+    }
+  }
 
   return (
-    <div className="overflow-x-auto rounded-2xl bg-white p-4 shadow-sm">
-      <div className="flex">
-        <div className="w-32 shrink-0" />
-        <div className="flex" style={{ width: gridWidth }}>
-          {slots.slice(0, -1).map((h) => (
-            <div
-              key={h}
-              style={{ width: COL_WIDTH }}
-              className="shrink-0 border-l border-ink/5 py-2 text-center text-[11px] text-ink/40"
-            >
-              {formatHour(h)}
-            </div>
-          ))}
-        </div>
+    <div className="rounded-2xl bg-white p-4 shadow-sm">
+      <div className="mb-3 flex items-center justify-center gap-3">
+        <button
+          onClick={onPrevDay}
+          aria-label="Previous day"
+          className="rounded-full p-1.5 text-ink/40 hover:bg-blush hover:text-coral-dark"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <p className="text-base font-semibold text-ink">
+          {selectedDate.toLocaleDateString("en-US", {
+            weekday: "long",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+        </p>
+        <button
+          onClick={onNextDay}
+          aria-label="Next day"
+          className="rounded-full p-1.5 text-ink/40 hover:bg-blush hover:text-coral-dark"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+        <button
+          onClick={onToday}
+          aria-label="Jump to today"
+          title="Jump to today"
+          className="rounded-full p-1.5 text-ink/40 hover:bg-blush hover:text-coral-dark"
+        >
+          <ChevronsRight className="h-5 w-5" />
+        </button>
       </div>
 
-      <div className="mt-1 space-y-1">
-        {appointmentTimeline.map((row) => (
-          <div key={row.id} className="flex items-center">
-            <div className="w-32 shrink-0 text-sm font-medium text-ink/70">
-              {row.therapist}
-            </div>
-            <div
-              className="relative h-12 border-t border-ink/5"
-              style={{ width: gridWidth }}
-            >
-              {row.blocks.map((block, i) => {
-                const left = (block.start - START_HOUR) * COL_WIDTH * 2;
-                const width = block.duration * COL_WIDTH * 2;
-                return (
-                  <div
-                    key={i}
-                    style={{ left, width }}
-                    className={`absolute top-1 h-10 truncate rounded-md px-2 py-1 text-xs font-medium ${blockStyles[block.type]}`}
-                  >
-                    {block.title}
-                  </div>
-                );
-              })}
+      {staff.length === 0 ? (
+        <p className="text-sm text-ink/50">No staff assigned to this branch yet.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <div className="flex">
+            <div className="w-32 shrink-0" />
+            <div className="flex" style={{ width: gridWidth }}>
+              {slots.slice(0, -1).map((h) => (
+                <div
+                  key={h}
+                  style={{ width: COL_WIDTH }}
+                  className="shrink-0 border-l border-ink/5 py-2 text-center text-[11px] text-ink/40"
+                >
+                  {formatHour(h)}
+                </div>
+              ))}
             </div>
           </div>
-        ))}
-      </div>
+
+          <div className="mt-1 space-y-1">
+            {staff.map((member) => {
+              const blocks = byStaff.get(member.id) ?? [];
+              return (
+                <div key={member.id} className="flex items-center">
+                  <div className="w-32 shrink-0 text-sm font-medium text-ink/70">
+                    {member.full_name}
+                  </div>
+                  <div className="relative h-12 border-t border-ink/5" style={{ width: gridWidth }}>
+                    {blocks.map((r) => {
+                      const { service } = parseService(r.notes);
+                      const startHour = toMinutes(r.start_time) / 60;
+                      const left = (startHour - START_HOUR) * COL_WIDTH * 2;
+                      const width = (r.duration_minutes / 60) * COL_WIDTH * 2;
+                      const isConflict = conflictIds.has(r.id);
+                      return (
+                        <button
+                          key={r.id}
+                          onClick={() => onSelect(r.id)}
+                          style={{ left, width }}
+                          className={`absolute top-1 h-10 truncate rounded-md px-2 py-1 text-left text-xs font-medium ${
+                            isConflict
+                              ? "border-l-4 border-red-500 bg-red-50 text-red-700"
+                              : "border-l-4 border-coral bg-blush text-ink"
+                          }`}
+                        >
+                          {service}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {unmatchedCount > 0 && (
+        <p className="mt-3 text-xs text-ink/40">
+          {unmatchedCount} appointment{unmatchedCount === 1 ? "" : "s"} without a specific therapist assigned
+          {unmatchedCount === 1 ? " isn't" : " aren't"} shown here — check the List view.
+        </p>
+      )}
     </div>
   );
 }
