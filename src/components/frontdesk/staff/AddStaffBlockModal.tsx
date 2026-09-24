@@ -15,6 +15,11 @@ const PERIOD_OPTIONS: { value: StaffOffPeriod; label: string }[] = [
   { value: "afternoon", label: "Afternoon (1:00 PM onward)" },
 ];
 
+function formatDate(dateKey: string) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 export default function AddStaffBlockModal({
   defaultDate,
   onClose,
@@ -31,6 +36,7 @@ export default function AddStaffBlockModal({
   const [period, setPeriod] = useState<StaffOffPeriod>("full_day");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (!profile?.branchId) return;
@@ -65,6 +71,9 @@ export default function AddStaffBlockModal({
     }
     onSaved();
   }
+
+  const selectedStaffName = staff.find((s) => s.id === staffMemberId)?.full_name ?? "this staff member";
+  const selectedPeriodLabel = PERIOD_OPTIONS.find((opt) => opt.value === period)?.label ?? period;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
@@ -118,7 +127,7 @@ export default function AddStaffBlockModal({
           {error && <p className="text-xs text-red-600">{error}</p>}
 
           <button
-            onClick={submit}
+            onClick={() => setConfirming(true)}
             disabled={saving || !staffMemberId}
             className="w-full rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
@@ -126,6 +135,42 @@ export default function AddStaffBlockModal({
           </button>
         </div>
       </div>
+
+      {confirming && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+            <h2 className="font-semibold text-ink">Mark this day off?</h2>
+            <p className="mt-2 text-sm text-ink/60">
+              <span className="font-medium text-ink">{selectedStaffName}</span> will be marked{" "}
+              <span className="font-medium text-red-600">
+                Off ({selectedPeriodLabel})
+              </span>{" "}
+              on {formatDate(toDateKey(selectedDate))}. Customers won&apos;t be able to book them
+              {period === "full_day" ? " that day" : period === "morning" ? " before 1:00 PM" : " from 1:00 PM onward"}.
+            </p>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setConfirming(false)}
+                disabled={saving}
+                className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 hover:border-ink/30 disabled:opacity-50"
+              >
+                Go back
+              </button>
+              <button
+                onClick={() => {
+                  setConfirming(false);
+                  submit();
+                }}
+                disabled={saving}
+                className="flex-1 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                Yes, Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
