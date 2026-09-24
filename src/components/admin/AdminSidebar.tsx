@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Bell,
   Building2,
   CalendarCheck,
   ChevronLeft,
@@ -21,6 +22,7 @@ const navItems = [
   { href: "/admin/bookings", label: "Bookings Management", icon: CalendarCheck },
   { href: "/admin/payments", label: "Payments & Financials", icon: Wallet },
   { href: "/admin/branches", label: "Branches & Services", icon: Building2 },
+  { href: "/admin/notifications", label: "Notifications", icon: Bell },
   { href: "/admin/reports", label: "Reports & System Settings", icon: Settings },
 ];
 

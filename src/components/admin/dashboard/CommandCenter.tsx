@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Building2, ClipboardList, UserPlus } from "lucide-react";
+import { Bell, Building2, ClipboardList, UserPlus } from "lucide-react";
 import AddMenuModal from "@/components/admin/dashboard/AddMenuModal";
 
 export default function CommandCenter() {
@@ -12,6 +12,7 @@ export default function CommandCenter() {
     { label: "Add Branch", icon: Building2, href: "/admin/branches", onClick: null },
     { label: "Manage Staff", icon: UserPlus, href: null, onClick: null },
     { label: "Add Menu", icon: ClipboardList, href: null, onClick: () => setShowAddMenu(true) },
+    { label: "Send Notification", icon: Bell, href: "/admin/notifications", onClick: null },
   ];
 
   return (
