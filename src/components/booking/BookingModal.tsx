@@ -10,6 +10,7 @@ import {
 } from "@/lib/data";
 import type { BookableService } from "@/components/booking/BookingContext";
 import { createClient } from "@/lib/supabase/client";
+import { getStaffShiftsForRange, toDateKey, type StaffOffRecord } from "@/lib/supabase/queries/staffShifts";
 
 type StaffMember = {
   id: string;
@@ -162,6 +163,24 @@ function endTime(start: string, durationLabel: string) {
   return `${endHour12}:${endMinute.toString().padStart(2, "0")} ${endMeridiem}`;
 }
 
+function isFullDayOff(date: Date, offDays: StaffOffRecord[]) {
+  const key = toDateKey(date);
+  return offDays.some((r) => r.shift_date === key && r.period === "full_day");
+}
+
+function periodOffForDate(date: Date, offDays: StaffOffRecord[]): "morning" | "afternoon" | null {
+  const key = toDateKey(date);
+  const record = offDays.find(
+    (r) => r.shift_date === key && (r.period === "morning" || r.period === "afternoon")
+  );
+  return record ? (record.period as "morning" | "afternoon") : null;
+}
+
+function isSlotAfterCutoff(time: string) {
+  const hour24 = Number(to24Hour(time).split(":")[0]);
+  return hour24 >= 13;
+}
+
 export default function BookingModal({
   service,
   onClose,
@@ -198,6 +217,7 @@ export default function BookingModal({
   const [profileMember, setProfileMember] = useState<StaffMember | null>(null);
   const [zoomedAvatar, setZoomedAvatar] = useState<string | null>(null);
   const [showSelectedPanel, setShowSelectedPanel] = useState(false);
+  const [staffOffDays, setStaffOffDays] = useState<StaffOffRecord[]>([]);
 
   useEffect(() => {
     setBranchUuid(null);
@@ -329,6 +349,22 @@ export default function BookingModal({
   }, [step, branchId]);
 
   useEffect(() => {
+    if (!professionalId || professionalId === "any") {
+      setStaffOffDays([]);
+      return;
+    }
+    const supabase = createClient();
+    const monthStart = startOfMonth(calendarMonth);
+    const monthEnd = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0);
+    getStaffShiftsForRange(
+      supabase,
+      professionalId,
+      toDateKey(monthStart),
+      toDateKey(monthEnd)
+    ).then(setStaffOffDays);
+  }, [professionalId, calendarMonth]);
+
+  useEffect(() => {
     if (step !== "otp") return;
     setSecondsLeft(OTP_SECONDS);
     const interval = setInterval(() => {
@@ -391,6 +427,27 @@ export default function BookingModal({
         setSaveError("Missing branch, date, or time.");
         setSaving(false);
         return false;
+      }
+
+      if (professionalId && professionalId !== "any") {
+        const dateKey = toDateKey(selectedDate);
+        const { data: conflictRows } = await supabase
+          .from("staff_shifts")
+          .select("period")
+          .eq("staff_member_id", professionalId)
+          .eq("shift_date", dateKey);
+        const conflicts = (conflictRows as { period: StaffOffRecord["period"] }[]) ?? [];
+        const blockingConflict = conflicts.some(
+          (r) =>
+            r.period === "full_day" ||
+            (r.period === "morning" && !isSlotAfterCutoff(selectedTime)) ||
+            (r.period === "afternoon" && isSlotAfterCutoff(selectedTime))
+        );
+        if (blockingConflict) {
+          setSaveError("This professional just became unavailable for that date/time. Please pick another slot.");
+          setSaving(false);
+          return false;
+        }
       }
 
       const bookingCode = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -943,15 +1000,17 @@ export default function BookingModal({
                       ? new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
                       : null;
                     const isPast = cellDate ? isBeforeToday(cellDate) : false;
+                    const isStaffOff = cellDate ? isFullDayOff(cellDate, staffOffDays) : false;
+                    const isDisabled = !day || isPast || isStaffOff;
                     return (
                       <button
                         key={i}
-                        disabled={!day || isPast}
-                        onClick={() => day && !isPast && setSelectedDay(day)}
+                        disabled={isDisabled}
+                        onClick={() => day && !isDisabled && setSelectedDay(day)}
                         className={`aspect-square rounded-full ${
                           !day
                             ? ""
-                            : isPast
+                            : isPast || isStaffOff
                               ? "text-ink/20 cursor-not-allowed"
                               : day === selectedDay
                                 ? "bg-coral text-white"
@@ -966,19 +1025,37 @@ export default function BookingModal({
               </div>
 
               <div className="space-y-2 overflow-y-auto">
-                {(BRANCH_TIME_SLOTS[branchId ?? ""] ?? timeSlots).map((time) => (
-                  <button
-                    key={time}
-                    onClick={() => setSelectedTime(time)}
-                    className={`block w-full rounded-lg border px-3 py-2.5 text-base ${
-                      selectedTime === time
-                        ? "border-coral bg-blush text-coral-dark"
-                        : "border-ink/10 text-ink/70 hover:border-coral"
-                    }`}
-                  >
-                    {time}
-                  </button>
-                ))}
+                {(() => {
+                  const allSlots = BRANCH_TIME_SLOTS[branchId ?? ""] ?? timeSlots;
+                  const offPeriod = selectedDate ? periodOffForDate(selectedDate, staffOffDays) : null;
+                  const availableSlots = allSlots.filter((time) => {
+                    if (!offPeriod) return true;
+                    const afterCutoff = isSlotAfterCutoff(time);
+                    return offPeriod === "morning" ? afterCutoff : !afterCutoff;
+                  });
+
+                  if (availableSlots.length === 0) {
+                    return (
+                      <p className="text-sm text-ink/50">
+                        No available times for this therapist on this date.
+                      </p>
+                    );
+                  }
+
+                  return availableSlots.map((time) => (
+                    <button
+                      key={time}
+                      onClick={() => setSelectedTime(time)}
+                      className={`block w-full rounded-lg border px-3 py-2.5 text-base ${
+                        selectedTime === time
+                          ? "border-coral bg-blush text-coral-dark"
+                          : "border-ink/10 text-ink/70 hover:border-coral"
+                      }`}
+                    >
+                      {time}
+                    </button>
+                  ));
+                })()}
               </div>
             </div>
             </div>
