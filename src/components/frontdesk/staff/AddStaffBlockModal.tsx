@@ -9,7 +9,7 @@ import { toDateKey, upsertStaffOff, type StaffOffPeriod } from "@/lib/supabase/q
 type StaffRow = { id: string; full_name: string; department: string | null };
 
 const PERIOD_OPTIONS: { value: StaffOffPeriod; label: string }[] = [
-  { value: "full_day", label: "Full Day" },
+  { value: "full_day", label: "Whole Day" },
   { value: "morning", label: "Morning (before 1:00 PM)" },
   { value: "afternoon", label: "Afternoon (1:00 PM onward)" },
 ];

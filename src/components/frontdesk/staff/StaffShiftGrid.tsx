@@ -9,7 +9,7 @@ import { getStaffShiftsForDate, removeStaffOff, toDateKey, type StaffOffRecord }
 type StaffRow = { id: string; full_name: string; department: string | null };
 
 const PERIOD_LABEL: Record<StaffOffRecord["period"], string> = {
-  full_day: "Off (Full Day)",
+  full_day: "Off (Whole Day)",
   morning: "Off (Morning)",
   afternoon: "Off (Afternoon)",
 };
