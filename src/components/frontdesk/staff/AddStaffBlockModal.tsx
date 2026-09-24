@@ -91,7 +91,7 @@ export default function AddStaffBlockModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-ink">Add Block</h2>
           <button onClick={onClose} aria-label="Close" className="text-ink/40 hover:text-ink">
@@ -118,33 +118,33 @@ export default function AddStaffBlockModal({
 
           <div>
             <label className="text-xs font-medium text-ink/50">Date</label>
-            <div className="mt-1 rounded-xl border border-ink/15 p-3">
+            <div className="mt-1 rounded-xl border border-ink/15 p-2.5">
               <div className="flex items-center justify-between">
                 <button
                   onClick={() => shiftMonth(-1)}
                   aria-label="Previous month"
-                  className="rounded-full p-1.5 text-ink/40 hover:bg-blush hover:text-coral-dark"
+                  className="rounded-full p-1 text-ink/40 hover:bg-blush hover:text-coral-dark"
                 >
-                  <ChevronLeft className="h-5 w-5" />
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
-                <p className="text-base font-semibold text-ink">
+                <p className="text-sm font-semibold text-ink">
                   {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
                 </p>
                 <button
                   onClick={() => shiftMonth(1)}
                   aria-label="Next month"
-                  className="rounded-full p-1.5 text-ink/40 hover:bg-blush hover:text-coral-dark"
+                  className="rounded-full p-1 text-ink/40 hover:bg-blush hover:text-coral-dark"
                 >
-                  <ChevronRight className="h-5 w-5" />
+                  <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
 
-              <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs font-medium text-ink/40">
+              <div className="mt-2 grid grid-cols-7 gap-0.5 text-center text-[11px] font-medium text-ink/40">
                 {WEEKDAY_LABELS.map((d) => (
                   <span key={d}>{d}</span>
                 ))}
               </div>
-              <div className="mt-1 grid grid-cols-7 gap-1 text-center text-sm">
+              <div className="mt-0.5 grid grid-cols-7 gap-0.5 text-center text-xs">
                 {buildMonthGrid(calendarMonth).map((day, i) => {
                   const cellDate = day
                     ? new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
@@ -155,7 +155,7 @@ export default function AddStaffBlockModal({
                       key={i}
                       disabled={!day}
                       onClick={() => cellDate && setSelectedDate(cellDate)}
-                      className={`aspect-square rounded-full ${
+                      className={`aspect-square w-8 justify-self-center rounded-full ${
                         !day
                           ? ""
                           : isSelected
