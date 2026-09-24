@@ -10,6 +10,12 @@ function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
 }
 
+function isBeforeToday(date: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date.getTime() < today.getTime();
+}
+
 function buildMonthGrid(monthDate: Date) {
   const first = startOfMonth(monthDate);
   const daysInMonth = new Date(
@@ -75,19 +81,22 @@ export default function MonthCalendar({
             ? new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
             : null;
           const cellKey = cellDate ? toDateKey(cellDate) : null;
+          const isPast = cellDate ? isBeforeToday(cellDate) : false;
           const isSelected = cellKey && selectedDate ? cellKey === toDateKey(selectedDate) : false;
           const isInSelectedDates = cellKey && selectedDates ? selectedDates.some((d) => toDateKey(d) === cellKey) : false;
           return (
             <button
               key={i}
-              disabled={!day}
-              onClick={() => cellDate && onSelect(cellDate)}
+              disabled={!day || isPast}
+              onClick={() => cellDate && !isPast && onSelect(cellDate)}
               className={`aspect-square w-8 justify-self-center rounded-full ${
                 !day
                   ? ""
-                  : isSelected || isInSelectedDates
-                    ? "bg-coral text-white"
-                    : "hover:bg-blush"
+                  : isPast
+                    ? "text-ink/20 cursor-not-allowed"
+                    : isSelected || isInSelectedDates
+                      ? "bg-coral text-white"
+                      : "hover:bg-blush"
               }`}
             >
               {day ?? ""}
