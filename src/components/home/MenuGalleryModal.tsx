@@ -32,11 +32,11 @@ export default function MenuGalleryModal({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-        <div className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="scrollbar-hidden max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-ink">Our Menu</h2>
-            <button onClick={onClose} className="text-ink/40 hover:text-ink">
-              <X className="h-5 w-5" />
+            <button onClick={onClose} aria-label="Close" className="text-ink/40 hover:text-ink">
+              <X className="h-6 w-6" />
             </button>
           </div>
 
