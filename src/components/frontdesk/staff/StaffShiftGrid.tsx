@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { getStaffShiftsForDate, removeStaffOff, toDateKey, type StaffOffRecord } from "@/lib/supabase/queries/staffShifts";
@@ -30,6 +30,7 @@ export default function StaffShiftGrid({
   const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string; label: string } | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (!profile?.branchId) {
@@ -81,13 +82,31 @@ export default function StaffShiftGrid({
     );
   }
 
+  const filteredStaff = staff.filter((member) =>
+    member.full_name.toLowerCase().includes(search.trim().toLowerCase())
+  );
+
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
+      {staff.length > 0 && (
+        <div className="relative mb-4">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search staff by name..."
+            className="w-full rounded-full border border-ink/15 py-2 pl-9 pr-3 text-sm focus:border-coral focus:outline-none"
+          />
+        </div>
+      )}
       {staff.length === 0 ? (
         <p className="text-sm text-ink/50">No staff assigned to this branch yet.</p>
+      ) : filteredStaff.length === 0 ? (
+        <p className="text-sm text-ink/50">No staff match &quot;{search}&quot;.</p>
       ) : (
         <div className="divide-y divide-ink/5">
-          {staff.map((member) => {
+          {filteredStaff.map((member) => {
             const offRecord = offRecords.find((r) => r.staff_member_id === member.id);
             return (
               <div key={member.id} className="flex items-center justify-between py-3">
