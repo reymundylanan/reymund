@@ -36,8 +36,8 @@ create policy "public read staff_shifts" on staff_shifts for select using (true)
 drop policy if exists "staff manage staff_shifts" on staff_shifts;
 create policy "staff manage staff_shifts" on staff_shifts for all
   using (
-    exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin', 'front_desk'))
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'front_desk')
   )
   with check (
-    exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('admin', 'front_desk'))
+    exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'front_desk')
   );

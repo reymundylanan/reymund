@@ -13,19 +13,22 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 
 const navItems = [
   { href: "/frontdesk", label: "Dashboard", icon: LayoutDashboard },
   { href: "/frontdesk/appointments", label: "Appointments", icon: CalendarClock },
   { href: "/frontdesk/payments", label: "Payments & Walk-ins", icon: Wallet2 },
   { href: "/frontdesk/clients", label: "Clients", icon: Users2 },
-  { href: "/frontdesk/staff", label: "Staff Schedule", icon: UserCog },
+  { href: "/frontdesk/staff", label: "Staff Schedule", icon: UserCog, frontDeskOnly: true },
 ];
 
 export default function FrontDeskSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { profile } = useStaffProfile();
   const [collapsed, setCollapsed] = useState(false);
+  const visibleNavItems = navItems.filter((item) => !item.frontDeskOnly || profile?.role === "front_desk");
 
   async function handleLogout() {
     const supabase = createClient();
@@ -48,7 +51,7 @@ export default function FrontDeskSidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href;
           return (
