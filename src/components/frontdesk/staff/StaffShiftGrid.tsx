@@ -27,6 +27,9 @@ export default function StaffShiftGrid({
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [offRecords, setOffRecords] = useState<StaffOffRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string; label: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!profile?.branchId) {
@@ -55,9 +58,18 @@ export default function StaffShiftGrid({
     };
   }, [profile?.branchId, selectedDate, refreshKey]);
 
-  async function handleRemove(id: string) {
+  async function confirmRemove() {
+    if (!pendingRemove) return;
+    setRemoving(true);
+    setRemoveError(null);
     const supabase = createClient();
-    await removeStaffOff(supabase, id);
+    const { error } = await removeStaffOff(supabase, pendingRemove.id);
+    setRemoving(false);
+    if (error) {
+      setRemoveError(error);
+      return;
+    }
+    setPendingRemove(null);
     onChanged();
   }
 
@@ -87,7 +99,13 @@ export default function StaffShiftGrid({
                   <span className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-xs font-medium text-red-600">
                     {PERIOD_LABEL[offRecord.period]}
                     <button
-                      onClick={() => handleRemove(offRecord.id)}
+                      onClick={() =>
+                        setPendingRemove({
+                          id: offRecord.id,
+                          name: member.full_name,
+                          label: PERIOD_LABEL[offRecord.period],
+                        })
+                      }
                       aria-label={`Remove off block for ${member.full_name}`}
                       className="hover:text-red-800"
                     >
@@ -102,6 +120,41 @@ export default function StaffShiftGrid({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {pendingRemove && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+            <h2 className="font-semibold text-ink">Remove this block?</h2>
+            <p className="mt-2 text-sm text-ink/60">
+              <span className="font-medium text-ink">{pendingRemove.name}</span> is currently marked{" "}
+              <span className="font-medium text-red-600">{pendingRemove.label}</span> for this date. Removing
+              it puts them back on duty and customers will be able to book them again.
+            </p>
+
+            {removeError && <p className="mt-2 text-xs text-red-600">{removeError}</p>}
+
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => {
+                  setPendingRemove(null);
+                  setRemoveError(null);
+                }}
+                disabled={removing}
+                className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 hover:border-ink/30 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRemove}
+                disabled={removing}
+                className="flex-1 rounded-full bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {removing ? "Removing..." : "Remove"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
