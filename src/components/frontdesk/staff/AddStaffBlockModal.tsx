@@ -101,7 +101,7 @@ export default function AddStaffBlockModal({
 
         <div className="mt-4 space-y-4">
           <div>
-            <label className="text-xs font-medium text-ink/50">Staff member</label>
+            <label className="text-sm font-medium text-ink/70">Staff member</label>
             <select
               value={staffMemberId}
               onChange={(e) => setStaffMemberId(e.target.value)}
@@ -117,7 +117,7 @@ export default function AddStaffBlockModal({
           </div>
 
           <div>
-            <label className="text-xs font-medium text-ink/50">Date</label>
+            <label className="text-sm font-medium text-ink/70">Date</label>
             <div className="mt-1 rounded-xl border border-ink/15 p-2.5">
               <div className="flex items-center justify-between">
                 <button
@@ -172,7 +172,7 @@ export default function AddStaffBlockModal({
           </div>
 
           <div>
-            <label className="text-xs font-medium text-ink/50">Period</label>
+            <label className="text-sm font-medium text-ink/70">Period</label>
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value as StaffOffPeriod)}
