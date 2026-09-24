@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { toDateKey, upsertStaffOff, type StaffOffPeriod } from "@/lib/supabase/queries/staffShifts";
@@ -13,6 +13,25 @@ const PERIOD_OPTIONS: { value: StaffOffPeriod; label: string }[] = [
   { value: "morning", label: "Morning (before 1:00 PM)" },
   { value: "afternoon", label: "Afternoon (1:00 PM onward)" },
 ];
+
+const WEEKDAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function buildMonthGrid(monthDate: Date) {
+  const first = startOfMonth(monthDate);
+  const daysInMonth = new Date(
+    monthDate.getFullYear(),
+    monthDate.getMonth() + 1,
+    0
+  ).getDate();
+  const leading = first.getDay();
+  const cells: (number | null)[] = Array.from({ length: leading }, () => null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  return cells;
+}
 
 export default function AddStaffBlockModal({
   defaultDate,
@@ -26,7 +45,8 @@ export default function AddStaffBlockModal({
   const { profile } = useStaffProfile();
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [staffMemberId, setStaffMemberId] = useState("");
-  const [shiftDate, setShiftDate] = useState(toDateKey(defaultDate));
+  const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(defaultDate));
+  const [selectedDate, setSelectedDate] = useState(() => new Date(defaultDate));
   const [period, setPeriod] = useState<StaffOffPeriod>("full_day");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,15 +66,19 @@ export default function AddStaffBlockModal({
       });
   }, [profile?.branchId]);
 
+  function shiftMonth(delta: number) {
+    setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
+  }
+
   async function submit() {
-    if (!profile?.branchId || !staffMemberId || !shiftDate) return;
+    if (!profile?.branchId || !staffMemberId) return;
     setSaving(true);
     setError(null);
     const supabase = createClient();
     const { error: saveError } = await upsertStaffOff(supabase, {
       staffMemberId,
       branchId: profile.branchId,
-      shiftDate,
+      shiftDate: toDateKey(selectedDate),
       period,
     });
     setSaving(false);
@@ -67,7 +91,7 @@ export default function AddStaffBlockModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-ink">Add Block</h2>
           <button onClick={onClose} aria-label="Close" className="text-ink/40 hover:text-ink">
@@ -75,7 +99,7 @@ export default function AddStaffBlockModal({
           </button>
         </div>
 
-        <div className="mt-4 space-y-3">
+        <div className="mt-4 space-y-4">
           <div>
             <label className="text-xs font-medium text-ink/50">Staff member</label>
             <select
@@ -94,12 +118,57 @@ export default function AddStaffBlockModal({
 
           <div>
             <label className="text-xs font-medium text-ink/50">Date</label>
-            <input
-              type="date"
-              value={shiftDate}
-              onChange={(e) => setShiftDate(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm"
-            />
+            <div className="mt-1 rounded-xl border border-ink/15 p-3">
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => shiftMonth(-1)}
+                  aria-label="Previous month"
+                  className="rounded-full p-1.5 text-ink/40 hover:bg-blush hover:text-coral-dark"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <p className="text-base font-semibold text-ink">
+                  {calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </p>
+                <button
+                  onClick={() => shiftMonth(1)}
+                  aria-label="Next month"
+                  className="rounded-full p-1.5 text-ink/40 hover:bg-blush hover:text-coral-dark"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs font-medium text-ink/40">
+                {WEEKDAY_LABELS.map((d) => (
+                  <span key={d}>{d}</span>
+                ))}
+              </div>
+              <div className="mt-1 grid grid-cols-7 gap-1 text-center text-sm">
+                {buildMonthGrid(calendarMonth).map((day, i) => {
+                  const cellDate = day
+                    ? new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
+                    : null;
+                  const isSelected = cellDate ? toDateKey(cellDate) === toDateKey(selectedDate) : false;
+                  return (
+                    <button
+                      key={i}
+                      disabled={!day}
+                      onClick={() => cellDate && setSelectedDate(cellDate)}
+                      className={`aspect-square rounded-full ${
+                        !day
+                          ? ""
+                          : isSelected
+                            ? "bg-coral text-white"
+                            : "hover:bg-blush"
+                      }`}
+                    >
+                      {day ?? ""}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div>
@@ -121,7 +190,7 @@ export default function AddStaffBlockModal({
 
           <button
             onClick={submit}
-            disabled={saving || !staffMemberId || !shiftDate}
+            disabled={saving || !staffMemberId}
             className="w-full rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save Block"}
