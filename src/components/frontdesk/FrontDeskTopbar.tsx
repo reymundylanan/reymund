@@ -94,6 +94,43 @@ export default function FrontDeskTopbar() {
           ]);
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "branch_transfer_requests",
+          filter: `target_branch_id=eq.${profile.branchId}`,
+        },
+        async (payload) => {
+          const row = payload.new as {
+            id: string;
+            staff_member_id: string;
+            dates: string[];
+            status: string;
+          };
+          if (row.status !== "approved") return;
+          const { data: staff } = await supabase
+            .from("staff_members")
+            .select("full_name")
+            .eq("id", row.staff_member_id)
+            .single();
+          const name = staff?.full_name ?? "A staff member";
+          const dateLabels = row.dates
+            .map((d) =>
+              new Date(`${d}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+            )
+            .join(", ");
+          setNotifications((prev) => [
+            {
+              id: `transfer-${row.id}`,
+              message: `${name} is joining your branch — ${dateLabels}`,
+              createdAt: new Date().toLocaleTimeString(),
+            },
+            ...prev,
+          ]);
+        }
+      )
       .subscribe();
 
     return () => {

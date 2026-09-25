@@ -11,6 +11,7 @@ import {
 import type { BookableService } from "@/components/booking/BookingContext";
 import { createClient } from "@/lib/supabase/client";
 import { getStaffShiftsForRange, toDateKey, type StaffOffRecord } from "@/lib/supabase/queries/staffShifts";
+import { getStaffTransferredIntoBranch, getApprovedTransferDatesForBranch } from "@/lib/supabase/queries/branchTransferRequests";
 
 type StaffMember = {
   id: string;
@@ -218,6 +219,8 @@ export default function BookingModal({
   const [zoomedAvatar, setZoomedAvatar] = useState<string | null>(null);
   const [showSelectedPanel, setShowSelectedPanel] = useState(false);
   const [staffOffDays, setStaffOffDays] = useState<StaffOffRecord[]>([]);
+  const [transferGuestIds, setTransferGuestIds] = useState<Set<string>>(new Set());
+  const [transferAllowedDates, setTransferAllowedDates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setBranchUuid(null);
@@ -337,13 +340,27 @@ export default function BookingModal({
         uuid = branchRow.id;
         setBranchUuid(uuid);
       }
-      const { data } = await supabase
-        .from("staff_members")
-        .select("id, full_name, department, phone, avatar_url")
-        .eq("branch_id", uuid)
-        .order("department")
-        .order("full_name");
-      setStaffMembers((data as StaffMember[]) ?? []);
+      if (!uuid) { setStaffLoading(false); return; }
+      const branchIdResolved = uuid;
+      const [homeStaffRes, transferredIn] = await Promise.all([
+        supabase
+          .from("staff_members")
+          .select("id, full_name, department, phone, avatar_url")
+          .eq("branch_id", branchIdResolved)
+          .order("department")
+          .order("full_name"),
+        getStaffTransferredIntoBranch(supabase, branchIdResolved),
+      ]);
+      const homeStaff = (homeStaffRes.data as StaffMember[]) ?? [];
+      const guests: StaffMember[] = transferredIn.map((t) => ({
+        id: t.staffMemberId,
+        full_name: t.fullName,
+        department: t.department ?? "",
+        phone: t.phone,
+        avatar_url: t.avatarUrl,
+      }));
+      setStaffMembers([...homeStaff, ...guests]);
+      setTransferGuestIds(new Set(transferredIn.map((t) => t.staffMemberId)));
       setStaffLoading(false);
     })();
   }, [step, branchId]);
@@ -369,6 +386,21 @@ export default function BookingModal({
       cancelled = true;
     };
   }, [professionalId, calendarMonth]);
+
+  useEffect(() => {
+    if (!professionalId || professionalId === "any" || !transferGuestIds.has(professionalId) || !branchUuid) {
+      setTransferAllowedDates(new Set());
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    getApprovedTransferDatesForBranch(supabase, professionalId, branchUuid).then((dates) => {
+      if (!cancelled) setTransferAllowedDates(new Set(dates));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [professionalId, transferGuestIds, branchUuid]);
 
   useEffect(() => {
     setSelectedDay(null);
@@ -442,27 +474,49 @@ export default function BookingModal({
 
       if (professionalId && professionalId !== "any") {
         const dateKey = toDateKey(selectedDate);
-        const { data: conflictRows, error: conflictError } = await supabase
-          .from("staff_shifts")
-          .select("period")
-          .eq("staff_member_id", professionalId)
-          .eq("shift_date", dateKey);
-        if (conflictError) {
-          setSaveError("Couldn't verify therapist availability. Please try again.");
-          setSaving(false);
-          return false;
-        }
-        const conflicts = (conflictRows as { period: StaffOffRecord["period"] }[]) ?? [];
-        const blockingConflict = conflicts.some(
-          (r) =>
-            r.period === "full_day" ||
-            (r.period === "morning" && !isSlotAfterCutoff(selectedTime)) ||
-            (r.period === "afternoon" && isSlotAfterCutoff(selectedTime))
-        );
-        if (blockingConflict) {
-          setSaveError("This professional just became unavailable for that date/time. Please pick another slot.");
-          setSaving(false);
-          return false;
+        if (transferGuestIds.has(professionalId)) {
+          const { data: transferRows, error: transferError } = await supabase
+            .from("branch_transfer_requests")
+            .select("dates")
+            .eq("staff_member_id", professionalId)
+            .eq("target_branch_id", branchRow.id)
+            .eq("status", "approved");
+          if (transferError) {
+            setSaveError("Couldn't verify therapist availability. Please try again.");
+            setSaving(false);
+            return false;
+          }
+          const allowedDates = new Set(
+            ((transferRows as { dates: string[] }[]) ?? []).flatMap((r) => r.dates)
+          );
+          if (!allowedDates.has(dateKey)) {
+            setSaveError("This professional just became unavailable for that date/time. Please pick another slot.");
+            setSaving(false);
+            return false;
+          }
+        } else {
+          const { data: conflictRows, error: conflictError } = await supabase
+            .from("staff_shifts")
+            .select("period")
+            .eq("staff_member_id", professionalId)
+            .eq("shift_date", dateKey);
+          if (conflictError) {
+            setSaveError("Couldn't verify therapist availability. Please try again.");
+            setSaving(false);
+            return false;
+          }
+          const conflicts = (conflictRows as { period: StaffOffRecord["period"] }[]) ?? [];
+          const blockingConflict = conflicts.some(
+            (r) =>
+              r.period === "full_day" ||
+              (r.period === "morning" && !isSlotAfterCutoff(selectedTime)) ||
+              (r.period === "afternoon" && isSlotAfterCutoff(selectedTime))
+          );
+          if (blockingConflict) {
+            setSaveError("This professional just became unavailable for that date/time. Please pick another slot.");
+            setSaving(false);
+            return false;
+          }
         }
       }
 
@@ -1016,8 +1070,15 @@ export default function BookingModal({
                       ? new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), day)
                       : null;
                     const isPast = cellDate ? isBeforeToday(cellDate) : false;
-                    const isStaffOff = cellDate ? isFullDayOff(cellDate, staffOffDays) : false;
-                    const isDisabled = !day || isPast || isStaffOff;
+                    const isTransferGuest = !!professionalId && transferGuestIds.has(professionalId);
+                    // staffOffDays reflects this person's home-branch off status, which doesn't
+                    // apply when they're being viewed as a transfer guest at a different branch —
+                    // their availability here is governed entirely by the transfer's date list.
+                    const isStaffOff = cellDate && !isTransferGuest ? isFullDayOff(cellDate, staffOffDays) : false;
+                    const isOutsideTransfer =
+                      isTransferGuest && cellDate ? !transferAllowedDates.has(toDateKey(cellDate)) : false;
+                    const isUnavailable = isStaffOff || isOutsideTransfer;
+                    const isDisabled = !day || isPast || isUnavailable;
                     return (
                       <button
                         key={i}
@@ -1026,7 +1087,7 @@ export default function BookingModal({
                         className={`aspect-square rounded-full ${
                           !day
                             ? ""
-                            : isPast || isStaffOff
+                            : isPast || isUnavailable
                               ? "text-ink/20 cursor-not-allowed"
                               : day === selectedDay
                                 ? "bg-coral text-white"
@@ -1043,7 +1104,9 @@ export default function BookingModal({
               <div className="space-y-2 overflow-y-auto">
                 {(() => {
                   const allSlots = BRANCH_TIME_SLOTS[branchId ?? ""] ?? timeSlots;
-                  const offPeriod = selectedDate ? periodOffForDate(selectedDate, staffOffDays) : null;
+                  const isTransferGuest = !!professionalId && transferGuestIds.has(professionalId);
+                  const offPeriod =
+                    selectedDate && !isTransferGuest ? periodOffForDate(selectedDate, staffOffDays) : null;
                   const availableSlots = allSlots.filter((time) => {
                     if (!offPeriod) return true;
                     const afterCutoff = isSlotAfterCutoff(time);

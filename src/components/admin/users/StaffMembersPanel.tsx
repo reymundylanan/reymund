@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import AvatarCropModal from "@/components/admin/users/AvatarCropModal";
 import AdminLeaveRequestModal from "@/components/admin/users/AdminLeaveRequestModal";
+import AdminTransferModal from "@/components/admin/users/AdminTransferModal";
 
 type Branch = { id: string; name: string };
 
@@ -50,6 +51,8 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [leaveTarget, setLeaveTarget] = useState<StaffMember | null>(null);
   const [leaveSavedMsg, setLeaveSavedMsg] = useState<string | null>(null);
+  const [transferTarget, setTransferTarget] = useState<StaffMember | null>(null);
+  const [transferSavedMsg, setTransferSavedMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -171,6 +174,9 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
       {leaveSavedMsg && (
         <div className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{leaveSavedMsg}</div>
       )}
+      {transferSavedMsg && (
+        <div className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{transferSavedMsg}</div>
+      )}
       <div className="mb-4 flex items-center justify-between">
         <p className="text-base text-ink/50">{members.length} staff member{members.length !== 1 ? "s" : ""}</p>
         <button
@@ -229,7 +235,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                         <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} />
                         <div className="absolute right-4 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-ink/10 bg-white text-left shadow-lg">
                           <button
-                            onClick={() => setMenuOpenId(null)}
+                            onClick={() => { setMenuOpenId(null); setTransferTarget(m); }}
                             className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-ink/70 hover:bg-blush"
                           >
                             <ArrowLeftRight className="h-4 w-4" /> Transfer
@@ -389,6 +395,20 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
             setLeaveSavedMsg(`Leave request submitted for ${leaveTarget.full_name}.`);
             setLeaveTarget(null);
             setTimeout(() => setLeaveSavedMsg(null), 6000);
+          }}
+        />
+      )}
+
+      {transferTarget && (
+        <AdminTransferModal
+          staffMemberId={transferTarget.id}
+          staffMemberName={transferTarget.full_name}
+          homeBranchId={transferTarget.branch_id}
+          onClose={() => setTransferTarget(null)}
+          onSaved={() => {
+            setTransferSavedMsg(`${transferTarget.full_name} transferred successfully.`);
+            setTransferTarget(null);
+            setTimeout(() => setTransferSavedMsg(null), 6000);
           }}
         />
       )}

@@ -95,3 +95,86 @@ export async function submitBranchTransferRequest(
 
   return { error: error?.message ?? null };
 }
+
+export async function createApprovedTransfer(
+  supabase: SupabaseClient,
+  input: { staffMemberId: string; targetBranchId: string; dates: string[]; reason: string }
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from("branch_transfer_requests").insert({
+    staff_member_id: input.staffMemberId,
+    target_branch_id: input.targetBranchId,
+    dates: input.dates,
+    reason: input.reason || null,
+    status: "approved",
+    decided_at: new Date().toISOString(),
+  });
+
+  return { error: error?.message ?? null };
+}
+
+export async function getApprovedTransferDatesForBranch(
+  supabase: SupabaseClient,
+  staffMemberId: string,
+  targetBranchId: string
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("branch_transfer_requests")
+    .select("dates")
+    .eq("staff_member_id", staffMemberId)
+    .eq("target_branch_id", targetBranchId)
+    .eq("status", "approved");
+
+  if (error) {
+    console.error("getApprovedTransferDatesForBranch failed:", error);
+    return [];
+  }
+
+  const rows = (data as { dates: string[] }[]) ?? [];
+  return Array.from(new Set(rows.flatMap((r) => r.dates))).sort();
+}
+
+export type TransferredInStaff = {
+  staffMemberId: string;
+  fullName: string;
+  department: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+};
+
+export async function getStaffTransferredIntoBranch(
+  supabase: SupabaseClient,
+  targetBranchId: string
+): Promise<TransferredInStaff[]> {
+  const { data, error } = await supabase
+    .from("branch_transfer_requests")
+    .select(
+      "staff_member_id, staff_member:staff_members(full_name, department, phone, avatar_url)"
+    )
+    .eq("target_branch_id", targetBranchId)
+    .eq("status", "approved");
+
+  if (error) {
+    console.error("getStaffTransferredIntoBranch failed:", error);
+    return [];
+  }
+
+  type Row = {
+    staff_member_id: string;
+    staff_member: Rel<{ full_name: string; department: string | null; phone: string | null; avatar_url: string | null }>;
+  };
+  const rows = (data as unknown as Row[]) ?? [];
+  const seen = new Map<string, TransferredInStaff>();
+  for (const row of rows) {
+    const sm = one(row.staff_member);
+    if (sm && !seen.has(row.staff_member_id)) {
+      seen.set(row.staff_member_id, {
+        staffMemberId: row.staff_member_id,
+        fullName: sm.full_name,
+        department: sm.department,
+        phone: sm.phone,
+        avatarUrl: sm.avatar_url,
+      });
+    }
+  }
+  return Array.from(seen.values());
+}
