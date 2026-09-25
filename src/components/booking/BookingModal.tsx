@@ -352,7 +352,13 @@ export default function BookingModal({
         getStaffTransferredIntoBranch(supabase, branchIdResolved),
       ]);
       const homeStaff = (homeStaffRes.data as StaffMember[]) ?? [];
-      const guests: StaffMember[] = transferredIn.map((t) => ({
+      const homeIds = new Set(homeStaff.map((s) => s.id));
+      // A staff member whose home branch is now this one (e.g. reassigned
+      // after an old transfer here) is already in homeStaff — treating
+      // them as a guest too would duplicate them and wrongly restrict
+      // their dates to a stale transfer's date list.
+      const transferredInNotHome = transferredIn.filter((t) => !homeIds.has(t.staffMemberId));
+      const guests: StaffMember[] = transferredInNotHome.map((t) => ({
         id: t.staffMemberId,
         full_name: t.fullName,
         department: t.department ?? "",
@@ -360,7 +366,7 @@ export default function BookingModal({
         avatar_url: t.avatarUrl,
       }));
       setStaffMembers([...homeStaff, ...guests]);
-      setTransferGuestIds(new Set(transferredIn.map((t) => t.staffMemberId)));
+      setTransferGuestIds(new Set(transferredInNotHome.map((t) => t.staffMemberId)));
       setStaffLoading(false);
     })();
   }, [step, branchId]);
@@ -475,21 +481,39 @@ export default function BookingModal({
       if (professionalId && professionalId !== "any") {
         const dateKey = toDateKey(selectedDate);
         if (transferGuestIds.has(professionalId)) {
-          const { data: transferRows, error: transferError } = await supabase
-            .from("branch_transfer_requests")
-            .select("dates")
-            .eq("staff_member_id", professionalId)
-            .eq("target_branch_id", branchRow.id)
-            .eq("status", "approved");
-          if (transferError) {
+          const [transferResult, shiftResult] = await Promise.all([
+            supabase
+              .from("branch_transfer_requests")
+              .select("dates")
+              .eq("staff_member_id", professionalId)
+              .eq("target_branch_id", branchRow.id)
+              .eq("status", "approved"),
+            supabase
+              .from("staff_shifts")
+              .select("period, source")
+              .eq("staff_member_id", professionalId)
+              .eq("shift_date", dateKey),
+          ]);
+          if (transferResult.error || shiftResult.error) {
             setSaveError("Couldn't verify therapist availability. Please try again.");
             setSaving(false);
             return false;
           }
           const allowedDates = new Set(
-            ((transferRows as { dates: string[] }[]) ?? []).flatMap((r) => r.dates)
+            ((transferResult.data as { dates: string[] }[]) ?? []).flatMap((r) => r.dates)
           );
-          if (!allowedDates.has(dateKey)) {
+          // A genuine leave/manual block (anything not tagged "transfer") on this exact
+          // date overrides the transfer — they're unavailable everywhere that day.
+          const genuineConflicts = (
+            (shiftResult.data as { period: StaffOffRecord["period"]; source: string }[]) ?? []
+          ).filter((r) => r.source !== "transfer");
+          const overriddenByLeave = genuineConflicts.some(
+            (r) =>
+              r.period === "full_day" ||
+              (r.period === "morning" && !isSlotAfterCutoff(selectedTime)) ||
+              (r.period === "afternoon" && isSlotAfterCutoff(selectedTime))
+          );
+          if (!allowedDates.has(dateKey) || overriddenByLeave) {
             setSaveError("This professional just became unavailable for that date/time. Please pick another slot.");
             setSaving(false);
             return false;
@@ -1071,10 +1095,15 @@ export default function BookingModal({
                       : null;
                     const isPast = cellDate ? isBeforeToday(cellDate) : false;
                     const isTransferGuest = !!professionalId && transferGuestIds.has(professionalId);
-                    // staffOffDays reflects this person's home-branch off status, which doesn't
-                    // apply when they're being viewed as a transfer guest at a different branch —
-                    // their availability here is governed entirely by the transfer's date list.
-                    const isStaffOff = cellDate && !isTransferGuest ? isFullDayOff(cellDate, staffOffDays) : false;
+                    // A transfer creates a "source: transfer" off-block at this person's home
+                    // branch, covering the exact same dates the transfer already allows here —
+                    // that block is expected and shouldn't count against them at the branch
+                    // they're visiting. A genuine leave/manual off-block on the same date (any
+                    // other source) still must, since it means they're unavailable everywhere.
+                    const relevantOffDays = isTransferGuest
+                      ? staffOffDays.filter((r) => r.source !== "transfer")
+                      : staffOffDays;
+                    const isStaffOff = cellDate ? isFullDayOff(cellDate, relevantOffDays) : false;
                     const isOutsideTransfer =
                       isTransferGuest && cellDate ? !transferAllowedDates.has(toDateKey(cellDate)) : false;
                     const isUnavailable = isStaffOff || isOutsideTransfer;
@@ -1105,8 +1134,10 @@ export default function BookingModal({
                 {(() => {
                   const allSlots = BRANCH_TIME_SLOTS[branchId ?? ""] ?? timeSlots;
                   const isTransferGuest = !!professionalId && transferGuestIds.has(professionalId);
-                  const offPeriod =
-                    selectedDate && !isTransferGuest ? periodOffForDate(selectedDate, staffOffDays) : null;
+                  const relevantOffDays = isTransferGuest
+                    ? staffOffDays.filter((r) => r.source !== "transfer")
+                    : staffOffDays;
+                  const offPeriod = selectedDate ? periodOffForDate(selectedDate, relevantOffDays) : null;
                   const availableSlots = allSlots.filter((time) => {
                     if (!offPeriod) return true;
                     const afterCutoff = isSlotAfterCutoff(time);

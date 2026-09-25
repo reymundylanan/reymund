@@ -27,7 +27,7 @@ export default function StaffShiftGrid({
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [offRecords, setOffRecords] = useState<StaffOffRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string; label: string } | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string; label: string; source: string } | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -123,6 +123,7 @@ export default function StaffShiftGrid({
                           id: offRecord.id,
                           name: member.full_name,
                           label: PERIOD_LABEL[offRecord.period],
+                          source: offRecord.source,
                         })
                       }
                       aria-label={`Remove off block for ${member.full_name}`}
@@ -151,6 +152,15 @@ export default function StaffShiftGrid({
               <span className="font-medium text-red-600">{pendingRemove.label}</span> for this date. Removing
               it puts them back on duty and customers will be able to book them again.
             </p>
+
+            {pendingRemove.source === "transfer" && (
+              <p className="mt-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800">
+                This block exists because {pendingRemove.name} is transferred to another branch on this
+                date. Removing it makes them bookable here again <span className="font-semibold">while
+                they may still be bookable at the other branch too</span> — check with admin before
+                removing this one.
+              </p>
+            )}
 
             {removeError && <p className="mt-2 text-xs text-red-600">{removeError}</p>}
 

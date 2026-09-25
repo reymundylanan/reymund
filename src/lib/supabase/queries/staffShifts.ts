@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type StaffOffPeriod = "full_day" | "morning" | "afternoon";
+export type StaffOffSource = "manual" | "leave" | "transfer";
 
 export type StaffOffRecord = {
   id: string;
@@ -8,6 +9,7 @@ export type StaffOffRecord = {
   branch_id: string;
   shift_date: string;
   period: StaffOffPeriod;
+  source: StaffOffSource;
 };
 
 export function toDateKey(date: Date): string {
@@ -24,7 +26,7 @@ export async function getStaffShiftsForDate(
 ): Promise<StaffOffRecord[]> {
   const { data, error } = await supabase
     .from("staff_shifts")
-    .select("id, staff_member_id, branch_id, shift_date, period")
+    .select("id, staff_member_id, branch_id, shift_date, period, source")
     .eq("branch_id", branchId)
     .eq("shift_date", dateKey);
 
@@ -43,7 +45,7 @@ export async function getStaffShiftsForRange(
 ): Promise<StaffOffRecord[]> {
   const { data, error } = await supabase
     .from("staff_shifts")
-    .select("id, staff_member_id, branch_id, shift_date, period")
+    .select("id, staff_member_id, branch_id, shift_date, period, source")
     .eq("staff_member_id", staffMemberId)
     .gte("shift_date", startKey)
     .lte("shift_date", endKey);
@@ -57,7 +59,13 @@ export async function getStaffShiftsForRange(
 
 export async function upsertStaffOff(
   supabase: SupabaseClient,
-  input: { staffMemberId: string; branchId: string; shiftDate: string; period: StaffOffPeriod }
+  input: {
+    staffMemberId: string;
+    branchId: string;
+    shiftDate: string;
+    period: StaffOffPeriod;
+    source?: StaffOffSource;
+  }
 ): Promise<{ error: string | null }> {
   const { error } = await supabase.from("staff_shifts").upsert(
     {
@@ -65,6 +73,7 @@ export async function upsertStaffOff(
       branch_id: input.branchId,
       shift_date: input.shiftDate,
       period: input.period,
+      source: input.source ?? "manual",
     },
     { onConflict: "staff_member_id,shift_date" }
   );

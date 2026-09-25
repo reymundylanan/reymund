@@ -71,7 +71,13 @@ export default function FrontDeskTopbar() {
             staff_member_id: string;
             shift_date: string;
             period: "full_day" | "morning" | "afternoon";
+            source: "manual" | "leave" | "transfer";
           };
+          // A "transfer" block is just the side effect of sending them to another
+          // branch — the separate branch_transfer_requests listener below already
+          // tells this branch that. Surfacing it here too would be a second,
+          // confusingly-worded ("on leave") notification for the same event.
+          if (row.source === "transfer") return;
           const { data: staff } = await supabase
             .from("staff_members")
             .select("full_name")

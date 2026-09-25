@@ -148,7 +148,7 @@ export async function getStaffTransferredIntoBranch(
   const { data, error } = await supabase
     .from("branch_transfer_requests")
     .select(
-      "staff_member_id, staff_member:staff_members(full_name, department, phone, avatar_url)"
+      "staff_member_id, dates, staff_member:staff_members(full_name, department, phone, avatar_url)"
     )
     .eq("target_branch_id", targetBranchId)
     .eq("status", "approved");
@@ -160,9 +160,11 @@ export async function getStaffTransferredIntoBranch(
 
   type Row = {
     staff_member_id: string;
+    dates: string[];
     staff_member: Rel<{ full_name: string; department: string | null; phone: string | null; avatar_url: string | null }>;
   };
-  const rows = (data as unknown as Row[]) ?? [];
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const rows = ((data as unknown as Row[]) ?? []).filter((row) => row.dates.some((d) => d >= todayKey));
   const seen = new Map<string, TransferredInStaff>();
   for (const row of rows) {
     const sm = one(row.staff_member);

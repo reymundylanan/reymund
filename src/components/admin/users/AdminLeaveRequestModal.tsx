@@ -53,16 +53,21 @@ export default function AdminLeaveRequestModal({
     const supabase = createClient();
     const dateKeys = selectedDates.map(toDateKey).sort();
 
-    for (const dateKey of dateKeys) {
+    for (let i = 0; i < dateKeys.length; i++) {
       const { error: shiftError } = await upsertStaffOff(supabase, {
         staffMemberId,
         branchId,
-        shiftDate: dateKey,
+        shiftDate: dateKeys[i],
         period: "full_day",
+        source: "leave",
       });
       if (shiftError) {
         setSaving(false);
-        setError(shiftError);
+        setError(
+          i === 0
+            ? shiftError
+            : `Saved ${i} of ${dateKeys.length} dates before an error occurred: ${shiftError}. The already-saved dates are still in effect — you can retry to finish the rest.`
+        );
         return;
       }
     }
