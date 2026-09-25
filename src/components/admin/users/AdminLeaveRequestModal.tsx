@@ -70,7 +70,7 @@ export default function AdminLeaveRequestModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
       <div className="scrollbar-hidden flex max-h-[85vh] w-full max-w-md flex-col overflow-y-auto rounded-2xl bg-white p-6">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-ink">Request Leave</h2>
+          <h2 className="font-semibold text-ink">Leave</h2>
           <button onClick={onClose} aria-label="Close" className="text-ink/40 hover:text-ink">
             <X className="h-6 w-6" />
           </button>
@@ -134,7 +134,7 @@ export default function AdminLeaveRequestModal({
               disabled={saving || !reason.trim() || !branchId}
               className="flex-1 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Submit Request"}
+              {saving ? "Saving..." : "Done"}
             </button>
           </div>
         </div>
@@ -163,7 +163,7 @@ export default function AdminLeaveRequestModal({
                 disabled={saving}
                 className="flex-1 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
-                {saving ? "Saving..." : "Yes, Submit"}
+                {saving ? "Saving..." : "Yes, Done"}
               </button>
             </div>
           </div>
