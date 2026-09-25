@@ -61,3 +61,19 @@ export async function submitLeaveRequest(
 
   return { error: error?.message ?? null };
 }
+
+export async function createApprovedLeave(
+  supabase: SupabaseClient,
+  input: { staffMemberId: string; branchId: string; dates: string[]; reason: string }
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from("leave_requests").insert({
+    staff_member_id: input.staffMemberId,
+    branch_id: input.branchId,
+    dates: input.dates,
+    reason: input.reason || null,
+    status: "approved",
+    decided_at: new Date().toISOString(),
+  });
+
+  return { error: error?.message ?? null };
+}

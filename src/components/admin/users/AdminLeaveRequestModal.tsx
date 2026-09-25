@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { toDateKey } from "@/lib/supabase/queries/staffShifts";
-import { submitLeaveRequest } from "@/lib/supabase/queries/leaveRequests";
+import { toDateKey, upsertStaffOff } from "@/lib/supabase/queries/staffShifts";
+import { createApprovedLeave } from "@/lib/supabase/queries/leaveRequests";
 import MonthCalendar from "@/components/frontdesk/staff/MonthCalendar";
 
 const MAX_DAYS = 7;
@@ -51,16 +51,32 @@ export default function AdminLeaveRequestModal({
     setSaving(true);
     setError(null);
     const supabase = createClient();
-    const { error: saveError } = await submitLeaveRequest(supabase, {
+    const dateKeys = selectedDates.map(toDateKey).sort();
+
+    for (const dateKey of dateKeys) {
+      const { error: shiftError } = await upsertStaffOff(supabase, {
+        staffMemberId,
+        branchId,
+        shiftDate: dateKey,
+        period: "full_day",
+      });
+      if (shiftError) {
+        setSaving(false);
+        setError(shiftError);
+        return;
+      }
+    }
+
+    const { error: logError } = await createApprovedLeave(supabase, {
       staffMemberId,
       branchId,
-      dates: selectedDates.map(toDateKey).sort(),
+      dates: dateKeys,
       reason,
     });
     setSaving(false);
     setConfirming(false);
-    if (saveError) {
-      setError(saveError);
+    if (logError) {
+      setError(logError);
       return;
     }
     onSaved();
@@ -143,12 +159,12 @@ export default function AdminLeaveRequestModal({
       {confirming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6">
-            <h2 className="font-semibold text-ink">Submit this leave request?</h2>
+            <h2 className="font-semibold text-ink">Mark this leave?</h2>
             <p className="mt-2 text-sm text-ink/60">
-              This logs a leave request for{" "}
-              <span className="font-medium text-ink">{staffMemberName}</span> for{" "}
-              {selectedDates.map((d) => formatDate(toDateKey(d))).join(", ")}. It will show as Pending
-              until approved or denied.
+              This immediately marks{" "}
+              <span className="font-medium text-ink">{staffMemberName}</span> as on leave (unavailable
+              for booking) for {selectedDates.map((d) => formatDate(toDateKey(d))).join(", ")}. Front
+              desk at their branch will be notified.
             </p>
             <div className="mt-4 flex gap-2">
               <button

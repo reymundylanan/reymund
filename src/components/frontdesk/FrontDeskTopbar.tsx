@@ -57,6 +57,43 @@ export default function FrontDeskTopbar() {
           ]);
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "staff_shifts",
+          filter: `branch_id=eq.${profile.branchId}`,
+        },
+        async (payload) => {
+          const row = payload.new as {
+            id: string;
+            staff_member_id: string;
+            shift_date: string;
+            period: "full_day" | "morning" | "afternoon";
+          };
+          const { data: staff } = await supabase
+            .from("staff_members")
+            .select("full_name")
+            .eq("id", row.staff_member_id)
+            .single();
+          const name = staff?.full_name ?? "A staff member";
+          const periodLabel =
+            row.period === "full_day" ? "Whole Day" : row.period === "morning" ? "Morning" : "Afternoon";
+          const dateLabel = new Date(`${row.shift_date}T00:00:00`).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+          setNotifications((prev) => [
+            {
+              id: `shift-${row.id}`,
+              message: `${name} is on leave (${periodLabel}) — ${dateLabel}`,
+              createdAt: new Date().toLocaleTimeString(),
+            },
+            ...prev,
+          ]);
+        }
+      )
       .subscribe();
 
     return () => {
