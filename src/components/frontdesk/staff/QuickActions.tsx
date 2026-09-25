@@ -1,17 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, Shuffle } from "lucide-react";
-import BranchTransferRequestModal from "@/components/frontdesk/staff/BranchTransferRequestModal";
+import { FileText } from "lucide-react";
 
 const actions = [
-  { label: "Assign Branch Shifts", icon: Shuffle },
   { label: "View Staff Records", icon: FileText },
 ];
 
 export default function QuickActions() {
-  const [showBranchTransfer, setShowBranchTransfer] = useState(false);
-
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <h2 className="font-semibold text-ink">Quick Actions</h2>
@@ -21,9 +16,6 @@ export default function QuickActions() {
           return (
             <button
               key={action.label}
-              onClick={() => {
-                if (action.label === "Assign Branch Shifts") setShowBranchTransfer(true);
-              }}
               className="flex items-center gap-3 rounded-xl border border-ink/10 p-4 hover:border-coral hover:bg-blush"
             >
               <Icon className="h-5 w-5 text-coral-dark" />
@@ -34,10 +26,6 @@ export default function QuickActions() {
           );
         })}
       </div>
-
-      {showBranchTransfer && (
-        <BranchTransferRequestModal onClose={() => setShowBranchTransfer(false)} />
-      )}
     </div>
   );
 }

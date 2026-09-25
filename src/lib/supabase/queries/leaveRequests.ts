@@ -47,6 +47,21 @@ export async function getLeaveRequestsForBranch(
   }));
 }
 
+export async function getUpcomingApprovedLeaves(
+  supabase: SupabaseClient
+): Promise<{ staff_member_id: string; dates: string[] }[]> {
+  const { data, error } = await supabase
+    .from("leave_requests")
+    .select("staff_member_id, dates")
+    .eq("status", "approved");
+
+  if (error) {
+    console.error("getUpcomingApprovedLeaves failed:", error);
+    return [];
+  }
+  return (data as { staff_member_id: string; dates: string[] }[]) ?? [];
+}
+
 export async function submitLeaveRequest(
   supabase: SupabaseClient,
   input: { staffMemberId: string; branchId: string; dates: string[]; reason: string }

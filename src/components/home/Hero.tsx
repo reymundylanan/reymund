@@ -1,12 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Search, SlidersHorizontal, Star } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchServiceCategories } from "@/lib/data";
 import MenuGalleryModal from "@/components/home/MenuGalleryModal";
-
-const filters = ["Popular", "Massage", "Facial", "Body"];
 
 export default function Hero() {
   const { open } = useBooking();
@@ -50,34 +47,6 @@ export default function Hero() {
               className="rounded-full border border-white/60 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
               View Menu
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="mx-auto -mt-16 max-w-5xl px-6">
-        <div className="flex flex-col gap-4 rounded-2xl bg-white p-4 shadow-xl shadow-black/10 sm:flex-row sm:items-center">
-          <div className="flex flex-1 items-center gap-2 rounded-full border border-ink/10 px-4 py-2.5">
-            <Search className="h-4 w-4 text-ink/40" />
-            <input
-              type="text"
-              placeholder="Search services (e.g. Massage, Facial)..."
-              className="w-full text-sm outline-none placeholder:text-ink/40"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            {filters.map((filter) => (
-              <button
-                key={filter}
-                className="rounded-full border border-ink/10 px-4 py-2 text-sm font-medium text-ink/70 transition hover:border-coral hover:text-coral-dark"
-              >
-                {filter}
-              </button>
-            ))}
-            <button className="flex items-center gap-2 rounded-full bg-gold px-4 py-2 text-sm font-semibold text-ink transition hover:brightness-95">
-              <SlidersHorizontal className="h-4 w-4" />
-              Find Best Match
             </button>
           </div>
         </div>

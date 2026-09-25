@@ -115,17 +115,22 @@ export default function MyBookingsPanel({
                   {b.status.replace("_", " ")}
                 </span>
               </div>
-              <p className="mt-1.5 text-sm text-ink/60">
+              <p className="mt-1.5 text-base text-ink/60">
                 {new Date(b.scheduled_date).toLocaleDateString()} &bull;{" "}
-                {formatTime(b.start_time)} &bull;{" "}
-                <span className="capitalize">{b.appointment_type}</span>
+                {formatTime(b.start_time)}
+                {b.appointment_type === "group" && (
+                  <>
+                    {" "}
+                    &bull; <span className="capitalize">{b.appointment_type}</span>
+                  </>
+                )}
               </p>
               {branchName(b.branch) && (
-                <p className="mt-1.5 text-sm font-medium text-coral-dark">
+                <p className="mt-1.5 text-base font-medium text-coral-dark">
                   Branch: {branchName(b.branch)}
                 </p>
               )}
-              <p className="mt-1.5 text-sm">
+              <p className="mt-1.5 text-base">
                 {b.payments && b.payments[0] ? (
                   <span className="font-medium text-green-700">
                     Paid via {methodLabels[b.payments[0].method] ?? b.payments[0].method}{" "}
@@ -138,7 +143,7 @@ export default function MyBookingsPanel({
                 )}
               </p>
               {b.booking_code && (
-                <p className="mt-1.5 text-sm text-ink/40">Ref: {b.booking_code}</p>
+                <p className="mt-1.5 text-base text-ink/40">Ref: {b.booking_code}</p>
               )}
             </div>
           ))}

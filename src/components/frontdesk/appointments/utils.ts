@@ -10,6 +10,7 @@ export type AppointmentRow = {
   duration_minutes: number;
   status: string;
   notes: string | null;
+  created_at: string;
   client: ClientInfo | ClientInfo[] | null;
   payments: PaymentInfo[] | null;
 };

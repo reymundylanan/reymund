@@ -7,6 +7,9 @@ import Image from "next/image";
 import AvatarCropModal from "@/components/admin/users/AvatarCropModal";
 import AdminLeaveRequestModal from "@/components/admin/users/AdminLeaveRequestModal";
 import AdminTransferModal from "@/components/admin/users/AdminTransferModal";
+import { getUpcomingApprovedLeaves } from "@/lib/supabase/queries/leaveRequests";
+import { getUpcomingApprovedTransfers } from "@/lib/supabase/queries/branchTransferRequests";
+import { toDateKey } from "@/lib/supabase/queries/staffShifts";
 
 type Branch = { id: string; name: string };
 
@@ -53,6 +56,8 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
   const [leaveSavedMsg, setLeaveSavedMsg] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState<StaffMember | null>(null);
   const [transferSavedMsg, setTransferSavedMsg] = useState<string | null>(null);
+  const [leaveDatesByStaff, setLeaveDatesByStaff] = useState<Record<string, string[]>>({});
+  const [transfersByStaff, setTransfersByStaff] = useState<Record<string, { dates: string[]; branchName: string }>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -65,11 +70,59 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
     setLoading(false);
   }
 
+  async function loadLeaves() {
+    const rows = await getUpcomingApprovedLeaves(supabase);
+    const todayKey = toDateKey(new Date());
+    const map: Record<string, string[]> = {};
+    for (const row of rows) {
+      const upcoming = row.dates.filter((d) => d >= todayKey);
+      if (upcoming.length === 0) continue;
+      map[row.staff_member_id] = [...(map[row.staff_member_id] ?? []), ...upcoming].sort();
+    }
+    setLeaveDatesByStaff(map);
+  }
+
+  async function loadTransfers() {
+    const rows = await getUpcomingApprovedTransfers(supabase);
+    const todayKey = toDateKey(new Date());
+    const map: Record<string, { dates: string[]; branchName: string }> = {};
+    for (const row of rows) {
+      const upcoming = row.dates.filter((d) => d >= todayKey);
+      if (upcoming.length === 0) continue;
+      const existing = map[row.staff_member_id];
+      map[row.staff_member_id] = {
+        dates: [...(existing?.dates ?? []), ...upcoming].sort(),
+        branchName: row.branch_name,
+      };
+    }
+    setTransfersByStaff(map);
+  }
+
   useEffect(() => {
     load();
+    loadLeaves();
+    loadTransfers();
     supabase.from("branches").select("id, name").order("name")
       .then(({ data }) => setBranches(data ?? []));
   }, []);
+
+  function formatDateRange(dates: string[]) {
+    const unique = Array.from(new Set(dates)).sort();
+    const fmt = (key: string) => {
+      const [y, m, d] = key.split("-").map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    };
+    if (unique.length === 1) return fmt(unique[0]);
+    return `${fmt(unique[0])} – ${fmt(unique[unique.length - 1])}`;
+  }
+
+  function formatLeaveBadge(dates: string[]) {
+    return `On leave: ${formatDateRange(dates)}`;
+  }
+
+  function formatTransferBadge(t: { dates: string[]; branchName: string }) {
+    return `Transferred to ${t.branchName}: ${formatDateRange(t.dates)}`;
+  }
 
   function openAdd() {
     setEditing(null);
@@ -215,7 +268,19 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                           ? <Image src={m.avatar_url} alt={m.full_name} fill className="object-cover" />
                           : m.full_name.charAt(0).toUpperCase()}
                       </span>
-                      <span className="font-medium text-ink">{m.full_name}</span>
+                      <div>
+                        <span className="font-medium text-ink">{m.full_name}</span>
+                        {leaveDatesByStaff[m.id] && (
+                          <p className="mt-0.5 text-xs font-medium text-amber-600">
+                            {formatLeaveBadge(leaveDatesByStaff[m.id])}
+                          </p>
+                        )}
+                        {transfersByStaff[m.id] && (
+                          <p className="mt-0.5 text-xs font-medium text-blue-600">
+                            {formatTransferBadge(transfersByStaff[m.id])}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-4 text-ink/60">{m.department}</td>
@@ -236,26 +301,26 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                         <div className="absolute right-4 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-ink/10 bg-white text-left shadow-lg">
                           <button
                             onClick={() => { setMenuOpenId(null); setTransferTarget(m); }}
-                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-ink/70 hover:bg-blush"
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-base text-ink/70 hover:bg-blush"
                           >
                             <ArrowLeftRight className="h-4 w-4" /> Transfer
                           </button>
                           <button
                             onClick={() => { setMenuOpenId(null); setLeaveTarget(m); }}
-                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-ink/70 hover:bg-blush"
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-base text-ink/70 hover:bg-blush"
                           >
                             <CalendarOff className="h-4 w-4" /> Leave
                           </button>
                           <div className="border-t border-ink/10" />
                           <button
                             onClick={() => { setMenuOpenId(null); openEdit(m); }}
-                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-ink/70 hover:bg-blush"
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-base text-ink/70 hover:bg-blush"
                           >
                             <Pencil className="h-4 w-4" /> Edit
                           </button>
                           <button
                             onClick={() => { setMenuOpenId(null); handleDelete(m.id); }}
-                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50"
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-base text-red-500 hover:bg-red-50"
                           >
                             <Trash2 className="h-4 w-4" /> Delete
                           </button>
@@ -395,6 +460,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
           onSaved={() => {
             setLeaveSavedMsg(`Leave request submitted for ${leaveTarget.full_name}.`);
             setLeaveTarget(null);
+            loadLeaves();
             setTimeout(() => setLeaveSavedMsg(null), 6000);
           }}
         />
@@ -410,6 +476,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
           onSaved={() => {
             setTransferSavedMsg(`${transferTarget.full_name} transferred successfully.`);
             setTransferTarget(null);
+            loadTransfers();
             setTimeout(() => setTransferSavedMsg(null), 6000);
           }}
         />

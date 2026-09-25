@@ -5,14 +5,28 @@ import { Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { getStaffShiftsForDate, removeStaffOff, toDateKey, type StaffOffRecord } from "@/lib/supabase/queries/staffShifts";
+import { getLeaveRequestsForBranch } from "@/lib/supabase/queries/leaveRequests";
+import {
+  getUpcomingTransfersFromBranch,
+  getUpcomingTransfersIntoBranch,
+} from "@/lib/supabase/queries/branchTransferRequests";
 
-type StaffRow = { id: string; full_name: string; department: string | null };
+type StaffRow = { id: string; full_name: string; department: string | null; visiting?: boolean };
 
 const PERIOD_LABEL: Record<StaffOffRecord["period"], string> = {
   full_day: "Off (Whole Day)",
   morning: "Off (Morning)",
   afternoon: "Off (Afternoon)",
 };
+
+function formatDateRange(sortedDateKeys: string[]) {
+  const fmt = (key: string) => {
+    const [y, m, d] = key.split("-").map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+  if (sortedDateKeys.length === 1) return fmt(sortedDateKeys[0]);
+  return `${fmt(sortedDateKeys[0])} – ${fmt(sortedDateKeys[sortedDateKeys.length - 1])}`;
+}
 
 export default function StaffShiftGrid({
   selectedDate,
@@ -26,6 +40,8 @@ export default function StaffShiftGrid({
   const { profile } = useStaffProfile();
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [offRecords, setOffRecords] = useState<StaffOffRecord[]>([]);
+  const [leaveRangeByStaff, setLeaveRangeByStaff] = useState<Record<string, string>>({});
+  const [transferRangeByStaff, setTransferRangeByStaff] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string; label: string; source: string } | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -48,10 +64,35 @@ export default function StaffShiftGrid({
         .eq("branch_id", profile.branchId)
         .order("full_name"),
       getStaffShiftsForDate(supabase, profile.branchId, dateKey),
-    ]).then(([staffRes, records]) => {
+      getLeaveRequestsForBranch(supabase, profile.branchId),
+      getUpcomingTransfersFromBranch(supabase, profile.branchId),
+      getUpcomingTransfersIntoBranch(supabase, profile.branchId),
+    ]).then(([staffRes, records, leaveRequests, transfers, transfersIn]) => {
       if (cancelled) return;
-      setStaff((staffRes.data as StaffRow[]) ?? []);
+      const homeStaff = (staffRes.data as StaffRow[]) ?? [];
+      const homeIds = new Set(homeStaff.map((s) => s.id));
+      const guests: StaffRow[] = transfersIn
+        .filter((t) => t.dates.includes(dateKey) && !homeIds.has(t.staff_member_id))
+        .map((t) => ({ id: t.staff_member_id, full_name: t.full_name, department: t.department, visiting: true }));
+      setStaff([...homeStaff, ...guests]);
       setOffRecords(records);
+
+      const rangeMap: Record<string, string> = {};
+      for (const lr of leaveRequests) {
+        if (lr.status !== "approved" || !lr.dates.includes(dateKey)) continue;
+        const sorted = [...lr.dates].sort();
+        rangeMap[lr.staff_member_id] = `On leave: ${formatDateRange(sorted)}`;
+      }
+      setLeaveRangeByStaff(rangeMap);
+
+      const transferMap: Record<string, string> = {};
+      for (const t of transfers) {
+        if (!t.dates.includes(dateKey)) continue;
+        const sorted = [...t.dates].sort();
+        transferMap[t.staff_member_id] = `Transferred to ${t.target_branch_name}: ${formatDateRange(sorted)}`;
+      }
+      setTransferRangeByStaff(transferMap);
+
       setLoading(false);
     });
     return () => {
@@ -112,9 +153,34 @@ export default function StaffShiftGrid({
               <div key={member.id} className="flex items-center justify-between py-3">
                 <div>
                   <p className="text-base font-medium text-ink">{member.full_name}</p>
-                  <p className="text-sm text-ink/50">{member.department ?? ""}</p>
+                  <p className="text-sm text-ink/50">
+                    {member.department ?? ""}
+                    {member.visiting && <span className="text-blue-600"> · Visiting today</span>}
+                  </p>
                 </div>
-                {offRecord ? (
+                {offRecord?.source === "leave" ? (
+                  <span className="rounded-full bg-amber-50 px-4 py-1.5 text-sm font-medium text-amber-700">
+                    {leaveRangeByStaff[member.id] ?? "On leave"}
+                  </span>
+                ) : offRecord?.source === "transfer" ? (
+                  <span className="flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-700">
+                    {transferRangeByStaff[member.id] ?? "Transferred"}
+                    <button
+                      onClick={() =>
+                        setPendingRemove({
+                          id: offRecord.id,
+                          name: member.full_name,
+                          label: transferRangeByStaff[member.id] ?? "Transferred",
+                          source: offRecord.source,
+                        })
+                      }
+                      aria-label={`Remove transfer block for ${member.full_name}`}
+                      className="hover:text-blue-900"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </span>
+                ) : offRecord ? (
                   <span className="flex items-center gap-2 rounded-full bg-red-50 px-4 py-1.5 text-sm font-medium text-red-600">
                     {PERIOD_LABEL[offRecord.period]}
                     <button

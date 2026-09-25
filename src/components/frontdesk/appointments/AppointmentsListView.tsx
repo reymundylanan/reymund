@@ -52,7 +52,18 @@ export default function AppointmentsListView({
               <td className="py-4 text-ink/50">
                 {new Date(r.scheduled_date).toLocaleDateString()}
               </td>
-              <td className="py-4 text-ink/50">{formatTime(r.start_time)}</td>
+              <td className="py-4 text-ink/50">
+                {formatTime(r.start_time)}
+                <p className="text-xs text-ink/40">
+                  Booked{" "}
+                  {new Date(r.created_at).toLocaleString("en-PH", {
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </td>
               <td className="py-4 text-ink/50 capitalize">{r.appointment_type}</td>
               <td className="py-4">
                 <span

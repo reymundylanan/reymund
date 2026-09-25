@@ -1,99 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type BranchTransferStatus = "pending" | "approved" | "denied";
-
-export type BranchTransferRequest = {
-  id: string;
-  staff_member_id: string;
-  target_branch_id: string;
-  dates: string[];
-  reason: string | null;
-  status: BranchTransferStatus;
-  created_at: string;
-  decided_at: string | null;
-  staff_member: { full_name: string; department: string | null; branch: { name: string } | null } | null;
-};
-
-export type OtherBranchStaff = {
-  id: string;
-  full_name: string;
-  department: string | null;
-  branch_name: string;
-};
-
 type Rel<T> = T | T[] | null;
 
 function one<T>(v: Rel<T>): T | null {
   if (!v) return null;
   return Array.isArray(v) ? (v[0] ?? null) : v;
-}
-
-export async function getOtherBranchStaff(
-  supabase: SupabaseClient,
-  excludeBranchId: string
-): Promise<OtherBranchStaff[]> {
-  const { data, error } = await supabase
-    .from("staff_members")
-    .select("id, full_name, department, branch:branches(name)")
-    .neq("branch_id", excludeBranchId)
-    .order("full_name");
-
-  if (error) {
-    console.error("getOtherBranchStaff failed:", error);
-    return [];
-  }
-
-  type Row = { id: string; full_name: string; department: string | null; branch: Rel<{ name: string }> };
-  return ((data as unknown as Row[]) ?? []).map((row) => ({
-    id: row.id,
-    full_name: row.full_name,
-    department: row.department,
-    branch_name: one(row.branch)?.name ?? "Unknown branch",
-  }));
-}
-
-export async function getBranchTransferRequestsForBranch(
-  supabase: SupabaseClient,
-  targetBranchId: string
-): Promise<BranchTransferRequest[]> {
-  const { data, error } = await supabase
-    .from("branch_transfer_requests")
-    .select(
-      "id, staff_member_id, target_branch_id, dates, reason, status, created_at, decided_at, staff_member:staff_members(full_name, department, branch:branches(name))"
-    )
-    .eq("target_branch_id", targetBranchId)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    console.error("getBranchTransferRequestsForBranch failed:", error);
-    return [];
-  }
-
-  type Row = Omit<BranchTransferRequest, "staff_member"> & {
-    staff_member: Rel<{ full_name: string; department: string | null; branch: Rel<{ name: string }> }>;
-  };
-  return ((data as unknown as Row[]) ?? []).map((row) => {
-    const sm = one(row.staff_member);
-    return {
-      ...row,
-      staff_member: sm ? { full_name: sm.full_name, department: sm.department, branch: one(sm.branch) } : null,
-    };
-  });
-}
-
-export async function submitBranchTransferRequest(
-  supabase: SupabaseClient,
-  input: { staffMemberId: string; targetBranchId: string; dates: string[]; reason: string }
-): Promise<{ error: string | null }> {
-  const { error } = await supabase.from("branch_transfer_requests").insert({
-    staff_member_id: input.staffMemberId,
-    target_branch_id: input.targetBranchId,
-    dates: input.dates,
-    reason: input.reason || null,
-    status: "pending",
-  });
-
-  return { error: error?.message ?? null };
 }
 
 export async function createApprovedTransfer(
@@ -131,6 +42,86 @@ export async function getApprovedTransferDatesForBranch(
 
   const rows = (data as { dates: string[] }[]) ?? [];
   return Array.from(new Set(rows.flatMap((r) => r.dates))).sort();
+}
+
+export async function getUpcomingApprovedTransfers(
+  supabase: SupabaseClient
+): Promise<{ staff_member_id: string; dates: string[]; branch_name: string }[]> {
+  const { data, error } = await supabase
+    .from("branch_transfer_requests")
+    .select("staff_member_id, dates, branch:branches!target_branch_id(name)")
+    .eq("status", "approved");
+
+  if (error) {
+    console.error("getUpcomingApprovedTransfers failed:", error);
+    return [];
+  }
+
+  type Row = { staff_member_id: string; dates: string[]; branch: Rel<{ name: string }> };
+  return ((data as unknown as Row[]) ?? []).map((row) => ({
+    staff_member_id: row.staff_member_id,
+    dates: row.dates,
+    branch_name: one(row.branch)?.name ?? "another branch",
+  }));
+}
+
+export async function getUpcomingTransfersIntoBranch(
+  supabase: SupabaseClient,
+  targetBranchId: string
+): Promise<{ staff_member_id: string; full_name: string; department: string | null; dates: string[] }[]> {
+  const { data, error } = await supabase
+    .from("branch_transfer_requests")
+    .select("staff_member_id, dates, staff_member:staff_members(full_name, department)")
+    .eq("target_branch_id", targetBranchId)
+    .eq("status", "approved");
+
+  if (error) {
+    console.error("getUpcomingTransfersIntoBranch failed:", error);
+    return [];
+  }
+
+  type Row = {
+    staff_member_id: string;
+    dates: string[];
+    staff_member: Rel<{ full_name: string; department: string | null }>;
+  };
+  return ((data as unknown as Row[]) ?? []).map((row) => ({
+    staff_member_id: row.staff_member_id,
+    dates: row.dates,
+    department: one(row.staff_member)?.department ?? null,
+    full_name: one(row.staff_member)?.full_name ?? "A staff member",
+  }));
+}
+
+export async function getUpcomingTransfersFromBranch(
+  supabase: SupabaseClient,
+  homeBranchId: string
+): Promise<{ staff_member_id: string; full_name: string; dates: string[]; target_branch_name: string }[]> {
+  const { data, error } = await supabase
+    .from("branch_transfer_requests")
+    .select(
+      "staff_member_id, dates, branch:branches!target_branch_id(name), staff_member:staff_members!inner(full_name, branch_id)"
+    )
+    .eq("status", "approved")
+    .eq("staff_member.branch_id", homeBranchId);
+
+  if (error) {
+    console.error("getUpcomingTransfersFromBranch failed:", error);
+    return [];
+  }
+
+  type Row = {
+    staff_member_id: string;
+    dates: string[];
+    branch: Rel<{ name: string }>;
+    staff_member: Rel<{ full_name: string; branch_id: string | null }>;
+  };
+  return ((data as unknown as Row[]) ?? []).map((row) => ({
+    staff_member_id: row.staff_member_id,
+    dates: row.dates,
+    full_name: one(row.staff_member)?.full_name ?? "A staff member",
+    target_branch_name: one(row.branch)?.name ?? "another branch",
+  }));
 }
 
 export type TransferredInStaff = {

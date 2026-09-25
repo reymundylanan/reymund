@@ -21,6 +21,27 @@ type StaffMember = {
   avatar_url: string | null;
 };
 
+function parseTime12h(s: string): number | null {
+  const m = s.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return null;
+  let h = parseInt(m[1]);
+  const min = parseInt(m[2]);
+  const p = m[3].toUpperCase();
+  if (p === "PM" && h !== 12) h += 12;
+  if (p === "AM" && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+function isOpenNow(hours: string, now: Date): boolean {
+  const parts = hours.split(" - ");
+  if (parts.length !== 2) return false;
+  const open = parseTime12h(parts[0]);
+  const close = parseTime12h(parts[1]);
+  if (open == null || close == null) return false;
+  const cur = now.getHours() * 60 + now.getMinutes();
+  return cur >= open && cur < close;
+}
+
 type SpaPackage = {
   id: string;
   badge: string;
@@ -69,8 +90,6 @@ const TABS: { id: Step; label: string }[] = [
   { id: "confirm", label: "Confirm" },
 ];
 
-const PROMO_CODE = "000001";
-const PROMO_DISCOUNT = 50;
 const REFERENCE_CODE = "9bf8f1";
 const OTP_SECONDS = 120;
 
@@ -203,8 +222,6 @@ export default function BookingModal({
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [mobileNumber, setMobileNumber] = useState("");
   const [contactPhone, setContactPhone] = useState("");
-  const [promoInput, setPromoInput] = useState("");
-  const [promoApplied, setPromoApplied] = useState(false);
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [secondsLeft, setSecondsLeft] = useState(OTP_SECONDS);
   const [saving, setSaving] = useState(false);
@@ -221,6 +238,20 @@ export default function BookingModal({
   const [staffOffDays, setStaffOffDays] = useState<StaffOffRecord[]>([]);
   const [transferGuestIds, setTransferGuestIds] = useState<Set<string>>(new Set());
   const [transferAllowedDates, setTransferAllowedDates] = useState<Set<string>>(new Set());
+  const [branchHours, setBranchHours] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!branchId) { setBranchHours(null); return; }
+    const selectedBranchContact = branchContacts.find((b) => b.id === branchId);
+    if (!selectedBranchContact) { setBranchHours(null); return; }
+    const supabase = createClient();
+    supabase
+      .from("branches")
+      .select("hours")
+      .eq("name", selectedBranchContact.name)
+      .maybeSingle()
+      .then(({ data }) => setBranchHours((data?.hours as string) ?? null));
+  }, [branchId]);
 
   useEffect(() => {
     setBranchUuid(null);
@@ -435,7 +466,8 @@ export default function BookingModal({
       : staffMembers.find((p) => p.id === professionalId)?.full_name ?? "any professional";
 
   const subtotal = selectedServices.reduce((sum, s) => sum + s.price, 0);
-  const total = Math.max(subtotal - (promoApplied ? PROMO_DISCOUNT : 0), 0);
+  const total = subtotal;
+  const payNowDisabled = branchHours ? !isOpenNow(branchHours, new Date()) : false;
   const totalDuration = selectedServices.reduce((sum, s) => sum + parseDurationMinutes(s.duration), 0);
   const serviceNames = selectedServices.map((s) => s.name).join(", ");
 
@@ -1199,7 +1231,7 @@ export default function BookingModal({
               )}
               <div>
                 <label className="text-sm font-medium uppercase text-ink/40">
-                  Contact Number
+                  Contact Number <span className="text-red-500">*</span>
                 </label>
                 <div className="mt-1 flex items-center gap-2 rounded-lg border border-ink/15 px-3 py-2.5 transition-colors focus-within:border-coral focus-within:ring-2 focus-within:ring-coral/20">
                   <span className="text-base text-ink/50">+63</span>
@@ -1222,7 +1254,7 @@ export default function BookingModal({
           {step === "payment-choice" && (
             <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-ink">Choose payment option</p>
+              <p className="text-base font-semibold text-ink">Choose payment option</p>
               <button
                 onClick={() => setStep("confirm")}
                 className="text-base font-medium text-ink/50 hover:text-ink"
@@ -1232,13 +1264,19 @@ export default function BookingModal({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <button
-                onClick={() => setStep("checkout")}
-                className="rounded-2xl border border-ink/10 p-6 text-left hover:border-coral"
+                onClick={() => !payNowDisabled && setStep("checkout")}
+                disabled={payNowDisabled}
+                className="rounded-2xl border border-ink/10 p-6 text-left hover:border-coral disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-ink/10"
               >
                 <p className="font-semibold text-ink">Pay Now</p>
                 <p className="mt-1 text-sm text-ink/60">
                   Pay via GCash now to fully secure your slot.
                 </p>
+                {payNowDisabled && (
+                  <p className="mt-2 text-xs font-medium text-red-600">
+                    Not available right now — the branch is currently closed. Choose Pay Later instead.
+                  </p>
+                )}
               </button>
               <button
                 onClick={async () => {
@@ -1266,17 +1304,22 @@ export default function BookingModal({
 
           {step === "checkout" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Checkout</h2>
-                <p className="text-sm text-ink/60">
-                  Please complete your payment to secure your appointment.
-                </p>
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-ink">Checkout</h2>
+                  <p className="text-sm text-ink/60">
+                    Please complete your payment to secure your appointment.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setStep("payment-choice")}
+                  className="text-base font-medium text-ink/50 hover:text-ink"
+                >
+                  ← Back
+                </button>
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-semibold text-ink">
-                  Choose Payment Method
-                </p>
                 <div className="rounded-xl border border-coral bg-blush p-4">
                   <p className="font-medium text-ink">
                     GCash Payment{" "}
@@ -1287,6 +1330,20 @@ export default function BookingModal({
                   <p className="text-sm text-ink/60">
                     Pay instantly using your GCash wallet
                   </p>
+
+                  <div className="mt-4 flex flex-col items-center rounded-lg border border-ink/10 bg-white p-4">
+                    <div className="relative h-48 w-48">
+                      <Image
+                        src="/images/payment/gcash-qr.png"
+                        alt="GCash QR code"
+                        fill
+                        className="object-contain"
+                      />
+                    </div>
+                    <p className="mt-2 text-center text-sm font-medium text-ink">
+                      Scan with your GCash app to pay ₱{total.toLocaleString()}.00
+                    </p>
+                  </div>
 
                   <label className="mt-4 block text-xs font-medium text-ink/60">
                     GCash Registered Mobile Number
@@ -1317,26 +1374,6 @@ export default function BookingModal({
                       : ""}
                   </p>
                   <p className="mt-2 font-semibold text-gold">₱{subtotal.toLocaleString()}.00</p>
-
-                  <div className="mt-4 flex items-center gap-2 border-t border-ink/10 pt-4">
-                    <input
-                      value={promoInput}
-                      onChange={(e) => setPromoInput(e.target.value)}
-                      placeholder="Promo Code"
-                      className="flex-1 rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none"
-                    />
-                    <button
-                      onClick={() => setPromoApplied(promoInput.trim() === PROMO_CODE)}
-                      className="rounded-full border border-ink/15 px-4 py-2 text-xs font-semibold text-ink/70 hover:border-coral"
-                    >
-                      Apply
-                    </button>
-                  </div>
-                  {promoApplied && (
-                    <p className="mt-2 text-xs text-green-700">
-                      Promo ({PROMO_CODE.slice(0, 3)}xxx) -₱{PROMO_DISCOUNT}.00
-                    </p>
-                  )}
 
                   <div className="mt-3 flex items-center justify-between border-t border-ink/10 pt-3 font-semibold text-ink">
                     <span>Total</span>

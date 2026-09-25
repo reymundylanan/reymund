@@ -49,7 +49,7 @@ export default function AppointmentsManager() {
       supabase
         .from("appointments")
         .select(
-          "id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, notes, client:profiles(full_name, phone), payments(method, status, amount)"
+          "id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, notes, created_at, client:profiles(full_name, phone), payments(method, status, amount)"
         )
         .eq("branch_id", profile.branchId)
         .not("client_id", "is", null)
