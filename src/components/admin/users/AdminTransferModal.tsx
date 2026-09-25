@@ -204,9 +204,11 @@ export default function AdminTransferModal({
               This immediately transfers{" "}
               <span className="font-medium text-ink">{staffMemberName}</span> to{" "}
               <span className="font-medium text-ink">{targetBranchName}</span> for{" "}
-              {selectedDates.map((d) => formatDate(toDateKey(d))).join(", ")}. They&apos;ll become
-              bookable there and unavailable at their home branch on those dates. Front desk at both
-              branches will be notified.
+              <span className="font-medium text-ink">
+                {selectedDates.map((d) => formatDate(toDateKey(d))).join(", ")}
+              </span>
+              . They&apos;ll become bookable there and unavailable at their home branch on those dates.
+              Front desk at both branches will be notified.
             </p>
             <div className="mt-4 flex gap-2">
               <button

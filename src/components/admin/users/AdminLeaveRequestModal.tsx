@@ -168,8 +168,11 @@ export default function AdminLeaveRequestModal({
             <p className="mt-2 text-sm text-ink/60">
               This immediately marks{" "}
               <span className="font-medium text-ink">{staffMemberName}</span> as on leave (unavailable
-              for booking) for {selectedDates.map((d) => formatDate(toDateKey(d))).join(", ")}. Front
-              desk at their branch will be notified.
+              for booking) for{" "}
+              <span className="font-medium text-ink">
+                {selectedDates.map((d) => formatDate(toDateKey(d))).join(", ")}
+              </span>
+              . Front desk at their branch will be notified.
             </p>
             <div className="mt-4 flex gap-2">
               <button
