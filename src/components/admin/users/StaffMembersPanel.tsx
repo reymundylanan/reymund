@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeftRight, Camera, CalendarOff, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeftRight, Camera, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import AvatarCropModal from "@/components/admin/users/AvatarCropModal";
-import AdminLeaveRequestModal from "@/components/admin/users/AdminLeaveRequestModal";
 
 type Branch = { id: string; name: string };
 
@@ -48,8 +47,6 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const [leaveTarget, setLeaveTarget] = useState<StaffMember | null>(null);
-  const [leaveSavedMsg, setLeaveSavedMsg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -168,9 +165,6 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
 
   return (
     <div>
-      {leaveSavedMsg && (
-        <div className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{leaveSavedMsg}</div>
-      )}
       <div className="mb-4 flex items-center justify-between">
         <p className="text-base text-ink/50">{members.length} staff member{members.length !== 1 ? "s" : ""}</p>
         <button
@@ -233,12 +227,6 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                             className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-ink/70 hover:bg-blush"
                           >
                             <ArrowLeftRight className="h-4 w-4" /> Transfer
-                          </button>
-                          <button
-                            onClick={() => { setMenuOpenId(null); setLeaveTarget(m); }}
-                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-ink/70 hover:bg-blush"
-                          >
-                            <CalendarOff className="h-4 w-4" /> Leave
                           </button>
                           <div className="border-t border-ink/10" />
                           <button
@@ -376,20 +364,6 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
           src={cropSrc}
           onDone={handleCropDone}
           onCancel={() => setCropSrc(null)}
-        />
-      )}
-
-      {leaveTarget && (
-        <AdminLeaveRequestModal
-          staffMemberId={leaveTarget.id}
-          staffMemberName={leaveTarget.full_name}
-          branchId={leaveTarget.branch_id}
-          onClose={() => setLeaveTarget(null)}
-          onSaved={() => {
-            setLeaveSavedMsg(`Leave request submitted for ${leaveTarget.full_name}.`);
-            setLeaveTarget(null);
-            setTimeout(() => setLeaveSavedMsg(null), 6000);
-          }}
         />
       )}
 

@@ -1,18 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarOff, FileText, Shuffle } from "lucide-react";
-import ManageLeaveRequestsModal from "@/components/frontdesk/staff/ManageLeaveRequestsModal";
+import { FileText, Shuffle } from "lucide-react";
 import BranchTransferRequestModal from "@/components/frontdesk/staff/BranchTransferRequestModal";
 
 const actions = [
-  { label: "Manage Leave Requests", icon: CalendarOff },
   { label: "Assign Branch Shifts", icon: Shuffle },
   { label: "View Staff Records", icon: FileText },
 ];
 
 export default function QuickActions() {
-  const [showLeaveRequests, setShowLeaveRequests] = useState(false);
   const [showBranchTransfer, setShowBranchTransfer] = useState(false);
 
   return (
@@ -25,7 +22,6 @@ export default function QuickActions() {
             <button
               key={action.label}
               onClick={() => {
-                if (action.label === "Manage Leave Requests") setShowLeaveRequests(true);
                 if (action.label === "Assign Branch Shifts") setShowBranchTransfer(true);
               }}
               className="flex items-center gap-3 rounded-xl border border-ink/10 p-4 hover:border-coral hover:bg-blush"
@@ -39,9 +35,6 @@ export default function QuickActions() {
         })}
       </div>
 
-      {showLeaveRequests && (
-        <ManageLeaveRequestsModal onClose={() => setShowLeaveRequests(false)} />
-      )}
       {showBranchTransfer && (
         <BranchTransferRequestModal onClose={() => setShowBranchTransfer(false)} />
       )}
