@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeftRight, Camera, CalendarOff, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import AvatarCropModal from "@/components/admin/users/AvatarCropModal";
@@ -46,6 +46,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -210,15 +211,45 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                     {(m.branches as { name: string } | null)?.name ?? <span className="text-ink/30">—</span>}
                   </td>
                   <td className="px-4 py-4 text-ink/60">{m.phone ?? <span className="text-ink/30">—</span>}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button onClick={() => openEdit(m)} className="rounded-lg p-2 text-ink/40 hover:bg-blush hover:text-coral-dark">
-                        <Pencil className="h-5 w-5" />
-                      </button>
-                      <button onClick={() => handleDelete(m.id)} className="rounded-lg p-2 text-ink/40 hover:bg-red-50 hover:text-red-500">
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
+                  <td className="relative px-4 py-3 text-right">
+                    <button
+                      onClick={() => setMenuOpenId(menuOpenId === m.id ? null : m.id)}
+                      className="rounded-full p-2 text-ink/40 hover:bg-blush hover:text-ink"
+                    >
+                      <MoreHorizontal className="h-5 w-5" />
+                    </button>
+                    {menuOpenId === m.id && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} />
+                        <div className="absolute right-4 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-ink/10 bg-white text-left shadow-lg">
+                          <button
+                            onClick={() => setMenuOpenId(null)}
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-ink/70 hover:bg-blush"
+                          >
+                            <ArrowLeftRight className="h-4 w-4" /> Transfer
+                          </button>
+                          <button
+                            onClick={() => setMenuOpenId(null)}
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-ink/70 hover:bg-blush"
+                          >
+                            <CalendarOff className="h-4 w-4" /> Leave
+                          </button>
+                          <div className="border-t border-ink/10" />
+                          <button
+                            onClick={() => { setMenuOpenId(null); openEdit(m); }}
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-ink/70 hover:bg-blush"
+                          >
+                            <Pencil className="h-4 w-4" /> Edit
+                          </button>
+                          <button
+                            onClick={() => { setMenuOpenId(null); handleDelete(m.id); }}
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" /> Delete
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
