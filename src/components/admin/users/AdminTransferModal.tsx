@@ -19,16 +19,21 @@ function formatDate(dateKey: string) {
 export default function AdminTransferModal({
   staffMemberId,
   staffMemberName,
+  staffMemberDepartment,
   homeBranchId,
   onClose,
   onSaved,
 }: {
   staffMemberId: string;
   staffMemberName: string;
+  staffMemberDepartment?: string | null;
   homeBranchId: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const staffMemberLabel = staffMemberDepartment
+    ? `${staffMemberName} — ${staffMemberDepartment}`
+    : staffMemberName;
   const [branches, setBranches] = useState<Branch[]>([]);
   const [targetBranchId, setTargetBranchId] = useState("");
   const [selectedDates, setSelectedDates] = useState<Date[]>(() => [new Date()]);
@@ -124,7 +129,7 @@ export default function AdminTransferModal({
               value={staffMemberId}
               className="mt-1 w-full rounded-lg border border-ink/15 bg-ink/5 px-3 py-2 text-sm text-ink/70"
             >
-              <option value={staffMemberId}>{staffMemberName}</option>
+              <option value={staffMemberId}>{staffMemberLabel}</option>
             </select>
           </div>
 

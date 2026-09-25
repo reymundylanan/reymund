@@ -389,6 +389,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
         <AdminLeaveRequestModal
           staffMemberId={leaveTarget.id}
           staffMemberName={leaveTarget.full_name}
+          staffMemberDepartment={leaveTarget.department}
           branchId={leaveTarget.branch_id}
           onClose={() => setLeaveTarget(null)}
           onSaved={() => {
@@ -403,6 +404,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
         <AdminTransferModal
           staffMemberId={transferTarget.id}
           staffMemberName={transferTarget.full_name}
+          staffMemberDepartment={transferTarget.department}
           homeBranchId={transferTarget.branch_id}
           onClose={() => setTransferTarget(null)}
           onSaved={() => {
