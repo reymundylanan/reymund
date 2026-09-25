@@ -51,7 +51,7 @@ export default function MonthCalendar({
   }
 
   return (
-    <div className="w-72 rounded-xl border border-ink/15 bg-white p-3.5 shadow-lg">
+    <div className="w-full rounded-xl border border-ink/15 bg-white p-3.5 shadow-lg">
       <div className="flex items-center justify-between">
         <button
           onClick={() => shiftMonth(-1)}

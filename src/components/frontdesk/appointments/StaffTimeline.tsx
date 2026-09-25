@@ -107,7 +107,7 @@ export default function StaffTimeline({
             })}
           </button>
           {showPicker && (
-            <div className="absolute left-1/2 top-full z-20 mt-2 -translate-x-1/2">
+            <div className="absolute left-1/2 top-full z-20 mt-2 w-72 -translate-x-1/2">
               <MonthCalendar
                 selectedDate={selectedDate}
                 onSelect={(d) => {
