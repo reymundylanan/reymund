@@ -115,6 +115,8 @@ export async function punchOut(
   return { error: updateError?.message ?? null };
 }
 
+const BREAK_LOCKOUT_MINUTES = 15;
+
 export async function startBreak(
   supabase: SupabaseClient,
   input: { staffMemberId: string; branchId: string; dateKey: string }
@@ -123,6 +125,25 @@ export async function startBreak(
   if (error || !row) return { error: error ?? "Could not load today's attendance record." };
   if (row.status === "in_service") return { error: "Still In Service — cannot start a break while serving a client." };
   if (row.status !== "available") return { error: "Punch in before starting a break." };
+
+  const { data: upcoming } = await supabase
+    .from("appointments")
+    .select("start_time")
+    .eq("professional_id", input.staffMemberId)
+    .eq("branch_id", input.branchId)
+    .eq("scheduled_date", input.dateKey)
+    .neq("status", "cancelled")
+    .is("session_status", null);
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const hasBookingSoon = ((upcoming as { start_time: string }[] | null) ?? []).some((r) => {
+    const [h, m] = r.start_time.split(":").map(Number);
+    const startMin = h * 60 + m;
+    return startMin >= nowMin && startMin - nowMin <= BREAK_LOCKOUT_MINUTES;
+  });
+  if (hasBookingSoon) {
+    return { error: `A booking starts within ${BREAK_LOCKOUT_MINUTES} minutes — cannot start a break now.` };
+  }
 
   const { error: breakError } = await supabase.from("staff_attendance_breaks").insert({ attendance_id: row.id });
   if (breakError) return { error: breakError.message };

@@ -38,6 +38,20 @@ function timeToMinutes(time: string) {
   return h * 60 + m;
 }
 
+const BREAK_LOCKOUT_MIN = 15;
+
+/** A staff member can't start a break if they have a not-yet-started
+ * booking (appointment or walk-in) due within the lockout window —
+ * once session_status is set the booking is already underway (or done)
+ * and no longer counts as "coming up". */
+function hasBookingWithin(memberBlocks: ScheduleBlock[], nowMin: number, windowMin: number) {
+  return memberBlocks.some((b) => {
+    if (b.sessionStatus) return false;
+    const startMin = timeToMinutes(b.start_time);
+    return startMin >= nowMin && startMin - nowMin <= windowMin;
+  });
+}
+
 function minutesLabel(min: number) {
   const h24 = Math.floor(min / 60);
   const m = min % 60;
@@ -264,6 +278,7 @@ export default function StaffScheduleTimeline({
   const selectedBlocks = selectedMember ? blocks.filter((b) => b.professional_id === selectedMember.id) : [];
   const selectedBreaks = selectedAttendance ? breaks.filter((b) => b.attendance_id === selectedAttendance.id) : [];
   const selectedActiveBlock = selectedBlocks.find((b) => b.sessionStatus === "in_service");
+  const selectedHasBookingSoon = hasBookingWithin(selectedBlocks, nowMin, BREAK_LOCKOUT_MIN);
   const selectedTiming = selectedActiveBlock
     ? computeServiceTiming(selectedActiveBlock.serviceStartedAt, selectedActiveBlock.duration_minutes, now)
     : null;
@@ -301,6 +316,7 @@ export default function StaffScheduleTimeline({
                     const memberAttendance = attendance.find((a) => a.staff_member_id === member.id);
                     const memberBlocks = blocks.filter((b) => b.professional_id === member.id);
                     const memberBreaks = memberAttendance ? breaks.filter((b) => b.attendance_id === memberAttendance.id) : [];
+                    const memberHasBookingSoon = hasBookingWithin(memberBlocks, nowMin, BREAK_LOCKOUT_MIN);
                     const offSpan = offRecord ? offBlockSpan(offRecord.period) : null;
                     const isSelected = member.id === selectedStaffId;
                     const activeBlock = memberBlocks.find((b) => b.sessionStatus === "in_service");
@@ -451,6 +467,7 @@ export default function StaffScheduleTimeline({
                               branchId={profile!.branchId!}
                               dateKey={dateKey}
                               editable={!offRecord}
+                              hasBookingSoon={memberHasBookingSoon}
                               onChanged={onChanged}
                             />
                           )}
@@ -481,6 +498,7 @@ export default function StaffScheduleTimeline({
           branchId={profile?.branchId ?? ""}
           dateKey={dateKey}
           editable={isToday && !!selectedMember && !offRecords.some((r) => r.staff_member_id === selectedMember.id)}
+          hasBookingSoon={selectedHasBookingSoon}
           onChanged={onChanged}
         />
       </div>

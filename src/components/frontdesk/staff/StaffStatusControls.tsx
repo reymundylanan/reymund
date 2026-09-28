@@ -70,15 +70,22 @@ const ACTION_STYLE: Record<AttendanceActionName, string> = {
 
 /** Mirrors the server-side gating in staffAttendance.ts so the UI never
  * offers an action the backend would reject — e.g. no Punch Out or
- * Start Break while a staff member is actively In Service. */
-export function canRunAction(status: DisplayStatus, action: AttendanceActionName): boolean {
+ * Start Break while a staff member is actively In Service. `hasBookingSoon`
+ * blocks Start Break when the staff member has an appointment starting
+ * within the next 15 minutes, even while otherwise Available, so a break
+ * can't be started right before a client is due. */
+export function canRunAction(
+  status: DisplayStatus,
+  action: AttendanceActionName,
+  context?: { hasBookingSoon?: boolean }
+): boolean {
   switch (action) {
     case "punch_in":
       return status === "scheduled" || status === "out";
     case "punch_out":
       return status === "available" || status === "on_break";
     case "start_break":
-      return status === "available";
+      return status === "available" && !context?.hasBookingSoon;
     case "end_break":
       return status === "on_break";
   }
@@ -142,6 +149,7 @@ export default function StaffStatusControls({
   branchId,
   dateKey,
   editable,
+  hasBookingSoon = false,
   onChanged,
 }: {
   status: DisplayStatus;
@@ -149,12 +157,14 @@ export default function StaffStatusControls({
   branchId: string;
   dateKey: string;
   editable: boolean;
+  hasBookingSoon?: boolean;
   onChanged: () => void;
 }) {
   const { run, busy, error } = useAttendanceAction({ staffMemberId, branchId, dateKey }, onChanged);
   const [showMore, setShowMore] = useState(false);
   const actions = relevantActions(status);
   const hidden = hiddenActions(status);
+  const context = { hasBookingSoon };
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -165,12 +175,14 @@ export default function StaffStatusControls({
 
       <div className="flex flex-col items-end gap-1">
         {actions.map((action) => {
-          const enabled = editable && canRunAction(status, action);
+          const enabled = editable && canRunAction(status, action, context);
+          const blockedByBooking = action === "start_break" && status === "available" && hasBookingSoon;
           return (
             <button
               key={action}
               onClick={() => enabled && run(action)}
               disabled={busy || !enabled}
+              title={blockedByBooking ? "A booking starts within 15 minutes — can't start a break now" : undefined}
               className={`w-24 rounded-full px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${ACTION_STYLE[action]}`}
             >
               {ACTION_LABEL[action]}
@@ -189,19 +201,25 @@ export default function StaffStatusControls({
 
         {showMore && hidden.length > 0 && (
           <div className="flex flex-col items-end gap-1">
-            {hidden.map((action) => (
-              <button
-                key={action}
-                onClick={() => {
-                  setShowMore(false);
-                  run(action);
-                }}
-                disabled={busy}
-                className={`w-24 rounded-full px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${ACTION_STYLE[action]}`}
-              >
-                {ACTION_LABEL[action]}
-              </button>
-            ))}
+            {hidden.map((action) => {
+              const enabled = editable && canRunAction(status, action, context);
+              const blockedByBooking = action === "start_break" && status === "available" && hasBookingSoon;
+              return (
+                <button
+                  key={action}
+                  onClick={() => {
+                    if (!enabled) return;
+                    setShowMore(false);
+                    run(action);
+                  }}
+                  disabled={busy || !enabled}
+                  title={blockedByBooking ? "A booking starts within 15 minutes — can't start a break now" : undefined}
+                  className={`w-24 rounded-full px-2 py-1 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${ACTION_STYLE[action]}`}
+                >
+                  {ACTION_LABEL[action]}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>

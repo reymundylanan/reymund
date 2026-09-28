@@ -48,6 +48,7 @@ export default function StaffDetailPanel({
   branchId,
   dateKey,
   editable,
+  hasBookingSoon = false,
   onChanged,
 }: {
   staffList: StaffOption[];
@@ -66,6 +67,7 @@ export default function StaffDetailPanel({
   branchId: string;
   dateKey: string;
   editable: boolean;
+  hasBookingSoon?: boolean;
   onChanged: () => void;
 }) {
   const [showSwitcher, setShowSwitcher] = useState(false);
@@ -160,12 +162,14 @@ export default function StaffDetailPanel({
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink/40">Quick Actions</p>
               <div className="space-y-2">
                 {ALL_ACTIONS.map((action) => {
-                  const enabled = editable && canRunAction(status, action);
+                  const enabled = editable && canRunAction(status, action, { hasBookingSoon });
+                  const blockedByBooking = action === "start_break" && status === "available" && hasBookingSoon;
                   return (
                     <button
                       key={action}
                       onClick={() => enabled && run(action)}
                       disabled={busy || !enabled}
+                      title={blockedByBooking ? "A booking starts within 15 minutes — can't start a break now" : undefined}
                       className={`w-full rounded-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
                         action === "punch_in"
                           ? "bg-green-600 text-white hover:bg-green-700"
@@ -180,6 +184,11 @@ export default function StaffDetailPanel({
                     </button>
                   );
                 })}
+                {status === "available" && hasBookingSoon && (
+                  <p className="text-[11px] text-amber-600">
+                    Start Break is unavailable — a booking starts within 15 minutes.
+                  </p>
+                )}
               </div>
             </div>
           </>
