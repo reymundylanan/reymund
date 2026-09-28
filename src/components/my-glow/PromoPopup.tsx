@@ -18,7 +18,7 @@ export default function PromoPopup({ clientId, promo }: { clientId: string; prom
 
   if (!open) return null;
 
-  const image = getServiceImage(promo.category ?? promo.department ?? promo.title);
+  const image = promo.imageUrl || getServiceImage(promo.category ?? promo.department ?? promo.title);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
