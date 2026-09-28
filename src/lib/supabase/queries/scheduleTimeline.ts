@@ -26,7 +26,7 @@ export async function getAppointmentBlocksForDate(
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, professional_id, start_time, duration_minutes, walkin_name, client_id, notes, session_status, service_started_at, service:branch_services(name), client:profiles(full_name)"
+      "id, professional_id, start_time, duration_minutes, walkin_name, client_id, notes, session_status, service_started_at, service:branch_services(name), client:profiles!appointments_client_id_fkey(full_name)"
     )
     .eq("branch_id", branchId)
     .eq("scheduled_date", dateKey)

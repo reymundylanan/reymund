@@ -176,7 +176,7 @@ export default function FrontDeskTopbar() {
     todayStart.setHours(0, 0, 0, 0);
     supabase
       .from("appointments")
-      .select("id, notes, booking_code, status, created_at, scheduled_date, start_time, client:profiles(full_name)")
+      .select("id, notes, booking_code, status, created_at, scheduled_date, start_time, client:profiles!appointments_client_id_fkey(full_name)")
       .eq("branch_id", profile.branchId)
       .gte("created_at", todayStart.toISOString())
       .order("created_at", { ascending: false })

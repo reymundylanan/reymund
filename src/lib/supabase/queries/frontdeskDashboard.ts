@@ -93,7 +93,7 @@ export async function getTodaySchedule(
 ): Promise<ScheduleItem[]> {
   const { data, error } = await supabase
     .from("appointments")
-    .select("id, start_time, status, notes, client:profiles(full_name)")
+    .select("id, start_time, status, notes, client:profiles!appointments_client_id_fkey(full_name)")
     .eq("branch_id", branchId)
     .eq("scheduled_date", todayKey())
     .order("start_time", { ascending: true });
@@ -143,7 +143,7 @@ export async function getPaymentVerifications(
   const { data, error } = await supabase
     .from("payments")
     .select(
-      "id, amount, method, reference_no, appointment:appointments!inner(branch_id, start_time, client:profiles(full_name))"
+      "id, amount, method, reference_no, appointment:appointments!inner(branch_id, start_time, client:profiles!appointments_client_id_fkey(full_name))"
     )
     .eq("status", "pending")
     .eq("appointment.branch_id", branchId)

@@ -27,7 +27,7 @@ export async function getAdminPayments(supabase: SupabaseClient): Promise<AdminP
   const { data, error } = await supabase
     .from("payments")
     .select(
-      "id, appointment_id, reference_no, sender_name, amount, method, status, refund_reason, refunded_at, created_at, appointment:appointments(booking_code, scheduled_date, client:profiles(full_name), branch:branches(name))"
+      "id, appointment_id, reference_no, sender_name, amount, method, status, refund_reason, refunded_at, created_at, appointment:appointments(booking_code, scheduled_date, client:profiles!appointments_client_id_fkey(full_name), branch:branches(name))"
     )
     .order("created_at", { ascending: false });
 
