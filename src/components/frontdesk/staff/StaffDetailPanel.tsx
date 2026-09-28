@@ -13,7 +13,7 @@ import {
   type AttendanceActionName,
   type DisplayStatus,
 } from "./StaffStatusControls";
-import { SERVICE_TIMING_LABEL, SERVICE_TIMING_STYLE, type ServiceTiming } from "@/lib/serviceTiming";
+import { serviceTimingLabel, serviceTimingStyle, type ServiceTiming } from "@/lib/serviceTiming";
 
 type StaffOption = { id: string; full_name: string; department: string | null; avatar_url: string | null };
 
@@ -145,8 +145,8 @@ export default function StaffDetailPanel({
                 {STATUS_LABEL[status]}
               </p>
               {serviceTiming && (
-                <span className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${SERVICE_TIMING_STYLE[serviceTiming]}`}>
-                  {SERVICE_TIMING_LABEL[serviceTiming]}
+                <span className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${serviceTimingStyle(serviceTiming)}`}>
+                  {serviceTimingLabel(serviceTiming)}
                 </span>
               )}
               <p className="mt-0.5 text-[11px] text-ink/40">

@@ -12,7 +12,7 @@ import {
   type WalkinRow,
 } from "@/lib/supabase/queries/walkins";
 import { SESSION_LABEL, WALKIN_STATUS_OPTIONS, type SessionStatus } from "@/lib/sessionStatus";
-import { SERVICE_TIMING_LABEL, SERVICE_TIMING_STYLE, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
+import { serviceTimingLabel, serviceTimingStyle, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
 import EditWalkinModal from "@/components/frontdesk/payments/EditWalkinModal";
 import WalkinPaymentModal from "@/components/frontdesk/payments/WalkinPaymentModal";
 
@@ -122,8 +122,8 @@ export default function WalkinsListTable({
                       </select>
                     )}
                     {serviceTiming && (
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${SERVICE_TIMING_STYLE[serviceTiming]}`}>
-                        {SERVICE_TIMING_LABEL[serviceTiming]}
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${serviceTimingStyle(serviceTiming)}`}>
+                        {serviceTimingLabel(serviceTiming)}
                       </span>
                     )}
                     <span
@@ -133,6 +133,15 @@ export default function WalkinsListTable({
                     >
                       {paid ? `Paid ₱${paidAmount?.toLocaleString()}.00` : "Unpaid"}
                     </span>
+                    {!isCancelled && sessionStatus === "in_service" && (
+                      <button
+                        onClick={() => handleStatusChange(row, "completed")}
+                        disabled={busyId === row.id}
+                        className="flex items-center gap-1.5 rounded-full bg-teal-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+                      >
+                        Finish Service
+                      </button>
+                    )}
                     {!isCancelled && sessionStatus === "completed" && !paid && (
                       <button
                         onClick={() => setCompletingRow(row)}

@@ -356,7 +356,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
             disabled={!canProceed || saving}
             className="w-full rounded-full bg-pink-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-pink-600 disabled:opacity-40"
           >
-            {saving ? "Registering..." : "Proceed to Payment"}
+            {saving ? "Checking In..." : "Check In"}
           </button>
         </div>
       )}

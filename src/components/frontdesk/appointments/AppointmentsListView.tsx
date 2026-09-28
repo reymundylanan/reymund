@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { AlertTriangle } from "lucide-react";
 import { SESSION_LABEL, SESSION_STYLE } from "@/lib/sessionStatus";
-import { SERVICE_TIMING_LABEL, SERVICE_TIMING_STYLE, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
+import { serviceTimingLabel, serviceTimingStyle, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
 import {
   clientInfo,
   appointmentStaffName,
@@ -139,8 +139,8 @@ export default function AppointmentsListView({
                           : null;
                       if (timing) {
                         return (
-                          <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${SERVICE_TIMING_STYLE[timing]}`}>
-                            {SERVICE_TIMING_LABEL[timing]}
+                          <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${serviceTimingStyle(timing)}`}>
+                            {serviceTimingLabel(timing)}
                           </span>
                         );
                       }

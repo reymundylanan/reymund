@@ -25,7 +25,7 @@ import {
 } from "@/lib/supabase/queries/appointments";
 import { getGracePeriodMinutes } from "@/lib/supabase/queries/spaSettings";
 import { SESSION_LABEL, SESSION_STYLE, CANCELLED_LABEL } from "@/lib/sessionStatus";
-import { SERVICE_TIMING_LABEL, SERVICE_TIMING_STYLE, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
+import { serviceTimingLabel, serviceTimingStyle, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
 import {
   clientInfo,
   appointmentStaffName,
@@ -191,7 +191,7 @@ export default function AppointmentDetailPanel({
     if (sessionStatus === "no_show") return "no_show";
     if (sessionStatus === "late_arrival") return "late_arrival";
     if (sessionStatus === "completed" || sessionStatus === "paid") return isPaid ? "completed_paid" : "payment_pending";
-    if (sessionStatus === "in_service") return serviceTiming === "overdue" ? "overdue" : "in_service";
+    if (sessionStatus === "in_service") return serviceTiming?.kind === "overdue" ? "overdue" : "in_service";
     if (isPending) return "pending";
     if (isAwaitingArrival) return "late_awaiting_arrival";
     return "confirmed";
@@ -299,8 +299,8 @@ export default function AppointmentDetailPanel({
         <div className="mt-3 flex items-center justify-between rounded-xl bg-blush/40 p-3">
           <p className="text-[11px] text-ink/40">Current Status</p>
           {serviceTiming ? (
-            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${SERVICE_TIMING_STYLE[serviceTiming]}`}>
-              {SERVICE_TIMING_LABEL[serviceTiming]}
+            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${serviceTimingStyle(serviceTiming)}`}>
+              {serviceTimingLabel(serviceTiming)}
             </span>
           ) : status === "cancelled" ? (
             <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-600">

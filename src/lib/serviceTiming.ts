@@ -2,26 +2,45 @@
 
 import { useEffect, useState } from "react";
 
-export type ServiceTiming = "overdue";
+/** Purely a display signal — a session never auto-completes just
+ * because the estimated duration passed. The actual service can run
+ * short or long, so Front Desk always clicks Complete/Finish Service
+ * manually; this only tells them where things stand against the
+ * estimate. */
+export type ServiceTiming =
+  | { kind: "remaining"; minutes: number }
+  | { kind: "time_reached" }
+  | { kind: "overdue"; minutes: number };
 
-export const SERVICE_TIMING_LABEL: Record<ServiceTiming, string> = {
-  overdue: "Overdue",
-};
+export function serviceTimingLabel(timing: ServiceTiming): string {
+  switch (timing.kind) {
+    case "remaining":
+      return `${timing.minutes} min remaining`;
+    case "time_reached":
+      return "Time Reached";
+    case "overdue":
+      return `Overdue by ${timing.minutes} min`;
+  }
+}
 
-export const SERVICE_TIMING_STYLE: Record<ServiceTiming, string> = {
-  overdue: "bg-red-100 text-red-600",
-};
+export function serviceTimingStyle(timing: ServiceTiming): string {
+  switch (timing.kind) {
+    case "remaining":
+      return "bg-green-100 text-green-700";
+    case "time_reached":
+      return "bg-amber-100 text-amber-700";
+    case "overdue":
+      return "bg-red-100 text-red-600";
+  }
+}
 
 export function expectedCompletionAt(serviceStartedAt: string, durationMinutes: number): Date {
   return new Date(new Date(serviceStartedAt).getTime() + durationMinutes * 60000);
 }
 
-/** Only meaningful while a session is actually `in_service` — returns
- * null before the estimated completion time is reached, since "In
- * Service" is still the correct thing to show at that point. The spa's
- * policy is deliberately tight here (no grace period): the moment the
- * estimated time passes and the session isn't marked Completed, it's
- * Overdue — this is a display-only flag, never an automatic Complete. */
+/** Only meaningful while a session is actually `in_service`. Based on
+ * the actual service start time; the estimated duration is only a
+ * guide for the remaining/overdue math, never a trigger to complete. */
 export function computeServiceTiming(
   serviceStartedAt: string | null,
   durationMinutes: number,
@@ -29,12 +48,15 @@ export function computeServiceTiming(
 ): ServiceTiming | null {
   if (!serviceStartedAt) return null;
   const expectedEnd = expectedCompletionAt(serviceStartedAt, durationMinutes);
-  return now.getTime() >= expectedEnd.getTime() ? "overdue" : null;
+  const diffMinutes = Math.round((expectedEnd.getTime() - now.getTime()) / 60000);
+  if (diffMinutes > 0) return { kind: "remaining", minutes: diffMinutes };
+  if (diffMinutes === 0) return { kind: "time_reached" };
+  return { kind: "overdue", minutes: -diffMinutes };
 }
 
 /** Ticks every 30s so components showing service timing re-render and
- * flip from In Service -> Overdue on wall-clock time alone, without
- * needing new data to arrive. */
+ * count down/up on wall-clock time alone, without needing new data to
+ * arrive. */
 export function useServiceTimingClock(): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {

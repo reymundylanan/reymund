@@ -19,7 +19,7 @@ import {
   type AttendanceRow,
   type AttendanceBreak,
 } from "@/lib/supabase/queries/staffAttendance";
-import { SERVICE_TIMING_LABEL, SERVICE_TIMING_STYLE, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
+import { serviceTimingLabel, serviceTimingStyle, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
 import StaffDetailPanel from "./StaffDetailPanel";
 import StaffStatusControls, { type DisplayStatus } from "./StaffStatusControls";
 
@@ -378,15 +378,15 @@ export default function StaffScheduleTimeline({
                                   ? computeServiceTiming(block.serviceStartedAt, block.duration_minutes, now)
                                   : null;
                               const tone =
-                                blockTiming === "overdue"
+                                blockTiming?.kind === "overdue"
                                   ? "border-red-300 bg-red-50"
-                                  : blockTiming === "ready_for_completion"
+                                  : blockTiming?.kind === "time_reached"
                                   ? "border-amber-300 bg-amber-50"
                                   : "border-teal-200 bg-teal-50";
                               const textTone =
-                                blockTiming === "overdue"
+                                blockTiming?.kind === "overdue"
                                   ? "text-red-700"
-                                  : blockTiming === "ready_for_completion"
+                                  : blockTiming?.kind === "time_reached"
                                   ? "text-amber-700"
                                   : "text-teal-700";
                               return (
@@ -396,12 +396,12 @@ export default function StaffScheduleTimeline({
                                   className={`absolute top-0 flex h-full flex-col justify-center overflow-hidden rounded-lg border px-2 py-1 ${tone}`}
                                   title={
                                     blockTiming
-                                      ? `${SERVICE_TIMING_LABEL[blockTiming]} — ${block.label} (${block.subLabel})`
+                                      ? `${serviceTimingLabel(blockTiming)} — ${block.label} (${block.subLabel})`
                                       : `${block.label} — ${block.subLabel}`
                                   }
                                 >
                                   <p className={`truncate text-[11px] font-semibold uppercase ${textTone}`}>
-                                    {blockTiming ? SERVICE_TIMING_LABEL[blockTiming] : block.label}
+                                    {blockTiming ? serviceTimingLabel(blockTiming) : block.label}
                                   </p>
                                   <p className={`truncate text-[10px] ${textTone}`}>
                                     {minutesLabel(startMin)} – {minutesLabel(startMin + block.duration_minutes)}
@@ -440,8 +440,8 @@ export default function StaffScheduleTimeline({
 
                         <div className="w-[190px] shrink-0 space-y-1" onClick={(e) => e.stopPropagation()}>
                           {timing && (
-                            <span className={`block w-fit rounded-full px-2 py-0.5 text-[10px] font-medium ${SERVICE_TIMING_STYLE[timing]}`}>
-                              {SERVICE_TIMING_LABEL[timing]}
+                            <span className={`block w-fit rounded-full px-2 py-0.5 text-[10px] font-medium ${serviceTimingStyle(timing)}`}>
+                              {serviceTimingLabel(timing)}
                             </span>
                           )}
                           {isToday && (
