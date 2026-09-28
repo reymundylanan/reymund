@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { CalendarClock, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { cancelMyBookingAction, rescheduleMyBookingAction } from "@/app/my-glow/actions";
+import { cancelMyBookingAction } from "@/app/my-glow/actions";
+import RescheduleSlotPicker from "@/components/my-glow/RescheduleSlotPicker";
 
 type BranchInfo = { name: string; phone: string | null };
 type PaymentInfo = { method: string; status: string; amount: number };
@@ -18,6 +19,7 @@ type Booking = {
   start_time: string;
   duration_minutes: number;
   appointment_type: "solo" | "group";
+  professional_id: string | null;
   branch: BranchInfo | BranchInfo[] | null;
   payments: PaymentInfo[] | null;
 };
@@ -57,8 +59,6 @@ export default function MyBookingsSection({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rescheduling, setRescheduling] = useState(false);
-  const [newDate, setNewDate] = useState("");
-  const [newTime, setNewTime] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +71,7 @@ export default function MyBookingsSection({ userId }: { userId: string }) {
     supabase
       .from("appointments")
       .select(
-        "id, booking_code, status, session_status, notes, scheduled_date, start_time, duration_minutes, appointment_type, branch:branches(name, phone), payments(method, status, amount)"
+        "id, booking_code, status, session_status, notes, scheduled_date, start_time, duration_minutes, appointment_type, professional_id, branch:branches(name, phone), payments(method, status, amount)"
       )
       .eq("client_id", userId)
       .gte("scheduled_date", cutoff.toISOString().slice(0, 10))
@@ -94,28 +94,6 @@ export default function MyBookingsSection({ userId }: { userId: string }) {
     setRescheduling(false);
     setCancelling(false);
     setError(null);
-    if (next) {
-      setNewDate(b.scheduled_date);
-      setNewTime(b.start_time.slice(0, 5));
-    }
-  }
-
-  async function handleReschedule(b: Booking) {
-    setSaving(true);
-    setError(null);
-    const result = await rescheduleMyBookingAction({
-      appointmentId: b.id,
-      scheduledDate: newDate,
-      startTime: `${newTime}:00`,
-    });
-    setSaving(false);
-    if (result.error) {
-      setError(result.error);
-      return;
-    }
-    setRescheduling(false);
-    setExpandedId(null);
-    load();
   }
 
   async function handleCancel(b: Booking) {
@@ -202,41 +180,19 @@ export default function MyBookingsSection({ userId }: { userId: string }) {
                       )}
 
                       {rescheduling && (
-                        <div className="space-y-2">
-                          <div className="flex gap-2">
-                            <input
-                              type="date"
-                              value={newDate}
-                              onChange={(e) => setNewDate(e.target.value)}
-                              className="flex-1 rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
-                            />
-                            <input
-                              type="time"
-                              value={newTime}
-                              onChange={(e) => setNewTime(e.target.value)}
-                              className="flex-1 rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
-                            />
-                          </div>
-                          {error && <p className="text-xs text-red-600">{error}</p>}
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => {
-                                setRescheduling(false);
-                                setError(null);
-                              }}
-                              className="flex-1 rounded-full border border-ink/15 py-2 text-sm text-ink/60 hover:border-ink/30"
-                            >
-                              Go Back
-                            </button>
-                            <button
-                              onClick={() => handleReschedule(b)}
-                              disabled={saving}
-                              className="flex-1 rounded-full bg-coral py-2 text-sm font-semibold text-white hover:bg-coral-dark disabled:opacity-50"
-                            >
-                              {saving ? "Saving..." : "Save New Time"}
-                            </button>
-                          </div>
-                        </div>
+                        <RescheduleSlotPicker
+                          appointmentId={b.id}
+                          professionalId={b.professional_id}
+                          durationMinutes={b.duration_minutes}
+                          initialDate={b.scheduled_date}
+                          initialTime={b.start_time.slice(0, 5)}
+                          onCancel={() => setRescheduling(false)}
+                          onSaved={() => {
+                            setRescheduling(false);
+                            setExpandedId(null);
+                            load();
+                          }}
+                        />
                       )}
 
                       {cancelling && (
