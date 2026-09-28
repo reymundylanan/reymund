@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, ChevronLeft, Clock, Search } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
 
@@ -60,7 +61,8 @@ const FALLBACK = { image: "/images/hero/clinic.jpeg", description: "Explore our 
 
 export default function ServiceCatalog({ services }: { services: DbService[] }) {
   const { open } = useBooking();
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(() => searchParams.get("category"));
   const [query, setQuery] = useState("");
 
   const categories = useMemo(() => {

@@ -17,6 +17,8 @@ import WelcomeBanner from "@/components/my-glow/WelcomeBanner";
 import GlowJourneyBanner from "@/components/my-glow/GlowJourneyBanner";
 import ReviewsPanel from "@/components/my-glow/ReviewsPanel";
 import AssistantPanel from "@/components/my-glow/AssistantPanel";
+import PromoPopup from "@/components/my-glow/PromoPopup";
+import { getPromoForClient } from "@/lib/supabase/queries/promos";
 
 export default async function MyGlowPage() {
   const supabase = await createClient();
@@ -31,17 +33,19 @@ export default async function MyGlowPage() {
 
   if (!profile || profile.role !== "customer") redirect("/");
 
-  const [upcoming, recent, reviewable, myReviews, visitedBranches] =
+  const [upcoming, recent, reviewable, myReviews, visitedBranches, promo] =
     await Promise.all([
       getUpcomingAppointment(supabase, auth.user.id),
       getRecentAppointments(supabase, auth.user.id),
       getReviewableProfessionals(supabase, auth.user.id),
       getMyReviews(supabase, auth.user.id),
       getVisitedBranches(supabase, auth.user.id),
+      getPromoForClient(supabase, auth.user.id),
     ]);
 
   return (
     <>
+      {promo && <PromoPopup clientId={auth.user.id} promo={promo} />}
       <Header />
       <main className="flex-1 bg-blush/30 px-6 py-10">
         <div className="mx-auto max-w-7xl space-y-6">
