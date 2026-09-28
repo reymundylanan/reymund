@@ -11,7 +11,6 @@ export type ClientPromo = {
   description: string | null;
   badge: string | null;
   validUntil: string | null;
-  imageUrl: string | null;
 };
 
 type Rel<T> = T | T[] | null;
@@ -31,7 +30,6 @@ type PromoRow = {
   badge: string | null;
   valid_from: string | null;
   valid_until: string | null;
-  image_url: string | null;
   branch: Rel<{ name: string }>;
 };
 
@@ -48,7 +46,7 @@ export async function getPromoForClient(supabase: SupabaseClient, clientId: stri
   const [{ data: promos, error }, { data: seenRows }, { data: visitedRows }] = await Promise.all([
     supabase
       .from("branch_promotions")
-      .select("id, branch_id, title, department, category, price, description, badge, valid_from, valid_until, image_url, branch:branches(name)")
+      .select("id, branch_id, title, department, category, price, description, badge, valid_from, valid_until, branch:branches(name)")
       .eq("is_active", true)
       .or(`valid_from.is.null,valid_from.lte.${today}`)
       .or(`valid_until.is.null,valid_until.gte.${today}`),
@@ -87,7 +85,6 @@ export async function getPromoForClient(supabase: SupabaseClient, clientId: stri
     description: chosen.description,
     badge: chosen.badge,
     validUntil: chosen.valid_until,
-    imageUrl: chosen.image_url,
   };
 }
 
@@ -101,7 +98,7 @@ export async function dismissPromo(supabase: SupabaseClient, clientId: string, p
 export async function getPromoById(supabase: SupabaseClient, promoId: string): Promise<ClientPromo | null> {
   const { data, error } = await supabase
     .from("branch_promotions")
-    .select("id, branch_id, title, department, category, price, description, badge, valid_from, valid_until, image_url, branch:branches(name)")
+    .select("id, branch_id, title, department, category, price, description, badge, valid_from, valid_until, branch:branches(name)")
     .eq("id", promoId)
     .maybeSingle();
 
@@ -121,6 +118,5 @@ export async function getPromoById(supabase: SupabaseClient, promoId: string): P
     description: row.description,
     badge: row.badge,
     validUntil: row.valid_until,
-    imageUrl: row.image_url,
   };
 }

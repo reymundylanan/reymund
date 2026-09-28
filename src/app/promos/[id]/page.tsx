@@ -15,7 +15,7 @@ export default async function PromoDetailPage({ params }: { params: Promise<{ id
   const promo = await getPromoById(supabase, id);
   if (!promo) notFound();
 
-  const image = promo.imageUrl || getServiceImage(promo.category ?? promo.department ?? promo.title);
+  const image = getServiceImage(promo.category ?? promo.department ?? promo.title);
   const bookHref = promo.category ? `/services?category=${encodeURIComponent(promo.category)}` : "/services";
 
   return (

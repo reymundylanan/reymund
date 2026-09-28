@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getServiceImage } from "@/lib/serviceImage";
 import { Pencil, Plus, Tag, Trash2, X } from "lucide-react";
 
 type Promotion = {
@@ -148,8 +149,6 @@ const emptyForm = {
   serviceType: "" as "" | "MesoLipo",
   mesolipoRFPrice: "",
   mesolipoExislimPrice: "",
-  imageFile: null as File | null,
-  imagePreview: "" as string,
 };
 
 const emptySpaForm = {
@@ -162,8 +161,6 @@ const emptySpaForm = {
   valid_until: "",
   is_active: true,
   included_services: "",
-  imageFile: null as File | null,
-  imagePreview: "" as string,
 };
 
 export default function PromotionsTab({ branchId }: { branchId: string }) {
@@ -268,20 +265,9 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       serviceType: "" as "" | "MesoLipo",
       mesolipoRFPrice: "",
       mesolipoExislimPrice: "",
-      imageFile: null,
-      imagePreview: p.image_url ?? "",
     });
     setSaveError(null);
     setModalOpen(true);
-  }
-
-  async function uploadPromoImage(file: File): Promise<string | null> {
-    const ext = file.name.split(".").pop();
-    const path = `promos/${branchId}-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-    if (upErr) return null;
-    const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
-    return urlData.publicUrl;
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -295,18 +281,13 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
     setSaving(true);
     setSaveError(null);
 
-    let uploadedImageUrl: string | null = editing?.image_url ?? null;
-    if (form.imageFile) {
-      uploadedImageUrl = await uploadPromoImage(form.imageFile);
-    }
-
     // MesoLipo path
     if (form.serviceType === "MesoLipo") {
       if (!form.title.trim()) { setSaveError("Service name is required."); setSaving(false); return; }
       const baseName = form.title.trim();
       const rfPrice = Number(form.mesolipoRFPrice.replace(/,/g, "")) || null;
       const exislimPrice = Number(form.mesolipoExislimPrice.replace(/,/g, "")) || null;
-      const base = { branch_id: branchId, department: form.department || null, category: form.category || null, badge: null, discount_type: null, discount_value: null, valid_from: null, valid_until: null, is_active: true, description: null, image_url: uploadedImageUrl };
+      const base = { branch_id: branchId, department: form.department || null, category: form.category || null, badge: null, discount_type: null, discount_value: null, valid_from: null, valid_until: null, is_active: true, description: null };
       if (editing && editingMesolipoExislim) {
         await supabase.from("branch_promotions").update({ ...base, title: `${baseName} - with free RF`, price: rfPrice }).eq("id", editing.id);
         await supabase.from("branch_promotions").update({ ...base, title: `${baseName} - with free RF & Exislim`, price: exislimPrice }).eq("id", editingMesolipoExislim.id);
@@ -387,7 +368,6 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       valid_from: form.valid_from || null,
       valid_until: form.valid_until || null,
       is_active: form.is_active,
-      image_url: uploadedImageUrl,
     };
 
     if (editing) {
@@ -461,7 +441,6 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       inclusions: lines.length > 0 ? lines : [""],
       package_price: p.price != null ? p.price.toLocaleString() : "",
       branch_ids: [p.branch_id],
-      imagePreview: p.image_url ?? "",
     });
     setSpaError(null);
     setSpaModalOpen(true);
@@ -472,11 +451,6 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
     if (!spaForm.title) { setSpaError("Select a service type (BASIC or PREMIUM)."); return; }
     setSavingSpa(true);
     setSpaError(null);
-
-    let uploadedImageUrl: string | null = editingSpa?.image_url ?? null;
-    if (spaForm.imageFile) {
-      uploadedImageUrl = await uploadPromoImage(spaForm.imageFile);
-    }
 
     const basePayload = {
       title: spaForm.title.trim() || "Spa Package",
@@ -490,7 +464,6 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       valid_from: null,
       valid_until: null,
       is_active: true,
-      image_url: uploadedImageUrl,
     };
 
     if (editingSpa) {
@@ -611,10 +584,6 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
           const inclusions = isSpa ? (p.description ?? "").split("\n").filter(Boolean) : [];
           return (
             <div className={`flex flex-col rounded-2xl bg-white p-5 shadow-sm transition-opacity ${p.is_active ? "" : "opacity-60"}`}>
-              {p.image_url && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.image_url} alt={p.title} className="mb-3 h-32 w-full rounded-xl object-cover" />
-              )}
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1 min-w-0">
                   {isSpa ? (
@@ -794,14 +763,8 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
                                   <tr key={p.id} className="border-b border-ink/5 last:border-0">
                                     <td className="px-5 py-4">
                                       <div className="flex items-center gap-3">
-                                        {p.image_url ? (
-                                          // eslint-disable-next-line @next/next/no-img-element
-                                          <img src={p.image_url} alt={p.title} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
-                                        ) : (
-                                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ink/5">
-                                            <Tag className="h-4 w-4 text-ink/20" />
-                                          </span>
-                                        )}
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={getServiceImage(p.category ?? p.title)} alt={p.title} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
                                         <div>
                                           <p className="font-semibold text-ink">{p.title}</p>
                                           {p.badge && <p className="text-sm text-ink/50 mt-0.5">{p.badge}</p>}
@@ -880,34 +843,6 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
             </div>
 
             <form onSubmit={handleSaveSpa} className="space-y-4">
-              {/* Image */}
-              <div>
-                <label className="text-xs font-medium uppercase text-ink/40">Promo Image</label>
-                <div className="mt-1 flex items-center gap-3">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink/15 bg-ink/5">
-                    {spaForm.imagePreview ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={spaForm.imagePreview} alt="Promo preview" className="h-full w-full object-cover" />
-                    ) : (
-                      <Tag className="h-6 w-6 text-ink/20" />
-                    )}
-                  </div>
-                  <label className="cursor-pointer rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
-                    Upload Image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setSpaForm((f) => ({ ...f, imageFile: file, imagePreview: URL.createObjectURL(file) }));
-                      }}
-                    />
-                  </label>
-                </div>
-              </div>
-
               {/* Service Type */}
               <div>
                 <label className="text-xs font-medium uppercase text-ink/40">Service Type *</label>
@@ -1101,33 +1036,6 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
             </div>
 
             <form onSubmit={handleSave} className="space-y-4">
-              {/* Image */}
-              <div>
-                <label className="text-xs font-medium uppercase text-ink/40">Promo Image</label>
-                <div className="mt-1 flex items-center gap-3">
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink/15 bg-ink/5">
-                    {form.imagePreview ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={form.imagePreview} alt="Promo preview" className="h-full w-full object-cover" />
-                    ) : (
-                      <Tag className="h-6 w-6 text-ink/20" />
-                    )}
-                  </div>
-                  <label className="cursor-pointer rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
-                    Upload Image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setForm((f) => ({ ...f, imageFile: file, imagePreview: URL.createObjectURL(file) }));
-                      }}
-                    />
-                  </label>
-                </div>
-              </div>
 
               {/* Service Name */}
               <div>
@@ -1221,6 +1129,14 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
                   </select>
                 </div>
               </div>
+
+              {form.category && (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={getServiceImage(form.category)} alt={form.category} className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+                  <p className="text-xs text-ink/50">This promo will use the {form.category} image.</p>
+                </div>
+              )}
 
               {/* Price + Duration */}
               {form.category !== "Non-Surgical Liposuction" && (
