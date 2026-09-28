@@ -2,7 +2,19 @@
 
 import { useRef, useState } from "react";
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
+export type ServiceRecommendation = {
+  id: string;
+  name: string;
+  price: number;
+  description: string | null;
+  category: string;
+};
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  recommendations?: ServiceRecommendation[];
+};
 
 export function useAssistantChat(greeting: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -25,15 +37,15 @@ export function useAssistantChat(greeting: string) {
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        // Only role/content go to the model — recommendation cards are UI-only.
+        body: JSON.stringify({ messages: next.map(({ role, content }) => ({ role, content })) }),
       });
       const data = await res.json();
       setMessages((list) => [
         ...list,
-        {
-          role: "assistant",
-          content: res.ok ? data.reply : (data.error ?? "Something went wrong."),
-        },
+        res.ok
+          ? { role: "assistant", content: data.reply, recommendations: data.recommendations ?? [] }
+          : { role: "assistant", content: data.error ?? "Something went wrong." },
       ]);
     } catch {
       setMessages((list) => [

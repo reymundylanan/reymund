@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Send, Sparkles } from "lucide-react";
 import { useAssistantChat } from "@/lib/hooks/useAssistantChat";
 
@@ -27,13 +28,33 @@ export default function AssistantPanel({ firstName }: { firstName: string }) {
         className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain"
       >
         {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm ${
-              m.role === "user" ? "ml-auto bg-coral text-white" : "bg-blush text-ink"
-            }`}
-          >
-            {m.content}
+          <div key={i} className="space-y-2">
+            <div
+              className={`max-w-[90%] rounded-2xl px-3 py-2 text-sm ${
+                m.role === "user" ? "ml-auto bg-coral text-white" : "bg-blush text-ink"
+              }`}
+            >
+              {m.content}
+            </div>
+            {m.recommendations && m.recommendations.length > 0 && (
+              <div className="max-w-[90%] space-y-2">
+                {m.recommendations.map((s) => (
+                  <div key={s.id} className="rounded-xl border border-ink/10 bg-white p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold text-ink">{s.name}</p>
+                      <span className="shrink-0 text-sm font-semibold text-coral-dark">₱{s.price.toLocaleString()}</span>
+                    </div>
+                    {s.description && <p className="mt-1 line-clamp-2 text-xs text-ink/50">{s.description}</p>}
+                    <Link
+                      href={`/services?category=${encodeURIComponent(s.category)}`}
+                      className="mt-2 inline-block rounded-full bg-coral px-3 py-1 text-xs font-semibold text-white hover:bg-coral-dark"
+                    >
+                      Book Now
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ))}
         {sending && (
