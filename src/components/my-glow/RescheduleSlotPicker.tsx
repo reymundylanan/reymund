@@ -110,11 +110,19 @@ export default function RescheduleSlotPicker({
     }
     setSaving(true);
     setError(null);
-    const result = await rescheduleMyBookingAction({
-      appointmentId,
-      scheduledDate: date,
-      startTime: `${selectedTime}:00`,
-    });
+    let result: { error: string | null };
+    try {
+      result = await rescheduleMyBookingAction({
+        appointmentId,
+        scheduledDate: date,
+        startTime: `${selectedTime}:00`,
+      });
+    } catch (err) {
+      console.error("rescheduleMyBookingAction threw:", err);
+      setSaving(false);
+      setError("Something went wrong saving the new time. Please try again.");
+      return;
+    }
     setSaving(false);
     if (result.error) {
       setError(result.error);

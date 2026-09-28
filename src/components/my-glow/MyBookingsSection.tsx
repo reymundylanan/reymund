@@ -99,7 +99,15 @@ export default function MyBookingsSection({ userId }: { userId: string }) {
   async function handleCancel(b: Booking) {
     setSaving(true);
     setError(null);
-    const result = await cancelMyBookingAction(b.id);
+    let result: { error: string | null };
+    try {
+      result = await cancelMyBookingAction(b.id);
+    } catch (err) {
+      console.error("cancelMyBookingAction threw:", err);
+      setSaving(false);
+      setError("Something went wrong cancelling this booking. Please try again.");
+      return;
+    }
     setSaving(false);
     if (result.error) {
       setError(result.error);

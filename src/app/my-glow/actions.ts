@@ -27,11 +27,16 @@ async function verifyOwnership(appointmentId: string): Promise<{ error: string |
 }
 
 export async function cancelMyBookingAction(appointmentId: string): Promise<{ error: string | null }> {
-  const { error: ownError } = await verifyOwnership(appointmentId);
-  if (ownError) return { error: ownError };
+  try {
+    const { error: ownError } = await verifyOwnership(appointmentId);
+    if (ownError) return { error: ownError };
 
-  const admin = createAdminClient();
-  return cancelAppointment(admin, appointmentId);
+    const admin = createAdminClient();
+    return await cancelAppointment(admin, appointmentId);
+  } catch (err) {
+    console.error("cancelMyBookingAction failed:", err);
+    return { error: "Something went wrong on our end. Please try again." };
+  }
 }
 
 export async function rescheduleMyBookingAction(input: {
@@ -39,23 +44,28 @@ export async function rescheduleMyBookingAction(input: {
   scheduledDate: string;
   startTime: string;
 }): Promise<{ error: string | null }> {
-  const { error: ownError } = await verifyOwnership(input.appointmentId);
-  if (ownError) return { error: ownError };
+  try {
+    const { error: ownError } = await verifyOwnership(input.appointmentId);
+    if (ownError) return { error: ownError };
 
-  const admin = createAdminClient();
-  const { data: appt, error: fetchError } = await admin
-    .from("appointments")
-    .select("professional_id, duration_minutes, status")
-    .eq("id", input.appointmentId)
-    .single();
-  if (fetchError || !appt) return { error: "Booking not found." };
-  if (appt.status === "cancelled") return { error: "This booking is already cancelled — book a new appointment instead." };
+    const admin = createAdminClient();
+    const { data: appt, error: fetchError } = await admin
+      .from("appointments")
+      .select("professional_id, duration_minutes, status")
+      .eq("id", input.appointmentId)
+      .single();
+    if (fetchError || !appt) return { error: "Booking not found." };
+    if (appt.status === "cancelled") return { error: "This booking is already cancelled — book a new appointment instead." };
 
-  return rescheduleAppointment(admin, {
-    appointmentId: input.appointmentId,
-    professionalId: appt.professional_id,
-    scheduledDate: input.scheduledDate,
-    startTime: input.startTime,
-    durationMinutes: appt.duration_minutes,
-  });
+    return await rescheduleAppointment(admin, {
+      appointmentId: input.appointmentId,
+      professionalId: appt.professional_id,
+      scheduledDate: input.scheduledDate,
+      startTime: input.startTime,
+      durationMinutes: appt.duration_minutes,
+    });
+  } catch (err) {
+    console.error("rescheduleMyBookingAction failed:", err);
+    return { error: "Something went wrong on our end. Please try again." };
+  }
 }
