@@ -15,9 +15,13 @@ export type RecentAppointment = {
   scheduledDate: string;
   startTime: string;
   status: string;
+  sessionStatus: string | null;
+  branchId: string | null;
   serviceName: string | null;
   professionalName: string | null;
 };
+
+export type ServiceReview = { rating: number; text: string | null };
 
 export type ReviewableProfessional = {
   professionalId: string;
@@ -46,6 +50,8 @@ type RawAppointmentRow = {
   start_time: string;
   duration_minutes: number;
   status: string;
+  session_status?: string | null;
+  branch_id?: string | null;
   notes: string | null;
   service: Rel<{ name: string }>;
   professional: Rel<{ full_name: string }>;
@@ -96,7 +102,7 @@ export async function getRecentAppointments(
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, scheduled_date, start_time, status, notes, service:branch_services(name), professional:staff_members(full_name)"
+      "id, scheduled_date, start_time, status, session_status, branch_id, notes, service:branch_services(name), professional:staff_members(full_name)"
     )
     .eq("client_id", clientId)
     .order("scheduled_date", { ascending: false })
@@ -109,9 +115,51 @@ export async function getRecentAppointments(
     scheduledDate: row.scheduled_date,
     startTime: row.start_time,
     status: row.status,
+    sessionStatus: row.session_status ?? null,
+    branchId: row.branch_id ?? null,
     serviceName: one(row.service)?.name ?? row.notes ?? null,
     professionalName: one(row.professional)?.full_name ?? null,
   }));
+}
+
+/** Reviews this client has already left on specific bookings, keyed by
+ * appointment id — lets My Services show "your rating" instead of the
+ * review form on anything already reviewed. */
+export async function getServiceReviews(
+  supabase: SupabaseClient,
+  clientId: string
+): Promise<Record<string, ServiceReview>> {
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("appointment_id, rating, text")
+    .eq("client_id", clientId)
+    .not("appointment_id", "is", null);
+
+  if (error) {
+    // Before migration 046 the column doesn't exist — treat as "nothing reviewed yet".
+    console.warn("getServiceReviews unavailable:", error.message);
+    return {};
+  }
+  const map: Record<string, ServiceReview> = {};
+  for (const row of (data ?? []) as { appointment_id: string; rating: number; text: string | null }[]) {
+    map[row.appointment_id] = { rating: row.rating, text: row.text };
+  }
+  return map;
+}
+
+export async function submitServiceReview(
+  supabase: SupabaseClient,
+  params: { clientId: string; appointmentId: string; branchId: string; rating: number; text: string }
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.from("reviews").insert({
+    client_id: params.clientId,
+    appointment_id: params.appointmentId,
+    branch_id: params.branchId,
+    rating: params.rating,
+    text: params.text.trim(),
+  });
+  if (error?.code === "23505") return { error: "You've already reviewed this service." };
+  return { error: error?.message ?? null };
 }
 
 export async function getReviewableProfessionals(

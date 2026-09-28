@@ -8,6 +8,7 @@ import {
   getReviewableProfessionals,
   getMyReviews,
   getVisitedBranches,
+  getServiceReviews,
 } from "@/lib/supabase/queries/myGlow";
 import UpcomingBookingCard from "@/components/my-glow/UpcomingBookingCard";
 import MyBookingsSection from "@/components/my-glow/MyBookingsSection";
@@ -35,7 +36,7 @@ export default async function MyGlowPage() {
 
   if (!profile || profile.role !== "customer") redirect("/");
 
-  const [upcoming, recent, reviewable, myReviews, visitedBranches, promo] =
+  const [upcoming, recent, reviewable, myReviews, visitedBranches, promo, serviceReviews] =
     await Promise.all([
       getUpcomingAppointment(supabase, auth.user.id),
       getRecentAppointments(supabase, auth.user.id),
@@ -43,6 +44,7 @@ export default async function MyGlowPage() {
       getMyReviews(supabase, auth.user.id),
       getVisitedBranches(supabase, auth.user.id),
       getPromoForClient(supabase, auth.user.id),
+      getServiceReviews(supabase, auth.user.id),
     ]);
 
   let recommendBranchId = visitedBranches[0]?.id ?? null;
@@ -73,7 +75,7 @@ export default async function MyGlowPage() {
               />
             </div>
             <div className="space-y-6">
-              <MyServicesList appointments={recent} />
+              <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={serviceReviews} />
               <GlowRewardsCard points={profile.loyalty_points} />
             </div>
             <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
