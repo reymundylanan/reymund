@@ -56,10 +56,6 @@ function quotedAmount(notes: string | null): number | null {
   return Number(match[1].replace(/,/g, ""));
 }
 
-function minutesBetween(a: Date, b: Date) {
-  return Math.max(0, Math.round((b.getTime() - a.getTime()) / 60000));
-}
-
 function ActionButton({
   icon: Icon,
   label,
@@ -153,8 +149,6 @@ export default function AppointmentDetailPanel({
   const amount = quotedAmount(appointment.notes);
 
   const arrivalDate = appointment.arrival_time ? new Date(appointment.arrival_time) : null;
-  const waitingMinutes =
-    arrivalDate && sessionStatus === "in_service" ? minutesBetween(arrivalDate, new Date()) : null;
   const estimatedStart = appointment.service_started_at
     ? new Date(appointment.service_started_at)
     : new Date(`${appointment.scheduled_date}T${appointment.start_time}`);
@@ -325,17 +319,13 @@ export default function AppointmentDetailPanel({
           )}
         </div>
 
-        {(arrivalDate || waitingMinutes != null) && (
-          <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl border border-ink/10 p-3 text-center">
+        {arrivalDate && (
+          <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-ink/10 p-3 text-center">
             <div>
               <p className="text-[11px] text-ink/40">Arrival Time</p>
               <p className="mt-0.5 text-xs font-medium text-ink">
-                {arrivalDate ? arrivalDate.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" }) : "—"}
+                {arrivalDate.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}
               </p>
-            </div>
-            <div>
-              <p className="text-[11px] text-ink/40">Waiting Time</p>
-              <p className="mt-0.5 text-xs font-medium text-ink">{waitingMinutes != null ? `${waitingMinutes} min` : "—"}</p>
             </div>
             <div>
               <p className="text-[11px] text-ink/40">Est. Completion</p>
