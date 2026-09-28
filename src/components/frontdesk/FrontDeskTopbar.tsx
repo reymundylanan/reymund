@@ -28,9 +28,31 @@ function formatTime(date: Date) {
   return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
+/** Starts null so the server-rendered markup and the client's first
+ * render match exactly — the real clock only starts ticking once
+ * mounted client-side, after hydration completes. Otherwise the
+ * server's render timestamp and the client's differ by however long
+ * the request took, causing a hydration mismatch. */
+function useLiveClock(): Date | null {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
 function firstName(fullName: string | null | undefined) {
   if (!fullName) return null;
   return fullName.trim().split(/\s+/)[0];
+}
+
+function formatScheduled(dateKey: string, timeStr: string) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const [h, min] = timeStr.split(":").map(Number);
+  const date = new Date(y, m - 1, d, h, min);
+  return date.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
 
 function formatDateRange(sortedDateKeys: string[]) {
@@ -44,6 +66,7 @@ function formatDateRange(sortedDateKeys: string[]) {
 
 export default function FrontDeskTopbar() {
   const { profile } = useStaffProfile();
+  const clock = useLiveClock();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
@@ -153,7 +176,7 @@ export default function FrontDeskTopbar() {
     todayStart.setHours(0, 0, 0, 0);
     supabase
       .from("appointments")
-      .select("id, notes, booking_code, status, created_at, client:profiles(full_name)")
+      .select("id, notes, booking_code, status, created_at, scheduled_date, start_time, client:profiles(full_name)")
       .eq("branch_id", profile.branchId)
       .gte("created_at", todayStart.toISOString())
       .order("created_at", { ascending: false })
@@ -165,6 +188,8 @@ export default function FrontDeskTopbar() {
           booking_code: string | null;
           status: string;
           created_at: string;
+          scheduled_date: string;
+          start_time: string;
           client: { full_name: string } | { full_name: string }[] | null;
         }[];
         const current = rows.map((row) => {
@@ -173,6 +198,7 @@ export default function FrontDeskTopbar() {
           const label = row.notes ?? "New appointment";
           const namePrefix = name ? `${name} — ` : "";
           const code = row.booking_code ? ` · #${row.booking_code}` : "";
+          const when = ` · ${formatScheduled(row.scheduled_date, row.start_time)}`;
           const status =
             row.status === "confirmed"
               ? " ✓ Confirmed"
@@ -181,7 +207,7 @@ export default function FrontDeskTopbar() {
                 : " · Pending payment";
           return {
             id: row.id,
-            message: `${namePrefix}${label}${code}${status}`,
+            message: `${namePrefix}${label}${code}${when}${status}`,
             createdAt: formatTime(new Date(row.created_at)),
           };
         });
@@ -280,6 +306,8 @@ export default function FrontDeskTopbar() {
             booking_code: string | null;
             status: string;
             client_id: string | null;
+            scheduled_date: string;
+            start_time: string;
           };
           let name: string | null = null;
           if (row.client_id) {
@@ -293,13 +321,14 @@ export default function FrontDeskTopbar() {
           const namePrefix = name ? `${name} — ` : "";
           const label = row.notes ?? "New appointment";
           const code = row.booking_code ? ` · #${row.booking_code}` : "";
+          const when = ` · ${formatScheduled(row.scheduled_date, row.start_time)}`;
           const status = row.status === "confirmed" ? " ✓ Confirmed" : " · Pending payment";
           setNotifications((prev) => {
             if (prev.some((n) => n.id === row.id)) return prev;
             return [
               {
                 id: row.id,
-                message: `${namePrefix}${label}${code}${status}`,
+                message: `${namePrefix}${label}${code}${when}${status}`,
                 createdAt: formatTime(new Date()),
               },
               ...prev,
@@ -388,6 +417,19 @@ export default function FrontDeskTopbar() {
       </div>
 
       <div className="flex items-center gap-4">
+        <div className="text-right leading-tight">
+          <p className="text-sm font-medium text-ink/70">
+            {clock
+              ? clock.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })
+              : " "}
+          </p>
+          <p className="text-sm text-ink/40">
+            {clock
+              ? clock.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })
+              : " "}
+          </p>
+        </div>
+
         <span className="rounded-full bg-blush px-5 py-2.5 text-base font-semibold text-coral-dark">
           Branch: {profile?.branchName ?? "Not assigned"}
         </span>

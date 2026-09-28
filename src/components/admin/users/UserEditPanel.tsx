@@ -9,7 +9,7 @@ const permissions = [
   "Approve Special Requests",
   "View Appointments",
   "Modify Staff Schedule",
-  "Payments & Refunds",
+  "Payments & Transactions",
   "User & Staff Access",
 ];
 
@@ -34,7 +34,7 @@ export default function UserEditPanel({
 }) {
   const [granted, setGranted] = useState<Record<string, boolean>>({
     "View Appointments": true,
-    "Payments & Refunds": true,
+    "Payments & Transactions": true,
   });
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);

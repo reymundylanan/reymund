@@ -82,7 +82,7 @@ type RawHistoryRow = {
   status: string;
   notes: string | null;
   service: Rel<{ name: string }>;
-  professional: Rel<{ name: string }>;
+  professional: Rel<{ full_name: string }>;
   payments: { amount: number }[] | null;
 };
 
@@ -93,7 +93,7 @@ export async function getClientServiceHistory(
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, scheduled_date, status, notes, service:services(name), professional:professionals(name), payments(amount)"
+      "id, scheduled_date, status, notes, service:branch_services(name), professional:staff_members(full_name), payments(amount)"
     )
     .eq("client_id", clientId)
     .order("scheduled_date", { ascending: false });
@@ -104,7 +104,7 @@ export async function getClientServiceHistory(
     id: row.id,
     date: new Date(row.scheduled_date).toLocaleDateString(),
     service: one(row.service)?.name ?? row.notes ?? "Appointment",
-    therapist: one(row.professional)?.name ?? null,
+    therapist: one(row.professional)?.full_name ?? null,
     price: row.payments?.[0] ? `₱${row.payments[0].amount.toLocaleString()}` : "—",
     status: row.status,
   }));

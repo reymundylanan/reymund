@@ -1,93 +1,166 @@
 "use client";
 
-import { AlertTriangle, MoreHorizontal } from "lucide-react";
-import { clientInfo, formatTime, type AppointmentRow } from "@/components/frontdesk/appointments/utils";
+import Image from "next/image";
+import { AlertTriangle } from "lucide-react";
+import { SESSION_LABEL, SESSION_STYLE } from "@/lib/sessionStatus";
+import { SERVICE_TIMING_LABEL, SERVICE_TIMING_STYLE, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
+import {
+  clientInfo,
+  appointmentStaffName,
+  appointmentServiceName,
+  formatTime,
+  type AppointmentRow,
+} from "@/components/frontdesk/appointments/utils";
+
+export type AvailabilityStatus = "available" | "busy" | "on_leave" | "day_off";
+
+const AVAILABILITY_LABEL: Record<AvailabilityStatus, string> = {
+  available: "Available",
+  busy: "Busy",
+  on_leave: "On Leave",
+  day_off: "Day Off",
+};
+
+const AVAILABILITY_STYLE: Record<AvailabilityStatus, string> = {
+  available: "text-green-700",
+  busy: "text-amber-700",
+  on_leave: "text-red-600",
+  day_off: "text-ink/40",
+};
 
 const statusStyles: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
   confirmed: "bg-green-100 text-green-700",
-  checked_in: "bg-blue-100 text-blue-700",
-  in_service: "bg-blue-100 text-blue-700",
-  completed: "bg-ink/10 text-ink/50",
-  no_show: "bg-red-100 text-red-600",
-  conflict: "bg-red-100 text-red-600",
   cancelled: "bg-red-100 text-red-600",
 };
 
 export default function AppointmentsListView({
   rows,
   conflictIds,
+  staffAvailability,
+  activeId,
   onSelect,
 }: {
   rows: AppointmentRow[];
   conflictIds: Set<string>;
+  staffAvailability: Record<string, AvailabilityStatus>;
+  activeId: string | null;
   onSelect: (id: string) => void;
 }) {
+  const now = useServiceTimingClock();
+
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <table className="w-full text-left text-base">
         <thead>
           <tr className="text-sm uppercase text-ink/40">
             <th className="py-3">Client</th>
-            <th className="py-3">Service / Note</th>
+            <th className="py-3">Service</th>
+            <th className="py-3">Staff</th>
             <th className="py-3">Date</th>
             <th className="py-3">Time</th>
-            <th className="py-3">Type</th>
             <th className="py-3">Status</th>
-            <th className="py-3">Actions</th>
+            <th className="py-3">Session</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-t border-ink/5">
-              <td className="py-4 font-medium text-ink">
-                <div className="flex items-center gap-1.5">
-                  {conflictIds.has(r.id) && (
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" aria-label="Scheduling conflict" />
+          {rows.map((r) => {
+            const sessionStatus = r.session_status;
+            const availability = r.professional_id ? staffAvailability[r.professional_id] : undefined;
+            const client = clientInfo(r.client);
+            const staffPhoto = !Array.isArray(r.professional) ? r.professional?.avatar_url : null;
+            return (
+              <tr
+                key={r.id}
+                onClick={() => onSelect(r.id)}
+                className={`cursor-pointer border-t border-ink/5 hover:bg-blush/30 ${
+                  activeId === r.id ? "bg-blush/50" : ""
+                }`}
+              >
+                <td className="py-4 font-medium text-ink">
+                  <div className="flex items-center gap-2.5">
+                    <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-sm font-bold text-coral-dark">
+                      {client.avatar_url ? (
+                        <Image src={client.avatar_url} alt={client.full_name} fill className="object-cover" />
+                      ) : (
+                        client.full_name.charAt(0)
+                      )}
+                    </span>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        {conflictIds.has(r.id) && (
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" aria-label="Scheduling conflict" />
+                        )}
+                        {client.full_name.split(" ")[0]}
+                      </div>
+                      {r.booking_code && <p className="text-xs font-normal text-ink/30">#{r.booking_code}</p>}
+                    </div>
+                  </div>
+                </td>
+                <td className="py-4 text-ink/70">{appointmentServiceName(r)}</td>
+                <td className="py-4 text-ink/70">
+                  <div className="flex items-center gap-2.5">
+                    <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-xs font-bold text-coral-dark">
+                      {staffPhoto ? (
+                        <Image src={staffPhoto} alt={appointmentStaffName(r)} fill className="object-cover" />
+                      ) : (
+                        appointmentStaffName(r).charAt(0)
+                      )}
+                    </span>
+                    <div>
+                      <p>{appointmentStaffName(r)}</p>
+                      {availability && (
+                        <p className={`text-xs font-medium ${AVAILABILITY_STYLE[availability]}`}>
+                          {AVAILABILITY_LABEL[availability]}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="py-4 text-ink/50">
+                  {new Date(r.scheduled_date).toLocaleDateString()}
+                </td>
+                <td className="py-4 text-ink/50">{formatTime(r.start_time)}</td>
+                <td className="py-4">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-sm font-medium capitalize ${
+                      statusStyles[r.status] ?? "bg-ink/10 text-ink/50"
+                    }`}
+                  >
+                    {r.status}
+                  </span>
+                </td>
+                <td className="py-4">
+                  {sessionStatus ? (
+                    (() => {
+                      const timing =
+                        sessionStatus === "in_service"
+                          ? computeServiceTiming(r.service_started_at, r.duration_minutes, now)
+                          : null;
+                      if (timing) {
+                        return (
+                          <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${SERVICE_TIMING_STYLE[timing]}`}>
+                            {SERVICE_TIMING_LABEL[timing]}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${SESSION_STYLE[sessionStatus]}`}>
+                          {SESSION_LABEL[sessionStatus]}
+                        </span>
+                      );
+                    })()
+                  ) : (
+                    <span className="text-sm text-ink/30">—</span>
                   )}
-                  {clientInfo(r.client).full_name}
-                </div>
-              </td>
-              <td className="py-4 text-ink/70">{r.notes ?? "—"}</td>
-              <td className="py-4 text-ink/50">
-                {new Date(r.scheduled_date).toLocaleDateString()}
-              </td>
-              <td className="py-4 text-ink/50">
-                {formatTime(r.start_time)}
-                <p className="text-xs text-ink/40">
-                  Booked{" "}
-                  {new Date(r.created_at).toLocaleString("en-PH", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </p>
-              </td>
-              <td className="py-4 text-ink/50 capitalize">{r.appointment_type}</td>
-              <td className="py-4">
-                <span
-                  className={`rounded-full px-2.5 py-1 text-sm font-medium capitalize ${
-                    statusStyles[r.status] ?? "bg-ink/10 text-ink/50"
-                  }`}
-                >
-                  {r.status.replace("_", " ")}
-                </span>
-              </td>
-              <td className="py-3">
-                <button
-                  onClick={() => onSelect(r.id)}
-                  className="rounded-full p-2 text-ink/40 hover:bg-blush hover:text-ink"
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-              </td>
-            </tr>
-          ))}
+                </td>
+              </tr>
+            );
+          })}
           {rows.length === 0 && (
             <tr>
               <td colSpan={7} className="py-8 text-center text-ink/40">
-                No appointments for this branch yet.
+                No appointments match these filters.
               </td>
             </tr>
           )}

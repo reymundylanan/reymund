@@ -1,6 +1,17 @@
 "use client";
 
 import { CalendarDays, List, Search } from "lucide-react";
+import type { StaffRow, ServiceRow } from "@/components/frontdesk/appointments/AppointmentsManager";
+
+export type StatusFilter = "today" | "upcoming" | "completed" | "cancelled" | "no_show";
+
+const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
+  { key: "today", label: "Today" },
+  { key: "upcoming", label: "Upcoming" },
+  { key: "completed", label: "Completed" },
+  { key: "cancelled", label: "Cancelled" },
+  { key: "no_show", label: "No-show" },
+];
 
 export default function AppointmentsToolbar({
   view,
@@ -8,12 +19,28 @@ export default function AppointmentsToolbar({
   query,
   onQueryChange,
   branchName,
+  statusFilter,
+  onStatusFilterChange,
+  staff,
+  staffFilter,
+  onStaffFilterChange,
+  services,
+  serviceFilter,
+  onServiceFilterChange,
 }: {
   view: "calendar" | "list";
   onViewChange: (v: "calendar" | "list") => void;
   query: string;
   onQueryChange: (q: string) => void;
   branchName?: string | null;
+  statusFilter: StatusFilter;
+  onStatusFilterChange: (f: StatusFilter) => void;
+  staff: StaffRow[];
+  staffFilter: string;
+  onStaffFilterChange: (id: string) => void;
+  services: ServiceRow[];
+  serviceFilter: string;
+  onServiceFilterChange: (id: string) => void;
 }) {
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -47,14 +74,50 @@ export default function AppointmentsToolbar({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => onStatusFilterChange(f.key)}
+            className={`rounded-full px-4 py-2 text-sm font-medium ${
+              statusFilter === f.key ? "bg-coral text-white" : "border border-ink/15 text-ink/60 hover:border-coral"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+
+        <select
+          value={staffFilter}
+          onChange={(e) => onStaffFilterChange(e.target.value)}
+          className="rounded-full border border-ink/15 px-4 py-2 text-sm text-ink/70 outline-none focus:border-coral"
+        >
+          <option value="all">All Staff</option>
+          {staff.map((s) => (
+            <option key={s.id} value={s.id}>{s.full_name}</option>
+          ))}
+        </select>
+
+        <select
+          value={serviceFilter}
+          onChange={(e) => onServiceFilterChange(e.target.value)}
+          className="rounded-full border border-ink/15 px-4 py-2 text-sm text-ink/70 outline-none focus:border-coral"
+        >
+          <option value="all">All Services</option>
+          {services.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/50">
           <Search className="h-4 w-4" />
           <input
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Search by name or phone..."
-            className="w-56 text-sm outline-none placeholder:text-ink/40"
+            placeholder="Search by name, phone, or booking ID..."
+            className="w-64 text-sm outline-none placeholder:text-ink/40"
           />
         </div>
       </div>

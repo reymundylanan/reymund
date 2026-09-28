@@ -183,12 +183,6 @@ export const gcashFeed: GCashTransaction[] = [
   },
 ];
 
-export const pendingRefund = {
-  bookingId: "BL-9921",
-  amount: 300,
-  reason: "Booking #BL-9921 requires a ₱300.00 adjustment due to service downgrading.",
-};
-
 export const lastTransaction = {
   amount: 1500,
   reference: "902188273112",

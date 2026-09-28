@@ -12,6 +12,12 @@ import type { BookableService } from "@/components/booking/BookingContext";
 import { createClient } from "@/lib/supabase/client";
 import { getStaffShiftsForRange, toDateKey, type StaffOffRecord } from "@/lib/supabase/queries/staffShifts";
 import { getStaffTransferredIntoBranch, getApprovedTransferDatesForBranch } from "@/lib/supabase/queries/branchTransferRequests";
+import {
+  getProfessionalAppointmentsForRange,
+  isProfessionalFreeNow,
+  isSlotFree,
+  type BookedSlot,
+} from "@/lib/supabase/queries/availability";
 
 type StaffMember = {
   id: string;
@@ -236,6 +242,7 @@ export default function BookingModal({
   const [zoomedAvatar, setZoomedAvatar] = useState<string | null>(null);
   const [showSelectedPanel, setShowSelectedPanel] = useState(false);
   const [staffOffDays, setStaffOffDays] = useState<StaffOffRecord[]>([]);
+  const [professionalBookings, setProfessionalBookings] = useState<Record<string, BookedSlot[]>>({});
   const [transferGuestIds, setTransferGuestIds] = useState<Set<string>>(new Set());
   const [transferAllowedDates, setTransferAllowedDates] = useState<Set<string>>(new Set());
   const [branchHours, setBranchHours] = useState<string | null>(null);
@@ -405,6 +412,7 @@ export default function BookingModal({
   useEffect(() => {
     if (!professionalId || professionalId === "any") {
       setStaffOffDays([]);
+      setProfessionalBookings({});
       return;
     }
     let cancelled = false;
@@ -418,6 +426,14 @@ export default function BookingModal({
       toDateKey(monthEnd)
     ).then((records) => {
       if (!cancelled) setStaffOffDays(records);
+    });
+    getProfessionalAppointmentsForRange(
+      supabase,
+      professionalId,
+      toDateKey(monthStart),
+      toDateKey(monthEnd)
+    ).then((byDate) => {
+      if (!cancelled) setProfessionalBookings(byDate);
     });
     return () => {
       cancelled = true;
@@ -574,6 +590,20 @@ export default function BookingModal({
             return false;
           }
         }
+
+        // Final race-condition check: someone else (online or a walk-in) may have
+        // taken this exact slot with this professional between page load and now.
+        const stillFree = await isProfessionalFreeNow(supabase, {
+          professionalId,
+          scheduledDate: dateKey,
+          startTime: to24Hour(selectedTime),
+          durationMinutes: totalDuration,
+        });
+        if (!stillFree) {
+          setSaveError("This time slot was just taken with that professional. Please pick another.");
+          setSaving(false);
+          return false;
+        }
       }
 
       const bookingCode = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -587,6 +617,7 @@ export default function BookingModal({
           booking_code: bookingCode,
           branch_id: branchRow.id,
           client_id: authData.user.id,
+          professional_id: professionalId && professionalId !== "any" ? professionalId : null,
           appointment_type: appointmentType,
           scheduled_date: scheduledDate,
           start_time: to24Hour(selectedTime),
@@ -1170,10 +1201,16 @@ export default function BookingModal({
                     ? staffOffDays.filter((r) => r.source !== "transfer")
                     : staffOffDays;
                   const offPeriod = selectedDate ? periodOffForDate(selectedDate, relevantOffDays) : null;
+                  const bookedOnDate = selectedDate ? professionalBookings[toDateKey(selectedDate)] : undefined;
                   const availableSlots = allSlots.filter((time) => {
-                    if (!offPeriod) return true;
-                    const afterCutoff = isSlotAfterCutoff(time);
-                    return offPeriod === "morning" ? afterCutoff : !afterCutoff;
+                    if (offPeriod) {
+                      const afterCutoff = isSlotAfterCutoff(time);
+                      if (offPeriod === "morning" ? !afterCutoff : afterCutoff) return false;
+                    }
+                    if (professionalId && professionalId !== "any") {
+                      return isSlotFree(bookedOnDate, to24Hour(time), totalDuration);
+                    }
+                    return true;
                   });
 
                   if (availableSlots.length === 0) {

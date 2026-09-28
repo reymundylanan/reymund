@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   LogOut,
   UserCog,
+  UserPlus2,
   Users2,
   Wallet2,
 } from "lucide-react";
@@ -18,7 +19,8 @@ import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 const navItems = [
   { href: "/frontdesk", label: "Dashboard", icon: LayoutDashboard },
   { href: "/frontdesk/appointments", label: "Appointments", icon: CalendarClock },
-  { href: "/frontdesk/payments", label: "Payments & Walk-ins", icon: Wallet2 },
+  { href: "/frontdesk/payments", label: "Payments", icon: Wallet2 },
+  { href: "/frontdesk/walk-ins", label: "Walk-Ins", icon: UserPlus2 },
   { href: "/frontdesk/clients", label: "Clients", icon: Users2 },
   { href: "/frontdesk/staff", label: "Staff Schedule", icon: UserCog, frontDeskOnly: true },
 ];

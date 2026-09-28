@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
-import AppointmentsToolbar from "@/components/frontdesk/appointments/AppointmentsToolbar";
+import { getStaffShiftsForDate } from "@/lib/supabase/queries/staffShifts";
+import AppointmentsToolbar, { type StatusFilter } from "@/components/frontdesk/appointments/AppointmentsToolbar";
+import AppointmentsSummary from "@/components/frontdesk/appointments/AppointmentsSummary";
 import ConflictBanner from "@/components/frontdesk/appointments/ConflictBanner";
 import StaffTimeline from "@/components/frontdesk/appointments/StaffTimeline";
-import AppointmentsListView from "@/components/frontdesk/appointments/AppointmentsListView";
+import AppointmentsListView, { type AvailabilityStatus } from "@/components/frontdesk/appointments/AppointmentsListView";
 import AppointmentDetailPanel from "@/components/frontdesk/appointments/AppointmentDetailPanel";
 import {
   clientInfo,
-  parseService,
-  hasSpecificSpecialist,
+  appointmentStaffName,
   toDateKey,
   toMinutes,
   type AppointmentRow,
@@ -19,8 +20,9 @@ import {
 
 export type ConflictPair = { a: AppointmentRow; b: AppointmentRow; specialist: string };
 export type StaffRow = { id: string; full_name: string; department: string | null };
+export type ServiceRow = { id: string; name: string; price: number };
 
-const ACTIVE_STATUSES = new Set(["pending", "confirmed", "checked_in", "in_service"]);
+const ACTIVE_STATUSES = new Set(["pending", "confirmed"]);
 
 function startOfDay(d: Date) {
   const copy = new Date(d);
@@ -32,10 +34,16 @@ export default function AppointmentsManager() {
   const { profile } = useStaffProfile();
   const [view, setView] = useState<"calendar" | "list">("list");
   const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("today");
+  const [staffFilter, setStaffFilter] = useState("all");
+  const [serviceFilter, setServiceFilter] = useState("all");
   const [rows, setRows] = useState<AppointmentRow[]>([]);
   const [staff, setStaff] = useState<StaffRow[]>([]);
+  const [services, setServices] = useState<ServiceRow[]>([]);
+  const [offToday, setOffToday] = useState<{ staff_member_id: string; source: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [rescheduleTargetId, setRescheduleTargetId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => startOfDay(new Date()));
 
@@ -45,11 +53,12 @@ export default function AppointmentsManager() {
       return;
     }
     const supabase = createClient();
-    const [apptRes, staffRes] = await Promise.all([
+    const todayKey = toDateKey(new Date());
+    const [apptRes, staffRes, servicesRes, offRes] = await Promise.all([
       supabase
         .from("appointments")
         .select(
-          "id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, notes, created_at, client:profiles(full_name, phone), payments(method, status, amount)"
+          "id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, professional_id, service_id, notes, staff_notes, created_at, client:profiles(full_name, phone, avatar_url), professional:staff_members(full_name, department, avatar_url), service:branch_services(name), payments(method, status, amount)"
         )
         .eq("branch_id", profile.branchId)
         .not("client_id", "is", null)
@@ -60,9 +69,18 @@ export default function AppointmentsManager() {
         .select("id, full_name, department")
         .eq("branch_id", profile.branchId)
         .order("full_name"),
+      supabase
+        .from("branch_services")
+        .select("id, name, price")
+        .eq("branch_id", profile.branchId)
+        .eq("status", "Active")
+        .order("name"),
+      getStaffShiftsForDate(supabase, profile.branchId, todayKey),
     ]);
     setRows((apptRes.data as unknown as AppointmentRow[]) ?? []);
     setStaff((staffRes.data as StaffRow[]) ?? []);
+    setServices((servicesRes.data as ServiceRow[]) ?? []);
+    setOffToday(offRes.map((r) => ({ staff_member_id: r.staff_member_id, source: r.source })));
     setLoading(false);
   }, [profile?.branchId]);
 
@@ -100,14 +118,67 @@ export default function AppointmentsManager() {
     };
   }, [profile?.branchId, load]);
 
+  const todayKey = toDateKey(new Date());
+
+  const todaysRows = useMemo(() => rows.filter((r) => r.scheduled_date === todayKey), [rows, todayKey]);
+
+  const busyProfessionalIds = useMemo(
+    () => new Set(todaysRows.filter((r) => r.session_status === "in_service" && r.professional_id).map((r) => r.professional_id as string)),
+    [todaysRows]
+  );
+
+  const staffAvailability = useMemo(() => {
+    const map: Record<string, AvailabilityStatus> = {};
+    for (const s of staff) {
+      const off = offToday.find((o) => o.staff_member_id === s.id);
+      if (off) {
+        map[s.id] = off.source === "leave" ? "on_leave" : "day_off";
+      } else if (busyProfessionalIds.has(s.id)) {
+        map[s.id] = "busy";
+      } else {
+        map[s.id] = "available";
+      }
+    }
+    return map;
+  }, [staff, offToday, busyProfessionalIds]);
+
+  const summary = useMemo(() => {
+    return {
+      total: todaysRows.length,
+      confirmed: todaysRows.filter((r) => r.status === "confirmed").length,
+      waiting: todaysRows.filter((r) => r.session_status === "waiting").length,
+      inService: todaysRows.filter((r) => r.session_status === "in_service").length,
+      completed: todaysRows.filter((r) => r.session_status === "completed").length,
+      cancelled: todaysRows.filter((r) => r.status === "cancelled").length,
+      noShow: todaysRows.filter((r) => r.session_status === "no_show").length,
+    };
+  }, [todaysRows]);
+
+  const filteredRows = useMemo(() => {
+    return rows.filter((r) => {
+      if (statusFilter === "today" && r.scheduled_date !== todayKey) return false;
+      if (statusFilter === "upcoming" && !(r.scheduled_date > todayKey && r.status !== "cancelled")) return false;
+      if (statusFilter === "completed" && r.session_status !== "completed") return false;
+      if (statusFilter === "cancelled" && r.status !== "cancelled") return false;
+      if (statusFilter === "no_show" && r.session_status !== "no_show") return false;
+      if (staffFilter !== "all" && r.professional_id !== staffFilter) return false;
+      if (serviceFilter !== "all" && r.service_id !== serviceFilter) return false;
+      return true;
+    });
+  }, [rows, statusFilter, staffFilter, serviceFilter, todayKey]);
+
   const searchedRows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
+    if (!q) return filteredRows;
+    return filteredRows.filter((r) => {
       const info = clientInfo(r.client);
-      return info.full_name.toLowerCase().includes(q) || (info.phone ?? "").toLowerCase().includes(q);
+      return (
+        info.full_name.toLowerCase().includes(q) ||
+        (info.phone ?? "").toLowerCase().includes(q) ||
+        (r.booking_code ?? "").toLowerCase().includes(q)
+      );
     });
-  }, [rows, query]);
+  }, [filteredRows, query]);
 
   const conflicts = useMemo<ConflictPair[]>(() => {
     const today = toDateKey(new Date());
@@ -115,13 +186,15 @@ export default function AppointmentsManager() {
     const pairs: ConflictPair[] = [];
     for (let i = 0; i < active.length; i++) {
       const a = active[i];
-      const { specialist: aSpecialist } = parseService(a.notes);
-      if (!hasSpecificSpecialist(aSpecialist)) continue;
+      const aSpecialist = appointmentStaffName(a);
+      const aKey = a.professional_id ?? aSpecialist.toLowerCase();
+      if (!a.professional_id && (aSpecialist === "—" || aSpecialist.toLowerCase() === "any professional")) continue;
       for (let j = i + 1; j < active.length; j++) {
         const b = active[j];
         if (a.scheduled_date !== b.scheduled_date) continue;
-        const { specialist: bSpecialist } = parseService(b.notes);
-        if (aSpecialist.toLowerCase() !== bSpecialist.toLowerCase()) continue;
+        const bSpecialist = appointmentStaffName(b);
+        const bKey = b.professional_id ?? bSpecialist.toLowerCase();
+        if (aKey !== bKey) continue;
         const aStart = toMinutes(a.start_time);
         const aEnd = aStart + a.duration_minutes;
         const bStart = toMinutes(b.start_time);
@@ -159,6 +232,22 @@ export default function AppointmentsManager() {
         query={query}
         onQueryChange={setQuery}
         branchName={profile?.branchName}
+        statusFilter={statusFilter}
+        onStatusFilterChange={setStatusFilter}
+        staff={staff}
+        staffFilter={staffFilter}
+        onStaffFilterChange={setStaffFilter}
+        services={services}
+        serviceFilter={serviceFilter}
+        onServiceFilterChange={setServiceFilter}
+      />
+      <AppointmentsSummary
+        summary={summary}
+        rows={todaysRows}
+        onReschedule={(id) => {
+          setRescheduleTargetId(id);
+          setActiveId(id);
+        }}
       />
       <ConflictBanner conflicts={conflicts} onResolve={(id) => setActiveId(id)} />
 
@@ -179,26 +268,29 @@ export default function AppointmentsManager() {
           onSelect={(id) => setActiveId(id)}
         />
       ) : (
-        <AppointmentsListView rows={searchedRows} conflictIds={conflictIds} onSelect={(id) => setActiveId(id)} />
+        <AppointmentsListView
+          rows={searchedRows}
+          conflictIds={conflictIds}
+          staffAvailability={staffAvailability}
+          activeId={activeId}
+          onSelect={(id) => setActiveId(id)}
+        />
       )}
 
       {activeAppointment && (
         <AppointmentDetailPanel
-          appointment={{
-            id: activeAppointment.id,
-            booking_code: activeAppointment.booking_code,
-            appointment_type: activeAppointment.appointment_type,
-            scheduled_date: activeAppointment.scheduled_date,
-            start_time: activeAppointment.start_time,
-            duration_minutes: activeAppointment.duration_minutes,
-            status: activeAppointment.status,
-            notes: activeAppointment.notes,
-            clientName: clientInfo(activeAppointment.client).full_name,
-            clientPhone: clientInfo(activeAppointment.client).phone,
-            payment: activeAppointment.payments?.[0] ?? null,
+          key={activeAppointment.id}
+          appointment={activeAppointment}
+          staffAvailability={staffAvailability}
+          staff={staff}
+          services={services}
+          branchName={profile?.branchName ?? null}
+          startInReschedule={rescheduleTargetId === activeAppointment.id}
+          onClose={() => {
+            setActiveId(null);
+            setRescheduleTargetId(null);
           }}
-          onClose={() => setActiveId(null)}
-          onConfirmed={load}
+          onChanged={load}
         />
       )}
     </div>

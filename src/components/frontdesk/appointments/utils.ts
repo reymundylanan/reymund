@@ -1,5 +1,9 @@
-export type ClientInfo = { full_name: string; phone: string | null };
+import type { SessionStatus } from "@/lib/sessionStatus";
+
+export type ClientInfo = { full_name: string; phone: string | null; avatar_url?: string | null };
 export type PaymentInfo = { method: string; status: string; amount: number };
+
+type NamedRef = { name?: string; full_name?: string; department?: string | null; avatar_url?: string | null };
 
 export type AppointmentRow = {
   id: string;
@@ -9,15 +13,43 @@ export type AppointmentRow = {
   start_time: string;
   duration_minutes: number;
   status: string;
+  session_status: SessionStatus | null;
+  arrival_time: string | null;
+  service_started_at: string | null;
+  professional_id: string | null;
+  service_id: string | null;
   notes: string | null;
+  staff_notes: string | null;
   created_at: string;
   client: ClientInfo | ClientInfo[] | null;
+  professional: NamedRef | NamedRef[] | null;
+  service: NamedRef | NamedRef[] | null;
   payments: PaymentInfo[] | null;
 };
 
 export function clientInfo(client: AppointmentRow["client"]): ClientInfo {
-  if (!client) return { full_name: "—", phone: null };
-  return Array.isArray(client) ? client[0] ?? { full_name: "—", phone: null } : client;
+  if (!client) return { full_name: "—", phone: null, avatar_url: null };
+  return Array.isArray(client) ? client[0] ?? { full_name: "—", phone: null, avatar_url: null } : client;
+}
+
+function one<T>(v: T | T[] | null | undefined): T | null {
+  if (!v) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}
+
+/** Prefer the real professional_id join; fall back to parsing the
+ * legacy notes text for appointments booked before that column was
+ * populated (see parseService). */
+export function appointmentStaffName(row: AppointmentRow): string {
+  const joined = one(row.professional)?.full_name;
+  if (joined) return joined;
+  return parseService(row.notes).specialist;
+}
+
+export function appointmentServiceName(row: AppointmentRow): string {
+  const joined = one(row.service)?.name;
+  if (joined) return joined;
+  return parseService(row.notes).service;
 }
 
 export function parseService(notes: string | null) {
