@@ -24,6 +24,35 @@ type Promotion = {
   image_url: string | null;
 };
 
+type PromoStatus = "Scheduled" | "Active" | "Expired" | "Inactive";
+
+/** Mirrors the date-window logic the client-facing popup already
+ * applies (see getPromoForClient) — this is purely a display label so
+ * admins can see, before saving, whether a promo will actually show up
+ * on the Client Page right now. */
+function computePromoStatus(validFrom: string, validUntil: string, isActive: boolean): PromoStatus {
+  if (!isActive) return "Inactive";
+  const today = new Date().toISOString().slice(0, 10);
+  if (validFrom && validFrom > today) return "Scheduled";
+  if (validUntil && validUntil < today) return "Expired";
+  return "Active";
+}
+
+const PROMO_STATUS_STYLE: Record<PromoStatus, string> = {
+  Scheduled: "bg-blue-100 text-blue-700",
+  Active: "bg-green-100 text-green-700",
+  Expired: "bg-ink/10 text-ink/50",
+  Inactive: "bg-red-100 text-red-600",
+};
+
+function promoDurationDays(validFrom: string, validUntil: string): number | null {
+  if (!validFrom || !validUntil) return null;
+  const start = new Date(validFrom);
+  const end = new Date(validUntil);
+  const days = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  return days > 0 ? days : null;
+}
+
 const DEPARTMENTS = ["Nails", "Hair", "Clinic"];
 
 const CATEGORIES = [
@@ -259,6 +288,10 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
     e.preventDefault();
     if (!form.department) { setSaveError("Please select a department."); return; }
     if (!form.category) { setSaveError("Please select a category."); return; }
+    if (form.valid_from && form.valid_until && form.valid_until < form.valid_from) {
+      setSaveError("End date cannot be earlier than start date.");
+      return;
+    }
     setSaving(true);
     setSaveError(null);
 
@@ -772,6 +805,14 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
                                         <div>
                                           <p className="font-semibold text-ink">{p.title}</p>
                                           {p.badge && <p className="text-sm text-ink/50 mt-0.5">{p.badge}</p>}
+                                          {(() => {
+                                            const status = computePromoStatus(p.valid_from ?? "", p.valid_until ?? "", p.is_active);
+                                            return (
+                                              <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${PROMO_STATUS_STYLE[status]}`}>
+                                                {status}
+                                              </span>
+                                            );
+                                          })()}
                                         </div>
                                       </div>
                                     </td>
@@ -1247,6 +1288,58 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
                   </div>
                 )
               )}
+
+              {/* Promo Availability */}
+              <div className="rounded-xl border border-ink/10 bg-ink/[0.02] p-4 space-y-3">
+                <label className="text-xs font-medium uppercase text-ink/40">Promo Availability</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] text-ink/50">Start Date</label>
+                    <input
+                      type="date"
+                      value={form.valid_from}
+                      onChange={(e) => setForm({ ...form, valid_from: e.target.value })}
+                      className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-coral"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-ink/50">End Date</label>
+                    <input
+                      type="date"
+                      value={form.valid_until}
+                      min={form.valid_from || undefined}
+                      onChange={(e) => setForm({ ...form, valid_until: e.target.value })}
+                      className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-coral"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-sm text-ink/70">
+                    <input
+                      type="checkbox"
+                      checked={form.is_active}
+                      onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                      className="h-4 w-4 accent-coral"
+                    />
+                    Active
+                  </label>
+                  {(() => {
+                    const days = promoDurationDays(form.valid_from, form.valid_until);
+                    return days != null ? <span className="text-xs text-ink/50">Duration: {days} day{days !== 1 ? "s" : ""}</span> : null;
+                  })()}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] uppercase tracking-wide text-ink/40">Status</span>
+                  {(() => {
+                    const status = computePromoStatus(form.valid_from, form.valid_until, form.is_active);
+                    return (
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${PROMO_STATUS_STYLE[status]}`}>{status}</span>
+                    );
+                  })()}
+                </div>
+              </div>
 
               {/* Assigned Branch */}
               <div>
