@@ -61,7 +61,7 @@ export default function AppointmentsManager() {
       supabase
         .from("appointments")
         .select(
-          "id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, additional_charges, professional_id, service_id, notes, staff_notes, created_at, client:profiles!appointments_client_id_fkey(full_name, phone, avatar_url), professional:staff_members(full_name, department, avatar_url), service:branch_services(name), payments(method, status, amount)"
+          "id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, additional_charges, professional_id, service_id, notes, staff_notes, created_at, client:profiles!appointments_client_id_fkey(full_name, phone, avatar_url), professional:staff_members(full_name, department, avatar_url), service:branch_services(name), payments(method, status, amount, reference_no, created_at)"
         )
         .eq("branch_id", profile.branchId)
         .not("client_id", "is", null)

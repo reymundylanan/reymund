@@ -23,7 +23,7 @@ export type WalkinRow = {
   staff_notes: string | null;
   professional: { full_name: string } | { full_name: string }[] | null;
   service: { name: string } | { name: string }[] | null;
-  payments: { status: string; amount: number; method: string; created_at: string }[] | null;
+  payments: { status: string; amount: number; method: string; reference_no: string | null; created_at: string }[] | null;
 };
 
 function one<T>(v: T | T[] | null): T | null {
@@ -32,7 +32,7 @@ function one<T>(v: T | T[] | null): T | null {
 }
 
 const WALKIN_SELECT =
-  "id, walkin_name, walkin_phone, professional_id, service_id, scheduled_date, start_time, duration_minutes, additional_charges, status, session_status, arrival_time, service_started_at, completed_at, notes, staff_notes, professional:staff_members(full_name), service:branch_services(name), payments(status, amount, method, created_at)";
+  "id, walkin_name, walkin_phone, professional_id, service_id, scheduled_date, start_time, duration_minutes, additional_charges, status, session_status, arrival_time, service_started_at, completed_at, notes, staff_notes, professional:staff_members(full_name), service:branch_services(name), payments(status, amount, method, reference_no, created_at)";
 
 export async function createWalkinAppointment(
   supabase: SupabaseClient,

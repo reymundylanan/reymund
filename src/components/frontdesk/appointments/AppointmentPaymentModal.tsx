@@ -14,6 +14,10 @@ function quotedAmount(notes: string | null): number {
   return match ? Number(match[1].replace(/,/g, "")) : 0;
 }
 
+function methodLabel(method: string) {
+  return method === "gcash" ? "GCash" : method === "cash" ? "Cash" : method;
+}
+
 export default function AppointmentPaymentModal({
   appointment,
   branchName,
@@ -26,39 +30,43 @@ export default function AppointmentPaymentModal({
   onPaid: () => void;
 }) {
   const client = clientInfo(appointment.client);
-  const existingPayment = appointment.payments?.[0] ?? null;
-  const alreadySettled = existingPayment?.status === "settled";
+  const advancePayments = (appointment.payments ?? []).filter((p) => p.status === "settled");
+  const advanceTotal = advancePayments.reduce((sum, p) => sum + p.amount, 0);
   const quoted = quotedAmount(appointment.notes);
   const servicePrice = Math.max(quoted - appointment.additional_charges, 0);
 
   const [discount, setDiscount] = useState(0);
-  const [method, setMethod] = useState<"cash" | "gcash">("cash");
-  const [amountOverride, setAmountOverride] = useState<string | null>(null);
+  const [recordingCash, setRecordingCash] = useState(false);
+  const [cashReceived, setCashReceived] = useState("");
+  const [cashJustRecorded, setCashJustRecorded] = useState(false);
+  const [changeGiven, setChangeGiven] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const total = Math.max(servicePrice + appointment.additional_charges - discount, 0);
-  const advance = alreadySettled ? existingPayment?.amount ?? 0 : 0;
-  const balance = Math.max(total - advance, 0);
-  const isFullyPaid = balance <= 0;
-  const amount = amountOverride ?? balance.toFixed(2);
+  const remainingBalance = Math.max(total - advanceTotal, 0);
+  const isFullyCoveredByAdvance = remainingBalance <= 0;
+  const totalPaid = advanceTotal + (cashJustRecorded ? remainingBalance : 0);
+  const cashReceivedNum = Number(cashReceived) || 0;
+  const change = cashReceivedNum - remainingBalance;
 
-  async function confirmPayment() {
-    const parsed = Number(amount);
-    if (!parsed || parsed <= 0) {
-      setError("Enter a valid amount.");
+  async function confirmCash() {
+    if (cashReceivedNum < remainingBalance) {
+      setError("Cash received must cover the remaining balance.");
       return;
     }
     setSaving(true);
     setError(null);
     const supabase = createClient();
-    const result = await markPaid(supabase, { appointmentId: appointment.id, amount: parsed, method });
+    const result = await markPaid(supabase, { appointmentId: appointment.id, amount: remainingBalance, method: "cash" });
     setSaving(false);
     if (result.error) {
       setError(result.error);
       return;
     }
-    onPaid();
+    setChangeGiven(Math.max(change, 0));
+    setCashJustRecorded(true);
+    setRecordingCash(false);
   }
 
   async function acknowledgeFullyPaid() {
@@ -76,14 +84,102 @@ export default function AppointmentPaymentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6">
+      <div className="max-h-[90vh] w-full max-w-sm overflow-y-auto rounded-2xl bg-white p-6">
         <h2 className="font-semibold text-ink">Payment Summary</h2>
         <p className="mt-1 text-sm text-ink/60">{client.full_name}</p>
         <p className="text-xs text-ink/40">
           {appointmentServiceName(appointment)} · with {appointmentStaffName(appointment)} · {branchName ?? "—"}
         </p>
 
-        <div className="mt-4 space-y-1.5 rounded-xl border border-ink/10 p-3 text-sm">
+        <div className="mt-4 rounded-xl border border-ink/10 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">Advance / Online Payment</p>
+          {advancePayments.length > 0 ? (
+            <div className="mt-2 space-y-1.5">
+              {advancePayments.map((p, i) => (
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <div>
+                    <p className="text-ink">{methodLabel(p.method)}</p>
+                    {p.reference_no && <p className="text-[11px] text-ink/40">Ref: {p.reference_no}</p>}
+                  </div>
+                  <span className="font-medium text-green-600">{peso(p.amount)}</span>
+                </div>
+              ))}
+              <div className="flex items-center justify-between border-t border-ink/10 pt-1.5">
+                <span className="text-xs font-semibold text-green-700">✓ Advance Paid</span>
+                <span className="text-xs font-semibold text-green-700">{peso(advanceTotal)}</span>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-1.5 text-sm text-ink/40">No advance payment recorded.</p>
+          )}
+        </div>
+
+        <div className="mt-3 rounded-xl border border-ink/10 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink/40">Cash Payment</p>
+          {cashJustRecorded ? (
+            <div className="mt-2 flex flex-col items-center justify-center gap-1 rounded-xl bg-green-50 py-3">
+              <span className="text-sm font-semibold text-green-700">✓ Cash Paid</span>
+              {changeGiven > 0 && <span className="text-xs text-green-700">Change given: {peso(changeGiven)}</span>}
+            </div>
+          ) : isFullyCoveredByAdvance ? (
+            <p className="mt-1.5 text-sm text-ink/40">Fully covered by advance payment.</p>
+          ) : !recordingCash ? (
+            <>
+              <p className="mt-1.5 text-sm text-ink/60">
+                Balance due: <span className="font-semibold text-coral-dark">{peso(remainingBalance)}</span>
+              </p>
+              <button
+                onClick={() => setRecordingCash(true)}
+                className="mt-2 w-full rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+              >
+                Record Cash Payment
+              </button>
+            </>
+          ) : (
+            <div className="mt-2 space-y-2">
+              <div>
+                <label className="text-xs text-ink/50">Cash Received</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={cashReceived}
+                  onChange={(e) => setCashReceived(e.target.value)}
+                  placeholder={remainingBalance.toFixed(2)}
+                  className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
+                />
+              </div>
+              {cashReceivedNum > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-ink/50">Change</span>
+                  <span className={change >= 0 ? "font-medium text-ink" : "font-medium text-red-600"}>
+                    {peso(Math.max(change, 0))}
+                  </span>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    setRecordingCash(false);
+                    setCashReceived("");
+                  }}
+                  className="flex-1 rounded-full border border-ink/15 py-2 text-sm text-ink/60 hover:border-ink/30"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmCash}
+                  disabled={saving || cashReceivedNum < remainingBalance}
+                  className="flex-1 rounded-full bg-teal-600 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+                >
+                  {saving ? "Recording..." : "Confirm"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 space-y-1.5 rounded-xl bg-blush/40 p-3 text-sm">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink/40">Payment Summary</p>
           <div className="flex justify-between">
             <span className="text-ink/50">Service Price</span>
             <span className="text-ink">{peso(servicePrice)}</span>
@@ -98,78 +194,51 @@ export default function AppointmentPaymentModal({
               type="number"
               min={0}
               value={discount || ""}
-              onChange={(e) => {
-                setDiscount(Math.max(0, Number(e.target.value) || 0));
-                setAmountOverride(null);
-              }}
+              onChange={(e) => setDiscount(Math.max(0, Number(e.target.value) || 0))}
               placeholder="0.00"
-              className="w-24 rounded-lg border border-ink/15 px-2 py-1 text-right text-sm outline-none focus:border-coral"
+              disabled={cashJustRecorded}
+              className="w-24 rounded-lg border border-ink/15 px-2 py-1 text-right text-sm outline-none focus:border-coral disabled:opacity-50"
             />
           </div>
-          <div className="flex justify-between">
-            <span className="text-ink/50">Advance Payment</span>
-            <span className="text-ink">{peso(advance)}</span>
-          </div>
-          <div className="mt-1.5 flex justify-between border-t border-ink/10 pt-1.5 font-medium">
-            <span className="text-ink">Total Amount</span>
+          <div className="flex justify-between border-t border-ink/10 pt-1.5 font-medium">
+            <span className="text-ink">Total</span>
             <span className="text-ink">{peso(total)}</span>
           </div>
-          <div className="flex justify-between font-semibold">
-            <span className="text-ink">Remaining Balance</span>
-            <span className={isFullyPaid ? "text-green-600" : "text-coral-dark"}>{peso(balance)}</span>
+          <div className="flex justify-between">
+            <span className="text-ink/50">Advance Paid</span>
+            <span className="text-ink">{peso(advanceTotal)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-ink/50">Remaining Balance</span>
+            <span className={isFullyCoveredByAdvance || cashJustRecorded ? "text-green-600" : "text-coral-dark"}>
+              {peso(cashJustRecorded ? 0 : remainingBalance)}
+            </span>
+          </div>
+          <div className="flex justify-between border-t border-ink/10 pt-1.5 font-semibold">
+            <span className="text-ink">Total Paid</span>
+            <span className="text-ink">{peso(totalPaid)}</span>
           </div>
         </div>
 
         {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
 
-        {isFullyPaid ? (
-          <>
-            <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-green-50 py-3">
-              <span className="text-sm font-semibold text-green-700">Paid in Advance / ₱0.00 Balance</span>
-            </div>
-            <button
-              onClick={acknowledgeFullyPaid}
-              disabled={saving}
-              className="mt-4 w-full rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Done"}
-            </button>
-          </>
+        {(isFullyCoveredByAdvance && !cashJustRecorded) || cashJustRecorded ? (
+          <button
+            onClick={cashJustRecorded ? onPaid : acknowledgeFullyPaid}
+            disabled={saving}
+            className="mt-4 w-full rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+          >
+            {saving ? "Saving..." : "Done"}
+          </button>
         ) : (
-          <>
-            <div className="mt-4 flex gap-2">
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value as "cash" | "gcash")}
-                className="rounded-lg border border-ink/15 px-2 py-2 text-sm outline-none focus:border-coral"
-              >
-                <option value="cash">Cash</option>
-                <option value="gcash">GCash</option>
-              </select>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmountOverride(e.target.value)}
-                className="flex-1 rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
-              />
-            </div>
-            <button
-              onClick={confirmPayment}
-              disabled={saving}
-              className="mt-3 w-full rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
-            >
-              {saving ? "Recording..." : "Confirm Payment"}
-            </button>
-          </>
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="mt-4 w-full rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 hover:border-ink/30 disabled:opacity-50"
+          >
+            Collect Payment Later
+          </button>
         )}
-
-        <button
-          onClick={onClose}
-          disabled={saving}
-          className="mt-2 w-full rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 hover:border-ink/30 disabled:opacity-50"
-        >
-          {isFullyPaid ? "Close" : "Collect Payment Later"}
-        </button>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import type { SessionStatus } from "@/lib/sessionStatus";
 
 export type ClientInfo = { full_name: string; phone: string | null; avatar_url?: string | null };
-export type PaymentInfo = { method: string; status: string; amount: number };
+export type PaymentInfo = { method: string; status: string; amount: number; reference_no: string | null; created_at: string };
 
 type NamedRef = { name?: string; full_name?: string; department?: string | null; avatar_url?: string | null };
 
