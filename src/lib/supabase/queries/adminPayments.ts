@@ -14,8 +14,6 @@ export type AdminPaymentRow = {
   amount: number;
   method: string;
   status: string;
-  refund_reason: string | null;
-  refunded_at: string | null;
   created_at: string;
   bookingCode: string | null;
   clientName: string;
@@ -27,12 +25,12 @@ export async function getAdminPayments(supabase: SupabaseClient): Promise<AdminP
   const { data, error } = await supabase
     .from("payments")
     .select(
-      "id, appointment_id, reference_no, sender_name, amount, method, status, refund_reason, refunded_at, created_at, appointment:appointments(booking_code, scheduled_date, client:profiles!appointments_client_id_fkey(full_name), branch:branches(name))"
+      "id, appointment_id, reference_no, sender_name, amount, method, status, created_at, appointment:appointments(booking_code, scheduled_date, walkin_name, client:profiles!appointments_client_id_fkey(full_name), branch:branches(name))"
     )
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("getAdminPayments failed:", error);
+    console.error("getAdminPayments failed:", error.message);
     return [];
   }
 
@@ -44,12 +42,11 @@ export async function getAdminPayments(supabase: SupabaseClient): Promise<AdminP
     amount: number;
     method: string;
     status: string;
-    refund_reason: string | null;
-    refunded_at: string | null;
     created_at: string;
     appointment: Rel<{
       booking_code: string | null;
       scheduled_date: string | null;
+      walkin_name: string | null;
       client: Rel<{ full_name: string }>;
       branch: Rel<{ name: string }>;
     }>;
@@ -65,11 +62,9 @@ export async function getAdminPayments(supabase: SupabaseClient): Promise<AdminP
       amount: Number(r.amount),
       method: r.method,
       status: r.status,
-      refund_reason: r.refund_reason,
-      refunded_at: r.refunded_at,
       created_at: r.created_at,
       bookingCode: appt?.booking_code ?? null,
-      clientName: one(appt?.client ?? null)?.full_name ?? r.sender_name ?? "Walk-in / Guest",
+      clientName: one(appt?.client ?? null)?.full_name ?? appt?.walkin_name ?? r.sender_name ?? "Walk-in / Guest",
       branchName: one(appt?.branch ?? null)?.name ?? "—",
       scheduledDate: appt?.scheduled_date ?? null,
     };
