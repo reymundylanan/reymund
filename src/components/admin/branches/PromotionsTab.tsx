@@ -22,7 +22,6 @@ type Promotion = {
   valid_until: string | null;
   is_active: boolean;
   created_at: string;
-  image_url: string | null;
 };
 
 type PromoStatus = "Scheduled" | "Active" | "Expired" | "Inactive";
