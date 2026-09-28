@@ -19,6 +19,8 @@ import ReviewsPanel from "@/components/my-glow/ReviewsPanel";
 import AssistantPanel from "@/components/my-glow/AssistantPanel";
 import PromoPopup from "@/components/my-glow/PromoPopup";
 import { getPromoForClient } from "@/lib/supabase/queries/promos";
+import RecommendedForYou from "@/components/my-glow/RecommendedForYou";
+import { getRecommendationsForClient } from "@/lib/supabase/queries/recommendations";
 
 export default async function MyGlowPage() {
   const supabase = await createClient();
@@ -42,6 +44,15 @@ export default async function MyGlowPage() {
       getVisitedBranches(supabase, auth.user.id),
       getPromoForClient(supabase, auth.user.id),
     ]);
+
+  let recommendBranchId = visitedBranches[0]?.id ?? null;
+  if (!recommendBranchId) {
+    const { data: defaultBranch } = await supabase.from("branches").select("id").eq("name", "One Cecilia Center").maybeSingle();
+    recommendBranchId = defaultBranch?.id ?? null;
+  }
+  const recommendations = recommendBranchId
+    ? await getRecommendationsForClient(supabase, auth.user.id, recommendBranchId)
+    : [];
 
   return (
     <>
@@ -67,6 +78,8 @@ export default async function MyGlowPage() {
             </div>
             <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
           </div>
+
+          <RecommendedForYou recommendations={recommendations} />
 
           <MyBookingsSection userId={auth.user.id} />
 
