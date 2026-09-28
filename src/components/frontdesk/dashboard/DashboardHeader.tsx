@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CalendarPlus, ShieldCheck, UserPlus } from "lucide-react";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 
@@ -27,12 +28,18 @@ export default function DashboardHeader() {
         <button className="flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
           <CalendarPlus className="h-4 w-4" /> New Booking
         </button>
-        <button className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
+        <Link
+          href="/frontdesk/walk-ins"
+          className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral"
+        >
           <UserPlus className="h-4 w-4" /> Walk-in Client
-        </button>
-        <button className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
+        </Link>
+        <Link
+          href="/frontdesk/payments"
+          className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral"
+        >
           <ShieldCheck className="h-4 w-4" /> Verify GCash
-        </button>
+        </Link>
       </div>
     </div>
   );
