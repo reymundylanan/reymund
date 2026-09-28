@@ -47,11 +47,16 @@ function formatTime(time: string) {
   return `${hour12}:${m.toString().padStart(2, "0")} ${meridiem}`;
 }
 
+const NOT_CHANGEABLE_SESSION_STATUSES = new Set(["in_service", "completed", "paid", "no_show", "late_arrival"]);
+
 /** Once the client has actually arrived (or the booking is over),
  * changing the schedule from here no longer makes sense — those cases
- * are handled at the branch, not from My Glow. */
+ * are handled at the branch, not from My Glow. Only blocks on statuses
+ * that genuinely mean "already underway" — a leftover marker like the
+ * old one-time "rescheduled" tag doesn't count, so a booking never gets
+ * stuck unchangeable just because it was rescheduled once before. */
 function isChangeable(b: Booking) {
-  return b.status !== "cancelled" && !b.session_status;
+  return b.status !== "cancelled" && !(b.session_status && NOT_CHANGEABLE_SESSION_STATUSES.has(b.session_status));
 }
 
 export default function MyBookingsSection({ userId }: { userId: string }) {
