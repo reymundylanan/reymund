@@ -48,7 +48,7 @@ type RawAppointmentRow = {
   status: string;
   notes: string | null;
   service: Rel<{ name: string }>;
-  professional: Rel<{ name: string }>;
+  professional: Rel<{ full_name: string }>;
   branch: Rel<{ name: string }>;
 };
 
@@ -60,7 +60,7 @@ export async function getUpcomingAppointment(
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, scheduled_date, start_time, duration_minutes, status, notes, service:services(name), professional:professionals(name), branch:branches(name)"
+      "id, scheduled_date, start_time, duration_minutes, status, notes, service:branch_services(name), professional:staff_members(full_name), branch:branches(name)"
     )
     .eq("client_id", clientId)
     .in("status", ["confirmed", "pending"])
@@ -80,9 +80,10 @@ export async function getUpcomingAppointment(
     durationMinutes: row.duration_minutes,
     // Booking currently only records service/therapist as free text in
     // `notes` (see BookingModal.tsx) — service_id/professional_id are
-    // never written, so the structured join is almost always null.
+    // not always set, so the structured join is a best-effort match
+    // with the notes text as the fallback.
     serviceName: one(row.service)?.name ?? row.notes ?? null,
-    professionalName: one(row.professional)?.name ?? null,
+    professionalName: one(row.professional)?.full_name ?? null,
     branchName: one(row.branch)?.name ?? null,
   };
 }
@@ -95,7 +96,7 @@ export async function getRecentAppointments(
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, scheduled_date, start_time, status, notes, service:services(name), professional:professionals(name)"
+      "id, scheduled_date, start_time, status, notes, service:branch_services(name), professional:staff_members(full_name)"
     )
     .eq("client_id", clientId)
     .order("scheduled_date", { ascending: false })
@@ -109,7 +110,7 @@ export async function getRecentAppointments(
     startTime: row.start_time,
     status: row.status,
     serviceName: one(row.service)?.name ?? row.notes ?? null,
-    professionalName: one(row.professional)?.name ?? null,
+    professionalName: one(row.professional)?.full_name ?? null,
   }));
 }
 
@@ -119,7 +120,7 @@ export async function getReviewableProfessionals(
 ): Promise<ReviewableProfessional[]> {
   const { data: completed, error: completedError } = await supabase
     .from("appointments")
-    .select("professional_id, professional:professionals(name)")
+    .select("professional_id, professional:staff_members(full_name)")
     .eq("client_id", clientId)
     .eq("status", "completed")
     .not("professional_id", "is", null)
@@ -144,7 +145,7 @@ export async function getReviewableProfessionals(
 
   type CompletedRow = {
     professional_id: string | null;
-    professional: Rel<{ name: string }>;
+    professional: Rel<{ full_name: string }>;
   };
 
   for (const row of (completed as unknown as CompletedRow[]) ?? []) {
@@ -153,7 +154,7 @@ export async function getReviewableProfessionals(
     seen.add(row.professional_id);
     result.push({
       professionalId: row.professional_id,
-      professionalName: one(row.professional)?.name ?? "Your therapist",
+      professionalName: one(row.professional)?.full_name ?? "Your therapist",
     });
   }
 
