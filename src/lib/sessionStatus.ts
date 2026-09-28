@@ -64,13 +64,6 @@ export const NEXT_SESSION_LABEL: Record<SessionStatus, string> = {
   rescheduled: "",
 };
 
-/** Walk-Ins page's manual status set — Waiting, Ready, In Service,
- * Completed, plus Cancelled (which isn't a session status at all; it
- * maps to appointments.status = 'cancelled'). "Paid" is deliberately
- * not selectable here — it's only reached through the Complete →
- * Payment Summary flow, never picked directly. */
-export const WALKIN_STATUS_OPTIONS: SessionStatus[] = ["waiting", "ready", "in_service", "completed"];
-
 /** appointments.status = 'cancelled' always means no-refund under the
  * spa's policy — this is the label to show wherever that raw status
  * would otherwise just say "Cancelled". */

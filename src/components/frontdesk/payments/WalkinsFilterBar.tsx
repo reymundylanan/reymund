@@ -3,7 +3,6 @@ import type { WalkinStatusKey } from "@/components/frontdesk/payments/walkinStat
 
 const STATUS_OPTIONS: { value: WalkinStatusKey | "all"; label: string }[] = [
   { value: "all", label: "All Status" },
-  { value: "waiting", label: "Waiting" },
   { value: "in_service", label: "In Service" },
   { value: "time_reached", label: "Time Reached" },
   { value: "overdue", label: "Overdue" },

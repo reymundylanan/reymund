@@ -64,18 +64,22 @@ export default function WalkinsManager() {
     const active = entries.filter((r) => r.status !== "cancelled");
     return {
       total: active.length,
-      inService: active.filter((r) => (r.session_status ?? "waiting") === "in_service").length,
-      waiting: active.filter((r) => ["waiting", "ready", "arrived", "late_arrival"].includes(r.session_status ?? "waiting")).length,
+      inService: active.filter((r) => (r.session_status ?? "in_service") === "in_service").length,
+      overdue: active.filter(
+        (r) =>
+          r.session_status === "in_service" &&
+          computeServiceTiming(r.service_started_at, r.duration_minutes, now)?.kind === "overdue"
+      ).length,
       completed: active.filter((r) => ["completed", "paid"].includes(r.session_status ?? "")).length,
     };
-  }, [entries]);
+  }, [entries, now]);
 
   const filteredEntries = useMemo(() => {
     return entries.filter((row) => {
       if (serviceFilter !== "all" && walkinServiceName(row) !== serviceFilter) return false;
       if (staffFilter !== "all" && walkinProfessionalName(row) !== staffFilter) return false;
       if (statusFilter !== "all") {
-        const sessionStatus = (row.session_status ?? "waiting") as SessionStatus;
+        const sessionStatus = (row.session_status ?? "in_service") as SessionStatus;
         const timing = sessionStatus === "in_service" ? computeServiceTiming(row.service_started_at, row.duration_minutes, now) : null;
         const key = row.status === "cancelled" ? "other" : walkinStatusKey(sessionStatus, timing);
         if (key !== statusFilter) return false;

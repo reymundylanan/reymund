@@ -46,7 +46,7 @@ export default function WalkinDetailPanel({
     );
   }
 
-  const sessionStatus = (walkin.session_status ?? "waiting") as SessionStatus;
+  const sessionStatus = (walkin.session_status ?? "in_service") as SessionStatus;
   const timing = walkin.service_started_at ? computeServiceTiming(walkin.service_started_at, walkin.duration_minutes, now) : null;
   const statusKey = walkinStatusKey(sessionStatus, sessionStatus === "in_service" ? timing : null);
   const elapsedMs = walkin.service_started_at ? now.getTime() - new Date(walkin.service_started_at).getTime() : 0;

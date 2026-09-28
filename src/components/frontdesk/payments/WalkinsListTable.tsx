@@ -48,7 +48,7 @@ export default function WalkinsListTable({
       ) : (
         <div className="space-y-2">
           {entries.map((row) => {
-            const sessionStatus = (row.session_status ?? "waiting") as SessionStatus;
+            const sessionStatus = (row.session_status ?? "in_service") as SessionStatus;
             const isCancelled = row.status === "cancelled";
             const timing =
               sessionStatus === "in_service" ? computeServiceTiming(row.service_started_at, row.duration_minutes, now) : null;

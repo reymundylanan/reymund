@@ -1,8 +1,7 @@
 import { Clock } from "lucide-react";
 
 const STEPS: { label: string; style: string; detail: string }[] = [
-  { label: "Waiting", style: "bg-slate-100 text-slate-600", detail: "Client checked in" },
-  { label: "In Service", style: "bg-blue-100 text-blue-700", detail: "Service started (timer begins)" },
+  { label: "In Service", style: "bg-blue-100 text-blue-700", detail: "Checked in, service started (timer begins)" },
   { label: "Time Reached", style: "bg-amber-100 text-amber-700", detail: "Estimated time has passed" },
   { label: "Overdue", style: "bg-red-100 text-red-600", detail: "Service continues (shows overtime)" },
   { label: "Completed", style: "bg-green-100 text-green-700", detail: "Manually marked as finished" },

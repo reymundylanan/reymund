@@ -4,7 +4,7 @@ export default function WalkinsTopBar({
   stats,
   onAddWalkin,
 }: {
-  stats: { total: number; inService: number; waiting: number; completed: number };
+  stats: { total: number; inService: number; overdue: number; completed: number };
   onAddWalkin: () => void;
 }) {
   return (
@@ -29,8 +29,8 @@ export default function WalkinsTopBar({
           <p className="text-sm font-semibold text-blue-700">{stats.inService}</p>
         </div>
         <div className="rounded-xl border border-ink/10 px-3 py-1.5 text-center">
-          <p className="text-[10px] text-amber-500">Waiting</p>
-          <p className="text-sm font-semibold text-amber-700">{stats.waiting}</p>
+          <p className="text-[10px] text-red-500">Overdue</p>
+          <p className="text-sm font-semibold text-red-700">{stats.overdue}</p>
         </div>
         <div className="rounded-xl border border-ink/10 px-3 py-1.5 text-center">
           <p className="text-[10px] text-green-500">Completed</p>
