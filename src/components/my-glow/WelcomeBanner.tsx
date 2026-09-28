@@ -3,7 +3,7 @@ import { Calendar, ClipboardList, Star } from "lucide-react";
 
 const actions = [
   { label: "Book Appointment", href: "/services", icon: Calendar },
-  { label: "My Bookings", href: "#services", icon: ClipboardList },
+  { label: "My Bookings", href: "#my-bookings", icon: ClipboardList },
   { label: "My Reviews", href: "#reviews", icon: Star },
 ];
 

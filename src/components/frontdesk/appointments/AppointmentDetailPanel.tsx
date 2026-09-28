@@ -176,12 +176,15 @@ export default function AppointmentDetailPanel({
     | "in_service"
     | "overdue"
     | "payment_pending"
-    | "completed_paid"
-    | "rescheduled";
+    | "completed_paid";
 
+  /** A rescheduled booking clears session_status back to null (see
+   * rescheduleAppointment) so it re-enters the normal pending/confirmed
+   * flow at its new time rather than getting stuck — any legacy row
+   * still holding the old "rescheduled" marker falls through the same
+   * way here. */
   function computeDerivedStatus(): DerivedStatus {
     if (status === "cancelled") return "cancelled";
-    if (sessionStatus === "rescheduled") return "rescheduled";
     if (sessionStatus === "no_show") return "no_show";
     if (sessionStatus === "late_arrival") return "late_arrival";
     if (sessionStatus === "completed" || sessionStatus === "paid") return isPaid ? "completed_paid" : "payment_pending";

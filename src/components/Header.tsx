@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -8,7 +7,6 @@ import { LogOut, Sparkles } from "lucide-react";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { createClient } from "@/lib/supabase/client";
-import MyBookingsPanel from "@/components/MyBookingsPanel";
 
 const baseNavLinks = [
   { label: "Services", href: "/services" },
@@ -16,14 +14,6 @@ const baseNavLinks = [
   { label: "Teams", href: "/#team" },
   { label: "About Us", href: "/about" },
 ];
-
-function seenBookingIds(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem("glowsync_seen_bookings") ?? "[]");
-  } catch {
-    return [];
-  }
-}
 
 export default function Header() {
   const { open } = useLoginModal();
@@ -34,79 +24,6 @@ export default function Header() {
       : baseNavLinks;
   const router = useRouter();
   const pathname = usePathname();
-  const [bookingsOpen, setBookingsOpen] = useState(false);
-  const [unseenCount, setUnseenCount] = useState(0);
-
-  const checkUnseen = useCallback(async () => {
-    if (!user?.id) return;
-    const supabase = createClient();
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 7);
-    const { data } = await supabase
-      .from("appointments")
-      .select("id")
-      .eq("client_id", user.id)
-      .eq("status", "confirmed")
-      .gte("scheduled_date", cutoff.toISOString().slice(0, 10));
-
-    const seen = seenBookingIds();
-    const unseen = (data ?? []).filter((row) => !seen.includes(row.id));
-    setUnseenCount(unseen.length);
-  }, [user]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    checkUnseen();
-
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`customer-notify-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "appointments",
-          filter: `client_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const next = payload.new as { status: string };
-          const prev = payload.old as { status: string };
-          if (
-            (next.status === "confirmed" && prev.status !== "confirmed") ||
-            (next.status === "cancelled" && prev.status !== "cancelled")
-          ) {
-            setUnseenCount((n) => n + 1);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id, checkUnseen]);
-
-  async function handleOpenBookings() {
-    setBookingsOpen(true);
-    if (!user?.id) return;
-    const supabase = createClient();
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 7);
-    const { data } = await supabase
-      .from("appointments")
-      .select("id")
-      .eq("client_id", user.id)
-      .eq("status", "confirmed")
-      .gte("scheduled_date", cutoff.toISOString().slice(0, 10));
-
-    const ids = (data ?? []).map((row) => row.id);
-    const merged = Array.from(new Set([...seenBookingIds(), ...ids]));
-    localStorage.setItem("glowsync_seen_bookings", JSON.stringify(merged));
-    setUnseenCount(0);
-  }
 
   async function handleLogout() {
     const supabase = createClient();
@@ -163,17 +80,6 @@ export default function Header() {
           <div className="flex items-center gap-4">
             {user ? (
               <div className="flex items-center gap-3">
-                <button
-                  onClick={handleOpenBookings}
-                  className="relative hidden rounded-full border border-coral px-5 py-2 text-sm font-semibold text-coral-dark hover:bg-blush sm:inline"
-                >
-                  My Bookings
-                  {unseenCount > 0 && (
-                    <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-[10px] font-semibold text-white ring-2 ring-white">
-                      {unseenCount}
-                    </span>
-                  )}
-                </button>
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blush text-sm font-semibold text-coral-dark">
                   {user.fullName.charAt(0)}
                 </span>
@@ -199,11 +105,6 @@ export default function Header() {
           </div>
         </nav>
       </div>
-
-      {bookingsOpen && user && (
-        <MyBookingsPanel userId={user.id} onClose={() => setBookingsOpen(false)} />
-      )}
-
     </header>
   );
 }

@@ -147,7 +147,7 @@ export async function rescheduleAppointment(
     .update({
       scheduled_date: input.scheduledDate,
       start_time: input.startTime,
-      session_status: "rescheduled",
+      session_status: null,
       original_scheduled_date: current.original_scheduled_date ?? current.scheduled_date,
       original_start_time: current.original_start_time ?? current.start_time,
       reschedule_count: (current.reschedule_count ?? 0) + 1,

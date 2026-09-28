@@ -10,6 +10,7 @@ import {
   getVisitedBranches,
 } from "@/lib/supabase/queries/myGlow";
 import UpcomingBookingCard from "@/components/my-glow/UpcomingBookingCard";
+import MyBookingsSection from "@/components/my-glow/MyBookingsSection";
 import MyServicesList from "@/components/my-glow/MyServicesList";
 import GlowRewardsCard from "@/components/my-glow/GlowRewardsCard";
 import WelcomeBanner from "@/components/my-glow/WelcomeBanner";
@@ -62,6 +63,8 @@ export default async function MyGlowPage() {
             </div>
             <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
           </div>
+
+          <MyBookingsSection userId={auth.user.id} />
 
           <GlowJourneyBanner />
         </div>

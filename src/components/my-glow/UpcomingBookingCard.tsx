@@ -42,7 +42,7 @@ export default function UpcomingBookingCard({
     <div className="rounded-3xl border border-rose/60 bg-white p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-ink">My Upcoming Booking</h3>
-        <Link href="#services" className="text-sm font-medium text-coral-dark hover:underline">
+        <Link href="#my-bookings" className="text-sm font-medium text-coral-dark hover:underline">
           View All
         </Link>
       </div>
