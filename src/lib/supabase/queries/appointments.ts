@@ -3,6 +3,11 @@ import type { SessionStatus } from "@/lib/sessionStatus";
 import { isProfessionalFreeNow } from "@/lib/supabase/queries/availability";
 import { syncAttendanceWithSession } from "@/lib/supabase/queries/staffAttendance";
 
+async function currentUserId(supabase: SupabaseClient): Promise<string | null> {
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
+
 /** Shared by Walk-ins and the Appointments page — both flows track the
  * same on-site session lifecycle on the same appointments row. Stamps
  * the matching timestamp automatically so no caller has to remember to.
@@ -15,7 +20,10 @@ export async function updateSessionStatus(
 ): Promise<{ error: string | null }> {
   const update: Record<string, unknown> = { session_status: sessionStatus };
   if (sessionStatus === "in_service") update.service_started_at = new Date().toISOString();
-  if (sessionStatus === "completed") update.completed_at = new Date().toISOString();
+  if (sessionStatus === "completed") {
+    update.completed_at = new Date().toISOString();
+    update.completed_by = await currentUserId(supabase);
+  }
   const { error } = await supabase.from("appointments").update(update).eq("id", appointmentId);
   if (error) return { error: error.message };
 
@@ -47,13 +55,34 @@ export async function markPaid(
   return updateSessionStatus(supabase, input.appointmentId, "paid");
 }
 
-export async function markArrived(
+/** "Check In" — the simplified workflow the spa chose: arrival and
+ * service start are the same moment, so this records the arrival time
+ * and immediately moves the session straight to In Service (rather
+ * than a separate "Arrived" waiting stage) in one action. */
+export async function checkInClient(
   supabase: SupabaseClient,
   appointmentId: string
 ): Promise<{ error: string | null }> {
+  const checkedInBy = await currentUserId(supabase);
   const { error } = await supabase
     .from("appointments")
-    .update({ session_status: "arrived", arrival_time: new Date().toISOString() })
+    .update({ arrival_time: new Date().toISOString(), checked_in_by: checkedInBy })
+    .eq("id", appointmentId);
+  if (error) return { error: error.message };
+  return updateSessionStatus(supabase, appointmentId, "in_service");
+}
+
+/** A client who arrives after already being auto-marked No-Show — this
+ * never erases the No-Show event (the appointment_history trigger keeps
+ * it permanently), it just moves the session forward from here. */
+export async function markLateArrival(
+  supabase: SupabaseClient,
+  appointmentId: string
+): Promise<{ error: string | null }> {
+  const checkedInBy = await currentUserId(supabase);
+  const { error } = await supabase
+    .from("appointments")
+    .update({ arrival_time: new Date().toISOString(), checked_in_by: checkedInBy, session_status: "late_arrival" })
     .eq("id", appointmentId);
   return { error: error?.message ?? null };
 }
@@ -62,7 +91,11 @@ export async function confirmAppointment(
   supabase: SupabaseClient,
   appointmentId: string
 ): Promise<{ error: string | null }> {
-  const { error } = await supabase.from("appointments").update({ status: "confirmed" }).eq("id", appointmentId);
+  const confirmedBy = await currentUserId(supabase);
+  const { error } = await supabase
+    .from("appointments")
+    .update({ status: "confirmed", confirmed_at: new Date().toISOString(), confirmed_by: confirmedBy })
+    .eq("id", appointmentId);
   return { error: error?.message ?? null };
 }
 

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { getStaffShiftsForDate } from "@/lib/supabase/queries/staffShifts";
+import { getGracePeriodMinutes } from "@/lib/supabase/queries/spaSettings";
+import { updateSessionStatus } from "@/lib/supabase/queries/appointments";
 import AppointmentsToolbar, { type StatusFilter } from "@/components/frontdesk/appointments/AppointmentsToolbar";
 import AppointmentsSummary from "@/components/frontdesk/appointments/AppointmentsSummary";
 import ConflictBanner from "@/components/frontdesk/appointments/ConflictBanner";
@@ -46,6 +48,7 @@ export default function AppointmentsManager() {
   const [rescheduleTargetId, setRescheduleTargetId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => startOfDay(new Date()));
+  const [graceMinutes, setGraceMinutes] = useState(15);
 
   const load = useCallback(async () => {
     if (!profile?.branchId) {
@@ -58,7 +61,7 @@ export default function AppointmentsManager() {
       supabase
         .from("appointments")
         .select(
-          "id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, professional_id, service_id, notes, staff_notes, created_at, client:profiles(full_name, phone, avatar_url), professional:staff_members(full_name, department, avatar_url), service:branch_services(name), payments(method, status, amount)"
+          "id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, additional_charges, professional_id, service_id, notes, staff_notes, created_at, client:profiles(full_name, phone, avatar_url), professional:staff_members(full_name, department, avatar_url), service:branch_services(name), payments(method, status, amount)"
         )
         .eq("branch_id", profile.branchId)
         .not("client_id", "is", null)
@@ -117,6 +120,48 @@ export default function AppointmentsManager() {
       supabase.removeChannel(channel);
     };
   }, [profile?.branchId, load]);
+
+  useEffect(() => {
+    if (!profile?.branchId) return;
+    let cancelled = false;
+    getGracePeriodMinutes(createClient()).then((minutes) => {
+      if (!cancelled) setGraceMinutes(minutes);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.branchId]);
+
+  /** Auto-marks a client No-Show once the grace period is fully up and
+   * they still haven't checked in — matches the spa's written late
+   * policy ("we reserve the right to skip your time"). Runs while this
+   * page is open; on load it also immediately catches anything that
+   * went overdue while nobody had the page open. */
+  useEffect(() => {
+    if (!profile?.branchId) return;
+
+    function sweep() {
+      const now = new Date();
+      const overdue = rows.filter((r) => {
+        if (r.status === "cancelled" || r.session_status) return false;
+        const start = new Date(`${r.scheduled_date}T${r.start_time}`);
+        return now.getTime() >= start.getTime() + graceMinutes * 60000;
+      });
+      if (overdue.length === 0) return;
+
+      setRows((prev) =>
+        prev.map((r) => (overdue.some((o) => o.id === r.id) ? { ...r, session_status: "no_show" } : r))
+      );
+      const supabase = createClient();
+      overdue.forEach((r) => {
+        updateSessionStatus(supabase, r.id, "no_show");
+      });
+    }
+
+    sweep();
+    const id = setInterval(sweep, 30000);
+    return () => clearInterval(id);
+  }, [profile?.branchId, rows, graceMinutes]);
 
   const todayKey = toDateKey(new Date());
 

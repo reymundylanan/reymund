@@ -16,6 +16,7 @@ export type AppointmentRow = {
   session_status: SessionStatus | null;
   arrival_time: string | null;
   service_started_at: string | null;
+  additional_charges: number;
   professional_id: string | null;
   service_id: string | null;
   notes: string | null;

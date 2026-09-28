@@ -7,7 +7,8 @@ import {
   Check,
   CalendarClock,
   Ban,
-  UserPlus,
+  LogIn,
+  UserCheck,
   UserX,
   PlayCircle,
   CheckSquare,
@@ -18,9 +19,9 @@ import {
   confirmAppointment,
   cancelAppointment,
   rescheduleAppointment,
-  markArrived,
+  checkInClient,
+  markLateArrival,
   updateSessionStatus,
-  recordAppointmentPayment,
 } from "@/lib/supabase/queries/appointments";
 import { getGracePeriodMinutes } from "@/lib/supabase/queries/spaSettings";
 import { SESSION_LABEL, SESSION_STYLE, CANCELLED_LABEL } from "@/lib/sessionStatus";
@@ -31,6 +32,7 @@ import {
   appointmentServiceName,
   type AppointmentRow,
 } from "@/components/frontdesk/appointments/utils";
+import AppointmentPaymentModal from "@/components/frontdesk/appointments/AppointmentPaymentModal";
 import type { AvailabilityStatus } from "@/components/frontdesk/appointments/AppointmentsListView";
 import type { StaffRow } from "@/components/frontdesk/appointments/AppointmentsManager";
 
@@ -112,9 +114,7 @@ export default function AppointmentDetailPanel({
   const [rescheduling, setRescheduling] = useState(startInReschedule);
   const [newDate, setNewDate] = useState(appointment.scheduled_date);
   const [newTime, setNewTime] = useState(appointment.start_time.slice(0, 5));
-  const [payingNow, setPayingNow] = useState(false);
-  const [payAmount, setPayAmount] = useState(String(quotedAmount(appointment.notes) ?? ""));
-  const [payMethod, setPayMethod] = useState<"cash" | "gcash">("cash");
+  const [showPayment, setShowPayment] = useState(false);
   const [graceMinutes, setGraceMinutes] = useState(15);
 
   useEffect(() => {
@@ -154,10 +154,10 @@ export default function AppointmentDetailPanel({
 
   const arrivalDate = appointment.arrival_time ? new Date(appointment.arrival_time) : null;
   const waitingMinutes =
-    arrivalDate && (sessionStatus === "waiting" || sessionStatus === "in_service" || sessionStatus === "completed")
-      ? minutesBetween(arrivalDate, new Date())
-      : null;
-  const estimatedStart = arrivalDate ?? new Date(`${appointment.scheduled_date}T${appointment.start_time}`);
+    arrivalDate && sessionStatus === "in_service" ? minutesBetween(arrivalDate, new Date()) : null;
+  const estimatedStart = appointment.service_started_at
+    ? new Date(appointment.service_started_at)
+    : new Date(`${appointment.scheduled_date}T${appointment.start_time}`);
   const estimatedEnd = new Date(estimatedStart.getTime() + appointment.duration_minutes * 60000);
 
   const scheduledStart = new Date(`${appointment.scheduled_date}T${appointment.start_time}`);
@@ -167,6 +167,37 @@ export default function AppointmentDetailPanel({
 
   const supabase = createClient();
 
+  /** Drives which Quick Actions show, per the spa's exact workflow:
+   * Pending -> Confirmed -> (Late/Awaiting Arrival ->) Check In (In
+   * Service) -> Overdue -> Mark Complete -> Payment Pending -> Paid, or
+   * the no-show branch: Late/Awaiting Arrival -> No-Show -> (Late
+   * Arrival ->) Reschedule. */
+  type DerivedStatus =
+    | "cancelled"
+    | "pending"
+    | "confirmed"
+    | "late_awaiting_arrival"
+    | "no_show"
+    | "late_arrival"
+    | "in_service"
+    | "overdue"
+    | "payment_pending"
+    | "completed_paid"
+    | "rescheduled";
+
+  function computeDerivedStatus(): DerivedStatus {
+    if (status === "cancelled") return "cancelled";
+    if (sessionStatus === "rescheduled") return "rescheduled";
+    if (sessionStatus === "no_show") return "no_show";
+    if (sessionStatus === "late_arrival") return "late_arrival";
+    if (sessionStatus === "completed" || sessionStatus === "paid") return isPaid ? "completed_paid" : "payment_pending";
+    if (sessionStatus === "in_service") return serviceTiming === "overdue" ? "overdue" : "in_service";
+    if (isPending) return "pending";
+    if (isAwaitingArrival) return "late_awaiting_arrival";
+    return "confirmed";
+  }
+  const derivedStatus = computeDerivedStatus();
+
   async function run(action: () => Promise<{ error: string | null }>) {
     setSaving(true);
     setError(null);
@@ -174,26 +205,6 @@ export default function AppointmentDetailPanel({
     setSaving(false);
     if (actionError) {
       setError(actionError);
-      return;
-    }
-    onChanged();
-  }
-
-  async function startService() {
-    setSaving(true);
-    setError(null);
-    if (!appointment.arrival_time) {
-      const arrivedResult = await markArrived(supabase, appointment.id);
-      if (arrivedResult.error) {
-        setError(arrivedResult.error);
-        setSaving(false);
-        return;
-      }
-    }
-    const result = await updateSessionStatus(supabase, appointment.id, "in_service");
-    setSaving(false);
-    if (result.error) {
-      setError(result.error);
       return;
     }
     onChanged();
@@ -291,21 +302,17 @@ export default function AppointmentDetailPanel({
             <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${SERVICE_TIMING_STYLE[serviceTiming]}`}>
               {SERVICE_TIMING_LABEL[serviceTiming]}
             </span>
-          ) : sessionStatus ? (
-            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${SESSION_STYLE[sessionStatus]}`}>
-              {SESSION_LABEL[sessionStatus]}
-            </span>
           ) : status === "cancelled" ? (
             <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-600">
               {CANCELLED_LABEL}
             </span>
+          ) : sessionStatus ? (
+            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${SESSION_STYLE[sessionStatus]}`}>
+              {SESSION_LABEL[sessionStatus]}
+            </span>
           ) : isPending ? (
             <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700">
               Pending Confirmation
-            </span>
-          ) : canMarkNoShow ? (
-            <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-600">
-              Grace Period Expired
             </span>
           ) : isAwaitingArrival ? (
             <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700">
@@ -333,7 +340,7 @@ export default function AppointmentDetailPanel({
             <div>
               <p className="text-[11px] text-ink/40">Est. Completion</p>
               <p className="mt-0.5 text-xs font-medium text-ink">
-                {sessionStatus === "waiting" || sessionStatus === "in_service"
+                {sessionStatus === "in_service"
                   ? `${estimatedStart.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })} – ${estimatedEnd.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}`
                   : "—"}
               </p>
@@ -354,47 +361,88 @@ export default function AppointmentDetailPanel({
               <ActionButton
                 icon={Check}
                 label="Confirm"
-                disabled={status !== "pending" || saving}
+                disabled={saving || derivedStatus !== "pending"}
                 onClick={() => setConfirmConfirm((v) => !v)}
               />
+
               <ActionButton
                 icon={Ban}
                 label="Cancel"
                 tone="danger"
+                disabled={
+                  saving ||
+                  !(
+                    derivedStatus === "confirmed" ||
+                    derivedStatus === "late_awaiting_arrival" ||
+                    derivedStatus === "no_show" ||
+                    derivedStatus === "late_arrival"
+                  )
+                }
                 onClick={() => setConfirmCancel((v) => !v)}
               />
+
               <ActionButton
                 icon={CalendarClock}
                 label="Reschedule"
-                disabled={isPending}
+                disabled={
+                  saving ||
+                  !(
+                    derivedStatus === "confirmed" ||
+                    derivedStatus === "late_awaiting_arrival" ||
+                    derivedStatus === "no_show" ||
+                    derivedStatus === "late_arrival"
+                  )
+                }
                 onClick={() => setRescheduling((v) => !v)}
               />
+
               <ActionButton
-                icon={UserPlus}
-                label="Mark Arrived"
-                disabled={isPending || !!sessionStatus || saving}
-                onClick={() => run(() => markArrived(supabase, appointment.id))}
+                icon={LogIn}
+                label="Check In"
+                disabled={saving || !(derivedStatus === "confirmed" || derivedStatus === "late_awaiting_arrival")}
+                onClick={() => run(() => checkInClient(supabase, appointment.id))}
               />
+
               <ActionButton
                 icon={UserX}
                 label="Mark No-Show"
                 tone="danger"
-                disabled={!canMarkNoShow || saving}
+                disabled={saving || !canMarkNoShow}
                 onClick={() => run(() => updateSessionStatus(supabase, appointment.id, "no_show"))}
               />
+
+              <ActionButton
+                icon={UserCheck}
+                label="Mark Late Arrival"
+                disabled={saving || derivedStatus !== "no_show"}
+                onClick={() => run(() => markLateArrival(supabase, appointment.id))}
+              />
+
               <ActionButton
                 icon={PlayCircle}
                 label="Start Service"
-                disabled={isPending || sessionStatus === "in_service" || sessionStatus === "completed" || saving}
-                onClick={startService}
+                disabled={saving || derivedStatus !== "late_arrival"}
+                onClick={() => run(() => updateSessionStatus(supabase, appointment.id, "in_service"))}
               />
+
               <ActionButton
                 icon={CheckSquare}
-                label="Complete"
-                disabled={isPending || sessionStatus === "completed" || saving}
+                label="Mark Complete"
+                disabled={saving || !(derivedStatus === "in_service" || derivedStatus === "overdue")}
                 onClick={() => run(() => updateSessionStatus(supabase, appointment.id, "completed"))}
               />
             </div>
+
+            {derivedStatus === "payment_pending" && (
+              <button
+                onClick={() => setShowPayment(true)}
+                disabled={saving}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-teal-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <CreditCard className="h-4 w-4" />
+                Proceed to Payment
+              </button>
+            )}
 
             {rescheduling && (
               <div className="mt-3 rounded-xl border border-ink/10 p-3 space-y-2">
@@ -472,6 +520,7 @@ export default function AppointmentDetailPanel({
             {confirmCancel && (
               <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
                 <p className="text-center text-sm font-medium text-red-700">Cancel this booking?</p>
+                <p className="text-center text-xs text-red-600">Payments are non-refundable — reschedule instead if the client can still come in.</p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setConfirmCancel(false)}
@@ -489,70 +538,22 @@ export default function AppointmentDetailPanel({
                 </div>
               </div>
             )}
-
-            {!isPending && !isPaid && amount != null && (
-              <>
-                {!payingNow ? (
-                  <button
-                    onClick={() => setPayingNow(true)}
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-teal-700"
-                  >
-                    <CreditCard className="h-4 w-4" />
-                    Process Payment
-                  </button>
-                ) : (
-                  <div className="mt-3 rounded-xl border border-ink/10 p-3 space-y-2">
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        value={payAmount}
-                        onChange={(e) => setPayAmount(e.target.value)}
-                        className="w-24 rounded-lg border border-ink/15 px-2 py-1.5 text-sm outline-none focus:border-coral"
-                      />
-                      <select
-                        value={payMethod}
-                        onChange={(e) => setPayMethod(e.target.value as "cash" | "gcash")}
-                        className="flex-1 rounded-lg border border-ink/15 px-2 py-1.5 text-sm outline-none focus:border-coral"
-                      >
-                        <option value="cash">Cash</option>
-                        <option value="gcash">GCash</option>
-                      </select>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setPayingNow(false)}
-                        className="flex-1 rounded-full border border-ink/15 py-2 text-sm text-ink/60 hover:border-ink/30"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() =>
-                          run(async () => {
-                            const parsed = Number(payAmount);
-                            if (!parsed || parsed <= 0) return { error: "Enter a valid amount." };
-                            const result = await recordAppointmentPayment(supabase, {
-                              appointmentId: appointment.id,
-                              amount: parsed,
-                              method: payMethod,
-                            });
-                            if (!result.error) setPayingNow(false);
-                            return result;
-                          })
-                        }
-                        disabled={saving}
-                        className="flex-1 rounded-full bg-teal-600 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
-                      >
-                        {saving ? "Saving..." : "Confirm Paid"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
           </>
         )}
 
       </div>
+
+      {showPayment && (
+        <AppointmentPaymentModal
+          appointment={appointment}
+          branchName={branchName}
+          onClose={() => setShowPayment(false)}
+          onPaid={() => {
+            setShowPayment(false);
+            onChanged();
+          }}
+        />
+      )}
     </div>
   );
 }
