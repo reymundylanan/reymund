@@ -3,13 +3,10 @@
 import { useEffect, useState } from "react";
 import {
   BadgeCheck,
-  Flag,
   Gift,
   Mail,
   MapPin,
-  MessageSquare,
   Phone,
-  Send,
   Star,
   User,
 } from "lucide-react";
@@ -22,7 +19,7 @@ import {
 } from "@/lib/supabase/queries/frontdeskClients";
 import { getTierProgress } from "@/lib/myGlowTiers";
 
-const tabs = ["Service History", "Preferences & Notes", "Communications"];
+const tabs = ["Service History", "Preferences & Notes"];
 
 const statusStyles: Record<string, string> = {
   completed: "bg-green-100 text-green-700",
@@ -244,25 +241,6 @@ export default function ClientProfile({
             <p className="text-ink/70">
               {client.preferences ? `“${client.preferences}”` : "No preferences recorded."}
             </p>
-          </div>
-        )}
-
-        {tab === "Communications" && (
-          <div className="space-y-4">
-            <p className="text-sm text-ink/60">
-              Communication tools for this client will appear here.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button className="flex items-center gap-1.5 rounded-full border border-ink/15 px-4 py-2 text-xs font-medium text-ink/70 hover:border-coral">
-                <Send className="h-3.5 w-3.5" /> Send Promotional SMS
-              </button>
-              <button className="flex items-center gap-1.5 rounded-full border border-ink/15 px-4 py-2 text-xs font-medium text-ink/70 hover:border-coral">
-                <MessageSquare className="h-3.5 w-3.5" /> Log Feedback Survey
-              </button>
-              <button className="flex items-center gap-1.5 rounded-full border border-red-200 px-4 py-2 text-xs font-medium text-red-600 hover:bg-red-50">
-                <Flag className="h-3.5 w-3.5" /> Flag for Deactivation
-              </button>
-            </div>
           </div>
         )}
       </div>
