@@ -30,13 +30,27 @@ export default function GCashFeedTable() {
             Verify and match digital payments to bookings
           </p>
         </div>
-        <div className="flex gap-2">
-          <button className="rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
-            History
-          </button>
-          <button className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
-            <Search className="h-4 w-4" /> Find Ref
-          </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center divide-x divide-ink/10 text-right">
+            <div className="px-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-ink/40">Total Transactions</p>
+              <p className="text-lg font-semibold text-ink">{transactions.length.toString().padStart(2, "0")}</p>
+            </div>
+            <div className="px-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-ink/40">Total Amount</p>
+              <p className="text-lg font-semibold text-teal-600">
+                ₱{transactions.reduce((sum, t) => sum + t.amount, 0).toLocaleString()}.00
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button className="rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
+              History
+            </button>
+            <button className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
+              <Search className="h-4 w-4" /> Find Ref
+            </button>
+          </div>
         </div>
       </div>
 
