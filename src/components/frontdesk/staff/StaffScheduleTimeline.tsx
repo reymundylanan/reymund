@@ -91,8 +91,8 @@ function positionStyle(startMin: number, durationMin: number) {
 
 const GRID_LINES_STYLE: CSSProperties = {
   backgroundImage:
-    `repeating-linear-gradient(to right, rgba(17,24,39,0.08) 0, rgba(17,24,39,0.08) 1px, transparent 1px, transparent ${SLOT_WIDTH}px), ` +
-    `repeating-linear-gradient(to right, rgba(17,24,39,0.16) 0, rgba(17,24,39,0.16) 1px, transparent 1px, transparent ${SLOT_WIDTH * 2}px)`,
+    `repeating-linear-gradient(to right, rgba(17,24,39,0.14) 0, rgba(17,24,39,0.14) 1px, transparent 1px, transparent ${SLOT_WIDTH}px), ` +
+    `repeating-linear-gradient(to right, rgba(17,24,39,0.32) 0, rgba(17,24,39,0.32) 1px, transparent 1px, transparent ${SLOT_WIDTH * 2}px)`,
 };
 
 export default function StaffScheduleTimeline({
@@ -310,7 +310,7 @@ export default function StaffScheduleTimeline({
                   </div>
                 </div>
 
-                <div className="divide-y divide-ink/5">
+                <div className="divide-y divide-ink/15">
                   {filteredStaff.map((member) => {
                     const offRecord = offRecords.find((r) => r.staff_member_id === member.id);
                     const memberAttendance = attendance.find((a) => a.staff_member_id === member.id);
