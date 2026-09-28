@@ -20,6 +20,7 @@ export type WalkinRow = {
   service_started_at: string | null;
   completed_at: string | null;
   notes: string | null;
+  staff_notes: string | null;
   professional: { full_name: string } | { full_name: string }[] | null;
   service: { name: string } | { name: string }[] | null;
   payments: { status: string; amount: number; method: string; created_at: string }[] | null;
@@ -31,7 +32,7 @@ function one<T>(v: T | T[] | null): T | null {
 }
 
 const WALKIN_SELECT =
-  "id, walkin_name, walkin_phone, professional_id, service_id, scheduled_date, start_time, duration_minutes, additional_charges, status, session_status, arrival_time, service_started_at, completed_at, notes, professional:staff_members(full_name), service:branch_services(name), payments(status, amount, method, created_at)";
+  "id, walkin_name, walkin_phone, professional_id, service_id, scheduled_date, start_time, duration_minutes, additional_charges, status, session_status, arrival_time, service_started_at, completed_at, notes, staff_notes, professional:staff_members(full_name), service:branch_services(name), payments(status, amount, method, created_at)";
 
 export async function createWalkinAppointment(
   supabase: SupabaseClient,
@@ -146,6 +147,18 @@ export async function getTodaysWalkins(
     return [];
   }
   return (data as unknown as WalkinRow[]) ?? [];
+}
+
+export async function updateWalkinNotes(
+  supabase: SupabaseClient,
+  appointmentId: string,
+  notes: string
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from("appointments")
+    .update({ staff_notes: notes })
+    .eq("id", appointmentId);
+  return { error: error?.message ?? null };
 }
 
 export function walkinProfessionalName(row: WalkinRow): string {

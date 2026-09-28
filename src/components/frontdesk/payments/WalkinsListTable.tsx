@@ -1,27 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { ClipboardList, CreditCard, Pencil } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { updateSessionStatus, cancelAppointment } from "@/lib/supabase/queries/appointments";
+import { CheckCircle2, MoreVertical, PlayCircle, Receipt } from "lucide-react";
 import {
   walkinProfessionalName,
   walkinServiceName,
   walkinPaymentStatus,
-  walkinQuotedAmount,
   type WalkinRow,
 } from "@/lib/supabase/queries/walkins";
-import { SESSION_LABEL, WALKIN_STATUS_OPTIONS, type SessionStatus } from "@/lib/sessionStatus";
-import { serviceTimingLabel, serviceTimingStyle, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
-import EditWalkinModal from "@/components/frontdesk/payments/EditWalkinModal";
-import WalkinPaymentModal from "@/components/frontdesk/payments/WalkinPaymentModal";
-
-function formatTime(time: string) {
-  const [h, m] = time.split(":").map(Number);
-  const meridiem = h >= 12 ? "PM" : "AM";
-  const hour12 = h % 12 === 0 ? 12 : h % 12;
-  return `${hour12}:${m.toString().padStart(2, "0")} ${meridiem}`;
-}
+import type { SessionStatus } from "@/lib/sessionStatus";
+import { computeServiceTiming, formatElapsedClock } from "@/lib/serviceTiming";
+import { walkinStatusKey, walkinStatusLabel, walkinStatusStyle } from "@/components/frontdesk/payments/walkinStatus";
 
 function formatClock(iso: string) {
   return new Date(iso).toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
@@ -29,176 +18,148 @@ function formatClock(iso: string) {
 
 export default function WalkinsListTable({
   entries,
-  onChanged,
+  selectedId,
+  onSelect,
+  now,
+  busyId,
+  onStart,
+  onFinish,
+  onEdit,
+  onCancelRequest,
+  onViewReceipt,
 }: {
   entries: WalkinRow[];
-  onChanged: () => void;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  now: Date;
+  busyId: string | null;
+  onStart: (row: WalkinRow) => void;
+  onFinish: (row: WalkinRow) => void;
+  onEdit: (row: WalkinRow) => void;
+  onCancelRequest: (row: WalkinRow) => void;
+  onViewReceipt: (row: WalkinRow) => void;
 }) {
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<WalkinRow | null>(null);
-  const [completingRow, setCompletingRow] = useState<WalkinRow | null>(null);
-  const now = useServiceTimingClock();
-
-  async function handleStatusChange(row: WalkinRow, next: string) {
-    if (next === "cancel") {
-      setCancellingId(row.id);
-      return;
-    }
-    setError(null);
-    setBusyId(row.id);
-    const supabase = createClient();
-    const result = await updateSessionStatus(supabase, row.id, next as SessionStatus);
-    setBusyId(null);
-    if (result.error) {
-      setError(result.error);
-      return;
-    }
-    onChanged();
-    if (next === "completed") setCompletingRow(row);
-  }
-
-  async function confirmCancel(row: WalkinRow) {
-    setBusyId(row.id);
-    const supabase = createClient();
-    const result = await cancelAppointment(supabase, row.id);
-    setBusyId(null);
-    if (result.error) {
-      setError(result.error);
-      return;
-    }
-    setCancellingId(null);
-    onChanged();
-  }
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <h2 className="flex items-center gap-2 font-semibold text-ink">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
-          <ClipboardList className="h-4 w-4" />
-        </span>
-        Registered Today
-      </h2>
-      <p className="mt-1 text-xs text-ink/50">
-        Walk-in clients registered so far today
-      </p>
-      {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
-
+    <div className="rounded-2xl bg-white p-4 shadow-sm">
       {entries.length === 0 ? (
-        <p className="mt-6 py-8 text-center text-sm text-ink/40">
-          No walk-ins registered yet.
-        </p>
+        <p className="py-10 text-center text-sm text-ink/40">No walk-ins match these filters.</p>
       ) : (
-        <div className="mt-4 space-y-3">
+        <div className="space-y-2">
           {entries.map((row) => {
             const sessionStatus = (row.session_status ?? "waiting") as SessionStatus;
             const isCancelled = row.status === "cancelled";
-            const serviceTiming =
+            const timing =
               sessionStatus === "in_service" ? computeServiceTiming(row.service_started_at, row.duration_minutes, now) : null;
-            const { paid, amount: paidAmount, paidAt } = walkinPaymentStatus(row);
-            const quoted = walkinQuotedAmount(row);
+            const statusKey = isCancelled ? "other" : walkinStatusKey(sessionStatus, timing);
+            const { paid } = walkinPaymentStatus(row);
+            const isSelected = row.id === selectedId;
+            const elapsedMs = row.service_started_at ? now.getTime() - new Date(row.service_started_at).getTime() : 0;
+
             return (
-              <div key={row.id} className={`rounded-xl border p-4 ${isCancelled ? "border-red-200 bg-red-50/40" : "border-ink/10"}`}>
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-ink">{row.walkin_name}</p>
-                    <p className="text-xs text-ink/40">{row.walkin_phone}</p>
-                  </div>
+              <div
+                key={row.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect(row.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") onSelect(row.id);
+                }}
+                className={`flex cursor-pointer flex-wrap items-center gap-3 rounded-xl border p-3 transition ${
+                  isSelected ? "border-blue-300 bg-blue-50/50" : isCancelled ? "border-red-200 bg-red-50/40" : "border-ink/10 hover:border-ink/20"
+                }`}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-sm font-bold text-coral-dark">
+                  {row.walkin_name?.charAt(0).toUpperCase() ?? "?"}
+                </span>
+
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    {isCancelled ? (
-                      <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-600">Cancelled</span>
-                    ) : (
-                      <select
-                        value={sessionStatus}
-                        onChange={(e) => handleStatusChange(row, e.target.value)}
-                        disabled={busyId === row.id}
-                        className="rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/70 outline-none focus:border-coral disabled:opacity-50"
-                      >
-                        {WALKIN_STATUS_OPTIONS.map((s) => (
-                          <option key={s} value={s}>{SESSION_LABEL[s]}</option>
-                        ))}
-                        <option value="cancel">Cancelled</option>
-                      </select>
-                    )}
-                    {serviceTiming && (
-                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${serviceTimingStyle(serviceTiming)}`}>
-                        {serviceTimingLabel(serviceTiming)}
-                      </span>
-                    )}
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                        paid ? "bg-green-100 text-green-700" : "bg-red-50 text-red-600"
-                      }`}
-                    >
-                      {paid ? `Paid ₱${paidAmount?.toLocaleString()}.00` : "Unpaid"}
+                    <p className="truncate font-medium text-ink">{row.walkin_name}</p>
+                    <span className="rounded-full bg-pink-50 px-1.5 py-0.5 text-[10px] font-semibold text-pink-600">Walk-In</span>
+                  </div>
+                  <p className="truncate text-xs text-ink/50">
+                    {walkinServiceName(row)} · {row.duration_minutes} min · {walkinProfessionalName(row)}
+                  </p>
+                </div>
+
+                {isCancelled ? (
+                  <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-600">Cancelled</span>
+                ) : (
+                  <div className="flex flex-col items-end gap-0.5">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${walkinStatusStyle(statusKey)}`}>
+                      {walkinStatusLabel(statusKey)}
                     </span>
-                    {!isCancelled && sessionStatus === "in_service" && (
+                    <span className="text-[11px] text-ink/40">
+                      {sessionStatus === "in_service" && row.service_started_at
+                        ? formatElapsedClock(elapsedMs)
+                        : row.arrival_time
+                        ? `Checked in ${formatClock(row.arrival_time)}`
+                        : ""}
+                    </span>
+                  </div>
+                )}
+
+                {!isCancelled && (
+                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    {(sessionStatus === "waiting" || sessionStatus === "ready" || sessionStatus === "arrived" || sessionStatus === "late_arrival") && (
                       <button
-                        onClick={() => handleStatusChange(row, "completed")}
+                        onClick={() => onStart(row)}
                         disabled={busyId === row.id}
-                        className="flex items-center gap-1.5 rounded-full bg-teal-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+                        className="flex items-center gap-1.5 rounded-full bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
                       >
-                        Finish Service
+                        <PlayCircle className="h-3.5 w-3.5" /> Start Service
                       </button>
                     )}
-                    {!isCancelled && sessionStatus === "completed" && !paid && (
+                    {sessionStatus === "in_service" && (
                       <button
-                        onClick={() => setCompletingRow(row)}
-                        className="flex items-center gap-1.5 rounded-full bg-teal-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-teal-700"
+                        onClick={() => onFinish(row)}
+                        disabled={busyId === row.id}
+                        className="flex items-center gap-1.5 rounded-full bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
                       >
-                        <CreditCard className="h-3.5 w-3.5" /> Collect Payment
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Finish Service
                       </button>
                     )}
-                    {!isCancelled && (
+                    {(sessionStatus === "completed" || sessionStatus === "paid") && (
                       <button
-                        onClick={() => setEditing(row)}
-                        aria-label="Edit walk-in"
+                        onClick={() => onViewReceipt(row)}
+                        className="flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink/70 hover:border-ink/30"
+                      >
+                        <Receipt className="h-3.5 w-3.5" /> {paid ? "View Receipt" : "Collect Payment"}
+                      </button>
+                    )}
+
+                    <div className="relative">
+                      <button
+                        onClick={() => setOpenMenuId((id) => (id === row.id ? null : row.id))}
+                        aria-label="More actions"
                         className="rounded-full p-1.5 text-ink/40 hover:bg-blush hover:text-ink"
                       >
-                        <Pencil className="h-3.5 w-3.5" />
+                        <MoreVertical className="h-4 w-4" />
                       </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink/70">
-                  <span>{walkinServiceName(row)}</span>
-                  <span>with {walkinProfessionalName(row)}</span>
-                  <span>{formatTime(row.start_time)}</span>
-                  <span>{row.duration_minutes} mins</span>
-                  {quoted != null && <span className="font-medium text-teal-600">₱{quoted.toLocaleString()}.00</span>}
-                  {row.additional_charges > 0 && (
-                    <span className="text-xs text-amber-700">
-                      (incl. ₱{row.additional_charges.toLocaleString()}.00 add-on)
-                    </span>
-                  )}
-                </div>
-
-                <div className="mt-1.5 flex flex-wrap gap-x-3 text-[11px] text-ink/40">
-                  {row.arrival_time && <span>Arrived {formatClock(row.arrival_time)}</span>}
-                  {row.service_started_at && <span>Started {formatClock(row.service_started_at)}</span>}
-                  {row.completed_at && <span>Completed {formatClock(row.completed_at)}</span>}
-                  {paidAt && <span>Paid {formatClock(paidAt)}</span>}
-                </div>
-
-                {cancellingId === row.id && (
-                  <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 space-y-2">
-                    <p className="text-center text-xs font-medium text-red-700">Cancel this walk-in?</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setCancellingId(null)}
-                        className="flex-1 rounded-full border border-ink/15 py-2 text-xs text-ink/60 hover:border-ink/30"
-                      >
-                        Keep
-                      </button>
-                      <button
-                        onClick={() => confirmCancel(row)}
-                        disabled={busyId === row.id}
-                        className="flex-1 rounded-full bg-red-500 py-2 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-                      >
-                        {busyId === row.id ? "Cancelling..." : "Yes, Cancel"}
-                      </button>
+                      {openMenuId === row.id && (
+                        <div className="absolute right-0 z-10 mt-1 w-32 rounded-xl border border-ink/10 bg-white py-1 shadow-lg">
+                          <button
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              onEdit(row);
+                            }}
+                            className="block w-full px-3 py-1.5 text-left text-xs text-ink/70 hover:bg-blush"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              onCancelRequest(row);
+                            }}
+                            className="block w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -206,28 +167,6 @@ export default function WalkinsListTable({
             );
           })}
         </div>
-      )}
-
-      {editing && (
-        <EditWalkinModal
-          walkin={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            setEditing(null);
-            onChanged();
-          }}
-        />
-      )}
-
-      {completingRow && (
-        <WalkinPaymentModal
-          walkin={completingRow}
-          onClose={() => setCompletingRow(null)}
-          onPaid={() => {
-            setCompletingRow(null);
-            onChanged();
-          }}
-        />
       )}
     </div>
   );

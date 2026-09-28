@@ -65,3 +65,23 @@ export function useServiceTimingClock(): Date {
   }, []);
   return now;
 }
+
+/** Second-resolution clock for the Walk-Ins page's live HH:MM:SS
+ * counters — the 30s tick above is plenty for badge text, but a
+ * running stopwatch display needs to visibly move every second. */
+export function useSecondClock(): Date {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+export function formatElapsedClock(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
