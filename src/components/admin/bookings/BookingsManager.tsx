@@ -35,7 +35,7 @@ export default function BookingsManager() {
         .from("appointments")
         .select(`
           id, booking_code, scheduled_date, start_time, duration_minutes, status, notes, appointment_type,
-          profiles ( full_name ),
+          profiles:profiles!appointments_client_id_fkey ( full_name ),
           branches ( name )
         `)
         .order("scheduled_date", { ascending: false })
