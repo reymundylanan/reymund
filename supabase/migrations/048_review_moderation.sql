@@ -29,17 +29,20 @@ begin
     execute $q$
       update reviews r
          set target_type = 'staff',
-             staff_id = (
-               select sm.id
+             staff_id = coalesce(
+               (select sm.id from staff_members sm where sm.id = r.professional_id),
+               (select sm.id
                  from professionals p
                  join staff_members sm on lower(trim(sm.full_name)) = lower(trim(p.name))
                 where p.id = r.professional_id
-                limit 1)
+                limit 1))
        where r.target_type is null and r.professional_id is not null
     $q$;
   else
-    update reviews set target_type = 'staff'
-     where target_type is null and professional_id is not null;
+    update reviews r
+       set target_type = 'staff',
+           staff_id = r.professional_id
+     where r.target_type is null and r.professional_id is not null;
   end if;
 end $$;
 
@@ -83,7 +86,8 @@ create table if not exists blocked_review_terms (
   term text not null unique,
   language text not null check (language in ('en', 'tl', 'ceb')),
   category text not null check (category in ('abusive', 'sexual', 'threat', 'discriminatory')),
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  constraint blocked_review_terms_term_format check (term ~ '^[a-z]+( [a-z]+)*$')
 );
 
 alter table blocked_review_terms enable row level security;
@@ -104,27 +108,27 @@ insert into blocked_review_terms (term, language, category) values
   ('shit','en','abusive'),('bullshit','en','abusive'),('sht','en','abusive'),
   ('bitch','en','abusive'),('btch','en','abusive'),('bitches','en','abusive'),
   ('bastard','en','abusive'),('asshole','en','abusive'),('dickhead','en','abusive'),
-  ('cunt','en','abusive'),('twat','en','abusive'),('wanker','en','abusive'),('prick','en','abusive'),
+  ('cunt','en','abusive'),('twat','en','abusive'),('wanker','en','abusive'),
   ('slut','en','abusive'),('whore','en','abusive'),('retard','en','discriminatory'),('retarded','en','discriminatory'),
-  ('porn','en','sexual'),('pussy','en','sexual'),('cock','en','sexual'),('dick','en','sexual'),
-  ('blowjob','en','sexual'),('dildo','en','sexual'),('horny','en','sexual'),('nudes','en','sexual'),
+  ('porn','en','sexual'),('pussy','en','sexual'),('cock','en','sexual'),
+  ('blowjob','en','sexual'),('dildo','en','sexual'),('horny','en','sexual'),
   ('boobs','en','sexual'),('tits','en','sexual'),('rape','en','threat'),
-  ('kill you','en','threat'),('i will kill','en','threat'),('burn this place','en','threat'),
+  ('kill you','en','threat'),('burn this place','en','threat'),
   ('nigger','en','discriminatory'),('nigga','en','discriminatory'),('faggot','en','discriminatory'),
   ('fag','en','discriminatory'),('chink','en','discriminatory'),('tranny','en','discriminatory'),
   -- Tagalog
   ('putangina','tl','abusive'),('putang ina','tl','abusive'),('tangina','tl','abusive'),
   ('tanginamo','tl','abusive'),('tangina mo','tl','abusive'),('puta','tl','abusive'),
-  ('gago','tl','abusive'),('gaga','tl','abusive'),('tarantado','tl','abusive'),('tarantada','tl','abusive'),
+  ('gago','tl','abusive'),('tarantado','tl','abusive'),('tarantada','tl','abusive'),
   ('ulol','tl','abusive'),('ulul','tl','abusive'),('tanga','tl','abusive'),('bobo','tl','abusive'),
   ('punyeta','tl','abusive'),('pakshet','tl','abusive'),('pakyu','tl','abusive'),
-  ('kupal','tl','abusive'),('hayop ka','tl','abusive'),('hindot','tl','sexual'),('kantot','tl','sexual'),
-  ('jakol','tl','sexual'),('tite','tl','sexual'),('puke','tl','sexual'),('pekpek','tl','sexual'),
+  ('kupal','tl','abusive'),('hindot','tl','sexual'),('kantot','tl','sexual'),
+  ('jakol','tl','sexual'),('tite','tl','sexual'),('pekpek','tl','sexual'),
   ('burat','tl','sexual'),('bayag','tl','sexual'),('papatayin kita','tl','threat'),('patayin kita','tl','threat'),
   -- Bisaya / Cebuano
   ('yawa','ceb','abusive'),('yawaa','ceb','abusive'),('piste','ceb','abusive'),('pisti','ceb','abusive'),
-  ('buang','ceb','abusive'),('boang','ceb','abusive'),('giatay','ceb','abusive'),
-  ('animal ka','ceb','abusive'),('bilat','ceb','sexual'),('oten','ceb','sexual'),('iyot','ceb','sexual'),
+  ('giatay','ceb','abusive'),
+  ('bilat','ceb','sexual'),('oten','ceb','sexual'),('iyot','ceb','sexual'),
   ('libog','ceb','sexual'),('patyon tika','ceb','threat'),('patyon ta ka','ceb','threat')
 on conflict (term) do nothing;
 
@@ -156,8 +160,8 @@ language sql immutable as $$
   select nullif(
     btrim(regexp_replace(
       regexp_replace(
-        regexp_replace(coalesce(p, ''), '<[^>]*>', '', 'g'),     -- HTML tags
-        '[\x00-\x09\x0B-\x1F\x7F]', '', 'g'),                     -- control chars (keep \n)
+        regexp_replace(coalesce(p, ''), '</?[a-zA-Z][^>]*>', '', 'g'),     -- HTML tags
+        '[\x00-\x08\x0B-\x1F\x7F]', '', 'g'),                     -- control chars (keep \t, \n)
       '[ \t]+', ' ', 'g')),                                        -- collapse spaces
     '')
 $$;

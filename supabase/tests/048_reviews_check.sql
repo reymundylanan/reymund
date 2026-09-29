@@ -8,7 +8,6 @@ do $$
 declare
   ok int := 0; bad int := 0;
   procedure_check text;
-  function_check boolean;
 begin
   -- Word filter: must be blocked
   foreach procedure_check in array array[
@@ -25,7 +24,11 @@ begin
     'The massage was terrible, rushed and the staff was rude.',
     'Pangit ang serbisyo, dili ko balik.', 'Bati kaayo ang massage.',
     'Worst facial ever. Dirty towels.', 'Great class, Scunthorpe style assessment of my skin',
-    'Shitake mushroom tea was nice', 'Gagawin ko ulit!', 'Mabuti naman.'
+    'Shitake mushroom tea was nice', 'Gagawin ko ulit!', 'Mabuti naman.',
+    'Slight prick of the needle during the IV drip',
+    'I went gaga over the facial',
+    'Buang ko sa kanindot!',
+    'Hayop ka sa galing ate!'
   ] loop
     if review_text_is_clean(procedure_check) then ok := ok + 1;
     else raise warning 'FAIL (should pass): %', procedure_check; bad := bad + 1; end if;
@@ -35,7 +38,7 @@ begin
   if clean_review_text('  <script>alert(1)</script>Nice   place  ') = 'alert(1)Nice place' then ok := ok + 1;
   else raise warning 'FAIL clean_review_text: %', clean_review_text('  <script>alert(1)</script>Nice   place  '); bad := bad + 1; end if;
 
-  raise notice 'word filter + cleaning: % passed, % failed', ok, bad;
+  raise notice 'word filter + cleaning: % passed, % failed (expected 25, 0)', ok, bad;
 end $$;
 
 -- Submission as the client
@@ -72,8 +75,17 @@ end $$;
 
 reset role;
 
--- 5. Anonymous sees only visible rows
+-- 5. RLS: hidden rows are not visible to other users
 update reviews set status = 'hidden' where appointment_id = ':DONE_APPT'::uuid and target_type = 'staff';
+
+-- 5a. Different customer sees only visible rows
+select set_config('request.jwt.claims', json_build_object('sub', gen_random_uuid()::text, 'role', 'authenticated')::text, true);
+set local role authenticated;
+select 'different customer sees hidden rows (must be 0):' as check, count(*) from reviews where status <> 'visible';
+reset role;
+
+-- 5b. Anonymous sees only visible rows
+select set_config('request.jwt.claims', '{}', true);
 set local role anon;
 select 'anon sees hidden rows (must be 0):' as check, count(*) from reviews where status <> 'visible';
 reset role;
