@@ -46,7 +46,9 @@ type AppointmentRow = {
 const APPOINTMENT_SELECT =
   "id, scheduled_date, start_time, status, session_status, notes, service:branch_services(name), branch:branches(name), client:profiles!appointments_client_id_fkey(full_name)";
 
-type Result = "sent" | "skipped" | "failed" | "retried";
+type Result = "sent" | "skipped" | "failed" | "retried" | "released";
+
+const TIME_BUDGET_MS = 45_000;
 
 export async function POST(request: Request) {
   const expected = process.env.MESSENGER_DISPATCH_SECRET;
@@ -68,9 +70,27 @@ export async function POST(request: Request) {
   }
 
   const rows = (data as OutboxRow[]) ?? [];
-  const tally = { claimed: rows.length, sent: 0, skipped: 0, failed: 0, retried: 0 };
+  const tally = { claimed: rows.length, sent: 0, skipped: 0, failed: 0, retried: 0, released: 0 };
+  const started = Date.now();
 
-  for (const row of rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+
+    if (Date.now() - started > TIME_BUDGET_MS) {
+      for (let j = i; j < rows.length; j++) {
+        const releaseRow = rows[j];
+        const { error: releaseError } = await supabase
+          .from("messenger_outbox")
+          .update({ status: "pending", attempts: releaseRow.attempts - 1, claimed_at: null })
+          .eq("id", releaseRow.id);
+        if (releaseError) {
+          console.error("Messenger outbox: failed to release row", releaseRow.id, releaseError);
+        }
+        tally.released += 1;
+      }
+      break;
+    }
+
     let result: Result;
     try {
       result = await processRow(row, supabase, config);
@@ -90,15 +110,22 @@ export async function POST(request: Request) {
 }
 
 async function processRow(row: OutboxRow, supabase: SupabaseClient, config: MessengerConfig): Promise<Result> {
-  const { data: sub } = await supabase
+  const { data: sub, error: subError } = await supabase
     .from("messenger_subscriptions")
     .select("psid, opted_out_at, last_inbound_at")
     .eq("profile_id", row.profile_id)
     .maybeSingle();
 
+  if (subError) {
+    throw subError;
+  }
+
   let appt: AppointmentRow | null = null;
   if (row.appointment_id) {
-    const { data } = await supabase.from("appointments").select(APPOINTMENT_SELECT).eq("id", row.appointment_id).maybeSingle();
+    const { data, error: apptError } = await supabase.from("appointments").select(APPOINTMENT_SELECT).eq("id", row.appointment_id).maybeSingle();
+    if (apptError) {
+      throw apptError;
+    }
     appt = data as unknown as AppointmentRow | null;
   }
 
@@ -113,13 +140,21 @@ async function processRow(row: OutboxRow, supabase: SupabaseClient, config: Mess
   });
 
   if (reason || !sub) {
-    await supabase.from("messenger_outbox").update({ status: "skipped", skip_reason: reason ?? "not_subscribed" }).eq("id", row.id);
+    const { error: skipError } = await supabase.from("messenger_outbox").update({ status: "skipped", skip_reason: reason ?? "not_subscribed" }).eq("id", row.id);
+    if (skipError) {
+      throw skipError;
+    }
     return "skipped";
+  }
+
+  const kind = templateKind(row);
+  if (appt && (row.kind === "reminder" || row.kind === "appointment_update") && kind === null) {
+    return applyOutcome(supabase, row, { kind: "fail", error: "appointment_update without update_type" });
   }
 
   const payload =
     appt && (row.kind === "reminder" || row.kind === "appointment_update")
-      ? buildAppointmentTemplateMessage(sub.psid, templateKind(row), {
+      ? buildAppointmentTemplateMessage(sub.psid, kind as AppointmentTemplateKind, {
           appointmentId: appt.id,
           firstName: (one(appt.client)?.full_name ?? "").split(" ")[0],
           serviceName: one(appt.service)?.name ?? appt.notes ?? "",
@@ -139,22 +174,36 @@ async function processRow(row: OutboxRow, supabase: SupabaseClient, config: Mess
   return applyOutcome(supabase, row, classifyGraphResponse(res.status, res.body));
 }
 
-function templateKind(row: OutboxRow): AppointmentTemplateKind {
-  return row.kind === "reminder" ? "reminder" : (row.update_type ?? "rescheduled");
+function templateKind(row: OutboxRow): AppointmentTemplateKind | null {
+  if (row.kind === "reminder") {
+    return "reminder";
+  }
+  if (row.kind === "appointment_update" && row.update_type === null) {
+    return null;
+  }
+  return row.update_type ?? "rescheduled";
 }
 
 async function applyOutcome(supabase: SupabaseClient, row: OutboxRow, outcome: SendOutcome): Promise<Result> {
   const now = new Date();
 
   if (outcome.kind === "sent") {
-    await supabase.from("messenger_outbox").update({ status: "sent", sent_at: now.toISOString(), last_error: null }).eq("id", row.id);
+    let lastError: string | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { error } = await supabase.from("messenger_outbox").update({ status: "sent", sent_at: now.toISOString(), last_error: null }).eq("id", row.id);
+      if (!error) {
+        return "sent";
+      }
+      lastError = error.message;
+    }
+    console.error("Messenger outbox: sent but could not mark row", row.id, lastError);
     return "sent";
   }
 
   if (outcome.kind === "retry") {
     const delay = retryDelayMinutes(row.attempts);
     if (delay !== null) {
-      await supabase
+      const { error } = await supabase
         .from("messenger_outbox")
         .update({
           status: "pending",
@@ -162,13 +211,22 @@ async function applyOutcome(supabase: SupabaseClient, row: OutboxRow, outcome: S
           last_error: outcome.error,
         })
         .eq("id", row.id);
+      if (error) {
+        console.error("Messenger outbox: failed to set retry", row.id, error);
+      }
       return "retried";
     }
   }
 
-  await supabase.from("messenger_outbox").update({ status: "failed", last_error: outcome.error }).eq("id", row.id);
+  const { error: failError } = await supabase.from("messenger_outbox").update({ status: "failed", last_error: outcome.error }).eq("id", row.id);
+  if (failError) {
+    console.error("Messenger outbox: failed to mark failed", row.id, failError);
+  }
   if (outcome.kind === "fail_opt_out") {
-    await supabase.from("messenger_subscriptions").update({ opted_out_at: now.toISOString() }).eq("profile_id", row.profile_id);
+    const { error: optOutError } = await supabase.from("messenger_subscriptions").update({ opted_out_at: now.toISOString() }).eq("profile_id", row.profile_id);
+    if (optOutError) {
+      console.error("Messenger subscriptions: failed to mark opted out", row.profile_id, optOutError);
+    }
   }
   return "failed";
 }
