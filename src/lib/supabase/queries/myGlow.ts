@@ -298,3 +298,90 @@ export async function submitReview(
   });
   return { error: error?.message ?? null };
 }
+
+export type ClientAppointmentDetail = {
+  id: string;
+  bookingCode: string | null;
+  status: string;
+  sessionStatus: string | null;
+  scheduledDate: string;
+  startTime: string;
+  durationMinutes: number;
+  serviceName: string | null;
+  professionalName: string | null;
+  branchName: string | null;
+  branchPhone: string | null;
+  rescheduleCount: number;
+  originalScheduledDate: string | null;
+  originalStartTime: string | null;
+  history: { id: string; eventType: string; fromValue: string | null; toValue: string | null; createdAt: string }[];
+};
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** One appointment, only if it belongs to `clientId` — otherwise null,
+ * so callers can't tell "doesn't exist" from "not yours". */
+export async function getClientAppointment(
+  supabase: SupabaseClient,
+  clientId: string,
+  appointmentId: string
+): Promise<ClientAppointmentDetail | null> {
+  if (!UUID_RE.test(appointmentId)) return null;
+
+  const { data, error } = await supabase
+    .from("appointments")
+    .select(
+      "id, booking_code, status, session_status, scheduled_date, start_time, duration_minutes, notes, reschedule_count, original_scheduled_date, original_start_time, service:branch_services(name), professional:staff_members(full_name), branch:branches(name, phone)"
+    )
+    .eq("id", appointmentId)
+    .eq("client_id", clientId)
+    .maybeSingle();
+
+  if (error) console.error("getClientAppointment failed:", error);
+  if (!data) return null;
+
+  const row = data as unknown as {
+    id: string;
+    booking_code: string | null;
+    status: string;
+    session_status: string | null;
+    scheduled_date: string;
+    start_time: string;
+    duration_minutes: number;
+    notes: string | null;
+    reschedule_count: number | null;
+    original_scheduled_date: string | null;
+    original_start_time: string | null;
+    service: Rel<{ name: string }>;
+    professional: Rel<{ full_name: string }>;
+    branch: Rel<{ name: string; phone: string | null }>;
+  };
+
+  const { data: historyRows, error: historyError } = await supabase
+    .from("appointment_history")
+    .select("id, event_type, from_value, to_value, created_at")
+    .eq("appointment_id", appointmentId)
+    .order("created_at", { ascending: true });
+  if (historyError) console.error("getClientAppointment history failed:", historyError);
+
+  const branch = one(row.branch);
+  return {
+    id: row.id,
+    bookingCode: row.booking_code,
+    status: row.status,
+    sessionStatus: row.session_status,
+    scheduledDate: row.scheduled_date,
+    startTime: row.start_time,
+    durationMinutes: row.duration_minutes,
+    serviceName: one(row.service)?.name ?? row.notes ?? null,
+    professionalName: one(row.professional)?.full_name ?? null,
+    branchName: branch?.name ?? null,
+    branchPhone: branch?.phone ?? null,
+    rescheduleCount: row.reschedule_count ?? 0,
+    originalScheduledDate: row.original_scheduled_date,
+    originalStartTime: row.original_start_time,
+    history: ((historyRows as { id: string; event_type: string; from_value: string | null; to_value: string | null; created_at: string }[]) ?? []).map(
+      (h) => ({ id: h.id, eventType: h.event_type, fromValue: h.from_value, toValue: h.to_value, createdAt: h.created_at })
+    ),
+  };
+}

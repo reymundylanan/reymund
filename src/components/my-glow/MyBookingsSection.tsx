@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ClipboardList, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { appointmentStatusStyles } from "@/lib/appointmentFormat";
 
 type BranchInfo = { name: string; phone: string | null };
 type PaymentInfo = { method: string; status: string; amount: number };
@@ -27,15 +29,6 @@ function one<T>(v: T | T[] | null): T | null {
 }
 
 const methodLabels: Record<string, string> = { gcash: "GCash", cash: "Cash", credit_card: "Credit Card" };
-
-const statusStyles: Record<string, string> = {
-  pending: "bg-amber-100 text-amber-700",
-  confirmed: "bg-green-100 text-green-700",
-  in_service: "bg-blue-100 text-blue-700",
-  completed: "bg-ink/10 text-ink/50",
-  no_show: "bg-red-100 text-red-600",
-  cancelled: "bg-red-100 text-red-600",
-};
 
 function formatTime(time: string) {
   const [h, m] = time.split(":").map(Number);
@@ -96,7 +89,7 @@ export default function MyBookingsSection({ userId }: { userId: string }) {
               )}
               <div className="flex items-start justify-between gap-3">
                 <p className="text-base font-medium text-ink">{b.notes ?? "Appointment"}</p>
-                <span className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-medium capitalize ${statusStyles[b.session_status ?? b.status] ?? statusStyles[b.status] ?? "bg-ink/10 text-ink/50"}`}>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-sm font-medium capitalize ${appointmentStatusStyles[b.session_status ?? b.status] ?? appointmentStatusStyles[b.status] ?? "bg-ink/10 text-ink/50"}`}>
                   {(b.session_status ?? b.status).replace("_", " ")}
                 </span>
               </div>
@@ -114,6 +107,12 @@ export default function MyBookingsSection({ userId }: { userId: string }) {
                 )}
               </p>
               {b.booking_code && <p className="mt-1 text-xs text-ink/40">Ref: {b.booking_code}</p>}
+              <Link
+                href={`/my-glow/appointments/${b.id}`}
+                className="mt-1 inline-block text-sm font-medium text-coral-dark hover:underline"
+              >
+                View details &rarr;
+              </Link>
 
               {isActive && (
                 <p className="mt-2.5 flex items-center gap-1.5 border-t border-ink/10 pt-2.5 text-xs text-ink/50">
