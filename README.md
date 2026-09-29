@@ -34,3 +34,36 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Messenger notifications
+
+Clients connect Messenger from **My Glow**; GlowSync then sends appointment
+reminders (~24h before), updates (rescheduled / cancelled / no-show), and
+admin promo / booking broadcasts, each with a button that deep-links into
+the site. Design: `docs/superpowers/specs/2026-09-29-messenger-notifications-design.md`.
+
+Setup:
+
+1. **Meta app** — add the Messenger product, connect the Page, generate a
+   Page access token with `pages_messaging` and `page_utility_messaging`.
+2. **Webhook** — callback `https://<site>/api/messenger/webhook`, verify
+   token = `MESSENGER_VERIFY_TOKEN`; subscribe the Page to `messages`,
+   `messaging_postbacks`, `messaging_referrals`,
+   `message_template_status_update`.
+3. **Env (Vercel + `.env.local`)** — `MESSENGER_PAGE_ID`,
+   `MESSENGER_PAGE_ACCESS_TOKEN`, `MESSENGER_APP_SECRET`,
+   `MESSENGER_VERIFY_TOKEN`, `MESSENGER_DISPATCH_SECRET` (any long random
+   string), `NEXT_PUBLIC_MESSENGER_PAGE_USERNAME`, `NEXT_PUBLIC_SITE_URL`.
+4. **Supabase** — apply `supabase/migrations/047_messenger.sql` in the SQL
+   Editor, then add Vault secrets:
+   `select vault.create_secret('https://<site>/api/messenger/dispatch', 'messenger_dispatch_url');`
+   `select vault.create_secret('<MESSENGER_DISPATCH_SECRET>', 'messenger_dispatch_secret');`
+5. **Templates** — `node --env-file=.env.local scripts/messenger-setup.ts`
+   (rerun if the site domain changes).
+6. **Testing** — in Development mode only people with a role on the Meta
+   app receive messages; add testers under App Roles.
+7. **Real clients** — submit App Review for `pages_messaging` and
+   `page_utility_messaging`, then switch the app to Live.
+
+Promos and booking invites only reach clients who messaged the Page in the
+last 24 hours (Meta policy); the rest are recorded as skipped.
