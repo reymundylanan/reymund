@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ArrowLeftRight, Camera, CalendarOff, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -10,6 +11,7 @@ import AdminTransferModal from "@/components/admin/users/AdminTransferModal";
 import { getUpcomingApprovedLeaves } from "@/lib/supabase/queries/leaveRequests";
 import { getUpcomingApprovedTransfers } from "@/lib/supabase/queries/branchTransferRequests";
 import { toDateKey } from "@/lib/supabase/queries/staffShifts";
+import { summarizeRatings } from "@/lib/reviews";
 
 type Branch = { id: string; name: string };
 
@@ -58,6 +60,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
   const [transferSavedMsg, setTransferSavedMsg] = useState<string | null>(null);
   const [leaveDatesByStaff, setLeaveDatesByStaff] = useState<Record<string, string[]>>({});
   const [transfersByStaff, setTransfersByStaff] = useState<Record<string, { dates: string[]; branchName: string }>>({});
+  const [ratings, setRatings] = useState<Record<string, { average: number; count: number }>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -68,6 +71,21 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
       .order("full_name");
     setMembers((data as StaffMember[]) ?? []);
     setLoading(false);
+  }
+
+  async function loadRatings() {
+    const { data, error } = await supabase
+      .from("reviews")
+      .select("staff_id, rating")
+      .eq("target_type", "staff")
+      .eq("status", "visible")
+      .not("staff_id", "is", null);
+    if (error) console.error("loadRatings failed:", error);
+    const byStaff: Record<string, number[]> = {};
+    for (const r of (data ?? []) as { staff_id: string; rating: number }[]) (byStaff[r.staff_id] ??= []).push(r.rating);
+    setRatings(
+      Object.fromEntries(Object.entries(byStaff).map(([id, list]) => [id, (({ average, count }) => ({ average, count }))(summarizeRatings(list))]))
+    );
   }
 
   async function loadLeaves() {
@@ -100,6 +118,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
 
   useEffect(() => {
     load();
+    loadRatings();
     loadLeaves();
     loadTransfers();
     supabase.from("branches").select("id, name").order("name")
@@ -255,6 +274,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                 <th className="px-4 py-3 text-left">Department</th>
                 <th className="px-4 py-3 text-left">Branch</th>
                 <th className="px-4 py-3 text-left">Phone</th>
+                <th className="px-4 py-3 text-left">Rating</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -288,6 +308,15 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                     {(m.branches as { name: string } | null)?.name ?? <span className="text-ink/30">—</span>}
                   </td>
                   <td className="px-4 py-4 text-ink/60">{m.phone ?? <span className="text-ink/30">—</span>}</td>
+                  <td className="px-4 py-4 text-ink/60">
+                    {ratings[m.id] ? (
+                      <Link href={`/admin/reviews?staff=${m.id}`} className="hover:text-coral-dark hover:underline">
+                        ★ {ratings[m.id].average} · {ratings[m.id].count}
+                      </Link>
+                    ) : (
+                      <span className="text-ink/30">—</span>
+                    )}
+                  </td>
                   <td className="relative px-4 py-3 text-right">
                     <button
                       onClick={() => setMenuOpenId(menuOpenId === m.id ? null : m.id)}
