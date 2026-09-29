@@ -8,6 +8,8 @@ import Reviews from "@/components/home/Reviews";
 import Branches from "@/components/home/Branches";
 import Cta from "@/components/home/Cta";
 
+export const dynamic = "force-dynamic";
+
 export default function Home() {
   return (
     <>
