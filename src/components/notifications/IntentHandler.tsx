@@ -5,9 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useBooking } from "@/components/booking/BookingContext";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { createClient } from "@/lib/supabase/client";
+import { safeNext } from "@/lib/safeNext";
 
 const PLACEHOLDER_SERVICE = { name: "GlowSync Booking", duration: "", price: 0 };
 
+// Handles deep links from notifications:
+// - ?intent=booking      → open the booking flow (after login if needed)
+// - ?login=1&next=/path  → open Login if signed out, then go to /path
 export default function IntentHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -16,7 +20,8 @@ export default function IntentHandler() {
 
   useEffect(() => {
     const intent = searchParams.get("intent");
-    if (intent !== "booking") return;
+    const wantsLogin = searchParams.get("login") === "1";
+    if (intent !== "booking" && !wantsLogin) return;
 
     const supabase = createClient();
     let cancelled = false;
@@ -27,6 +32,11 @@ export default function IntentHandler() {
 
       if (!data.user) {
         openLogin();
+        return;
+      }
+
+      if (wantsLogin) {
+        router.replace(safeNext(searchParams.get("next")));
         return;
       }
 

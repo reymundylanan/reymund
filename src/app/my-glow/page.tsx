@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { loginRedirectPath } from "@/lib/loginRedirect";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { createClient } from "@/lib/supabase/server";
@@ -26,7 +27,7 @@ import { getRecommendationsForClient } from "@/lib/supabase/queries/recommendati
 export default async function MyGlowPage() {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) redirect("/");
+  if (!auth.user) redirect(loginRedirectPath("/my-glow"));
 
   const { data: profile } = await supabase
     .from("profiles")
