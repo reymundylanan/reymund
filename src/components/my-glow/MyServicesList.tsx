@@ -10,6 +10,7 @@ import {
   type ServiceReview,
 } from "@/lib/supabase/queries/myGlow";
 import { getServiceImage } from "@/lib/serviceImage";
+import { formatAppointmentDate } from "@/lib/appointmentFormat";
 
 const statusStyles: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
@@ -195,7 +196,7 @@ export default function MyServicesList({
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-ink">{a.serviceName ?? "Appointment"}</p>
-                  <p className="text-xs text-ink/50">{new Date(a.scheduledDate).toLocaleDateString()}</p>
+                  <p className="text-xs text-ink/50">{formatAppointmentDate(a.scheduledDate)}</p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${status.style}`}>
                   {status.label}
