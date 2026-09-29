@@ -17,6 +17,11 @@ alter table reviews add column if not exists admin_seen_at timestamptz;
 
 -- ── Backfill existing rows ────────────────────────────────────────────
 
+-- Only rows not yet backfilled (target_type null) count as pre-existing;
+-- this must run before the target_type backfills below, and a re-run
+-- must not mark newer unseen reviews as seen.
+update reviews set admin_seen_at = coalesce(admin_seen_at, created_at) where target_type is null;
+
 update reviews r
    set target_type = 'service',
        service_id = a.service_id
@@ -41,13 +46,12 @@ begin
   else
     update reviews r
        set target_type = 'staff',
-           staff_id = r.professional_id
+           staff_id = (select sm.id from staff_members sm where sm.id = r.professional_id)
      where r.target_type is null and r.professional_id is not null;
   end if;
 end $$;
 
 update reviews set target_type = 'branch' where target_type is null;
-update reviews set admin_seen_at = coalesce(admin_seen_at, created_at);
 
 alter table reviews alter column target_type set not null;
 

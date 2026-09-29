@@ -212,7 +212,6 @@ export async function getMyReviews(supabase: SupabaseClient, clientId: string): 
   }));
 }
 
-
 export async function getVisitedBranches(
   supabase: SupabaseClient,
   clientId: string

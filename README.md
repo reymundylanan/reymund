@@ -70,3 +70,25 @@ Setup:
 
 Promos and booking invites only reach clients who messaged the Page in the
 last 24 hours (Meta policy); the rest are recorded as skipped.
+
+## Reviews & moderation
+
+Clients rate a completed visit (service, therapist, branch). Reviews go through
+SECURITY DEFINER functions, pass a server-side word filter, and admins moderate
+them at `/admin/reviews` (hide / show / remove / restore, with an audit log).
+
+Blocked words live in the table `blocked_review_terms` (lowercase letters and
+single spaces only).
+
+### Deploy runbook
+
+1. Apply `supabase/migrations/048_review_moderation.sql` in the Supabase SQL
+   Editor immediately before deploying this code. The old review forms stop
+   working once 048 is applied, and the new UI needs 048.
+2. Run `supabase/tests/048_reviews_check.sql` with the placeholders filled in.
+   It rolls back; all lines should say PASS or show the expected counts.
+3. Deploy/push right away (keep the gap to minutes).
+4. Manual pass: rate a visit, confirm it appears on `/team/<id>` and in
+   Reports, hide it in `/admin/reviews`, confirm it is gone from the staff page
+   and the client sees "Hidden by the spa", then restore it. Two admin tabs
+   should update live.

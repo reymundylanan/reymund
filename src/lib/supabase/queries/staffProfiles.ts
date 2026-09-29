@@ -52,7 +52,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export async function getPublicStaffProfile(supabase: SupabaseClient, id: string) {
   if (!UUID_RE.test(id)) return null;
-  const [{ data: row }, { data: reviews, error }] = await Promise.all([
+  const [{ data: row, error: rowError }, { data: reviews, error }] = await Promise.all([
     supabase.from("public_staff_profiles").select("id, full_name, department, branch_name, avatar_url").eq("id", id).maybeSingle(),
     supabase
       .from("public_staff_reviews")
@@ -60,6 +60,7 @@ export async function getPublicStaffProfile(supabase: SupabaseClient, id: string
       .eq("staff_id", id)
       .order("created_at", { ascending: false }),
   ]);
+  if (rowError) console.error("getPublicStaffProfile failed:", rowError);
   if (error) console.error("getPublicStaffProfile reviews failed:", error);
   if (!row) return null;
 

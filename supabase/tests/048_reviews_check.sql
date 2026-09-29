@@ -1,7 +1,9 @@
 -- Run in the Supabase SQL Editor AFTER applying 048. Everything is rolled
--- back. Replace the two placeholders first:
---   :CLIENT_ID   a customer profile id
---   :DONE_APPT   one of that customer's COMPLETED appointments with NO review yet
+-- back. Replace the placeholders first:
+--   :CLIENT_ID     a customer profile id
+--   :DONE_APPT     one of that customer's COMPLETED appointments with NO review yet
+--   :PENDING_APPT  an appointment of that customer that is NOT completed
+--   :ADMIN_ID      a profile id with role admin
 begin;
 
 do $$
@@ -71,6 +73,51 @@ do $$ begin
   raise warning 'FAIL: customer moderated';
 exception when others then
   if sqlerrm = 'REVIEW_FORBIDDEN' then raise notice 'PASS forbidden'; else raise warning 'FAIL got %', sqlerrm; end if;
+end $$;
+
+-- 4b. Non-completed appointment rejected
+do $$ begin
+  perform submit_visit_review(':PENDING_APPT'::uuid, 5::smallint, null, null, null, null, null);
+  raise warning 'FAIL: review of non-completed appointment accepted';
+exception when others then
+  if sqlerrm = 'REVIEW_NOT_ALLOWED' then raise notice 'PASS not completed'; else raise warning 'FAIL got %', sqlerrm; end if;
+end $$;
+
+-- 4c. Unknown appointment rejected
+do $$ begin
+  perform submit_visit_review(gen_random_uuid(), 5::smallint, null, null, null, null, null);
+  raise warning 'FAIL: review of unknown appointment accepted';
+exception when others then
+  if sqlerrm = 'REVIEW_NOT_ALLOWED' then raise notice 'PASS unknown appointment'; else raise warning 'FAIL got %', sqlerrm; end if;
+end $$;
+
+reset role;
+
+-- 4d. Admin moderation: hide -> show -> remove -> restore, all logged
+select set_config('request.jwt.claims', json_build_object('sub', ':ADMIN_ID', 'role', 'authenticated')::text, true);
+set local role authenticated;
+
+do $$
+declare
+  v_id uuid := (select id from reviews where appointment_id = ':DONE_APPT'::uuid and target_type = 'service');
+  v_before int := (select count(*) from review_moderation_log where review_id = (select id from reviews where appointment_id = ':DONE_APPT'::uuid and target_type = 'service'));
+  v_after int;
+begin
+  perform moderate_review(v_id, 'hide', 'test');
+  perform moderate_review(v_id, 'show', null);
+  perform moderate_review(v_id, 'remove', 'test');
+  perform moderate_review(v_id, 'restore', null);
+  select count(*) into v_after from review_moderation_log where review_id = v_id;
+  if v_after - v_before = 4 then raise notice 'PASS admin moderation log (4 new rows)';
+  else raise warning 'FAIL admin moderation log: % new rows (expected 4)', v_after - v_before; end if;
+
+  -- The review is visible again, so 'show' is an invalid transition
+  begin
+    perform moderate_review(v_id, 'show', null);
+    raise warning 'FAIL: show on a visible review accepted';
+  exception when others then
+    if sqlerrm = 'REVIEW_BAD_TRANSITION' then raise notice 'PASS bad transition'; else raise warning 'FAIL got %', sqlerrm; end if;
+  end;
 end $$;
 
 reset role;

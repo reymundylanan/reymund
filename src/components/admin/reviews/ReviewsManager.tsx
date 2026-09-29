@@ -78,7 +78,7 @@ export default function ReviewsManager({
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("admin-reviews")
+      .channel(`admin-reviews-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "reviews" }, () => reload(filtersRef.current))
       .subscribe();
     return () => {

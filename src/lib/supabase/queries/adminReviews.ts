@@ -110,7 +110,8 @@ export async function listAdminReviews(supabase: SupabaseClient, f: ReviewFilter
   if (f.staff) q = q.eq("staff_id", f.staff);
   if (f.branch) q = q.eq("branch_id", f.branch);
   if (f.service) {
-    const { data: svc } = await supabase.from("branch_services").select("id").eq("name", f.service);
+    const { data: svc, error: svcError } = await supabase.from("branch_services").select("id").eq("name", f.service);
+    if (svcError) console.error("listAdminReviews service lookup failed:", svcError);
     const ids = ((svc ?? []) as { id: string }[]).map((s) => s.id);
     if (ids.length === 0) return { rows: [] as AdminReviewRow[], total: 0 };
     q = q.in("service_id", ids);
@@ -154,7 +155,9 @@ export async function getReviewFilterOptions(supabase: SupabaseClient) {
   ]);
   const uniqByName = (list: { id: string; name: string }[]) => {
     const seen = new Set<string>();
-    return list.filter((x) => (seen.has(x.name) ? false : (seen.add(x.name), true)));
+    return list
+      .map((x) => ({ id: x.id, name: x.name.trim() }))
+      .filter((x) => (seen.has(x.name) ? false : (seen.add(x.name), true)));
   };
   return {
     staff: ((staff.data ?? []) as { id: string; full_name: string }[]).map((s) => ({ id: s.id, name: s.full_name })),

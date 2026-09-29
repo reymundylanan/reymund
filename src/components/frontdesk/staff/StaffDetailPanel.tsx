@@ -236,7 +236,7 @@ export default function StaffDetailPanel({
         </div>
       )}
 
-      {selectedStaffId && <StaffRatingBlock staffId={selectedStaffId} showManageLink={false} />}
+      {selectedStaffId && <StaffRatingBlock key={selectedStaffId} staffId={selectedStaffId} showManageLink={false} />}
 
       <div className="rounded-2xl bg-white p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-ink">Status Legend</h3>

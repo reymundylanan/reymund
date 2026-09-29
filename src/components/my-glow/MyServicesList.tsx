@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -125,8 +126,8 @@ function VisitReviewForm({
   onCancel,
 }: {
   appointment: RecentAppointment;
-  onDone: () => void;
-  onDuplicate: () => void;
+  onDone: () => void | Promise<void>;
+  onDuplicate: () => void | Promise<void>;
   onCancel: () => void;
 }) {
   const [service, setService] = useState({ rating: 0, text: "" });
@@ -140,13 +141,21 @@ function VisitReviewForm({
       setError("Tap a star to rate the service.");
       return;
     }
+    if (appointment.professionalName && staff.text.trim() && staff.rating === 0) {
+      setError("Tap a star to rate your therapist.");
+      return;
+    }
+    if (appointment.branchId && branch.text.trim() && branch.rating === 0) {
+      setError("Tap a star to rate the branch.");
+      return;
+    }
     setSaving(true);
     setError(null);
     const { error: rpcError } = await submitVisitReview(createClient(), {
       appointmentId: appointment.id,
       service,
       staff: appointment.professionalName && staff.rating > 0 ? staff : null,
-      branch: branch.rating > 0 ? branch : null,
+      branch: appointment.branchId && branch.rating > 0 ? branch : null,
     });
     setSaving(false);
     if (rpcError) {
@@ -175,13 +184,15 @@ function VisitReviewForm({
           onText={(text) => setStaff((s) => ({ ...s, text }))}
         />
       )}
-      <PartInput
-        label={`Branch — ${appointment.branchName ?? "Blush Spa"} (optional)`}
-        rating={branch.rating}
-        text={branch.text}
-        onRating={(rating) => setBranch((s) => ({ ...s, rating }))}
-        onText={(text) => setBranch((s) => ({ ...s, text }))}
-      />
+      {appointment.branchId && (
+        <PartInput
+          label={`Branch — ${appointment.branchName ?? "Blush Spa"} (optional)`}
+          rating={branch.rating}
+          text={branch.text}
+          onRating={(rating) => setBranch((s) => ({ ...s, rating }))}
+          onText={(text) => setBranch((s) => ({ ...s, text }))}
+        />
+      )}
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2">
         <button
@@ -230,6 +241,8 @@ export default function MyServicesList({
 }) {
   const [reviews, setReviews] = useState(initialReviews);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [notices, setNotices] = useState<Record<string, string>>({});
+  const router = useRouter();
 
   async function refresh() {
     setReviews(await getVisitReviews(createClient(), clientId));
@@ -238,7 +251,7 @@ export default function MyServicesList({
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel(`my-reviews-${clientId}`)
+      .channel(`my-reviews-${clientId}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "reviews", filter: `client_id=eq.${clientId}` },
@@ -304,17 +317,23 @@ export default function MyServicesList({
                 </div>
               )}
 
+              {completed && !review && notices[a.id] && reviewingId !== a.id && (
+                <p className="mt-1.5 pl-[60px] text-xs text-ink/50">{notices[a.id]}</p>
+              )}
+
               {completed && !review && reviewingId === a.id && (
                 <VisitReviewForm
                   appointment={a}
                   onCancel={() => setReviewingId(null)}
-                  onDuplicate={() => {
+                  onDuplicate={async () => {
+                    setNotices((n) => ({ ...n, [a.id]: "You've already reviewed this visit." }));
+                    await refresh();
                     setReviewingId(null);
-                    refresh();
                   }}
-                  onDone={() => {
+                  onDone={async () => {
+                    await refresh();
                     setReviewingId(null);
-                    refresh();
+                    router.refresh();
                   }}
                 />
               )}
