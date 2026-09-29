@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -51,15 +51,25 @@ export default function ReviewsManager({
   const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState(initialFilters.q ?? "");
 
+  const filtersRef = useRef(filters);
+  const requestRef = useRef(0);
+
   const reload = useCallback(async (f: ReviewFilters) => {
-    const supabase = createClient();
-    const [l, s] = await Promise.all([listAdminReviews(supabase, f), getAdminReviewStats(supabase)]);
-    setList(l);
-    setStats(s);
+    const id = ++requestRef.current;
+    try {
+      const supabase = createClient();
+      const [l, s] = await Promise.all([listAdminReviews(supabase, f), getAdminReviewStats(supabase)]);
+      if (id !== requestRef.current) return;
+      setList(l);
+      setStats(s);
+    } catch (e) {
+      console.error("reload reviews failed:", e);
+    }
   }, []);
 
   function apply(next: ReviewFilters) {
     const f = { ...next, page: next.page ?? 1 };
+    filtersRef.current = f;
     setFilters(f);
     router.replace(`${pathname}${toQuery(f)}`, { scroll: false });
     reload(f);
@@ -69,12 +79,12 @@ export default function ReviewsManager({
     const supabase = createClient();
     const channel = supabase
       .channel("admin-reviews")
-      .on("postgres_changes", { event: "*", schema: "public", table: "reviews" }, () => reload(filters))
+      .on("postgres_changes", { event: "*", schema: "public", table: "reviews" }, () => reload(filtersRef.current))
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [filters, reload]);
+  }, [reload]);
 
   const pages = Math.max(1, Math.ceil(list.total / PAGE_SIZE));
   const select = "rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm";
@@ -91,15 +101,15 @@ export default function ReviewsManager({
             <p className="text-xs text-ink/40">{stats.byType[t].count} visible</p>
           </div>
         ))}
-        <button onClick={() => apply({ ...filters, status: "new" })} className="rounded-2xl bg-white p-4 text-left shadow-sm">
+        <button onClick={() => apply({ ...filters, page: undefined, status: "new" })} className="rounded-2xl bg-white p-4 text-left shadow-sm">
           <p className="text-xs font-semibold uppercase text-ink/40">New</p>
           <p className="mt-1 text-xl font-semibold text-coral-dark">{stats.newCount}</p>
         </button>
-        <button onClick={() => apply({ ...filters, status: "hidden" })} className="rounded-2xl bg-white p-4 text-left shadow-sm">
+        <button onClick={() => apply({ ...filters, page: undefined, status: "hidden" })} className="rounded-2xl bg-white p-4 text-left shadow-sm">
           <p className="text-xs font-semibold uppercase text-ink/40">Hidden</p>
           <p className="mt-1 text-xl font-semibold text-ink">{stats.hiddenCount}</p>
         </button>
-        <button onClick={() => apply({ ...filters, status: "removed" })} className="rounded-2xl bg-white p-4 text-left shadow-sm">
+        <button onClick={() => apply({ ...filters, page: undefined, status: "removed" })} className="rounded-2xl bg-white p-4 text-left shadow-sm">
           <p className="text-xs font-semibold uppercase text-ink/40">Removed</p>
           <p className="mt-1 text-xl font-semibold text-ink">{stats.removedCount}</p>
         </button>
@@ -110,7 +120,7 @@ export default function ReviewsManager({
           {([undefined, "service", "staff", "branch"] as const).map((t) => (
             <button
               key={t ?? "all"}
-              onClick={() => apply({ ...filters, type: t })}
+              onClick={() => apply({ ...filters, page: undefined, type: t })}
               className={`pb-2 ${filters.type === t ? "border-b-2 border-coral text-coral-dark" : "text-ink/50"}`}
             >
               {t ? TYPE_LABEL[t] : "All"}
@@ -119,35 +129,35 @@ export default function ReviewsManager({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <select className={select} value={filters.service ?? ""} onChange={(e) => apply({ ...filters, service: e.target.value || undefined })}>
+          <select className={select} value={filters.service ?? ""} onChange={(e) => apply({ ...filters, page: undefined, service: e.target.value || undefined })}>
             <option value="">All services</option>
             {options.services.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
-          <select className={select} value={filters.staff ?? ""} onChange={(e) => apply({ ...filters, staff: e.target.value || undefined })}>
+          <select className={select} value={filters.staff ?? ""} onChange={(e) => apply({ ...filters, page: undefined, staff: e.target.value || undefined })}>
             <option value="">All staff</option>
             {options.staff.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
-          <select className={select} value={filters.branch ?? ""} onChange={(e) => apply({ ...filters, branch: e.target.value || undefined })}>
+          <select className={select} value={filters.branch ?? ""} onChange={(e) => apply({ ...filters, page: undefined, branch: e.target.value || undefined })}>
             <option value="">All branches</option>
             {options.branches.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </select>
-          <select className={select} value={filters.rating ?? ""} onChange={(e) => apply({ ...filters, rating: e.target.value ? Number(e.target.value) : undefined })}>
+          <select className={select} value={filters.rating ?? ""} onChange={(e) => apply({ ...filters, page: undefined, rating: e.target.value ? Number(e.target.value) : undefined })}>
             <option value="">Any rating</option>
             {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n}★</option>)}
           </select>
-          <select className={select} value={filters.status ?? ""} onChange={(e) => apply({ ...filters, status: (e.target.value || undefined) as ReviewFilters["status"] })}>
+          <select className={select} value={filters.status ?? ""} onChange={(e) => apply({ ...filters, page: undefined, status: (e.target.value || undefined) as ReviewFilters["status"] })}>
             <option value="">Any status</option>
             <option value="new">New</option>
             <option value="visible">Visible</option>
             <option value="hidden">Hidden</option>
             <option value="removed">Removed</option>
           </select>
-          <input type="date" className={select} value={filters.from ?? ""} onChange={(e) => apply({ ...filters, from: e.target.value || undefined })} />
-          <input type="date" className={select} value={filters.to ?? ""} onChange={(e) => apply({ ...filters, to: e.target.value || undefined })} />
+          <input type="date" className={select} value={filters.from ?? ""} onChange={(e) => apply({ ...filters, page: undefined, from: e.target.value || undefined })} />
+          <input type="date" className={select} value={filters.to ?? ""} onChange={(e) => apply({ ...filters, page: undefined, to: e.target.value || undefined })} />
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              apply({ ...filters, q: search.trim() || undefined });
+              apply({ ...filters, page: undefined, q: search.trim() || undefined });
             }}
           >
             <input className={select} placeholder="Search comments…" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -202,7 +212,7 @@ export default function ReviewsManager({
         <ReviewDetailPanel
           reviewId={openId}
           onClose={() => setOpenId(null)}
-          onChanged={() => reload(filters)}
+          onChanged={() => reload(filtersRef.current)}
         />
       )}
     </div>

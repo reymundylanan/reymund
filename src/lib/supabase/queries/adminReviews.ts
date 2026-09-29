@@ -20,6 +20,11 @@ const TYPES = new Set(["service", "staff", "branch"]);
 const STATUSES = new Set(["visible", "hidden", "removed", "new"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function validDate(v: string | undefined) {
+  if (!v || !DATE_RE.test(v)) return undefined;
+  const d = new Date(v + "T00:00:00Z");
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v ? v : undefined;
+}
 
 export function parseReviewFilters(sp: Record<string, string | string[] | undefined>): ReviewFilters {
   const get = (k: string) => (Array.isArray(sp[k]) ? sp[k]![0] : (sp[k] as string | undefined));
@@ -29,10 +34,10 @@ export function parseReviewFilters(sp: Record<string, string | string[] | undefi
     type: TYPES.has(get("type") ?? "") ? (get("type") as ReviewTarget) : undefined,
     staff: UUID_RE.test(get("staff") ?? "") ? get("staff") : undefined,
     branch: UUID_RE.test(get("branch") ?? "") ? get("branch") : undefined,
-    service: UUID_RE.test(get("service") ?? "") ? get("service") : undefined,
-    rating: rating >= 1 && rating <= 5 ? rating : undefined,
-    from: DATE_RE.test(get("from") ?? "") ? get("from") : undefined,
-    to: DATE_RE.test(get("to") ?? "") ? get("to") : undefined,
+    service: get("service")?.trim().slice(0, 100) || undefined,
+    rating: Number.isInteger(rating) && rating >= 1 && rating <= 5 ? rating : undefined,
+    from: validDate(get("from")),
+    to: validDate(get("to")),
     status: STATUSES.has(get("status") ?? "") ? (get("status") as ReviewFilters["status"]) : undefined,
     q: get("q")?.trim().slice(0, 100) || undefined,
     page: page >= 1 ? Math.floor(page) : 1,
@@ -104,7 +109,12 @@ export async function listAdminReviews(supabase: SupabaseClient, f: ReviewFilter
   if (f.type) q = q.eq("target_type", f.type);
   if (f.staff) q = q.eq("staff_id", f.staff);
   if (f.branch) q = q.eq("branch_id", f.branch);
-  if (f.service) q = q.eq("service_id", f.service);
+  if (f.service) {
+    const { data: svc } = await supabase.from("branch_services").select("id").eq("name", f.service);
+    const ids = ((svc ?? []) as { id: string }[]).map((s) => s.id);
+    if (ids.length === 0) return { rows: [] as AdminReviewRow[], total: 0 };
+    q = q.in("service_id", ids);
+  }
   if (f.rating) q = q.eq("rating", f.rating);
   if (f.from) q = q.gte("created_at", `${f.from}T00:00:00+08:00`);
   if (f.to) q = q.lte("created_at", `${f.to}T23:59:59.999+08:00`);
@@ -149,7 +159,7 @@ export async function getReviewFilterOptions(supabase: SupabaseClient) {
   return {
     staff: ((staff.data ?? []) as { id: string; full_name: string }[]).map((s) => ({ id: s.id, name: s.full_name })),
     branches: (branches.data ?? []) as { id: string; name: string }[],
-    services: uniqByName((services.data ?? []) as { id: string; name: string }[]),
+    services: uniqByName((services.data ?? []) as { id: string; name: string }[]).map((s) => ({ id: s.name, name: s.name })),
   };
 }
 

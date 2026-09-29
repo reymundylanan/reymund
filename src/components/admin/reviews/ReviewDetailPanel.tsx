@@ -64,14 +64,15 @@ export default function ReviewDetailPanel({
     setBusy(true);
     setError(null);
     const err = await moderateReview(createClient(), reviewId, action, reason);
-    setBusy(false);
     setConfirmRemove(false);
     if (err) {
+      setBusy(false);
       setError(err);
       return;
     }
     setReason("");
     await load();
+    setBusy(false);
     onChanged();
   }
 
