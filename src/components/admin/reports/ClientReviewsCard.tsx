@@ -1,10 +1,20 @@
+import Link from "next/link";
 import { Star } from "lucide-react";
 import type { ReviewsSummary } from "@/lib/supabase/queries/reports";
 
 export default function ClientReviewsCard({ reviews }: { reviews: ReviewsSummary }) {
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <h2 className="font-semibold text-ink">Client Reviews</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold text-ink">Client Reviews</h2>
+        <Link href="/admin/reviews" className="text-sm font-medium text-coral-dark hover:underline">
+          Manage reviews →
+        </Link>
+      </div>
+      <p className="mt-1 text-xs text-ink/50">
+        Service ★ {reviews.byType.service.average} ({reviews.byType.service.count}) · Staff ★ {reviews.byType.staff.average} (
+        {reviews.byType.staff.count}) · Branch ★ {reviews.byType.branch.average} ({reviews.byType.branch.count})
+      </p>
 
       {reviews.count === 0 ? (
         <p className="mt-8 py-8 text-center text-sm text-ink/40">No reviews submitted yet.</p>

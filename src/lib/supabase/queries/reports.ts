@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { summarizeRatings, type ReviewTarget } from "@/lib/reviews";
 
 export type ReportFilters = {
   branchId: string | null;
@@ -352,35 +353,40 @@ export type ReviewsSummary = {
   average: number;
   count: number;
   breakdown: { stars: number; count: number }[];
+  byType: Record<ReviewTarget, { average: number; count: number }>;
   recent: { clientName: string; rating: number; text: string | null; date: string }[];
 };
 
 export async function getReviewsSummary(supabase: SupabaseClient, branchId: string | null): Promise<ReviewsSummary> {
   let query = supabase
     .from("reviews")
-    .select("rating, text, created_at, client:profiles(full_name)")
+    .select("rating, text, created_at, target_type, client:profiles!reviews_client_id_fkey(full_name)")
+    .eq("status", "visible")
     .order("created_at", { ascending: false });
   if (branchId) query = query.eq("branch_id", branchId);
-  const { data } = await query;
+  const { data, error } = await query;
+  if (error) console.error("getReviewsSummary failed:", error);
+
   const rows =
     (data as unknown as {
       rating: number;
       text: string | null;
       created_at: string;
+      target_type: ReviewTarget;
       client: { full_name: string } | { full_name: string }[] | null;
     }[]) ?? [];
 
-  const breakdownMap = new Map<number, number>([5, 4, 3, 2, 1].map((s) => [s, 0]));
-  let total = 0;
-  for (const r of rows) {
-    breakdownMap.set(r.rating, (breakdownMap.get(r.rating) ?? 0) + 1);
-    total += r.rating;
-  }
+  const overall = summarizeRatings(rows.map((r) => r.rating));
+  const byType = Object.fromEntries(
+    (["service", "staff", "branch"] as ReviewTarget[]).map((t) => {
+      const s = summarizeRatings(rows.filter((r) => r.target_type === t).map((r) => r.rating));
+      return [t, { average: s.average, count: s.count }];
+    })
+  ) as ReviewsSummary["byType"];
 
   return {
-    average: rows.length > 0 ? Math.round((total / rows.length) * 10) / 10 : 0,
-    count: rows.length,
-    breakdown: Array.from(breakdownMap.entries()).map(([stars, count]) => ({ stars, count })),
+    ...overall,
+    byType,
     recent: rows.slice(0, 5).map((r) => {
       const client = Array.isArray(r.client) ? r.client[0] : r.client;
       return {
