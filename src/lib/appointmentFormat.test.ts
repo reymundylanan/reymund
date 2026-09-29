@@ -31,5 +31,8 @@ describe("appointment formatting", () => {
     expect(describeHistoryEvent({ eventType: "status_change", fromValue: "confirmed", toValue: "no_show" })).toBe(
       "Marked as No show"
     );
+    expect(describeHistoryEvent({ eventType: "status_change", fromValue: "confirmed", toValue: "none" })).toBe(
+      "Status reset"
+    );
   });
 });

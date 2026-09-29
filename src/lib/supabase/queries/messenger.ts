@@ -40,9 +40,9 @@ export async function getDispatchStatus(supabase: SupabaseClient): Promise<Dispa
     supabase.from("messenger_outbox").select("id", { count: "exact", head: true }).in("status", ["pending", "sending"]),
     supabase
       .from("messenger_outbox")
-      .select("created_at")
-      .in("status", ["pending", "sending"])
-      .order("created_at", { ascending: true })
+      .select("next_attempt_at")
+      .eq("status", "pending")
+      .order("next_attempt_at", { ascending: true })
       .limit(1)
       .maybeSingle(),
   ]);
@@ -52,7 +52,7 @@ export async function getDispatchStatus(supabase: SupabaseClient): Promise<Dispa
   return {
     lastRunAt: run.data?.last_run_at ?? null,
     pendingCount: pending.count ?? 0,
-    oldestPendingAt: oldest.data?.created_at ?? null,
+    oldestPendingAt: oldest.data?.next_attempt_at ?? null,
   };
 }
 

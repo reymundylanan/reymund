@@ -42,6 +42,8 @@ reminders (~24h before), updates (rescheduled / cancelled / no-show), and
 admin promo / booking broadcasts, each with a button that deep-links into
 the site. Design: `docs/superpowers/specs/2026-09-29-messenger-notifications-design.md`.
 
+**Deploy order: apply `supabase/migrations/047_messenger.sql` to the database BEFORE deploying this code — admin broadcasts (including email-only) and broadcast history depend on its new columns.**
+
 Setup:
 
 1. **Meta app** — add the Messenger product, connect the Page, generate a
@@ -59,7 +61,8 @@ Setup:
    `select vault.create_secret('https://<site>/api/messenger/dispatch', 'messenger_dispatch_url');`
    `select vault.create_secret('<MESSENGER_DISPATCH_SECRET>', 'messenger_dispatch_secret');`
 5. **Templates** — `node --env-file=.env.local scripts/messenger-setup.ts`
-   (rerun if the site domain changes).
+   (rerun if the site domain changes). Needs Node 22.18+ (TypeScript type
+   stripping); it may print a harmless `MODULE_TYPELESS_PACKAGE_JSON` warning.
 6. **Testing** — in Development mode only people with a role on the Meta
    app receive messages; add testers under App Roles.
 7. **Real clients** — submit App Review for `pages_messaging` and

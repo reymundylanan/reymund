@@ -180,14 +180,21 @@ begin
     end if;
   end if;
 
-  -- status and session_status can both flip to no_show in one update,
-  -- producing two history rows; send one message.
+  -- Front Desk's auto-sweep can mark old appointments no-show long after the fact; don't notify.
+  if v_type = 'no_show' and v_scheduled_date < ((now() at time zone 'Asia/Manila')::date - 1) then
+    return new;
+  end if;
+
+  -- Pending rows are built from current appointment data at send time, so a
+  -- duplicate pending row is redundant (this also collapses the two history
+  -- rows when status and session_status both flip to no_show in one update).
+  -- Once a message has gone out, a later genuine change must send again.
   if exists (
     select 1 from messenger_outbox o
     where o.appointment_id = new.appointment_id
       and o.kind = 'appointment_update'
       and o.update_type = v_type
-      and o.created_at > now() - interval '5 minutes'
+      and o.status = 'pending'
   ) then
     return new;
   end if;

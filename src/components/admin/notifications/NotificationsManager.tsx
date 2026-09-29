@@ -129,7 +129,7 @@ export default function NotificationsManager({
             Page in the last 24h) · Last dispatch {messenger.lastRunAt ? formatRelative(messenger.lastRunAt) : "never"} ·{" "}
             {messenger.pendingCount} pending
             {messenger.oldestPendingAt && renderedAt - new Date(messenger.oldestPendingAt).getTime() > 10 * 60000 && (
-              <span className="font-medium text-red-600"> — messages are waiting over 10 minutes; check the dispatch cron.</span>
+              <span className="font-medium text-red-600"> — messages are overdue by over 10 minutes; check the dispatch cron.</span>
             )}
           </p>
         ) : (

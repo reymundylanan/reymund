@@ -44,5 +44,6 @@ export function describeHistoryEvent(e: { eventType: string; fromValue: string |
   if (e.eventType === "reschedule") {
     return `Rescheduled from ${formatDateTime(e.fromValue)} to ${formatDateTime(e.toValue)}`;
   }
-  return `Marked as ${humanizeStatus(e.toValue ?? "updated")}`;
+  if (e.toValue === null || e.toValue === "none") return "Status reset";
+  return `Marked as ${humanizeStatus(e.toValue)}`;
 }

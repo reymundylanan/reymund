@@ -94,7 +94,16 @@ export default function MessengerConnectCard({
       )}
 
       {status === "paused" && (
-        <p className="mt-1 text-sm text-ink/60">Paused — type START in Messenger to resume.</p>
+        <>
+          <p className="mt-1 text-sm text-ink/60">Paused — type START in Messenger to resume.</p>
+          <button
+            onClick={disconnect}
+            disabled={busy}
+            className="mt-3 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 hover:border-ink/30 disabled:opacity-50"
+          >
+            Disconnect
+          </button>
+        </>
       )}
 
       {status === "none" && (
