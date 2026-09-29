@@ -81,8 +81,11 @@ export default function NotificationsManager({
             : `Email sent to ${plural(data.sentCount, "client")}.`
         );
       }
-      if (useMessenger) parts.push(`Messenger queued for ${plural(data.messengerQueued, "client")}.`);
-      setResult(parts.join(" "));
+      if (useMessenger && !data.messengerError) {
+        parts.push(`Messenger queued for ${plural(data.messengerQueued, "client")}.`);
+      }
+      if (data.messengerError) setError(data.messengerError);
+      setResult(parts.length > 0 ? parts.join(" ") : null);
 
       setHistory((prev) => [
         {
@@ -255,7 +258,7 @@ export default function NotificationsManager({
                           {m.pending > 0 && `, ${m.pending} pending`}
                         </>
                       ) : (
-                        <> · Messenger: queued</>
+                        <> · Messenger: none</>
                       ))}
                   </p>
                 </div>

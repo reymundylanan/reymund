@@ -28,6 +28,7 @@ export async function getMessengerAudience(admin: SupabaseClient): Promise<{ con
       .gte("last_inbound_at", since),
   ]);
   if (all.error) console.error("getMessengerAudience failed:", all.error);
+  if (recent.error) console.error("getMessengerAudience (recent) failed:", recent.error);
   return { connected: all.count ?? 0, reachableNow: recent.count ?? 0 };
 }
 
@@ -45,6 +46,9 @@ export async function getDispatchStatus(supabase: SupabaseClient): Promise<Dispa
       .limit(1)
       .maybeSingle(),
   ]);
+  if (run.error) console.error("getDispatchStatus (run) failed:", run.error);
+  if (pending.error) console.error("getDispatchStatus (pending) failed:", pending.error);
+  if (oldest.error) console.error("getDispatchStatus (oldest) failed:", oldest.error);
   return {
     lastRunAt: run.data?.last_run_at ?? null,
     pendingCount: pending.count ?? 0,

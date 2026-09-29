@@ -51,8 +51,15 @@ export async function POST(request: Request) {
 
   let linkPath = "/?intent=booking";
   if (linkTarget === "promo") {
+    const today = new Date().toISOString().slice(0, 10);
     const { data: promo } = promoId
-      ? await supabase.from("branch_promotions").select("id").eq("id", promoId).eq("is_active", true).maybeSingle()
+      ? await supabase
+          .from("branch_promotions")
+          .select("id")
+          .eq("id", promoId)
+          .eq("is_active", true)
+          .or(`valid_until.is.null,valid_until.gte.${today}`)
+          .maybeSingle()
       : { data: null };
     if (!promo) {
       return NextResponse.json({ error: "Choose an active promo to link to." }, { status: 400 });
@@ -95,9 +102,9 @@ export async function POST(request: Request) {
     }
   }
 
-  const admin = createAdminClient();
   const subscriberIds: string[] = [];
   if (wantsMessenger) {
+    const admin = createAdminClient();
     const { data: subs, error: subsError } = await admin
       .from("messenger_subscriptions")
       .select("profile_id")
@@ -132,7 +139,9 @@ export async function POST(request: Request) {
 
   // Queue Messenger first so an email failure can't lose it.
   let messengerQueued = 0;
+  let queueFailed = false;
   if (subscriberIds.length > 0) {
+    const admin = createAdminClient();
     const { error: queueError } = await admin.from("messenger_outbox").insert(
       subscriberIds.map((profileId) => ({
         profile_id: profileId,
@@ -145,6 +154,7 @@ export async function POST(request: Request) {
     );
     if (queueError) {
       console.error("Queueing Messenger broadcast failed:", queueError);
+      queueFailed = true;
     } else {
       messengerQueued = subscriberIds.length;
     }
@@ -180,10 +190,20 @@ export async function POST(request: Request) {
     await supabase.from("notification_broadcasts").update({ recipient_count: sentCount }).eq("id", broadcast.id);
   }
 
-  const result = { sentCount, totalRecipients: emails.length, messengerQueued, broadcastId: broadcast.id };
+  const queueErrorMessage = "Messenger messages couldn't be queued.";
+  const result = {
+    sentCount,
+    totalRecipients: emails.length,
+    messengerQueued,
+    broadcastId: broadcast.id,
+    ...(queueFailed ? { messengerError: queueErrorMessage } : {}),
+  };
 
-  if (emails.length > 0 && sentCount === 0 && messengerQueued === 0) {
-    return NextResponse.json({ error: lastError ?? "Failed to send — nothing went out.", ...result }, { status: 502 });
+  if ((emails.length > 0 || subscriberIds.length > 0) && sentCount === 0 && messengerQueued === 0) {
+    return NextResponse.json(
+      { error: lastError ?? (queueFailed ? queueErrorMessage : "Failed to send — nothing went out."), ...result },
+      { status: 502 }
+    );
   }
 
   return NextResponse.json(result);
