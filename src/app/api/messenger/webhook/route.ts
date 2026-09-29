@@ -70,7 +70,7 @@ async function handleEvent(event: MessagingEvent, supabase: SupabaseClient, conf
   const now = new Date().toISOString();
 
   if (action.type === "link") {
-    const { data: token } = await supabase
+    const { data: token, error: tokenError } = await supabase
       .from("messenger_link_tokens")
       .update({ used_at: now })
       .eq("token", action.ref)
@@ -78,6 +78,8 @@ async function handleEvent(event: MessagingEvent, supabase: SupabaseClient, conf
       .gt("expires_at", now)
       .select("profile_id")
       .maybeSingle();
+
+    if (tokenError) throw tokenError;
 
     if (!token) {
       await reply(
@@ -88,7 +90,9 @@ async function handleEvent(event: MessagingEvent, supabase: SupabaseClient, conf
     }
 
     // A Messenger account belongs to one GlowSync client at a time.
-    await supabase.from("messenger_subscriptions").delete().eq("psid", action.psid).neq("profile_id", token.profile_id);
+    const { error: deleteError } = await supabase.from("messenger_subscriptions").delete().eq("psid", action.psid).neq("profile_id", token.profile_id);
+    if (deleteError) throw deleteError;
+
     const { error } = await supabase.from("messenger_subscriptions").upsert(
       { profile_id: token.profile_id, psid: action.psid, linked_at: now, last_inbound_at: now, opted_out_at: null },
       { onConflict: "profile_id" }
@@ -108,22 +112,28 @@ async function handleEvent(event: MessagingEvent, supabase: SupabaseClient, conf
     return;
   }
 
-  const { data: updated } = await supabase
+  const { data: updated, error: updateError } = await supabase
     .from("messenger_subscriptions")
     .update({ last_inbound_at: now })
     .eq("psid", action.psid)
     .select("profile_id");
+  if (updateError) throw updateError;
+
   const isSubscribed = (updated?.length ?? 0) > 0;
 
   if (action.type === "stop" && isSubscribed) {
-    await supabase.from("messenger_subscriptions").update({ opted_out_at: now }).eq("psid", action.psid);
+    const { error: stopError } = await supabase.from("messenger_subscriptions").update({ opted_out_at: now }).eq("psid", action.psid);
+    if (stopError) throw stopError;
+
     await reply(
       config,
       buildTextMessage(action.psid, "You won't get GlowSync updates here anymore. Type START anytime to turn them back on.")
     );
   } else if (action.type === "start") {
     if (isSubscribed) {
-      await supabase.from("messenger_subscriptions").update({ opted_out_at: null }).eq("psid", action.psid);
+      const { error: startError } = await supabase.from("messenger_subscriptions").update({ opted_out_at: null }).eq("psid", action.psid);
+      if (startError) throw startError;
+
       await reply(config, buildTextMessage(action.psid, "You're back on! We'll send your GlowSync updates here."));
     } else {
       await reply(

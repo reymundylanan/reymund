@@ -18,7 +18,11 @@ export async function POST() {
     return NextResponse.json({ error: "Please log in first." }, { status: 401 });
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", auth.user.id).single();
+  const { data: profile, error: profileError } = await supabase.from("profiles").select("role").eq("id", auth.user.id).single();
+  if (profileError) {
+    console.error("Fetching profile role failed:", profileError);
+    return NextResponse.json({ error: "Couldn't start Messenger connect. Please try again." }, { status: 500 });
+  }
   if (profile?.role !== "customer") {
     return NextResponse.json({ error: "Only client accounts can connect Messenger." }, { status: 403 });
   }
