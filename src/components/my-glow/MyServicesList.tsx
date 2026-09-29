@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
-  submitServiceReview,
+  getVisitReviews,
+  submitVisitReview,
   type RecentAppointment,
-  type ServiceReview,
+  type ReviewPart,
+  type VisitReview,
 } from "@/lib/supabase/queries/myGlow";
+import { reviewErrorMessage } from "@/lib/reviews";
 import { getServiceImage } from "@/lib/serviceImage";
 import { formatAppointmentDate } from "@/lib/appointmentFormat";
 
@@ -86,57 +89,98 @@ function Stars({ value, onChange, size = "h-5 w-5" }: { value: number; onChange?
   );
 }
 
-function ReviewForm({
+function PartInput({
+  label,
+  rating,
+  text,
+  onRating,
+  onText,
+}: {
+  label: string;
+  rating: number;
+  text: string;
+  onRating: (n: number) => void;
+  onText: (t: string) => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold text-ink/70">{label}</p>
+      <Stars value={rating} onChange={onRating} />
+      <textarea
+        value={text}
+        onChange={(e) => onText(e.target.value)}
+        rows={2}
+        maxLength={1000}
+        placeholder="Tell us more (optional)"
+        className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-coral"
+      />
+    </div>
+  );
+}
+
+function VisitReviewForm({
   appointment,
-  clientId,
   onDone,
+  onDuplicate,
   onCancel,
 }: {
   appointment: RecentAppointment;
-  clientId: string;
-  onDone: (review: ServiceReview) => void;
+  onDone: () => void;
+  onDuplicate: () => void;
   onCancel: () => void;
 }) {
-  const [rating, setRating] = useState(0);
-  const [text, setText] = useState("");
+  const [service, setService] = useState({ rating: 0, text: "" });
+  const [staff, setStaff] = useState({ rating: 0, text: "" });
+  const [branch, setBranch] = useState({ rating: 0, text: "" });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit() {
-    if (rating === 0) {
-      setError("Tap a star to rate this service.");
-      return;
-    }
-    if (!appointment.branchId) {
-      setError("Couldn't find the branch for this booking.");
+    if (service.rating === 0) {
+      setError("Tap a star to rate the service.");
       return;
     }
     setSaving(true);
     setError(null);
-    const { error: submitError } = await submitServiceReview(createClient(), {
-      clientId,
+    const { error: rpcError } = await submitVisitReview(createClient(), {
       appointmentId: appointment.id,
-      branchId: appointment.branchId,
-      rating,
-      text,
+      service,
+      staff: appointment.professionalName && staff.rating > 0 ? staff : null,
+      branch: branch.rating > 0 ? branch : null,
     });
     setSaving(false);
-    if (submitError) {
-      setError(submitError);
+    if (rpcError) {
+      setError(reviewErrorMessage(rpcError));
+      if (rpcError.message === "REVIEW_DUPLICATE") onDuplicate();
       return;
     }
-    onDone({ rating, text: text.trim() || null });
+    onDone();
   }
 
   return (
-    <div className="mt-2 space-y-2 rounded-xl border border-ink/10 bg-blush/30 p-3">
-      <Stars value={rating} onChange={setRating} />
-      <textarea
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        rows={2}
-        placeholder="How was your experience? (optional)"
-        className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-coral"
+    <div className="mt-2 space-y-3 rounded-xl border border-ink/10 bg-blush/30 p-3">
+      <PartInput
+        label={`Service — ${appointment.serviceName ?? "your service"}`}
+        rating={service.rating}
+        text={service.text}
+        onRating={(rating) => setService((s) => ({ ...s, rating }))}
+        onText={(text) => setService((s) => ({ ...s, text }))}
+      />
+      {appointment.professionalName && (
+        <PartInput
+          label={`Your therapist — ${appointment.professionalName}`}
+          rating={staff.rating}
+          text={staff.text}
+          onRating={(rating) => setStaff((s) => ({ ...s, rating }))}
+          onText={(text) => setStaff((s) => ({ ...s, text }))}
+        />
+      )}
+      <PartInput
+        label={`Branch — ${appointment.branchName ?? "Blush Spa"} (optional)`}
+        rating={branch.rating}
+        text={branch.text}
+        onRating={(rating) => setBranch((s) => ({ ...s, rating }))}
+        onText={(text) => setBranch((s) => ({ ...s, text }))}
       />
       {error && <p className="text-xs text-red-600">{error}</p>}
       <div className="flex gap-2">
@@ -158,6 +202,23 @@ function ReviewForm({
   );
 }
 
+function ReviewPartView({ label, part }: { label: string; part: ReviewPart | undefined }) {
+  if (!part) return null;
+  return (
+    <div className="mt-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/40">{label}</p>
+      {part.status === "visible" ? (
+        <>
+          <Stars value={part.rating} size="h-3.5 w-3.5" />
+          {part.text && <p className="mt-0.5 text-xs italic text-ink/50">&ldquo;{part.text}&rdquo;</p>}
+        </>
+      ) : (
+        <p className="text-xs text-ink/40">Hidden by the spa</p>
+      )}
+    </div>
+  );
+}
+
 export default function MyServicesList({
   appointments,
   clientId,
@@ -165,10 +226,31 @@ export default function MyServicesList({
 }: {
   appointments: RecentAppointment[];
   clientId: string;
-  initialReviews: Record<string, ServiceReview>;
+  initialReviews: Record<string, VisitReview>;
 }) {
   const [reviews, setReviews] = useState(initialReviews);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
+
+  async function refresh() {
+    setReviews(await getVisitReviews(createClient(), clientId));
+  }
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`my-reviews-${clientId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "reviews", filter: `client_id=eq.${clientId}` },
+        () => {
+          getVisitReviews(supabase, clientId).then(setReviews);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [clientId]);
 
   return (
     <div id="services" className="rounded-3xl border border-rose/60 bg-white p-5">
@@ -205,8 +287,9 @@ export default function MyServicesList({
 
               {completed && review && (
                 <div className="mt-1.5 pl-[60px]">
-                  <Stars value={review.rating} size="h-3.5 w-3.5" />
-                  {review.text && <p className="mt-0.5 text-xs italic text-ink/50">&ldquo;{review.text}&rdquo;</p>}
+                  <ReviewPartView label="Service" part={review.service} />
+                  <ReviewPartView label="Therapist" part={review.staff} />
+                  <ReviewPartView label="Branch" part={review.branch} />
                 </div>
               )}
 
@@ -216,19 +299,22 @@ export default function MyServicesList({
                     onClick={() => setReviewingId(a.id)}
                     className="flex items-center gap-1 text-xs font-semibold text-coral-dark hover:underline"
                   >
-                    <Star className="h-3.5 w-3.5" /> Rate &amp; Review
+                    <Star className="h-3.5 w-3.5" /> Rate your visit
                   </button>
                 </div>
               )}
 
               {completed && !review && reviewingId === a.id && (
-                <ReviewForm
+                <VisitReviewForm
                   appointment={a}
-                  clientId={clientId}
                   onCancel={() => setReviewingId(null)}
-                  onDone={(r) => {
-                    setReviews((prev) => ({ ...prev, [a.id]: r }));
+                  onDuplicate={() => {
                     setReviewingId(null);
+                    refresh();
+                  }}
+                  onDone={() => {
+                    setReviewingId(null);
+                    refresh();
                   }}
                 />
               )}

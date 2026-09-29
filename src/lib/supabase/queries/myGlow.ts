@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ReviewStatus, ReviewTarget } from "@/lib/reviews";
 
 export type UpcomingAppointment = {
   id: string;
@@ -19,22 +20,7 @@ export type RecentAppointment = {
   branchId: string | null;
   serviceName: string | null;
   professionalName: string | null;
-};
-
-export type ServiceReview = { rating: number; text: string | null };
-
-export type ReviewableProfessional = {
-  professionalId: string;
-  professionalName: string;
-};
-
-export type MyReview = {
-  id: string;
-  rating: number;
-  text: string | null;
-  createdAt: string;
-  targetType: "professional" | "branch";
-  targetName: string;
+  branchName: string | null;
 };
 
 type Rel<T> = T | T[] | null;
@@ -102,7 +88,7 @@ export async function getRecentAppointments(
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, scheduled_date, start_time, status, session_status, branch_id, notes, service:branch_services(name), professional:staff_members(full_name)"
+      "id, scheduled_date, start_time, status, session_status, branch_id, notes, service:branch_services(name), professional:staff_members(full_name), branch:branches(name)"
     )
     .eq("client_id", clientId)
     .order("scheduled_date", { ascending: false })
@@ -119,135 +105,113 @@ export async function getRecentAppointments(
     branchId: row.branch_id ?? null,
     serviceName: one(row.service)?.name ?? row.notes ?? null,
     professionalName: one(row.professional)?.full_name ?? null,
+    branchName: one(row.branch)?.name ?? null,
   }));
 }
 
-/** Reviews this client has already left on specific bookings, keyed by
- * appointment id — lets My Services show "your rating" instead of the
- * review form on anything already reviewed. */
-export async function getServiceReviews(
+export type ReviewPart = { rating: number; text: string | null; status: ReviewStatus };
+export type VisitReview = Partial<Record<ReviewTarget, ReviewPart>>;
+
+/** This client's reviews grouped by appointment — every status, so the
+ * client can see "Hidden by the spa" on parts an admin hid. */
+export async function getVisitReviews(
   supabase: SupabaseClient,
   clientId: string
-): Promise<Record<string, ServiceReview>> {
+): Promise<Record<string, VisitReview>> {
   const { data, error } = await supabase
     .from("reviews")
-    .select("appointment_id, rating, text")
+    .select("appointment_id, target_type, rating, text, status")
     .eq("client_id", clientId)
     .not("appointment_id", "is", null);
-
   if (error) {
-    // Before migration 046 the column doesn't exist — treat as "nothing reviewed yet".
-    console.warn("getServiceReviews unavailable:", error.message);
+    console.error("getVisitReviews failed:", error);
     return {};
   }
-  const map: Record<string, ServiceReview> = {};
-  for (const row of (data ?? []) as { appointment_id: string; rating: number; text: string | null }[]) {
-    map[row.appointment_id] = { rating: row.rating, text: row.text };
+  const map: Record<string, VisitReview> = {};
+  for (const row of (data ?? []) as {
+    appointment_id: string;
+    target_type: ReviewTarget;
+    rating: number;
+    text: string | null;
+    status: ReviewStatus;
+  }[]) {
+    (map[row.appointment_id] ??= {})[row.target_type] = { rating: row.rating, text: row.text, status: row.status };
   }
   return map;
 }
 
-export async function submitServiceReview(
+export type VisitReviewInput = {
+  appointmentId: string;
+  service: { rating: number; text: string };
+  staff: { rating: number; text: string } | null;
+  branch: { rating: number; text: string } | null;
+};
+
+export async function submitVisitReview(
   supabase: SupabaseClient,
-  params: { clientId: string; appointmentId: string; branchId: string; rating: number; text: string }
-): Promise<{ error: string | null }> {
-  const { error } = await supabase.from("reviews").insert({
-    client_id: params.clientId,
-    appointment_id: params.appointmentId,
-    branch_id: params.branchId,
-    rating: params.rating,
-    text: params.text.trim(),
+  input: VisitReviewInput
+): Promise<{ error: { message: string } | null }> {
+  const { error } = await supabase.rpc("submit_visit_review", {
+    p_appointment_id: input.appointmentId,
+    p_service_rating: input.service.rating,
+    p_service_text: input.service.text,
+    p_staff_rating: input.staff?.rating ?? null,
+    p_staff_text: input.staff?.text ?? null,
+    p_branch_rating: input.branch?.rating ?? null,
+    p_branch_text: input.branch?.text ?? null,
   });
-  if (error?.code === "23505") return { error: "You've already reviewed this service." };
-  return { error: error?.message ?? null };
+  return { error: error ? { message: error.message } : null };
 }
 
-export async function getReviewableProfessionals(
-  supabase: SupabaseClient,
-  clientId: string
-): Promise<ReviewableProfessional[]> {
-  const { data: completed, error: completedError } = await supabase
-    .from("appointments")
-    .select("professional_id, professional:staff_members(full_name)")
-    .eq("client_id", clientId)
-    .eq("status", "completed")
-    .not("professional_id", "is", null)
-    .order("scheduled_date", { ascending: false })
-    .order("start_time", { ascending: false });
+export type MyReview = {
+  id: string;
+  rating: number;
+  text: string | null;
+  createdAt: string;
+  targetType: ReviewTarget;
+  targetName: string;
+  status: ReviewStatus;
+};
 
-  if (completedError) console.error("getReviewableProfessionals (completed) failed:", completedError);
-
-  const { data: reviewed, error: reviewedError } = await supabase
-    .from("reviews")
-    .select("professional_id")
-    .eq("client_id", clientId)
-    .not("professional_id", "is", null);
-
-  if (reviewedError) console.error("getReviewableProfessionals (reviewed) failed:", reviewedError);
-
-  const reviewedIds = new Set(
-    (reviewed ?? []).map((r) => r.professional_id as string)
-  );
-  const seen = new Set<string>();
-  const result: ReviewableProfessional[] = [];
-
-  type CompletedRow = {
-    professional_id: string | null;
-    professional: Rel<{ full_name: string }>;
-  };
-
-  for (const row of (completed as unknown as CompletedRow[]) ?? []) {
-    if (!row.professional_id) continue;
-    if (reviewedIds.has(row.professional_id) || seen.has(row.professional_id)) continue;
-    seen.add(row.professional_id);
-    result.push({
-      professionalId: row.professional_id,
-      professionalName: one(row.professional)?.full_name ?? "Your therapist",
-    });
-  }
-
-  return result;
-}
-
-export async function getMyReviews(
-  supabase: SupabaseClient,
-  clientId: string
-): Promise<MyReview[]> {
+export async function getMyReviews(supabase: SupabaseClient, clientId: string): Promise<MyReview[]> {
   const { data, error } = await supabase
     .from("reviews")
     .select(
-      "id, rating, text, created_at, professional_id, branch_id, professional:professionals(name), branch:branches(name)"
+      "id, rating, text, created_at, target_type, status, staff:staff_members(full_name), branch:branches(name), service:branch_services(name), appointment:appointments(notes)"
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
-
   if (error) console.error("getMyReviews failed:", error);
 
-  type ReviewRow = {
+  type Row = {
     id: string;
     rating: number;
     text: string | null;
     created_at: string;
-    professional_id: string | null;
-    branch_id: string | null;
-    professional: Rel<{ name: string }>;
+    target_type: ReviewTarget;
+    status: ReviewStatus;
+    staff: Rel<{ full_name: string }>;
     branch: Rel<{ name: string }>;
+    service: Rel<{ name: string }>;
+    appointment: Rel<{ notes: string | null }>;
   };
 
-  return ((data as unknown as ReviewRow[]) ?? []).map((row) => {
-    const isProfessional = !!row.professional_id;
-    return {
-      id: row.id,
-      rating: row.rating,
-      text: row.text,
-      createdAt: row.created_at,
-      targetType: isProfessional ? "professional" : "branch",
-      targetName: isProfessional
-        ? one(row.professional)?.name ?? "Therapist"
-        : one(row.branch)?.name ?? "Blush Spa",
-    };
-  });
+  return ((data as unknown as Row[]) ?? []).map((row) => ({
+    id: row.id,
+    rating: row.rating,
+    text: row.text,
+    createdAt: row.created_at,
+    targetType: row.target_type,
+    status: row.status,
+    targetName:
+      row.target_type === "staff"
+        ? one(row.staff)?.full_name ?? "Your therapist"
+        : row.target_type === "branch"
+          ? one(row.branch)?.name ?? "Blush Spa"
+          : one(row.service)?.name ?? one(row.appointment)?.notes ?? "Service",
+  }));
 }
+
 
 export async function getVisitedBranches(
   supabase: SupabaseClient,
@@ -274,29 +238,6 @@ export async function getVisitedBranches(
   }
 
   return result;
-}
-
-export async function submitReview(
-  supabase: SupabaseClient,
-  params: {
-    clientId: string;
-    professionalId?: string;
-    branchId?: string;
-    rating: number;
-    text: string;
-  }
-): Promise<{ error: string | null }> {
-  if (!params.professionalId && !params.branchId) {
-    return { error: "Review must target a therapist or the spa." };
-  }
-  const { error } = await supabase.from("reviews").insert({
-    client_id: params.clientId,
-    professional_id: params.professionalId ?? null,
-    branch_id: params.branchId ?? null,
-    rating: params.rating,
-    text: params.text,
-  });
-  return { error: error?.message ?? null };
 }
 
 export type ClientAppointmentDetail = {
