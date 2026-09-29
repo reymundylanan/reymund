@@ -23,6 +23,9 @@ import PromoPopup from "@/components/my-glow/PromoPopup";
 import { getPromoForClient } from "@/lib/supabase/queries/promos";
 import RecommendedForYou from "@/components/my-glow/RecommendedForYou";
 import { getRecommendationsForClient } from "@/lib/supabase/queries/recommendations";
+import MessengerConnectCard from "@/components/notifications/MessengerConnectCard";
+import { getMyMessengerStatus } from "@/lib/supabase/queries/messenger";
+import { getMessengerConfig } from "@/lib/messenger/config";
 
 export default async function MyGlowPage() {
   const supabase = await createClient();
@@ -57,6 +60,9 @@ export default async function MyGlowPage() {
     ? await getRecommendationsForClient(supabase, auth.user.id, recommendBranchId)
     : [];
 
+  const messengerEnabled = getMessengerConfig() !== null;
+  const messengerStatus = messengerEnabled ? await getMyMessengerStatus(supabase, auth.user.id) : "none";
+
   return (
     <>
       {promo && <PromoPopup clientId={auth.user.id} promo={promo} />}
@@ -68,6 +74,7 @@ export default async function MyGlowPage() {
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="space-y-6">
               <UpcomingBookingCard appointment={upcoming} />
+              {messengerEnabled && <MessengerConnectCard userId={auth.user.id} initialStatus={messengerStatus} />}
               <ReviewsPanel
                 clientId={auth.user.id}
                 reviewable={reviewable}
