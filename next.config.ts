@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Dev only: lets a Cloudflare quick tunnel (used to test Messenger
+  // webhooks locally) load the dev server's assets.
+  allowedDevOrigins: ["*.trycloudflare.com"],
   images: {
     remotePatterns: [
       {

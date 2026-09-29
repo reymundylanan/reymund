@@ -51,7 +51,7 @@ broadcasts and the `?intent=booking` deep link.
    (`messaging_type: "UTILITY"`): created via
    `POST /<PAGE_ID>/message_templates` with `category: "UTILITY"`,
    auto-approved within seconds, sendable outside the 24h window.
-   Requires the `page_utility_messaging` permission on the Page token
+   Requires the `pages_utility_messaging` permission on the Page token
    and a webhook subscription to `message_template_status_update`.
    Template bodies may not start or end with a parameter and must not
    contain marketing content.
@@ -164,7 +164,7 @@ Idempotent:
 | Var | Purpose |
 |---|---|
 | `MESSENGER_PAGE_ID` | Page ID for Send API and templates |
-| `MESSENGER_PAGE_ACCESS_TOKEN` | Page token (needs `pages_messaging`, `page_utility_messaging`) |
+| `MESSENGER_PAGE_ACCESS_TOKEN` | Page token (needs `pages_messaging`, `pages_utility_messaging`) |
 | `MESSENGER_APP_SECRET` | Webhook signature verification |
 | `MESSENGER_VERIFY_TOKEN` | Webhook GET handshake |
 | `MESSENGER_DISPATCH_SECRET` | Auth for the dispatcher route |
@@ -462,7 +462,7 @@ Modified:
 ## 9. Go-live checklist (outside the codebase)
 
 1. Meta app: add Messenger product; connect the Page; generate a Page
-   access token with `pages_messaging` and `page_utility_messaging`.
+   access token with `pages_messaging` and `pages_utility_messaging`.
 2. Webhook: callback `https://<site>/api/messenger/webhook`, verify
    token = `MESSENGER_VERIFY_TOKEN`; subscribe the Page to `messages`,
    `messaging_postbacks`, `messaging_referrals`,
@@ -475,4 +475,4 @@ Modified:
    `APPROVED`.
 6. Development mode: add testers under App Roles.
 7. For real clients: submit App Review for `pages_messaging` and
-   `page_utility_messaging`, then switch the app to Live.
+   `pages_utility_messaging`, then switch the app to Live.

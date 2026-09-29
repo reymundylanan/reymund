@@ -47,7 +47,7 @@ the site. Design: `docs/superpowers/specs/2026-09-29-messenger-notifications-des
 Setup:
 
 1. **Meta app** — add the Messenger product, connect the Page, generate a
-   Page access token with `pages_messaging` and `page_utility_messaging`.
+   Page access token with `pages_messaging` and `pages_utility_messaging`.
 2. **Webhook** — callback `https://<site>/api/messenger/webhook`, verify
    token = `MESSENGER_VERIFY_TOKEN`; subscribe the Page to `messages`,
    `messaging_postbacks`, `messaging_referrals`,
@@ -66,7 +66,7 @@ Setup:
 6. **Testing** — in Development mode only people with a role on the Meta
    app receive messages; add testers under App Roles.
 7. **Real clients** — submit App Review for `pages_messaging` and
-   `page_utility_messaging`, then switch the app to Live.
+   `pages_utility_messaging`, then switch the app to Live.
 
 Promos and booking invites only reach clients who messaged the Page in the
 last 24 hours (Meta policy); the rest are recorded as skipped.
