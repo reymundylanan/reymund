@@ -24,10 +24,18 @@ const STATUS_STYLE = {
   removed: "bg-red-100 text-red-600",
 } as const;
 
+const STATUS_TABS: { label: string; status: ReviewFilters["status"] }[] = [
+  { label: "All", status: undefined },
+  { label: "Flagged", status: "flagged" },
+  { label: "Visible", status: "visible" },
+  { label: "Hidden", status: "hidden" },
+  { label: "Removed", status: "removed" },
+];
+
 function toQuery(f: ReviewFilters) {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(f)) {
-    if (v !== undefined && v !== "" && !(k === "page" && v === 1)) p.set(k, String(v));
+    if (v !== undefined && v !== "" && v !== false && !(k === "page" && v === 1)) p.set(k, v === true ? "1" : String(v));
   }
   const s = p.toString();
   return s ? `?${s}` : "";
@@ -92,7 +100,7 @@ export default function ReviewsManager({
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-4">
         {(["service", "staff", "branch"] as const).map((t) => (
           <div key={t} className="rounded-2xl bg-white p-4 shadow-sm">
             <p className="text-xs font-semibold uppercase text-ink/40">{TYPE_LABEL[t]}</p>
@@ -105,14 +113,6 @@ export default function ReviewsManager({
         <button onClick={() => apply({ ...filters, page: undefined, status: "new" })} className="rounded-2xl bg-white p-4 text-left shadow-sm">
           <p className="text-xs font-semibold uppercase text-ink/40">New</p>
           <p className="mt-1 text-xl font-semibold text-coral-dark">{stats.newCount}</p>
-        </button>
-        <button onClick={() => apply({ ...filters, page: undefined, status: "hidden" })} className="rounded-2xl bg-white p-4 text-left shadow-sm">
-          <p className="text-xs font-semibold uppercase text-ink/40">Hidden</p>
-          <p className="mt-1 text-xl font-semibold text-ink">{stats.hiddenCount}</p>
-        </button>
-        <button onClick={() => apply({ ...filters, page: undefined, status: "removed" })} className="rounded-2xl bg-white p-4 text-left shadow-sm">
-          <p className="text-xs font-semibold uppercase text-ink/40">Removed</p>
-          <p className="mt-1 text-xl font-semibold text-ink">{stats.removedCount}</p>
         </button>
       </div>
 
@@ -127,6 +127,40 @@ export default function ReviewsManager({
               {t ? TYPE_LABEL[t] : "All"}
             </button>
           ))}
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-medium">
+          {STATUS_TABS.map((t) => {
+            const active = filters.status === t.status;
+            const count =
+              t.status === "flagged" ? stats.flaggedCount : t.status === "hidden" ? stats.hiddenCount : t.status === "removed" ? stats.removedCount : null;
+            return (
+              <button
+                key={t.label}
+                onClick={() => apply({ ...filters, page: undefined, status: t.status })}
+                className={`rounded-full px-3 py-1 ${
+                  active
+                    ? t.status === "flagged"
+                      ? "bg-amber-500 text-white"
+                      : "bg-coral text-white"
+                    : t.status === "flagged"
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-blush text-ink/60"
+                }`}
+              >
+                {t.label}
+                {count !== null && ` (${count})`}
+              </button>
+            );
+          })}
+          <label className="ml-2 flex items-center gap-1.5 text-ink/70">
+            <input
+              type="checkbox"
+              checked={!!filters.photos}
+              onChange={(e) => apply({ ...filters, page: undefined, photos: e.target.checked ? true : undefined })}
+            />
+            With photos
+          </label>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -149,6 +183,7 @@ export default function ReviewsManager({
           <select className={select} value={filters.status ?? ""} onChange={(e) => apply({ ...filters, page: undefined, status: (e.target.value || undefined) as ReviewFilters["status"] })}>
             <option value="">Any status</option>
             <option value="new">New</option>
+            <option value="flagged">Flagged</option>
             <option value="visible">Visible</option>
             <option value="hidden">Hidden</option>
             <option value="removed">Removed</option>
@@ -186,6 +221,16 @@ export default function ReviewsManager({
                     {r.isNew && <span className="ml-2 text-[11px] font-semibold uppercase text-amber-600">New</span>}
                   </p>
                   {r.text && <p className="mt-0.5 truncate text-sm text-ink/60">{r.text}</p>}
+                  {(r.photoCount > 0 || r.reportCount > 0) && (
+                    <p className="mt-0.5 flex gap-3 text-xs font-medium">
+                      {r.photoCount > 0 && <span className="text-ink/60">📷 {r.photoCount}</span>}
+                      {r.reportCount > 0 && (
+                        <span className="text-amber-700">
+                          ⚑ {r.reportCount} {r.reportCount === 1 ? "report" : "reports"}
+                        </span>
+                      )}
+                    </p>
+                  )}
                   <p className="mt-0.5 text-xs text-ink/40">
                     {r.clientName} · {new Date(r.createdAt).toLocaleDateString("en-US", { timeZone: "Asia/Manila", dateStyle: "medium" })}
                   </p>

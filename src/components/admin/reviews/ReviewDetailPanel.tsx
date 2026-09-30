@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { X } from "lucide-react";
+import PhotoLightbox from "@/components/reviews/PhotoLightbox";
+import { REPORT_REASONS } from "@/lib/reviews";
 import { createClient } from "@/lib/supabase/client";
 import {
   getAdminReviewDetail,
@@ -18,6 +21,7 @@ const ACTIONS = {
     { action: "remove", label: "Remove" },
   ],
   flagged: [
+    { action: "keep", label: "Keep" },
     { action: "hide", label: "Hide" },
     { action: "remove", label: "Remove" },
   ],
@@ -42,6 +46,7 @@ export default function ReviewDetailPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   async function load() {
     const supabase = createClient();
@@ -60,19 +65,27 @@ export default function ReviewDetailPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewId]);
 
-  async function act(action: "hide" | "show" | "remove" | "restore") {
+  async function act(action: "hide" | "show" | "remove" | "restore" | "keep") {
     if (action === "remove" && !confirmRemove) {
       setConfirmRemove(true);
       return;
     }
     setBusy(true);
     setError(null);
-    const err = await moderateReview(createClient(), reviewId, action, reason);
+    const err = await moderateReview(createClient(), reviewId, action, action === "keep" ? "" : reason);
     setConfirmRemove(false);
     if (err) {
       setBusy(false);
       setError(err);
       return;
+    }
+    if (action === "remove") {
+      // Best-effort: delete the removed review's photo files; never block the UI on it.
+      fetch("/api/admin/review-photos/purge", { method: "POST", body: JSON.stringify({ reviewId }) })
+        .then((res) => {
+          if (!res.ok) console.warn(`Photo purge failed (${res.status}).`);
+        })
+        .catch(() => console.warn("Photo purge request failed."));
     }
     setReason("");
     await load();
@@ -104,6 +117,42 @@ export default function ReviewDetailPanel({
               <p className="mt-2 whitespace-pre-wrap text-ink/80">{detail.review.text ?? <span className="text-ink/40">No comment.</span>}</p>
               <p className="mt-2 text-xs capitalize text-ink/50">Status: {detail.review.status}</p>
             </div>
+
+            {detail.photos.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase text-ink/40">Photos</p>
+                <div className="mt-1 grid grid-cols-3 gap-2">
+                  {detail.photos.map((url, i) => (
+                    <button
+                      key={url}
+                      onClick={() => setLightboxIndex(i)}
+                      aria-label={`View photo ${i + 1}`}
+                      className="relative aspect-square overflow-hidden rounded-lg bg-blush"
+                    >
+                      <Image src={url} alt="" fill sizes="120px" unoptimized className="object-cover" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {detail.reports.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase text-ink/40">Reports ({detail.reports.length})</p>
+                <ul className="mt-1 space-y-2">
+                  {detail.reports.map((r) => (
+                    <li key={r.id} className="rounded-lg bg-amber-50 p-2 text-xs text-ink/70">
+                      <span className="font-semibold text-amber-700">{REPORT_REASONS.find((x) => x.value === r.reason)?.label ?? r.reason}</span>
+                      {r.note && <p className="mt-0.5 whitespace-pre-wrap">{r.note}</p>}
+                      <p className="mt-0.5 text-ink/40">
+                        {r.reporterName} ·{" "}
+                        {new Date(r.createdAt).toLocaleString("en-US", { timeZone: "Asia/Manila", dateStyle: "medium", timeStyle: "short" })}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {detail.appointment && (
               <div className="rounded-xl border border-ink/10 p-3">
@@ -181,6 +230,11 @@ export default function ReviewDetailPanel({
           </div>
         )}
       </aside>
+      {detail && lightboxIndex !== null && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <PhotoLightbox photos={detail.photos.map((url) => ({ url }))} startIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} />
+        </div>
+      )}
     </div>
   );
 }

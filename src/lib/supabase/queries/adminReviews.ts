@@ -13,12 +13,13 @@ export type ReviewFilters = {
   from?: string;
   to?: string;
   status?: ReviewStatus | "new";
+  photos?: boolean;
   q?: string;
   page?: number;
 };
 
 const TYPES = new Set(["service", "staff", "branch"]);
-const STATUSES = new Set(["visible", "hidden", "removed", "new"]);
+const STATUSES = new Set(["visible", "flagged", "hidden", "removed", "new"]);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 function validDate(v: string | undefined) {
@@ -40,6 +41,7 @@ export function parseReviewFilters(sp: Record<string, string | string[] | undefi
     from: validDate(get("from")),
     to: validDate(get("to")),
     status: STATUSES.has(get("status") ?? "") ? (get("status") as ReviewFilters["status"]) : undefined,
+    photos: get("photos") === "1" ? true : undefined,
     q: get("q")?.trim().slice(0, 100) || undefined,
     page: page >= 1 ? Math.floor(page) : 1,
   };
@@ -56,6 +58,8 @@ export type AdminReviewRow = {
   clientName: string;
   targetName: string;
   appointmentId: string | null;
+  photoCount: number;
+  reportCount: number;
 };
 
 type Rel<T> = T | T[] | null;
@@ -64,7 +68,7 @@ function one<T>(v: Rel<T>): T | null {
 }
 
 const LIST_SELECT =
-  "id, target_type, rating, text, status, created_at, admin_seen_at, appointment_id, client:profiles!reviews_client_id_fkey(full_name), staff:staff_members(full_name), branch:branches(name), service:branch_services(name)";
+  "id, target_type, rating, text, status, created_at, admin_seen_at, appointment_id, client:profiles!reviews_client_id_fkey(full_name), staff:staff_members(full_name), branch:branches(name), service:branch_services(name), review_photos(count), review_reports(count)";
 
 type RawRow = {
   id: string;
@@ -79,6 +83,8 @@ type RawRow = {
   staff: Rel<{ full_name: string }>;
   branch: Rel<{ name: string }>;
   service: Rel<{ name: string }>;
+  review_photos?: { count: number }[] | null;
+  review_reports?: { count: number }[] | null;
 };
 
 function toRow(r: RawRow): AdminReviewRow {
@@ -98,6 +104,8 @@ function toRow(r: RawRow): AdminReviewRow {
           ? one(r.branch)?.name ?? "Branch"
           : one(r.service)?.name ?? "Service",
     appointmentId: r.appointment_id,
+    photoCount: r.review_photos?.[0]?.count ?? 0,
+    reportCount: r.review_reports?.[0]?.count ?? 0,
   };
 }
 
@@ -106,7 +114,8 @@ function escapeLike(s: string) {
 }
 
 export async function listAdminReviews(supabase: SupabaseClient, f: ReviewFilters) {
-  let q = supabase.from("reviews").select(LIST_SELECT, { count: "exact" }).order("created_at", { ascending: false });
+  const select = f.photos ? `${LIST_SELECT}, has_photos:review_photos!inner(id)` : LIST_SELECT;
+  let q = supabase.from("reviews").select(select, { count: "exact" }).order("created_at", { ascending: false });
   if (f.type) q = q.eq("target_type", f.type);
   if (f.staff) q = q.eq("staff_id", f.staff);
   if (f.branch) q = q.eq("branch_id", f.branch);
@@ -132,12 +141,14 @@ export async function listAdminReviews(supabase: SupabaseClient, f: ReviewFilter
 }
 
 export async function getAdminReviewStats(supabase: SupabaseClient) {
-  const [visible, fresh, hidden, removed] = await Promise.all([
+  const [visible, fresh, hidden, removed, flagged] = await Promise.all([
     supabase.from("reviews").select("target_type, rating").eq("status", "visible"),
     supabase.from("reviews").select("id", { count: "exact", head: true }).is("admin_seen_at", null),
     supabase.from("reviews").select("id", { count: "exact", head: true }).eq("status", "hidden"),
     supabase.from("reviews").select("id", { count: "exact", head: true }).eq("status", "removed"),
+    supabase.from("reviews").select("id", { count: "exact", head: true }).eq("status", "flagged"),
   ]);
+  if (flagged.error) logQueryError("getAdminReviewStats flagged", flagged.error);
   const rows = (visible.data ?? []) as { target_type: ReviewTarget; rating: number }[];
   const byType = Object.fromEntries(
     (["service", "staff", "branch"] as ReviewTarget[]).map((t) => {
@@ -145,7 +156,7 @@ export async function getAdminReviewStats(supabase: SupabaseClient) {
       return [t, { average: s.average, count: s.count }];
     })
   ) as Record<ReviewTarget, { average: number; count: number }>;
-  return { byType, newCount: fresh.count ?? 0, hiddenCount: hidden.count ?? 0, removedCount: removed.count ?? 0 };
+  return { byType, newCount: fresh.count ?? 0, hiddenCount: hidden.count ?? 0, removedCount: removed.count ?? 0, flaggedCount: flagged.count ?? 0 };
 }
 
 export async function getReviewFilterOptions(supabase: SupabaseClient) {
@@ -179,15 +190,18 @@ export type AdminReviewDetail = {
     branchName: string | null;
   } | null;
   siblings: AdminReviewRow[];
+  photos: string[];
+  reports: { id: string; reason: string; note: string | null; reporterName: string; createdAt: string }[];
   history: { id: string; action: string; fromStatus: string; toStatus: string; reason: string | null; createdAt: string; actorName: string }[];
 };
 
 export async function getAdminReviewDetail(supabase: SupabaseClient, id: string): Promise<AdminReviewDetail | null> {
-  const { data } = await supabase.from("reviews").select(LIST_SELECT).eq("id", id).maybeSingle();
+  const { data, error: detailError } = await supabase.from("reviews").select(LIST_SELECT).eq("id", id).maybeSingle();
+  if (detailError) logQueryError("getAdminReviewDetail", detailError);
   if (!data) return null;
   const review = toRow(data as unknown as RawRow);
 
-  const [appt, siblings, history] = await Promise.all([
+  const [appt, siblings, history, photoRows, reportRows] = await Promise.all([
     review.appointmentId
       ? supabase
           .from("appointments")
@@ -203,7 +217,23 @@ export async function getAdminReviewDetail(supabase: SupabaseClient, id: string)
       .select("id, action, from_status, to_status, reason, created_at, actor:profiles(full_name)")
       .eq("review_id", id)
       .order("created_at", { ascending: false }),
+    supabase.from("review_photos").select("storage_path").eq("review_id", id).order("position", { ascending: true }),
+    supabase
+      .from("review_reports")
+      .select("id, reason, note, created_at, reporter:profiles!review_reports_reporter_id_fkey(full_name)")
+      .eq("review_id", id)
+      .order("created_at", { ascending: false }),
   ]);
+  if (photoRows.error) logQueryError("getAdminReviewDetail photos", photoRows.error);
+  if (reportRows.error) logQueryError("getAdminReviewDetail reports", reportRows.error);
+
+  const paths = ((photoRows.data ?? []) as { storage_path: string }[]).map((p) => p.storage_path);
+  let photos: string[] = [];
+  if (paths.length > 0) {
+    const { data: signed, error: signError } = await supabase.storage.from("review-photos").createSignedUrls(paths, 3600);
+    if (signError) logQueryError("getAdminReviewDetail sign photos", signError);
+    photos = (signed ?? []).map((s) => s.signedUrl).filter((u): u is string => !!u);
+  }
 
   const a = appt.data as unknown as {
     id: string;
@@ -230,6 +260,22 @@ export async function getAdminReviewDetail(supabase: SupabaseClient, id: string)
         }
       : null,
     siblings: ((siblings.data as unknown as RawRow[]) ?? []).map(toRow),
+    photos,
+    reports: (
+      (reportRows.data as unknown as {
+        id: string;
+        reason: string;
+        note: string | null;
+        created_at: string;
+        reporter: Rel<{ full_name: string | null }>;
+      }[]) ?? []
+    ).map((r) => ({
+      id: r.id,
+      reason: r.reason,
+      note: r.note,
+      reporterName: one(r.reporter)?.full_name ?? "Client",
+      createdAt: r.created_at,
+    })),
     history: (
       (history.data as unknown as {
         id: string;
@@ -255,7 +301,7 @@ export async function getAdminReviewDetail(supabase: SupabaseClient, id: string)
 export async function moderateReview(
   supabase: SupabaseClient,
   id: string,
-  action: "hide" | "show" | "remove" | "restore",
+  action: "hide" | "show" | "remove" | "restore" | "keep",
   reason: string
 ): Promise<string | null> {
   const { error } = await supabase.rpc("moderate_review", { p_review_id: id, p_action: action, p_reason: reason });
