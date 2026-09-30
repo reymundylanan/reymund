@@ -7,6 +7,7 @@ import { manilaScheduledAt, skipReason, type OutboxKind } from "@/lib/messenger/
 import { classifyGraphResponse, retryDelayMinutes, type SendOutcome } from "@/lib/messenger/errors";
 import { buildAppointmentTemplateMessage, buildButtonMessage } from "@/lib/messenger/messages";
 import type { AppointmentTemplateKind } from "@/lib/messenger/templates";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 import { sendToGraph } from "@/lib/messenger/graph";
 
 export const maxDuration = 60;
@@ -129,6 +130,30 @@ async function processRow(row: OutboxRow, supabase: SupabaseClient, config: Mess
     appt = data as unknown as AppointmentRow | null;
   }
 
+  let alreadyReviewed = false;
+  let bookedServiceName: string | null = null;
+  if (row.kind === "review_request" && row.appointment_id) {
+    const { data: existing, error: reviewError } = await supabase.from("reviews").select("id").eq("appointment_id", row.appointment_id).limit(1);
+    if (reviewError) {
+      throw reviewError;
+    }
+    alreadyReviewed = (existing?.length ?? 0) > 0;
+
+    if (!alreadyReviewed) {
+      const { data: booked, error: bookedError } = await supabase
+        .from("appointment_services")
+        .select("service_name, position")
+        .eq("appointment_id", row.appointment_id)
+        .order("position", { ascending: true });
+      if (bookedError) {
+        logQueryError("messenger dispatch appointment_services", bookedError);
+      } else {
+        const names = (booked ?? []).map((s) => (s.service_name as string | null)?.trim()).filter(Boolean);
+        bookedServiceName = names.length ? names.join(", ") : null;
+      }
+    }
+  }
+
   const reason = skipReason({
     kind: row.kind,
     subscription: sub ? { optedOutAt: sub.opted_out_at, lastInboundAt: sub.last_inbound_at } : null,
@@ -136,6 +161,7 @@ async function processRow(row: OutboxRow, supabase: SupabaseClient, config: Mess
       ? { status: appt.status, sessionStatus: appt.session_status, scheduledAt: manilaScheduledAt(appt.scheduled_date, appt.start_time) }
       : null,
     remindFor: row.remind_for,
+    alreadyReviewed,
     now: new Date(),
   });
 
@@ -153,11 +179,11 @@ async function processRow(row: OutboxRow, supabase: SupabaseClient, config: Mess
   }
 
   const payload =
-    appt && (row.kind === "reminder" || row.kind === "appointment_update")
+    appt && (row.kind === "reminder" || row.kind === "appointment_update" || row.kind === "review_request")
       ? buildAppointmentTemplateMessage(sub.psid, kind as AppointmentTemplateKind, {
           appointmentId: appt.id,
           firstName: (one(appt.client)?.full_name ?? "").split(" ")[0],
-          serviceName: one(appt.service)?.name ?? appt.notes ?? "",
+          serviceName: bookedServiceName ?? one(appt.service)?.name ?? appt.notes ?? "",
           branchName: one(appt.branch)?.name ?? "",
           scheduledDate: appt.scheduled_date,
           startTime: appt.start_time,
@@ -175,6 +201,9 @@ async function processRow(row: OutboxRow, supabase: SupabaseClient, config: Mess
 }
 
 function templateKind(row: OutboxRow): AppointmentTemplateKind | null {
+  if (row.kind === "review_request") {
+    return "review_request";
+  }
   if (row.kind === "reminder") {
     return "reminder";
   }

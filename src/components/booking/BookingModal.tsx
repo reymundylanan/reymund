@@ -21,6 +21,8 @@ import {
   isSlotFree,
   type BookedSlot,
 } from "@/lib/supabase/queries/availability";
+import { toAppointmentServiceRows } from "@/lib/bookedServices";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 type StaffMember = {
   id: string;
@@ -660,6 +662,13 @@ export default function BookingModal({
         setSaving(false);
         return false;
       }
+
+      const { error: servicesError } = await supabase
+        .from("appointment_services")
+        .insert(toAppointmentServiceRows(appt.id, selectedServices));
+      // The booking itself is already saved; a missing list only means
+      // reviews fall back to the notes text. Never fail the booking over it.
+      if (servicesError) logQueryError("BookingModal appointment_services", servicesError);
 
       if (contactPhone.trim()) {
         await supabase

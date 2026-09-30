@@ -1,4 +1,7 @@
+import Image from "next/image";
+import Link from "next/link";
 import { Star } from "lucide-react";
+import { isPublicStatus } from "@/lib/reviews";
 import type { MyReview } from "@/lib/supabase/queries/myGlow";
 
 const TYPE_LABEL = { service: "Service", staff: "Therapist", branch: "Branch" } as const;
@@ -28,11 +31,40 @@ export default function ReviewsPanel({ myReviews }: { myReviews: MyReview[] }) {
                 ))}
               </div>
             </div>
-            {r.status === "visible" ? (
-              r.text && <p className="mt-1 text-sm text-ink/60">{r.text}</p>
+            {isPublicStatus(r.status) ? (
+              r.text && <p className="mt-1 line-clamp-2 text-sm text-ink/60">{r.text}</p>
             ) : (
-              <p className="mt-1 text-xs text-ink/40">Hidden by the spa</p>
+              <p className="mt-1 text-xs text-ink/40">Hidden by GlowSync</p>
             )}
+            {r.photos.length > 0 && (
+              <div className="mt-2 flex gap-1.5">
+                {r.photos.slice(0, 5).map((url) => (
+                  <Image
+                    key={url}
+                    src={url}
+                    alt="Review photo"
+                    width={48}
+                    height={48}
+                    unoptimized
+                    className="h-12 w-12 rounded-lg object-cover"
+                  />
+                ))}
+              </div>
+            )}
+            <div className="mt-2 flex items-center justify-between gap-2 text-xs text-ink/40">
+              <span>
+                {new Date(r.createdAt).toLocaleDateString("en-US", { timeZone: "Asia/Manila", dateStyle: "medium" })}
+                {r.editedAt && " · Edited"}
+              </span>
+              {r.appointmentId && (
+                <Link
+                  href={`/my-glow?review=${r.appointmentId}#services`}
+                  className="font-semibold text-coral-dark hover:underline"
+                >
+                  View Review
+                </Link>
+              )}
+            </div>
           </div>
         ))}
       </div>

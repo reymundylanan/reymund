@@ -24,6 +24,7 @@ export function appointmentTemplateParams(kind: AppointmentTemplateKind, data: A
     orDefault(data.branchName, "Blush Spa"),
     formatAppointmentDate(data.scheduledDate),
   ];
+  if (kind === "review_request") return common.slice(0, 3);
   return kind === "reminder" || kind === "rescheduled" ? [...common, formatAppointmentTime(data.startTime)] : common;
 }
 

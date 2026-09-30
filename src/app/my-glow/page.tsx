@@ -6,10 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getUpcomingAppointment,
   getRecentAppointments,
+  getAppointmentForClient,
   getMyReviews,
   getVisitedBranches,
-  getVisitReviews,
 } from "@/lib/supabase/queries/myGlow";
+import { getVisitReviews } from "@/lib/supabase/queries/visitReviews";
 import UpcomingBookingCard from "@/components/my-glow/UpcomingBookingCard";
 import MyBookingsSection from "@/components/my-glow/MyBookingsSection";
 import MyServicesList from "@/components/my-glow/MyServicesList";
@@ -24,10 +25,20 @@ import MessengerConnectCard from "@/components/notifications/MessengerConnectCar
 import { getMyMessengerStatus } from "@/lib/supabase/queries/messenger";
 import { getMessengerConfig } from "@/lib/messenger/config";
 
-export default async function MyGlowPage() {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export default async function MyGlowPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ review?: string | string[] }>;
+}) {
+  const { review } = await searchParams;
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
-  if (!auth.user) redirect(loginRedirectPath("/my-glow"));
+  const reviewId = typeof review === "string" && UUID_RE.test(review) ? review : undefined;
+  if (!auth.user) {
+    redirect(loginRedirectPath(reviewId ? `/my-glow?review=${encodeURIComponent(reviewId)}` : "/my-glow"));
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -45,6 +56,11 @@ export default async function MyGlowPage() {
       getVisitedBranches(supabase, auth.user.id),
       getVisitReviews(supabase, auth.user.id),
     ]);
+
+  if (reviewId && !recent.some((a) => a.id === reviewId)) {
+    const linked = await getAppointmentForClient(supabase, auth.user.id, reviewId);
+    if (linked) recent.push(linked);
+  }
 
   let recommendBranchId = visitedBranches[0]?.id ?? null;
   if (!recommendBranchId) {
@@ -72,7 +88,9 @@ export default async function MyGlowPage() {
               <ReviewsPanel myReviews={myReviews} />
             </div>
             <div className="space-y-6">
-              <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews} />
+              <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews}
+                openReviewId={reviewId}
+              />
               <GlowRewardsCard points={profile.loyalty_points} />
             </div>
             <AssistantPanel firstName={profile.full_name.split(" ")[0]} />

@@ -5,16 +5,13 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import {
-  getVisitReviews,
-  submitVisitReview,
-  type RecentAppointment,
-  type ReviewPart,
-  type VisitReview,
-} from "@/lib/supabase/queries/myGlow";
-import { reviewErrorMessage } from "@/lib/reviews";
+import type { RecentAppointment } from "@/lib/supabase/queries/myGlow";
+import { getVisitReviews, type VisitReview } from "@/lib/supabase/queries/visitReviews";
+import { canEditReview, isPublicStatus, type ReviewStatus } from "@/lib/reviews";
 import { getServiceImage } from "@/lib/serviceImage";
 import { formatAppointmentDate } from "@/lib/appointmentFormat";
+import StarInput from "@/components/reviews/StarInput";
+import VisitReviewModal from "@/components/reviews/VisitReviewModal";
 
 const statusStyles: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
@@ -71,182 +68,47 @@ function displayStatus(a: RecentAppointment) {
   };
 }
 
-function Stars({ value, onChange, size = "h-5 w-5" }: { value: number; onChange?: (n: number) => void; size?: string }) {
-  return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          disabled={!onChange}
-          onClick={() => onChange?.(n)}
-          aria-label={`${n} star${n > 1 ? "s" : ""}`}
-          className={onChange ? "cursor-pointer" : "cursor-default"}
-        >
-          <Star className={`${size} ${n <= value ? "fill-amber-400 text-amber-400" : "text-ink/20"}`} />
-        </button>
-      ))}
-    </div>
+
+function allStatuses(review: VisitReview): ReviewStatus[] {
+  return [...review.services.map((s) => s.status), review.staff?.status, review.branch?.status].filter(
+    (s): s is ReviewStatus => !!s
   );
 }
 
-function PartInput({
-  label,
-  rating,
-  text,
-  onRating,
-  onText,
-}: {
-  label: string;
-  rating: number;
-  text: string;
-  onRating: (n: number) => void;
-  onText: (t: string) => void;
-}) {
-  return (
-    <div className="space-y-1">
-      <p className="text-xs font-semibold text-ink/70">{label}</p>
-      <Stars value={rating} onChange={onRating} />
-      <textarea
-        value={text}
-        onChange={(e) => onText(e.target.value)}
-        rows={2}
-        maxLength={1000}
-        placeholder="Tell us more (optional)"
-        className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm outline-none focus:border-coral"
-      />
-    </div>
-  );
-}
-
-function VisitReviewForm({
-  appointment,
-  onDone,
-  onDuplicate,
-  onCancel,
-}: {
-  appointment: RecentAppointment;
-  onDone: () => void | Promise<void>;
-  onDuplicate: () => void | Promise<void>;
-  onCancel: () => void;
-}) {
-  const [service, setService] = useState({ rating: 0, text: "" });
-  const [staff, setStaff] = useState({ rating: 0, text: "" });
-  const [branch, setBranch] = useState({ rating: 0, text: "" });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit() {
-    if (service.rating === 0) {
-      setError("Tap a star to rate the service.");
-      return;
-    }
-    if (appointment.professionalName && staff.text.trim() && staff.rating === 0) {
-      setError("Tap a star to rate your therapist.");
-      return;
-    }
-    if (appointment.branchId && branch.text.trim() && branch.rating === 0) {
-      setError("Tap a star to rate the branch.");
-      return;
-    }
-    setSaving(true);
-    setError(null);
-    const { error: rpcError } = await submitVisitReview(createClient(), {
-      appointmentId: appointment.id,
-      service,
-      staff: appointment.professionalName && staff.rating > 0 ? staff : null,
-      branch: appointment.branchId && branch.rating > 0 ? branch : null,
-    });
-    setSaving(false);
-    if (rpcError) {
-      setError(reviewErrorMessage(rpcError));
-      if (rpcError.message === "REVIEW_DUPLICATE") onDuplicate();
-      return;
-    }
-    onDone();
-  }
-
-  return (
-    <div className="mt-2 space-y-3 rounded-xl border border-ink/10 bg-blush/30 p-3">
-      <PartInput
-        label={`Service — ${appointment.serviceName ?? "your service"}`}
-        rating={service.rating}
-        text={service.text}
-        onRating={(rating) => setService((s) => ({ ...s, rating }))}
-        onText={(text) => setService((s) => ({ ...s, text }))}
-      />
-      {appointment.professionalName && (
-        <PartInput
-          label={`Your therapist — ${appointment.professionalName}`}
-          rating={staff.rating}
-          text={staff.text}
-          onRating={(rating) => setStaff((s) => ({ ...s, rating }))}
-          onText={(text) => setStaff((s) => ({ ...s, text }))}
-        />
-      )}
-      {appointment.branchId && (
-        <PartInput
-          label={`Branch — ${appointment.branchName ?? "Blush Spa"} (optional)`}
-          rating={branch.rating}
-          text={branch.text}
-          onRating={(rating) => setBranch((s) => ({ ...s, rating }))}
-          onText={(text) => setBranch((s) => ({ ...s, text }))}
-        />
-      )}
-      {error && <p className="text-xs text-red-600">{error}</p>}
-      <div className="flex gap-2">
-        <button
-          onClick={onCancel}
-          className="flex-1 rounded-full border border-ink/15 bg-white py-1.5 text-xs text-ink/60 hover:border-ink/30"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={submit}
-          disabled={saving}
-          className="flex-1 rounded-full bg-coral py-1.5 text-xs font-semibold text-white hover:bg-coral-dark disabled:opacity-50"
-        >
-          {saving ? "Submitting..." : "Submit Review"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function ReviewPartView({ label, part }: { label: string; part: ReviewPart | undefined }) {
-  if (!part) return null;
-  return (
-    <div className="mt-1">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink/40">{label}</p>
-      {part.status === "visible" ? (
-        <>
-          <Stars value={part.rating} size="h-3.5 w-3.5" />
-          {part.text && <p className="mt-0.5 text-xs italic text-ink/50">&ldquo;{part.text}&rdquo;</p>}
-        </>
-      ) : (
-        <p className="text-xs text-ink/40">Hidden by the spa</p>
-      )}
-    </div>
-  );
-}
+type ModalState = { id: string; mode: "submit" | "edit" | "view" } | null;
 
 export default function MyServicesList({
   appointments,
   clientId,
   initialReviews,
+  openReviewId,
 }: {
   appointments: RecentAppointment[];
   clientId: string;
   initialReviews: Record<string, VisitReview>;
+  openReviewId?: string;
 }) {
   const [reviews, setReviews] = useState(initialReviews);
-  const [reviewingId, setReviewingId] = useState<string | null>(null);
-  const [notices, setNotices] = useState<Record<string, string>>({});
+  const [modal, setModal] = useState<ModalState>(null);
+  const [handledId, setHandledId] = useState<string | undefined>(undefined);
   const router = useRouter();
+
+  // Deep link (?review=<id>), also on same-page soft navigation: open the
+  // modal when the visit is in the list and completed. Adjusted during render
+  // so the prop change is picked up without an effect-driven state update.
+  if (openReviewId !== handledId) {
+    setHandledId(openReviewId);
+    const target = openReviewId ? appointments.find((a) => a.id === openReviewId) : undefined;
+    if (target && isCompleted(target)) setModal({ id: target.id, mode: reviews[target.id] ? "view" : "submit" });
+  }
 
   async function refresh() {
     setReviews(await getVisitReviews(createClient(), clientId));
   }
+
+  useEffect(() => {
+    if (openReviewId) document.getElementById("services")?.scrollIntoView();
+  }, [openReviewId]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -265,6 +127,8 @@ export default function MyServicesList({
     };
   }, [clientId]);
 
+  const modalAppointment = modal ? appointments.find((a) => a.id === modal.id) : undefined;
+
   return (
     <div id="services" className="rounded-3xl border border-rose/60 bg-white p-5">
       <div className="flex items-center justify-between">
@@ -279,6 +143,11 @@ export default function MyServicesList({
           const status = displayStatus(a);
           const completed = isCompleted(a);
           const review = reviews[a.id];
+          const partHidden = review ? allStatuses(review).some((s) => !isPublicStatus(s)) : false;
+          const average =
+            review && review.services.length > 0
+              ? Math.round(review.services.reduce((n, s) => n + s.rating, 0) / review.services.length)
+              : 0;
           return (
             <div key={a.id}>
               <div className="flex items-center gap-3">
@@ -298,49 +167,65 @@ export default function MyServicesList({
                 </span>
               </div>
 
-              {completed && review && (
-                <div className="mt-1.5 pl-[60px]">
-                  <ReviewPartView label="Service" part={review.service} />
-                  <ReviewPartView label="Therapist" part={review.staff} />
-                  <ReviewPartView label="Branch" part={review.branch} />
-                </div>
-              )}
-
-              {completed && !review && reviewingId !== a.id && (
+              {completed && !review && (
                 <div className="mt-1.5 pl-[60px]">
                   <button
-                    onClick={() => setReviewingId(a.id)}
+                    onClick={() => setModal({ id: a.id, mode: "submit" })}
                     className="flex items-center gap-1 text-xs font-semibold text-coral-dark hover:underline"
                   >
-                    <Star className="h-3.5 w-3.5" /> Rate your visit
+                    <Star className="h-3.5 w-3.5" /> Rate &amp; Review
                   </button>
                 </div>
               )}
 
-              {completed && !review && notices[a.id] && reviewingId !== a.id && (
-                <p className="mt-1.5 pl-[60px] text-xs text-ink/50">{notices[a.id]}</p>
-              )}
-
-              {completed && !review && reviewingId === a.id && (
-                <VisitReviewForm
-                  appointment={a}
-                  onCancel={() => setReviewingId(null)}
-                  onDuplicate={async () => {
-                    setNotices((n) => ({ ...n, [a.id]: "You've already reviewed this visit." }));
-                    await refresh();
-                    setReviewingId(null);
-                  }}
-                  onDone={async () => {
-                    await refresh();
-                    setReviewingId(null);
-                    router.refresh();
-                  }}
-                />
+              {completed && review && (
+                <div className="mt-1.5 space-y-1 pl-[60px]">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <StarInput value={average} size="sm" />
+                    <span className="text-xs font-semibold text-green-700">Reviewed ✓</span>
+                    <button
+                      onClick={() => setModal({ id: a.id, mode: "view" })}
+                      className="text-xs font-semibold text-coral-dark hover:underline"
+                    >
+                      View My Review
+                    </button>
+                    {canEditReview(review.firstSubmittedAt, allStatuses(review)) && (
+                      <button
+                        onClick={() => setModal({ id: a.id, mode: "edit" })}
+                        className="text-xs font-semibold text-coral-dark hover:underline"
+                      >
+                        Edit Review
+                      </button>
+                    )}
+                  </div>
+                  {partHidden && (
+                    <p className="text-xs text-ink/50">Part of this review was hidden by GlowSync</p>
+                  )}
+                </div>
               )}
             </div>
           );
         })}
       </div>
+
+      {modal && modalAppointment && (
+        <VisitReviewModal
+          key={`${modal.id}-${modal.mode}`}
+          appointment={modalAppointment}
+          clientId={clientId}
+          existing={reviews[modal.id]}
+          mode={modal.mode}
+          onClose={() => {
+            setModal(null);
+            // Drop ?review= so the same "View Review" link can open it again.
+            if (openReviewId) router.replace("/my-glow#services", { scroll: false });
+          }}
+          onSaved={async () => {
+            await refresh();
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -17,13 +17,14 @@ import CommandCenter from "@/components/admin/dashboard/CommandCenter";
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
 
-  const [stats, bookingTrends, alerts, revenueByBranch, activity, newReviews] = await Promise.all([
+  const [stats, bookingTrends, alerts, revenueByBranch, activity, newReviews, flaggedReviews] = await Promise.all([
     getAdminStats(supabase),
     getBookingTrends(supabase),
     getPendingBookingAlerts(supabase),
     getRevenueByBranch(supabase),
     getRecentActivity(supabase),
     supabase.from("reviews").select("id", { count: "exact", head: true }).is("admin_seen_at", null),
+    supabase.from("reviews").select("id", { count: "exact", head: true }).eq("status", "flagged"),
   ]);
 
   return (
@@ -34,7 +35,7 @@ export default async function AdminDashboardPage() {
 
       <StatsCards stats={stats} />
 
-      <NewReviewsCard count={newReviews.count ?? 0} />
+      <NewReviewsCard count={newReviews.count ?? 0} flaggedCount={flaggedReviews.count ?? 0} />
 
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <BookingTrends bookingTrends={bookingTrends} />

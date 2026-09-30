@@ -51,3 +51,34 @@ describe("skipReason", () => {
     ).toBe("outside_24h_window");
   });
 });
+
+describe("skipReason review_request", () => {
+  const review = (o: Partial<SkipContext> = {}) =>
+    ctx({
+      kind: "review_request",
+      appointment: { status: "completed", sessionStatus: "completed", scheduledAt: "2026-10-01T06:30:00.000Z" },
+      remindFor: null,
+      ...o,
+    });
+
+  it("sends when not yet reviewed", () => {
+    expect(skipReason(review())).toBeNull();
+  });
+
+  it("skips when already reviewed", () => {
+    expect(skipReason(review({ alreadyReviewed: true }))).toBe("already_reviewed");
+  });
+
+  it("requires an appointment", () => {
+    expect(skipReason(review({ appointment: null }))).toBe("appointment_missing");
+  });
+
+  it("ignores the 24h window", () => {
+    expect(skipReason(review({ subscription: { ...sub, lastInboundAt: null } }))).toBeNull();
+  });
+
+  it("still honours subscription checks first", () => {
+    expect(skipReason(review({ subscription: null, alreadyReviewed: true }))).toBe("not_subscribed");
+    expect(skipReason(review({ subscription: { ...sub, optedOutAt: "2026-10-01T00:00:00Z" }, alreadyReviewed: true }))).toBe("opted_out");
+  });
+});

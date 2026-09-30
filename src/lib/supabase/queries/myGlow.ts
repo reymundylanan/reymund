@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ReviewStatus, ReviewTarget } from "@/lib/reviews";
 import { logQueryError } from "@/lib/supabase/logQueryError";
+import { orderedPhotoPaths, signReviewPhotos, type BookedService } from "@/lib/supabase/queries/visitReviews";
 
 export type UpcomingAppointment = {
   id: string;
@@ -22,6 +23,7 @@ export type RecentAppointment = {
   serviceName: string | null;
   professionalName: string | null;
   branchName: string | null;
+  bookedServices: BookedService[];
 };
 
 type Rel<T> = T | T[] | null;
@@ -84,124 +86,137 @@ export async function getUpcomingAppointment(
 export async function getRecentAppointments(
   supabase: SupabaseClient,
   clientId: string,
-  limit = 10
+  limit = 10,
+  onlyId?: string
 ): Promise<RecentAppointment[]> {
-  const { data, error } = await supabase
-    .from("appointments")
-    .select(
-      "id, scheduled_date, start_time, status, session_status, branch_id, notes, service:branch_services(name), professional:staff_members(full_name), branch:branches(name)"
-    )
-    .eq("client_id", clientId)
-    .order("scheduled_date", { ascending: false })
-    .order("start_time", { ascending: false })
-    .limit(limit);
+  const query = (select: string) => {
+    let q = supabase.from("appointments").select(select).eq("client_id", clientId);
+    if (onlyId) q = q.eq("id", onlyId);
+    return q.order("scheduled_date", { ascending: false }).order("start_time", { ascending: false }).limit(limit);
+  };
+  const base =
+    "id, scheduled_date, start_time, status, session_status, branch_id, service_id, notes, service:branch_services(name), professional:staff_members(full_name), branch:branches(name)";
+  const first = await query(`${base}, booked:appointment_services(position, service_id, service_name)`);
+  let data: unknown = first.data;
 
-  if (error) console.error("getRecentAppointments failed:", error);
-  return ((data as unknown as RawAppointmentRow[]) ?? []).map((row) => ({
-    id: row.id,
-    scheduledDate: row.scheduled_date,
-    startTime: row.start_time,
-    status: row.status,
-    sessionStatus: row.session_status ?? null,
-    branchId: row.branch_id ?? null,
-    serviceName: one(row.service)?.name ?? row.notes ?? null,
-    professionalName: one(row.professional)?.full_name ?? null,
-    branchName: one(row.branch)?.name ?? null,
-  }));
-}
-
-export type ReviewPart = { rating: number; text: string | null; status: ReviewStatus };
-export type VisitReview = Partial<Record<ReviewTarget, ReviewPart>>;
-
-/** This client's reviews grouped by appointment — every status, so the
- * client can see "Hidden by the spa" on parts an admin hid. */
-export async function getVisitReviews(
-  supabase: SupabaseClient,
-  clientId: string
-): Promise<Record<string, VisitReview>> {
-  const { data, error } = await supabase
-    .from("reviews")
-    .select("appointment_id, target_type, rating, text, status")
-    .eq("client_id", clientId)
-    .not("appointment_id", "is", null);
-  if (error) {
-    logQueryError("getVisitReviews", error);
-    return {};
+  if (first.error) {
+    // Before migration 051 the appointment_services embed fails; keep the
+    // list working with the single legacy service instead of going blank.
+    logQueryError("getRecentAppointments", first.error);
+    const fallback = await query(base);
+    if (fallback.error) logQueryError("getRecentAppointments fallback", fallback.error);
+    data = fallback.data;
   }
-  const map: Record<string, VisitReview> = {};
-  for (const row of (data ?? []) as {
-    appointment_id: string;
-    target_type: ReviewTarget;
-    rating: number;
-    text: string | null;
-    status: ReviewStatus;
-  }[]) {
-    (map[row.appointment_id] ??= {})[row.target_type] = { rating: row.rating, text: row.text, status: row.status };
-  }
-  return map;
-}
 
-export type VisitReviewInput = {
-  appointmentId: string;
-  service: { rating: number; text: string };
-  staff: { rating: number; text: string } | null;
-  branch: { rating: number; text: string } | null;
-};
-
-export async function submitVisitReview(
-  supabase: SupabaseClient,
-  input: VisitReviewInput
-): Promise<{ error: { message: string } | null }> {
-  const { error } = await supabase.rpc("submit_visit_review", {
-    p_appointment_id: input.appointmentId,
-    p_service_rating: input.service.rating,
-    p_service_text: input.service.text,
-    p_staff_rating: input.staff?.rating ?? null,
-    p_staff_text: input.staff?.text ?? null,
-    p_branch_rating: input.branch?.rating ?? null,
-    p_branch_text: input.branch?.text ?? null,
+  type Row = RawAppointmentRow & {
+    service_id?: string | null;
+    booked?: { position: number; service_id: string | null; service_name: string }[] | null;
+  };
+  return ((data as unknown as Row[]) ?? []).map((row) => {
+    const serviceName = one(row.service)?.name ?? row.notes ?? null;
+    const booked = [...(row.booked ?? [])].sort((a, b) => a.position - b.position);
+    return {
+      id: row.id,
+      scheduledDate: row.scheduled_date,
+      startTime: row.start_time,
+      status: row.status,
+      sessionStatus: row.session_status ?? null,
+      branchId: row.branch_id ?? null,
+      serviceName,
+      professionalName: one(row.professional)?.full_name ?? null,
+      branchName: one(row.branch)?.name ?? null,
+      bookedServices: booked.length
+        ? booked.map((b) => ({ position: b.position, serviceId: b.service_id, name: b.service_name }))
+        : [{ position: 0, serviceId: row.service_id ?? null, name: serviceName ?? "Your service" }],
+    };
   });
-  return { error: error ? { message: error.message } : null };
+}
+
+/** One appointment of this client by id (deep links to visits outside the recent list). */
+export async function getAppointmentForClient(
+  supabase: SupabaseClient,
+  clientId: string,
+  id: string
+): Promise<RecentAppointment | null> {
+  return (await getRecentAppointments(supabase, clientId, 1, id))[0] ?? null;
 }
 
 export type MyReview = {
   id: string;
+  appointmentId: string | null;
   rating: number;
   text: string | null;
   createdAt: string;
+  editedAt: string | null;
   targetType: ReviewTarget;
   targetName: string;
   status: ReviewStatus;
+  /** Signed URLs in position order. */
+  photos: string[];
 };
 
 export async function getMyReviews(supabase: SupabaseClient, clientId: string): Promise<MyReview[]> {
   const { data, error } = await supabase
     .from("reviews")
     .select(
-      "id, rating, text, created_at, target_type, status, staff:staff_members(full_name), branch:branches(name), service:branch_services(name), appointment:appointments(notes)"
+      "id, appointment_id, service_position, rating, text, created_at, edited_at, target_type, status, staff:staff_members(full_name), branch:branches(name), service:branch_services(name), appointment:appointments(notes), review_photos(storage_path, position)"
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
-  if (error) logQueryError("getMyReviews", error);
+  if (error) {
+    logQueryError("getMyReviews", error);
+    return [];
+  }
 
   type Row = {
     id: string;
+    appointment_id: string | null;
+    service_position: number | null;
     rating: number;
     text: string | null;
     created_at: string;
+    edited_at: string | null;
     target_type: ReviewTarget;
     status: ReviewStatus;
     staff: Rel<{ full_name: string }>;
     branch: Rel<{ name: string }>;
     service: Rel<{ name: string }>;
     appointment: Rel<{ notes: string | null }>;
+    review_photos: { storage_path: string; position: number }[] | null;
   };
 
-  return ((data as unknown as Row[]) ?? []).map((row) => ({
+  const rows = (data as unknown as Row[]) ?? [];
+  const urls = await signReviewPhotos(
+    supabase,
+    rows.flatMap((r) => orderedPhotoPaths(r.review_photos))
+  );
+
+  // Service parts whose branch service no longer resolves keep the name
+  // that was booked (appointment_services.service_name).
+  const unmatched = rows.filter((r) => r.target_type === "service" && !one(r.service) && r.appointment_id);
+  const bookedNames = new Map<string, string>();
+  if (unmatched.length > 0) {
+    const { data: booked, error: bookedError } = await supabase
+      .from("appointment_services")
+      .select("appointment_id, position, service_name")
+      .in("appointment_id", [...new Set(unmatched.map((r) => r.appointment_id as string))]);
+    if (bookedError) logQueryError("getMyReviews booked names", bookedError);
+    for (const b of (booked ?? []) as { appointment_id: string; position: number; service_name: string }[]) {
+      bookedNames.set(`${b.appointment_id}:${b.position}`, b.service_name);
+    }
+  }
+
+  return rows.map((row) => ({
     id: row.id,
+    appointmentId: row.appointment_id,
     rating: row.rating,
     text: row.text,
     createdAt: row.created_at,
+    editedAt: row.edited_at,
+    photos: orderedPhotoPaths(row.review_photos).flatMap((p) => {
+      const url = urls.get(p);
+      return url ? [url] : [];
+    }),
     targetType: row.target_type,
     status: row.status,
     targetName:
@@ -209,7 +224,10 @@ export async function getMyReviews(supabase: SupabaseClient, clientId: string): 
         ? one(row.staff)?.full_name ?? "Your therapist"
         : row.target_type === "branch"
           ? one(row.branch)?.name ?? "Blush Spa"
-          : one(row.service)?.name ?? one(row.appointment)?.notes ?? "Service",
+          : one(row.service)?.name ??
+            bookedNames.get(`${row.appointment_id}:${row.service_position}`) ??
+            one(row.appointment)?.notes ??
+            "Service",
   }));
 }
 

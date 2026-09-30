@@ -96,3 +96,9 @@ describe("button messages", () => {
     expect(text.endsWith("…")).toBe(true);
   });
 });
+
+describe("review request template params", () => {
+  it("returns first name, service and branch only", () => {
+    expect(appointmentTemplateParams("review_request", data)).toEqual(["Ana", "Signature Facial", "Robinsons"]);
+  });
+});
