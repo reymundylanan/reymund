@@ -65,15 +65,14 @@ real completed booking ("Verified Service").
   confirmed and that has no rows yet (the booking form, right after
   creating it). No client update/delete.
 - `BookingModal` inserts one row per selected service right after the
-  appointment insert. Walk-ins insert their single `service_id` row.
+  appointment insert. (Walk-ins have no client account, so they are never
+  reviewed and need no rows; the backfill covers their `service_id`.)
 - **Backfill:** for existing appointments with no rows: use
   `service_id` if set; else split the `notes` text before `" with "` on
   `", "` and match each name case-insensitively to that branch's
   `branch_services.name`. Unmatched names are skipped (those visits can
   still review therapist/branch; service part shows the text name and is
   stored with `service_id` null — never on a service page).
-- Helper `appointment_service_list(appt)` returns ordered
-  `(service_id, name)`; used by the form and the submit function.
 
 ### Reviews
 - New column `service_position smallint` (service parts only; = the
@@ -121,16 +120,16 @@ real completed booking ("Verified Service").
   note, created_at, unique (review_id, reporter_id))` → `REVIEW_REPORTED`
   on duplicate. First report moves visible → flagged (logged in
   `review_moderation_log` with actor = reporter, action `flag`).
-- `moderate_review` gains action `keep` (flagged → visible). `remove`
-  returns the review's photo paths; the admin UI then deletes the files
-  through an admin API route (service role).
-- Public read models (views, owner privileges, safe columns only):
-  `public_service_reviews` (service parts of One Cecilia Center rows:
-  id, service_id, rating, text, created_at, edited_at, reviewer "Maria
-  C.", staff_id, staff name, photo count) and `public_service_ratings`
-  (service_id, avg, count, per-star counts). `public_staff_reviews`
-  gains service name + service date + edited_at; a matching
-  `public_staff_ratings`.
+- `moderate_review` gains action `keep` (flagged → visible). After a
+  successful `remove`, the admin UI calls an admin API route (service
+  role) that deletes the review's photo files and rows.
+- Public read model (view, owner privileges, safe columns only):
+  `public_service_reviews` (service parts: id, service_id, rating, text,
+  created_at, edited_at, reviewer "Maria C.", staff_id, staff name,
+  service date, photo count); service pages only query One Cecilia Center
+  service ids. `public_staff_reviews` gains service name + service date +
+  edited_at. Averages and star counts are computed in the app from these
+  views (as the therapist pages already do).
 
 ### Review request notification
 - `client_notifications.kind` adds `review_request`; the 049 trigger
@@ -159,7 +158,8 @@ real completed booking ("Verified Service").
 - Submit disabled until every service block has stars. Progress
   "Uploading photos 2/4…" → "Thank you for your review! Your review has
   been added to GlowSync."
-- Errors: word filter → "Please remove inappropriate language."; any
+- Errors: word filter → the existing 048 message "Please keep your review
+  respectful and appropriate."; any
   failure keeps text/photos in the form; photos uploaded before a failed
   submit are deleted.
 - Edit mode: same form, prefilled, shows "Edited reviews show an Edited
