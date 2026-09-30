@@ -19,6 +19,7 @@ type Options = { staff: { id: string; name: string }[]; branches: { id: string; 
 const TYPE_LABEL = { service: "Service", staff: "Staff", branch: "Branch" } as const;
 const STATUS_STYLE = {
   visible: "bg-green-100 text-green-700",
+  flagged: "bg-amber-100 text-amber-700",
   hidden: "bg-amber-100 text-amber-700",
   removed: "bg-red-100 text-red-600",
 } as const;

@@ -17,6 +17,10 @@ const ACTIONS = {
     { action: "hide", label: "Hide" },
     { action: "remove", label: "Remove" },
   ],
+  flagged: [
+    { action: "hide", label: "Hide" },
+    { action: "remove", label: "Remove" },
+  ],
   hidden: [
     { action: "show", label: "Show" },
     { action: "remove", label: "Remove" },
