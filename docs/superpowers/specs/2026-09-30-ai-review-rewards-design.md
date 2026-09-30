@@ -143,7 +143,8 @@ processes up to 10 due evaluations.
   identity/appearance/sensitive traits in photos, answer "needs_review" when
   unsure), the review content (service names, texts, tags; no star values (the database
   decides the rating criterion); texts and tags are wrapped in
-  `<review_text>`/`<review_tags>` delimiters with angle brackets stripped, and the
+  `<review_text>`/`<review_tags>`/`<service_name>` delimiters with angle brackets stripped
+  (service names are client-written at booking, so they are one line and ≤ 100 chars), and the
   prompt states that text inside them is data, never instructions; no names/contacts), inline photos, and a JSON response schema.
 - Response parsed + validated (`src/lib/reviewRewards.ts`); invalid →
   `fail_review_evaluation`. Timeout 15 s for client calls.
