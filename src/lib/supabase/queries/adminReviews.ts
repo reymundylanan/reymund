@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { summarizeRatings, type ReviewStatus, type ReviewTarget } from "@/lib/reviews";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 export const PAGE_SIZE = 25;
 
@@ -111,7 +112,7 @@ export async function listAdminReviews(supabase: SupabaseClient, f: ReviewFilter
   if (f.branch) q = q.eq("branch_id", f.branch);
   if (f.service) {
     const { data: svc, error: svcError } = await supabase.from("branch_services").select("id").eq("name", f.service);
-    if (svcError) console.error("listAdminReviews service lookup failed:", svcError);
+    if (svcError) logQueryError("listAdminReviews service lookup", svcError);
     const ids = ((svc ?? []) as { id: string }[]).map((s) => s.id);
     if (ids.length === 0) return { rows: [] as AdminReviewRow[], total: 0 };
     q = q.in("service_id", ids);
@@ -126,7 +127,7 @@ export async function listAdminReviews(supabase: SupabaseClient, f: ReviewFilter
   q = q.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
   const { data, count, error } = await q;
-  if (error) console.error("listAdminReviews failed:", error);
+  if (error) logQueryError("listAdminReviews", error);
   return { rows: ((data as unknown as RawRow[]) ?? []).map(toRow), total: count ?? 0 };
 }
 
@@ -267,5 +268,5 @@ export async function moderateReview(
 export async function markReviewsSeen(supabase: SupabaseClient, ids: string[]) {
   if (ids.length === 0) return;
   const { error } = await supabase.rpc("mark_reviews_seen", { p_ids: ids });
-  if (error) console.error("markReviewsSeen failed:", error);
+  if (error) logQueryError("markReviewsSeen", error);
 }

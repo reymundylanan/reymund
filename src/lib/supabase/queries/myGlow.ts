@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ReviewStatus, ReviewTarget } from "@/lib/reviews";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 export type UpcomingAppointment = {
   id: string;
@@ -124,7 +125,7 @@ export async function getVisitReviews(
     .eq("client_id", clientId)
     .not("appointment_id", "is", null);
   if (error) {
-    console.error("getVisitReviews failed:", error);
+    logQueryError("getVisitReviews", error);
     return {};
   }
   const map: Record<string, VisitReview> = {};
@@ -181,7 +182,7 @@ export async function getMyReviews(supabase: SupabaseClient, clientId: string): 
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
-  if (error) console.error("getMyReviews failed:", error);
+  if (error) logQueryError("getMyReviews", error);
 
   type Row = {
     id: string;

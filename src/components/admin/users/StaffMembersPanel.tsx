@@ -12,6 +12,7 @@ import { getUpcomingApprovedLeaves } from "@/lib/supabase/queries/leaveRequests"
 import { getUpcomingApprovedTransfers } from "@/lib/supabase/queries/branchTransferRequests";
 import { toDateKey } from "@/lib/supabase/queries/staffShifts";
 import { summarizeRatings } from "@/lib/reviews";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 type Branch = { id: string; name: string };
 
@@ -80,7 +81,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
       .eq("target_type", "staff")
       .eq("status", "visible")
       .not("staff_id", "is", null);
-    if (error) console.error("loadRatings failed:", error);
+    if (error) logQueryError("loadRatings", error);
     const byStaff: Record<string, number[]> = {};
     for (const r of (data ?? []) as { staff_id: string; rating: number }[]) (byStaff[r.staff_id] ??= []).push(r.rating);
     setRatings(

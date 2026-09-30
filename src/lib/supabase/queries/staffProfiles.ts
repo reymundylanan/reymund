@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { summarizeRatings } from "@/lib/reviews";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 export type PublicStaff = {
   id: string;
@@ -37,7 +38,7 @@ export async function getPublicStaffList(supabase: SupabaseClient): Promise<Publ
     supabase.from("public_staff_profiles").select("id, full_name, department, branch_name, avatar_url").order("full_name"),
     supabase.from("public_staff_reviews").select("staff_id, rating"),
   ]);
-  if (error) console.error("getPublicStaffList failed:", error);
+  if (error) logQueryError("getPublicStaffList", error);
 
   const ratingsByStaff = new Map<string, number[]>();
   for (const r of (reviews ?? []) as { staff_id: string; rating: number }[]) {
@@ -60,8 +61,8 @@ export async function getPublicStaffProfile(supabase: SupabaseClient, id: string
       .eq("staff_id", id)
       .order("created_at", { ascending: false }),
   ]);
-  if (rowError) console.error("getPublicStaffProfile failed:", rowError);
-  if (error) console.error("getPublicStaffProfile reviews failed:", error);
+  if (rowError) logQueryError("getPublicStaffProfile", rowError);
+  if (error) logQueryError("getPublicStaffProfile reviews", error);
   if (!row) return null;
 
   const list = (reviews ?? []) as { id: string; rating: number; text: string | null; created_at: string; reviewer: string }[];

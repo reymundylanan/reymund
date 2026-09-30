@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { summarizeRatings, type ReviewStatus } from "@/lib/reviews";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 type Row = { id: string; rating: number; text: string | null; status: ReviewStatus; created_at: string };
 
@@ -20,7 +21,7 @@ export default function StaffRatingBlock({ staffId, showManageLink }: { staffId:
       .eq("staff_id", staffId)
       .order("created_at", { ascending: false })
       .then(({ data, error }) => {
-        if (error) console.error("StaffRatingBlock load failed:", error);
+        if (error) logQueryError("StaffRatingBlock load", error);
         if (!cancelled) setRows((data as Row[]) ?? []);
       });
     return () => {

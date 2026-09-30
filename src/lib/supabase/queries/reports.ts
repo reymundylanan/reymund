@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { summarizeRatings, type ReviewTarget } from "@/lib/reviews";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 export type ReportFilters = {
   branchId: string | null;
@@ -365,7 +366,7 @@ export async function getReviewsSummary(supabase: SupabaseClient, branchId: stri
     .order("created_at", { ascending: false });
   if (branchId) query = query.eq("branch_id", branchId);
   const { data, error } = await query;
-  if (error) console.error("getReviewsSummary failed:", error);
+  if (error) logQueryError("getReviewsSummary", error);
 
   const rows =
     (data as unknown as {

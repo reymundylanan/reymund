@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 export type ClientNotification = {
   id: string;
@@ -45,7 +46,7 @@ export async function listClientNotifications(
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error) {
-    console.error("listClientNotifications failed:", error);
+    logQueryError("listClientNotifications", error);
     return [];
   }
   return ((data ?? []) as Row[]).map(toClientNotification);
@@ -57,7 +58,7 @@ export async function markNotificationRead(supabase: SupabaseClient, id: string)
     .update({ read_at: new Date().toISOString() })
     .eq("id", id)
     .is("read_at", null);
-  if (error) console.error("markNotificationRead failed:", error);
+  if (error) logQueryError("markNotificationRead", error);
 }
 
 export async function markAllNotificationsRead(supabase: SupabaseClient, clientId: string) {
@@ -66,5 +67,5 @@ export async function markAllNotificationsRead(supabase: SupabaseClient, clientI
     .update({ read_at: new Date().toISOString() })
     .eq("client_id", clientId)
     .is("read_at", null);
-  if (error) console.error("markAllNotificationsRead failed:", error);
+  if (error) logQueryError("markAllNotificationsRead", error);
 }
