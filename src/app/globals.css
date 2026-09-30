@@ -49,3 +49,38 @@ body {
     animation: none;
   }
 }
+
+/* GlowSync side promo ad */
+.promo-ad-border {
+  background: linear-gradient(135deg, #8b5cf6, #ec4899, #3b82f6, #06b6d4, #f97316, #facc15);
+}
+
+.promo-ad-glow {
+  box-shadow: 0 12px 36px -10px rgba(236, 72, 153, 0.45), 0 6px 18px -8px rgba(139, 92, 246, 0.4);
+}
+
+@keyframes promo-ad-in-side {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes promo-ad-in-bottom {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.promo-ad-in {
+  animation: promo-ad-in-bottom 450ms ease-out both;
+}
+
+@media (min-width: 1024px) {
+  .promo-ad-in {
+    animation-name: promo-ad-in-side;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promo-ad-in {
+    animation: none;
+  }
+}

@@ -5,6 +5,7 @@ import LoginModal from "@/components/auth/LoginModal";
 
 type LoginModalContextValue = {
   open: () => void;
+  isOpen: boolean;
 };
 
 const LoginModalContext = createContext<LoginModalContextValue | null>(null);
@@ -13,7 +14,7 @@ export function LoginModalProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <LoginModalContext.Provider value={{ open: () => setIsOpen(true) }}>
+    <LoginModalContext.Provider value={{ open: () => setIsOpen(true), isOpen }}>
       {children}
       {isOpen && <LoginModal onClose={() => setIsOpen(false)} />}
     </LoginModalContext.Provider>

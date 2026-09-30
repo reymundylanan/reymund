@@ -26,8 +26,8 @@ type Promotion = {
 
 type PromoStatus = "Scheduled" | "Active" | "Expired" | "Inactive";
 
-/** Mirrors the date-window logic the client-facing popup already
- * applies (see getPromoForClient) — this is purely a display label so
+/** Mirrors the date-window logic the client-facing side ad already
+ * applies (see PromoSideAd) — this is purely a display label so
  * admins can see, before saving, whether a promo will actually show up
  * on the Client Page right now. */
 function computePromoStatus(validFrom: string, validUntil: string, isActive: boolean): PromoStatus {
