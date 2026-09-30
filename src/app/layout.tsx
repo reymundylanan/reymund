@@ -5,6 +5,7 @@ import { BookingProvider } from "@/components/booking/BookingContext";
 import { LoginModalProvider } from "@/components/auth/LoginModalContext";
 import ChatWidgetWrapper from "@/components/ChatWidgetWrapper";
 import IntentHandler from "@/components/notifications/IntentHandler";
+import ClientNotificationToaster from "@/components/notifications/ClientNotificationToaster";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -45,6 +46,7 @@ export default function RootLayout({
             </Suspense>
           </BookingProvider>
           <ChatWidgetWrapper />
+          <ClientNotificationToaster />
         </LoginModalProvider>
       </body>
     </html>
