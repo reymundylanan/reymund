@@ -357,7 +357,7 @@ begin
   end if;
   select client_id, status::text, session_status into v_appt_client, v_appt_status, v_appt_session
     from appointments where id = p_appointment_id;
-  if v_appt_client is null or v_appt_status = 'cancelled' or coalesce(v_appt_session, '') = 'no_show' then
+  if v_appt_client is null or v_appt_status = 'cancelled' or coalesce(v_appt_session, '') in ('no_show', 'paid') then
     raise exception 'VOUCHER_INVALID';
   end if;
   select * into v_v from reward_vouchers where code = upper(btrim(coalesce(p_code, ''))) for update;
@@ -488,7 +488,9 @@ begin
   perform set_config('glowsync.points_rpc', 'off', true);
   insert into client_notifications (client_id, kind, title, body, link_path)
   values (p_client_id, 'points_adjusted', 'GlowPoints updated',
-          case when p_points > 0 then '+' else '' end || p_points || ' GlowPoints: ' || v_reason,
+          case when p_points > 0
+               then '+' || p_points || ' GlowPoints were added to your balance by GlowSync.'
+               else 'GlowSync adjusted your balance by ' || p_points || ' GlowPoints.' end,
           '/my-glow#rewards');
   return v_balance;
 end;

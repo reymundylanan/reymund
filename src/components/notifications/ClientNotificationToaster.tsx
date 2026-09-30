@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, CalendarX, Sparkles, Star, X } from "lucide-react";
+import { CalendarCheck, CalendarX, Gift, Sparkles, Star, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { toClientNotification, type ClientNotification } from "@/lib/supabase/queries/clientNotifications";
@@ -51,7 +51,9 @@ export default function ClientNotificationToaster() {
         >
           {t.kind === "confirmed" ? (
             <CalendarCheck className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-          ) : t.kind === "review_reward" ? (
+          ) : t.kind === "voucher_expired" || t.kind === "voucher_cancelled" ? (
+            <Gift className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
+          ) : t.kind === "review_reward" || t.kind === "points_adjusted" ? (
             <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
           ) : t.kind === "review_request" ? (
             <Star className="mt-0.5 h-5 w-5 shrink-0 fill-gold text-gold" />

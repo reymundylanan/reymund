@@ -41,6 +41,16 @@ export type DeskVouchersResult =
   /** Any other load failure: the caller must not assume there is no voucher. */
   | { status: "error" };
 
+/**
+ * True when a fresh server read agrees with the voucher discount the payment
+ * screen is about to charge against. A failed read never matches (fail closed).
+ */
+export function voucherDiscountMatches(result: DeskVouchersResult, expectedDiscount: number): boolean {
+  if (result.status === "error") return false;
+  const actual = result.status === "ok" ? (result.applied?.discountApplied ?? 0) : 0;
+  return Math.round(actual * 100) === Math.round(expectedDiscount * 100);
+}
+
 export async function getDeskVouchers(
   supabase: SupabaseClient,
   clientId: string,

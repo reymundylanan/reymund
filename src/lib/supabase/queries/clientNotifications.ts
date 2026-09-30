@@ -1,9 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 
+export type NotificationKind =
+  | "confirmed"
+  | "cancelled"
+  | "review_request"
+  | "review_reward"
+  | "voucher_expired"
+  | "voucher_cancelled"
+  | "points_adjusted";
+
 export type ClientNotification = {
   id: string;
-  kind: "confirmed" | "cancelled" | "review_request" | "review_reward";
+  kind: NotificationKind;
   title: string;
   body: string;
   linkPath: string;
@@ -13,7 +22,7 @@ export type ClientNotification = {
 
 type Row = {
   id: string;
-  kind: "confirmed" | "cancelled" | "review_request" | "review_reward";
+  kind: NotificationKind;
   title: string;
   body: string;
   link_path: string;

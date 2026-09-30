@@ -191,6 +191,7 @@ export async function listVouchers(
 
 export async function cancelVoucher(supabase: SupabaseClient, id: string, reason: string): Promise<string | null> {
   const { error } = await supabase.rpc("cancel_voucher", { p_voucher_id: id, p_reason: reason.trim() });
+  if (error?.message?.includes("VOUCHER_INVALID")) return "This voucher is no longer active — refresh the list.";
   return rpcMessage(error);
 }
 

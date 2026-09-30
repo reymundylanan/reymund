@@ -76,6 +76,9 @@ export default function RedemptionAdmin() {
   } | null>(null);
   const [vouchersStatus, setVouchersStatus] = useState<"loading" | "ok" | "unavailable" | "error">("loading");
   const voucherReq = useRef(0);
+  // Synchronous double-click guards (state updates lag a fast second click).
+  const adjustInFlight = useRef(false);
+  const toggleInFlight = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -221,9 +224,15 @@ export default function RedemptionAdmin() {
   }
 
   async function toggleActive(o: OptionInput & { id: string }) {
-    const err = await saveOption(createClient(), { ...o, active: !o.active });
-    if (err) showToast(err);
-    else await refreshOptions();
+    if (toggleInFlight.current) return;
+    toggleInFlight.current = true;
+    try {
+      const err = await saveOption(createClient(), { ...o, active: !o.active });
+      if (err) showToast(err);
+      else await refreshOptions();
+    } finally {
+      toggleInFlight.current = false;
+    }
   }
 
   async function submitCancel() {
@@ -274,9 +283,15 @@ export default function RedemptionAdmin() {
   }
 
   async function submitAdjust() {
-    if (!client) return;
+    if (!client || adjustInFlight.current) return;
+    adjustInFlight.current = true;
     setAdjusting(true);
-    const r = await adjustPoints(createClient(), client.id, pointsNum, reason);
+    let r: Awaited<ReturnType<typeof adjustPoints>>;
+    try {
+      r = await adjustPoints(createClient(), client.id, pointsNum, reason);
+    } finally {
+      adjustInFlight.current = false;
+    }
     setAdjusting(false);
     setConfirmAdjust(false);
     if ("error" in r) {

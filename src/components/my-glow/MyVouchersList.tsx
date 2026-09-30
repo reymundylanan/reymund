@@ -40,7 +40,13 @@ export function CopyCodeButton({ code }: { code: string }) {
   );
 }
 
+/** An active voucher whose expiry has passed but the nightly job has not run yet. */
+function isLapsed(v: Voucher): boolean {
+  return v.status === "active" && expiryLabel(v.expiresAt).text === "Expired";
+}
+
 function inactiveNote(v: Voucher): string {
+  if (isLapsed(v)) return "Expired — points return tonight";
   if (v.status === "used") {
     const when = v.usedAt ? `Used ${formatDate(v.usedAt)}` : "Used";
     return v.discountApplied !== null ? `${when} · −${peso(v.discountApplied)}` : when;
@@ -52,13 +58,14 @@ function inactiveNote(v: Voucher): string {
 export default function MyVouchersList({ vouchers }: { vouchers: Voucher[] }) {
   if (vouchers.length === 0) return null;
   const sorted = sortVouchers(vouchers);
+  const sortedVouchers = [...sorted.filter((v) => !isLapsed(v)), ...sorted.filter(isLapsed)];
 
   return (
     <div className="mt-6">
       <h4 className="text-sm font-semibold text-ink">My Vouchers</h4>
       <ul className="mt-2 space-y-2">
-        {sorted.map((v) => {
-          if (v.status !== "active") {
+        {sortedVouchers.map((v) => {
+          if (v.status !== "active" || isLapsed(v)) {
             return (
               <li key={v.id} className="rounded-2xl border border-ink/10 bg-ink/5 px-3 py-2 text-ink/50">
                 <p className="text-sm font-medium">{v.name}</p>

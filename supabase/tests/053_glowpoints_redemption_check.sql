@@ -440,7 +440,7 @@ do $$ declare v_bal integer; begin
   if v_bal = 750
      and (select lifetime_earned from client_rewards where client_id = ':CLIENT_ID') = 1250
      and (select loyalty_points from profiles where id = ':CLIENT_ID') = 750
-     and (select count(*) from client_notifications where client_id = ':CLIENT_ID' and kind = 'points_adjusted') = 1 then
+     and (select count(*) from client_notifications where client_id = ':CLIENT_ID' and kind = 'points_adjusted' and body = '+50 GlowPoints were added to your balance by GlowSync.') = 1 then
     raise notice 'PASS +50 adjustment: balance 750, lifetime_earned 1250, bell sent';
   else raise warning 'FAIL adjustment result %', v_bal; end if;
 end $$;

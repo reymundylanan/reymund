@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { applyVoucher, getDeskVouchers, undoVoucher } from "./frontdeskVouchers";
+import { applyVoucher, getDeskVouchers, undoVoucher, voucherDiscountMatches, type DeskVouchersResult } from "./frontdeskVouchers";
 
 function fake(result: { data: unknown; error: { message: string } | null }) {
   const calls: { fn: string; args: unknown }[] = [];
@@ -82,5 +82,28 @@ describe("getDeskVouchers", () => {
       client({ data: null, error: { message: "boom", code: "XX000" } }, { data: null, error: null }), "c", "appt"
     );
     expect(res).toEqual({ status: "error" });
+  });
+});
+
+describe("voucherDiscountMatches", () => {
+  const voucher = { id: "v", code: "GLOW-AAAA-BBBB", name: "x", discountAmount: 100, expiresAt: "", status: "used", discountApplied: 50 };
+  const ok = (applied: typeof voucher | null): DeskVouchersResult => ({ status: "ok", applied, available: [], maxPerBooking: 100 });
+
+  it("matches when the applied discount equals the expected one", () => {
+    expect(voucherDiscountMatches(ok(voucher), 50)).toBe(true);
+  });
+  it("matches no voucher with a zero discount", () => {
+    expect(voucherDiscountMatches(ok(null), 0)).toBe(true);
+  });
+  it("differs when a voucher was applied or removed elsewhere", () => {
+    expect(voucherDiscountMatches(ok(voucher), 0)).toBe(false);
+    expect(voucherDiscountMatches(ok(null), 50)).toBe(false);
+  });
+  it("treats unavailable as no voucher", () => {
+    expect(voucherDiscountMatches({ status: "unavailable" }, 0)).toBe(true);
+    expect(voucherDiscountMatches({ status: "unavailable" }, 50)).toBe(false);
+  });
+  it("fails closed on a load error", () => {
+    expect(voucherDiscountMatches({ status: "error" }, 0)).toBe(false);
   });
 });

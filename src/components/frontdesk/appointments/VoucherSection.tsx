@@ -26,6 +26,7 @@ export default function VoucherSection({
   paid,
   onChange,
   onStateChange,
+  reloadKey = 0,
 }: {
   appointmentId: string;
   clientId: string | null;
@@ -33,6 +34,8 @@ export default function VoucherSection({
   paid: boolean;
   onChange: (discount: number) => void;
   onStateChange: (state: VoucherState) => void;
+  /** Bump to force a fresh load from the server (e.g. the payment pre-check found a mismatch). */
+  reloadKey?: number;
 }) {
   const [state, setState] = useState<Load>({ status: "loading" });
   const [busy, setBusyState] = useState(false);
@@ -63,7 +66,7 @@ export default function VoucherSection({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch of this client's vouchers
     load();
-  }, [load]);
+  }, [load, reloadKey]);
 
   if (!clientId || state.status === "unavailable") return null;
 
@@ -109,7 +112,8 @@ export default function VoucherSection({
     setError(null);
     const result = await applyVoucher(createClient(), appointmentId, normalized, remainingBeforeVoucher);
     if ("error" in result) {
-      setBusy(false);
+      // The response may have been lost after the server applied it: resync before showing the error.
+      await load();
       setError(result.error);
       return;
     }
@@ -122,7 +126,7 @@ export default function VoucherSection({
     setError(null);
     const message = await undoVoucher(createClient(), voucherId);
     if (message) {
-      setBusy(false);
+      await load();
       setError(message);
       return;
     }

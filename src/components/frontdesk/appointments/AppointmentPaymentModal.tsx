@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getDeskVouchers, voucherDiscountMatches } from "@/lib/supabase/queries/frontdeskVouchers";
 import { markPaid, updateSessionStatus } from "@/lib/supabase/queries/appointments";
 import VoucherSection, { type VoucherState } from "@/components/frontdesk/appointments/VoucherSection";
 import { clientInfo, appointmentStaffName, appointmentServiceName, type AppointmentRow } from "@/components/frontdesk/appointments/utils";
@@ -47,17 +48,30 @@ export default function AppointmentPaymentModal({
   const [changeGiven, setChangeGiven] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [voucherReloadKey, setVoucherReloadKey] = useState(0);
 
   const total = Math.max(servicePrice + appointment.additional_charges - discount - voucherDiscount, 0);
   const remainingBeforeVoucher = Math.max(servicePrice + appointment.additional_charges - discount - advanceTotal, 0);
   const remainingBalance = Math.max(total - advanceTotal, 0);
   const isFullyCoveredByAdvance = remainingBalance <= 0;
+  // Advance payments alone settle it (no voucher needed); otherwise a voucher/discount did.
+  const coveredByAdvanceOnly = advanceTotal > 0 && remainingBeforeVoucher <= 0;
   // A voucher that took effect leaves remainingBeforeVoucher > 0, so this only locks
   // undo once advance/cash payment (not the voucher) has settled the booking.
   const voucherLocked = cashJustRecorded || remainingBeforeVoucher <= 0 || appointment.session_status === "paid";
   const totalPaid = advanceTotal + (cashJustRecorded ? remainingBalance : 0);
   const cashReceivedNum = Number(cashReceived) || 0;
   const change = cashReceivedNum - remainingBalance;
+
+  /** Re-reads the voucher from the server right before money moves; aborts and resyncs on any mismatch. */
+  async function voucherStillCurrent(): Promise<boolean> {
+    if (!appointment.client_id) return true;
+    const fresh = await getDeskVouchers(createClient(), appointment.client_id, appointment.id);
+    if (voucherDiscountMatches(fresh, voucherDiscount)) return true;
+    setVoucherReloadKey((k) => k + 1);
+    setError("The voucher changed — please check the total and try again.");
+    return false;
+  }
 
   async function confirmCash() {
     if (cashReceivedNum < remainingBalance) {
@@ -66,6 +80,10 @@ export default function AppointmentPaymentModal({
     }
     setSaving(true);
     setError(null);
+    if (!(await voucherStillCurrent())) {
+      setSaving(false);
+      return;
+    }
     const supabase = createClient();
     const result = await markPaid(supabase, { appointmentId: appointment.id, amount: remainingBalance, method: "cash" });
     setSaving(false);
@@ -81,6 +99,10 @@ export default function AppointmentPaymentModal({
   async function acknowledgeFullyPaid() {
     setSaving(true);
     setError(null);
+    if (!(await voucherStillCurrent())) {
+      setSaving(false);
+      return;
+    }
     const supabase = createClient();
     const result = await updateSessionStatus(supabase, appointment.id, "paid");
     setSaving(false);
@@ -131,7 +153,9 @@ export default function AppointmentPaymentModal({
               {changeGiven > 0 && <span className="text-xs text-green-700">Change given: {peso(changeGiven)}</span>}
             </div>
           ) : isFullyCoveredByAdvance ? (
-            <p className="mt-1.5 text-sm text-ink/40">Fully covered by advance payment.</p>
+            <p className="mt-1.5 text-sm text-ink/40">
+              {coveredByAdvanceOnly ? "Fully covered by advance payment." : "Nothing left to pay."}
+            </p>
           ) : !recordingCash ? (
             <>
               <p className="mt-1.5 text-sm text-ink/60">
@@ -195,6 +219,7 @@ export default function AppointmentPaymentModal({
           paid={voucherLocked}
           onChange={setVoucherDiscount}
           onStateChange={setVoucherState}
+          reloadKey={voucherReloadKey}
         />
 
         <div className="mt-3 space-y-1.5 rounded-xl bg-blush/40 p-3 text-sm">
