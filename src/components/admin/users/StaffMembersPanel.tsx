@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { ArrowLeftRight, Camera, CalendarOff, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeftRight, Camera, CalendarOff, MoreHorizontal, Pencil, Plus, Star, Trash2, X } from "lucide-react";
+import StaffRatingBlock from "@/components/staff/StaffRatingBlock";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import AvatarCropModal from "@/components/admin/users/AvatarCropModal";
@@ -62,6 +62,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
   const [leaveDatesByStaff, setLeaveDatesByStaff] = useState<Record<string, string[]>>({});
   const [transfersByStaff, setTransfersByStaff] = useState<Record<string, { dates: string[]; branchName: string }>>({});
   const [ratings, setRatings] = useState<Record<string, { average: number; count: number }>>({});
+  const [reviewsTarget, setReviewsTarget] = useState<StaffMember | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function load() {
@@ -79,7 +80,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
       .from("reviews")
       .select("staff_id, rating")
       .eq("target_type", "staff")
-      .eq("status", "visible")
+      .in("status", ["visible", "flagged"])
       .not("staff_id", "is", null);
     if (error) logQueryError("loadRatings", error);
     const byStaff: Record<string, number[]> = {};
@@ -310,13 +311,18 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                   </td>
                   <td className="px-4 py-4 text-ink/60">{m.phone ?? <span className="text-ink/30">—</span>}</td>
                   <td className="px-4 py-4 text-ink/60">
-                    {ratings[m.id] ? (
-                      <Link href={`/admin/reviews?staff=${m.id}`} className="hover:text-coral-dark hover:underline">
-                        ★ {ratings[m.id].average} · {ratings[m.id].count}
-                      </Link>
-                    ) : (
-                      <span className="text-ink/30">—</span>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setReviewsTarget(m)}
+                      aria-label={`View reviews for ${m.full_name}`}
+                      className="hover:text-coral-dark hover:underline"
+                    >
+                      {ratings[m.id] ? (
+                        <>★ {ratings[m.id].average} · {ratings[m.id].count}</>
+                      ) : (
+                        <span className="text-ink/30">—</span>
+                      )}
+                    </button>
                   </td>
                   <td className="relative px-4 py-3 text-right">
                     <button
@@ -341,6 +347,12 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                           >
                             <CalendarOff className="h-4 w-4" /> Leave
                           </button>
+                          <button
+                            onClick={() => { setMenuOpenId(null); setReviewsTarget(m); }}
+                            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-base text-ink/70 hover:bg-blush"
+                          >
+                            <Star className="h-4 w-4" /> Reviews
+                          </button>
                           <div className="border-t border-ink/10" />
                           <button
                             onClick={() => { setMenuOpenId(null); openEdit(m); }}
@@ -362,6 +374,29 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {reviewsTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => setReviewsTarget(null)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Reviews for ${reviewsTarget.full_name}`}
+            className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl bg-blush/40 p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between px-1">
+              <h2 className="font-semibold text-ink">{reviewsTarget.full_name}</h2>
+              <button onClick={() => setReviewsTarget(null)} aria-label="Close" className="text-ink/40 hover:text-ink">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <StaffRatingBlock key={reviewsTarget.id} staffId={reviewsTarget.id} showManageLink includeHidden />
+          </div>
         </div>
       )}
 
