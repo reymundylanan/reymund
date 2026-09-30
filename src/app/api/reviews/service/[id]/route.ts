@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { parseStarFilter } from "@/lib/reviews";
 import { getServiceReviewPage } from "@/lib/supabase/queries/serviceReviews";
-import { signReviewPhotos } from "@/lib/supabase/reviewPhotoUrls";
+import { signPublicReviewPhotos } from "@/lib/supabase/reviewPhotoUrls";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -18,6 +18,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
   const filter = parseStarFilter(url.searchParams.get("filter"));
 
-  const result = await getServiceReviewPage(await createClient(), signReviewPhotos, id, filter, offset);
+  const result = await getServiceReviewPage(await createClient(), signPublicReviewPhotos, id, filter, offset);
   return NextResponse.json(result);
 }

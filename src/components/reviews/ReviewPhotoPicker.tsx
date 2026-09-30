@@ -12,9 +12,10 @@ type Added = { blob: Blob; preview: string };
 function Thumb({ src, onRemove, onClick }: { src: string; onRemove?: () => void; onClick?: () => void }) {
   const [failed, setFailed] = useState(false);
   if (failed && !onRemove) return null;
+  // An empty src means the photo is stored but its URL couldn't be signed.
   return (
     <div className="relative h-16 w-16 shrink-0">
-      {failed ? (
+      {failed || !src ? (
         <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-ink/5 text-[10px] text-ink/40">
           Missing
         </div>

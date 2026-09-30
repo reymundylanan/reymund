@@ -37,6 +37,7 @@ export default function ServiceReviewsSection({ serviceId, initial }: { serviceI
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(false);
   const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
   const requestId = useRef(0);
 
@@ -49,14 +50,17 @@ export default function ServiceReviewsSection({ serviceId, initial }: { serviceI
   async function changeFilter(f: StarFilter) {
     if (f === filter) return;
     const id = ++requestId.current;
-    setFilter(f);
     setLoading(true);
     setError(false);
     const next = await fetchPage(f, 0).catch(() => null);
     if (id !== requestId.current) return;
     setLoading(false);
-    if (next) setPage(next);
-    else setError(true);
+    // Only switch the active filter once its reviews arrived, so the chips
+    // never disagree with the list being shown.
+    if (next) {
+      setFilter(f);
+      setPage(next);
+    } else setError(true);
   }
 
   async function loadMore() {
@@ -66,8 +70,10 @@ export default function ServiceReviewsSection({ serviceId, initial }: { serviceI
     const next = await fetchPage(filter, page.reviews.length).catch(() => null);
     if (id !== requestId.current) return;
     setLoading(false);
-    if (next) setPage({ reviews: [...page.reviews, ...next.reviews], hasMore: next.hasMore });
-    else setError(true);
+    if (next) {
+      const seen = new Set(page.reviews.map((r) => r.id));
+      setPage({ reviews: [...page.reviews, ...next.reviews.filter((r) => !seen.has(r.id))], hasMore: next.hasMore });
+    } else setError(true);
   }
 
   return (
@@ -119,8 +125,16 @@ export default function ServiceReviewsSection({ serviceId, initial }: { serviceI
                     <MoreHorizontal className="h-5 w-5" />
                   </button>
                   {menuFor === r.id && (
-                    <div className="absolute right-0 z-10 mt-1 w-40 overflow-hidden rounded-xl border border-ink/10 bg-white shadow-lg">
-                      <ReportReviewButton reviewId={r.id} />
+                    <div
+                      className={`absolute right-0 z-10 mt-1 w-40 overflow-hidden rounded-xl border border-ink/10 bg-white shadow-lg ${reporting ? "hidden" : ""}`}
+                    >
+                      <ReportReviewButton
+                        reviewId={r.id}
+                        onOpenChange={(open) => {
+                          setReporting(open);
+                          if (!open) setMenuFor(null);
+                        }}
+                      />
                     </div>
                   )}
                 </div>

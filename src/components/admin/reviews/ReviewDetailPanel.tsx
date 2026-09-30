@@ -80,12 +80,14 @@ export default function ReviewDetailPanel({
       return;
     }
     if (action === "remove") {
-      // Best-effort: delete the removed review's photo files; never block the UI on it.
-      fetch("/api/admin/review-photos/purge", { method: "POST", body: JSON.stringify({ reviewId }) })
-        .then((res) => {
-          if (!res.ok) console.warn(`Photo purge failed (${res.status}).`);
-        })
-        .catch(() => console.warn("Photo purge request failed."));
+      // Best-effort: delete the removed review's photo files.
+      // Awaited so the reload below sees the final state, but it never fails the action.
+      try {
+        const res = await fetch("/api/admin/review-photos/purge", { method: "POST", body: JSON.stringify({ reviewId }) });
+        if (!res.ok) console.warn(`Photo purge failed (${res.status}).`);
+      } catch {
+        console.warn("Photo purge request failed.");
+      }
     }
     setReason("");
     await load();

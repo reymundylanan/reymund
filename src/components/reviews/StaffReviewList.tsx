@@ -24,6 +24,7 @@ function Stars({ value }: { value: number }) {
 export default function StaffReviewList({ reviews }: { reviews: PublicStaffReview[] }) {
   const [shown, setShown] = useState(PAGE_SIZE);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(false);
 
   if (reviews.length === 0) return <p className="mt-3 text-sm text-ink/50">No reviews yet.</p>;
 
@@ -60,8 +61,16 @@ export default function StaffReviewList({ reviews }: { reviews: PublicStaffRevie
                     <MoreHorizontal className="h-5 w-5" />
                   </button>
                   {menuFor === r.id && (
-                    <div className="absolute right-0 z-10 mt-1 w-40 overflow-hidden rounded-xl border border-ink/10 bg-white shadow-lg">
-                      <ReportReviewButton reviewId={r.id} />
+                    <div
+                      className={`absolute right-0 z-10 mt-1 w-40 overflow-hidden rounded-xl border border-ink/10 bg-white shadow-lg ${reporting ? "hidden" : ""}`}
+                    >
+                      <ReportReviewButton
+                        reviewId={r.id}
+                        onOpenChange={(open) => {
+                          setReporting(open);
+                          if (!open) setMenuFor(null);
+                        }}
+                      />
                     </div>
                   )}
                 </div>

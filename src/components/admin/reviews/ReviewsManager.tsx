@@ -196,7 +196,7 @@ export default function ReviewsManager({
               apply({ ...filters, page: undefined, q: search.trim() || undefined });
             }}
           >
-            <input className={select} placeholder="Search comments…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input className={select} placeholder="Search comments or client name…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </form>
           <button onClick={() => { setSearch(""); apply({}); }} className="text-sm text-ink/50 hover:text-ink">
             Clear

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BadgeCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { RecentAppointment } from "@/lib/supabase/queries/myGlow";
-import { saveVisitReview, type VisitReview } from "@/lib/supabase/queries/visitReviews";
+import { SAVE_FAILED, saveVisitReview, type VisitReview } from "@/lib/supabase/queries/visitReviews";
 import { isPublicStatus, reviewErrorMessage, type ReviewStatus } from "@/lib/reviews";
 import { MAX_REVIEW_PHOTOS, resizeToJpeg, validateReviewPhoto } from "@/lib/reviewPhotos";
 import { formatAppointmentDate } from "@/lib/appointmentFormat";
@@ -189,27 +189,34 @@ export default function VisitReviewModal({
     setError(null);
     const total = services.reduce((n, s) => n + s.added.length, 0);
     setProgress(total > 0 ? { done: 0, total } : null);
-    const { error: saveError, code } = await saveVisitReview(
-      createClient(),
-      clientId,
-      {
-        appointmentId: appointment.id,
-        services: services.map((s, i) => ({
-          position: appointment.bookedServices[i].position,
-          rating: s.rating,
-          text: s.text,
-          keep: s.existing.map((p) => p.path),
-          add: s.added.map((p) => p.blob),
-        })),
-        staff: showStaff && staff.rating > 0 ? { rating: staff.rating, text: staff.text } : null,
-        branch: showBranch && branch.rating > 0 ? { rating: branch.rating, text: branch.text } : null,
-      },
-      mode === "edit" ? "edit" : "submit",
-      (done, t) => setProgress({ done, total: t })
-    );
-    busyRef.current = false;
-    setSaving(false);
-    setProgress(null);
+    let saveError: string | null = null;
+    let code: string | null = null;
+    try {
+      ({ error: saveError, code } = await saveVisitReview(
+        createClient(),
+        clientId,
+        {
+          appointmentId: appointment.id,
+          services: services.map((s, i) => ({
+            position: appointment.bookedServices[i].position,
+            rating: s.rating,
+            text: s.text,
+            keep: s.existing.map((p) => p.path),
+            add: s.added.map((p) => p.blob),
+          })),
+          staff: showStaff && staff.rating > 0 ? { rating: staff.rating, text: staff.text } : null,
+          branch: showBranch && branch.rating > 0 ? { rating: branch.rating, text: branch.text } : null,
+        },
+        mode === "edit" ? "edit" : "submit",
+        (done, t) => setProgress({ done, total: t })
+      ));
+    } catch {
+      saveError = SAVE_FAILED;
+    } finally {
+      busyRef.current = false;
+      setSaving(false);
+      setProgress(null);
+    }
     if (saveError || code) {
       setError(saveError ?? reviewErrorMessage({ message: code ?? "" }));
       if (code === "REVIEW_DUPLICATE") onSaved();
@@ -303,7 +310,15 @@ export default function VisitReviewModal({
                       }
                       onAdd={(files) => addPhotos(i, files)}
                       onRemoveAdded={(n) => removeAdded(i, n)}
-                      onView={readOnly ? (n) => setLightbox({ photos: s.existing, index: n }) : undefined}
+                      onView={
+                        readOnly
+                          ? (n) => {
+                              const viewable = s.existing.filter((p) => p.url);
+                              const at = viewable.findIndex((p) => p.path === s.existing[n]?.path);
+                              if (at >= 0) setLightbox({ photos: viewable, index: at });
+                            }
+                          : undefined
+                      }
                       error={s.photoError}
                       adding={(resizing[i] ?? 0) > 0}
                       disabled={readOnly || saving}

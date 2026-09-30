@@ -159,7 +159,7 @@ export async function getMyReviews(supabase: SupabaseClient, clientId: string): 
   const { data, error } = await supabase
     .from("reviews")
     .select(
-      "id, appointment_id, rating, text, created_at, edited_at, target_type, status, staff:staff_members(full_name), branch:branches(name), service:branch_services(name), appointment:appointments(notes), review_photos(storage_path, position)"
+      "id, appointment_id, service_position, rating, text, created_at, edited_at, target_type, status, staff:staff_members(full_name), branch:branches(name), service:branch_services(name), appointment:appointments(notes), review_photos(storage_path, position)"
     )
     .eq("client_id", clientId)
     .order("created_at", { ascending: false });
@@ -171,6 +171,7 @@ export async function getMyReviews(supabase: SupabaseClient, clientId: string): 
   type Row = {
     id: string;
     appointment_id: string | null;
+    service_position: number | null;
     rating: number;
     text: string | null;
     created_at: string;
@@ -190,6 +191,21 @@ export async function getMyReviews(supabase: SupabaseClient, clientId: string): 
     rows.flatMap((r) => orderedPhotoPaths(r.review_photos))
   );
 
+  // Service parts whose branch service no longer resolves keep the name
+  // that was booked (appointment_services.service_name).
+  const unmatched = rows.filter((r) => r.target_type === "service" && !one(r.service) && r.appointment_id);
+  const bookedNames = new Map<string, string>();
+  if (unmatched.length > 0) {
+    const { data: booked, error: bookedError } = await supabase
+      .from("appointment_services")
+      .select("appointment_id, position, service_name")
+      .in("appointment_id", [...new Set(unmatched.map((r) => r.appointment_id as string))]);
+    if (bookedError) logQueryError("getMyReviews booked names", bookedError);
+    for (const b of (booked ?? []) as { appointment_id: string; position: number; service_name: string }[]) {
+      bookedNames.set(`${b.appointment_id}:${b.position}`, b.service_name);
+    }
+  }
+
   return rows.map((row) => ({
     id: row.id,
     appointmentId: row.appointment_id,
@@ -208,7 +224,10 @@ export async function getMyReviews(supabase: SupabaseClient, clientId: string): 
         ? one(row.staff)?.full_name ?? "Your therapist"
         : row.target_type === "branch"
           ? one(row.branch)?.name ?? "Blush Spa"
-          : one(row.service)?.name ?? one(row.appointment)?.notes ?? "Service",
+          : one(row.service)?.name ??
+            bookedNames.get(`${row.appointment_id}:${row.service_position}`) ??
+            one(row.appointment)?.notes ??
+            "Service",
   }));
 }
 

@@ -657,10 +657,17 @@ begin
   )
   on conflict do nothing;
 
-  insert into messenger_outbox (profile_id, kind, appointment_id, link_path)
-  select new.client_id, 'review_request', new.id, '/my-glow?review=' || new.id
-   where exists (select 1 from messenger_subscriptions s where s.profile_id = new.client_id and s.opted_out_at is null)
-     and not exists (select 1 from messenger_outbox o where o.appointment_id = new.id and o.kind = 'review_request');
+  -- Its own sub-block: if the Messenger outbox insert fails, the bell
+  -- notification above must still be kept (the outer handler would roll
+  -- both back).
+  begin
+    insert into messenger_outbox (profile_id, kind, appointment_id, link_path)
+    select new.client_id, 'review_request', new.id, '/my-glow?review=' || new.id
+     where exists (select 1 from messenger_subscriptions s where s.profile_id = new.client_id and s.opted_out_at is null)
+       and not exists (select 1 from messenger_outbox o where o.appointment_id = new.id and o.kind = 'review_request');
+  exception when others then
+    raise warning 'review_request outbox failed: %', sqlerrm;
+  end;
 
   return new;
 exception when others then

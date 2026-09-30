@@ -9,7 +9,7 @@ import ServiceReviewsSection from "@/components/reviews/ServiceReviewsSection";
 import ServicePhotoStrip from "@/components/reviews/ServicePhotoStrip";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceImage } from "@/lib/serviceImage";
-import { signReviewPhotos } from "@/lib/supabase/reviewPhotoUrls";
+import { signPublicReviewPhotos } from "@/lib/supabase/reviewPhotoUrls";
 import {
   getPublicService,
   getServicePhotoStrip,
@@ -42,8 +42,8 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
   const [summary, firstPage, photos, unreviewedVisit] = await Promise.all([
     getServiceRatingSummary(supabase, id),
-    getServiceReviewPage(supabase, signReviewPhotos, id, "all", 0),
-    getServicePhotoStrip(supabase, signReviewPhotos, id),
+    getServiceReviewPage(supabase, signPublicReviewPhotos, id, "all", 0),
+    getServicePhotoStrip(supabase, signPublicReviewPhotos, id),
     user ? getUnreviewedVisitForService(supabase, user.id, id) : Promise.resolve(null),
   ]);
 

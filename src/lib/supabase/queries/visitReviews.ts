@@ -30,6 +30,7 @@ export type VisitReviewDraft = {
 
 const BUCKET = "review-photos";
 export const UPLOAD_FAILED = "Couldn't upload your photos. Please try again.";
+export const SAVE_FAILED = "Couldn't save your review. Please try again.";
 
 /** Signed URLs (1 hour) for the client's own photos, keyed by storage path.
  * Never throws: on failure the map is empty and callers show no photos. */
@@ -109,10 +110,9 @@ export async function getVisitReviews(
         rating: row.rating,
         text: row.text,
         status: row.status,
-        photos: orderedPhotoPaths(row.review_photos).flatMap((path) => {
-          const url = urls.get(path);
-          return url ? [{ path, url }] : [];
-        }),
+        // Keep every stored path: a photo whose URL failed to sign gets an
+        // empty url (placeholder) so an edit still sends it as "keep".
+        photos: orderedPhotoPaths(row.review_photos).map((path) => ({ path, url: urls.get(path) ?? "" })),
       });
     } else {
       visit[row.target_type] = { reviewId: row.id, rating: row.rating, text: row.text, status: row.status };
@@ -136,41 +136,64 @@ export async function saveVisitReview(
   const uploaded: string[] = [];
   const photosByPart: string[][] = [];
 
-  for (const part of draft.services) {
-    const paths = [...part.keep];
-    for (const blob of part.add) {
-      const path = reviewPhotoPath(uid, draft.appointmentId, crypto.randomUUID());
-      const { error } = await bucket.upload(path, blob, { contentType: "image/jpeg" });
-      if (error) {
-        logQueryError("saveVisitReview upload", error);
-        if (uploaded.length) await bucket.remove(uploaded);
-        return { error: UPLOAD_FAILED, code: null };
-      }
-      uploaded.push(path);
-      paths.push(path);
-      onProgress?.(uploaded.length, total);
+  // Best-effort removal of files this attempt uploaded; never throws.
+  const cleanUp = async () => {
+    if (uploaded.length === 0) return;
+    try {
+      await bucket.remove(uploaded);
+    } catch (e) {
+      logQueryError("saveVisitReview cleanup", e as { message: string });
     }
-    photosByPart.push(paths);
-  }
+  };
 
-  const { data, error } = await supabase.rpc(mode === "submit" ? "submit_visit_review" : "edit_visit_review", {
-    p_appointment_id: draft.appointmentId,
-    p_services: draft.services.map((s, i) => ({
-      position: s.position,
-      rating: s.rating,
-      text: s.text,
-      photos: photosByPart[i],
-    })),
-    p_staff_rating: draft.staff?.rating ?? null,
-    p_staff_text: draft.staff?.text ?? null,
-    p_branch_rating: draft.branch?.rating ?? null,
-    p_branch_text: draft.branch?.text ?? null,
-  });
-  if (error) {
-    if (uploaded.length) await bucket.remove(uploaded);
-    return { error: null, code: error.message?.trim() ?? "" };
+  try {
+    for (const part of draft.services) {
+      const paths = [...part.keep];
+      for (const blob of part.add) {
+        const path = reviewPhotoPath(uid, draft.appointmentId, crypto.randomUUID());
+        const { error } = await bucket.upload(path, blob, { contentType: "image/jpeg" });
+        if (error) {
+          logQueryError("saveVisitReview upload", error);
+          await cleanUp();
+          return { error: UPLOAD_FAILED, code: null };
+        }
+        uploaded.push(path);
+        paths.push(path);
+        onProgress?.(uploaded.length, total);
+      }
+      photosByPart.push(paths);
+    }
+
+    const { data, error } = await supabase.rpc(mode === "submit" ? "submit_visit_review" : "edit_visit_review", {
+      p_appointment_id: draft.appointmentId,
+      p_services: draft.services.map((s, i) => ({
+        position: s.position,
+        rating: s.rating,
+        text: s.text,
+        photos: photosByPart[i],
+      })),
+      p_staff_rating: draft.staff?.rating ?? null,
+      p_staff_text: draft.staff?.text ?? null,
+      p_branch_rating: draft.branch?.rating ?? null,
+      p_branch_text: draft.branch?.text ?? null,
+    });
+    if (error) {
+      await cleanUp();
+      return { error: null, code: error.message?.trim() || "UNKNOWN" };
+    }
+    const unused = (mode === "edit" ? (data as string[] | null) : null) ?? [];
+    if (unused.length) {
+      try {
+        await bucket.remove(unused);
+      } catch (e) {
+        // The review is saved; orphaned files are harmless.
+        logQueryError("saveVisitReview remove unused", e as { message: string });
+      }
+    }
+    return { error: null, code: null };
+  } catch (e) {
+    logQueryError("saveVisitReview", e as { message: string });
+    await cleanUp();
+    return { error: SAVE_FAILED, code: null };
   }
-  const unused = (mode === "edit" ? (data as string[] | null) : null) ?? [];
-  if (unused.length) await bucket.remove(unused);
-  return { error: null, code: null };
 }

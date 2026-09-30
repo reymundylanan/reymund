@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -8,7 +9,16 @@ import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { loginRedirectPath } from "@/lib/loginRedirect";
 import { REPORT_REASONS, reviewErrorMessage, type ReportReason } from "@/lib/reviews";
 
-export default function ReportReviewButton({ reviewId }: { reviewId: string }) {
+/** `onOpenChange` lets a parent menu hide itself while the dialog is open
+ * (keep the button mounted — unmounting it would close the dialog) and
+ * close itself afterwards. */
+export default function ReportReviewButton({
+  reviewId,
+  onOpenChange,
+}: {
+  reviewId: string;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const { user, loading } = useCurrentUser();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -34,17 +44,27 @@ export default function ReportReviewButton({ reviewId }: { reviewId: string }) {
   async function submit() {
     setBusy(true);
     setError(null);
-    const { error: rpcError } = await createClient().rpc("report_review", {
-      p_review_id: reviewId,
-      p_reason: reason,
-      p_note: note.trim() || null,
-    });
-    setBusy(false);
-    if (rpcError) {
-      setError(rpcError.message?.trim() === "REVIEW_NOT_ALLOWED" ? "You can't report this review." : reviewErrorMessage(rpcError));
-      return;
+    try {
+      const { error: rpcError } = await createClient().rpc("report_review", {
+        p_review_id: reviewId,
+        p_reason: reason,
+        p_note: note.trim() || null,
+      });
+      if (rpcError) {
+        setError(rpcError.message?.trim() === "REVIEW_NOT_ALLOWED" ? "You can't report this review." : reviewErrorMessage(rpcError));
+        return;
+      }
+      setDone(true);
+    } catch {
+      setError("Couldn't send your report. Please try again.");
+    } finally {
+      setBusy(false);
     }
-    setDone(true);
+  }
+
+  function openDialog() {
+    setOpen(true);
+    onOpenChange?.(true);
   }
 
   function close() {
@@ -52,14 +72,16 @@ export default function ReportReviewButton({ reviewId }: { reviewId: string }) {
     setDone(false);
     setError(null);
     setNote("");
+    onOpenChange?.(false);
   }
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="block w-full px-3 py-2 text-left text-sm text-ink/70 hover:bg-blush/50">
+      <button onClick={openDialog} className="block w-full px-3 py-2 text-left text-sm text-ink/70 hover:bg-blush/50">
         Report review
       </button>
-      {open && (
+      {open &&
+        createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-label="Report review">
           <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
             <h3 className="text-lg font-semibold text-ink">Report this review</h3>
@@ -105,7 +127,8 @@ export default function ReportReviewButton({ reviewId }: { reviewId: string }) {
               </>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

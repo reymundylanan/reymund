@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { saveVisitReview, type VisitReviewDraft } from "./visitReviews";
 
-function fakeClient(opts: { failUploadAt?: number; rpcError?: string; editReturns?: string[] }) {
+function fakeClient(opts: { failUploadAt?: number; rpcError?: string; rpcThrows?: boolean; editReturns?: string[] }) {
   const uploaded: string[] = [];
   const removed: string[][] = [];
   let n = 0;
@@ -17,9 +17,12 @@ function fakeClient(opts: { failUploadAt?: number; rpcError?: string; editReturn
       return { error: null };
     }),
   };
-  const rpc = vi.fn(async () =>
-    opts.rpcError ? { data: null, error: { message: opts.rpcError } } : { data: opts.editReturns ?? null, error: null }
-  );
+  const rpc = vi.fn(async () => {
+    if (opts.rpcThrows) throw new Error("network down");
+    return opts.rpcError !== undefined
+      ? { data: null, error: { message: opts.rpcError } }
+      : { data: opts.editReturns ?? null, error: null };
+  });
   return { client: { storage: { from: () => bucket }, rpc } as never, uploaded, removed, rpc };
 }
 
@@ -52,6 +55,23 @@ describe("saveVisitReview", () => {
     const f = fakeClient({ rpcError: "REVIEW_INAPPROPRIATE" });
     const res = await saveVisitReview(f.client, "u1", draft(1), "submit");
     expect(res.code).toBe("REVIEW_INAPPROPRIATE");
+    expect(f.removed).toEqual([f.uploaded]);
+  });
+
+  it("returns an error (never throws) and removes uploads when the RPC throws", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const f = fakeClient({ rpcThrows: true });
+    const res = await saveVisitReview(f.client, "u1", draft(2), "submit");
+    expect(res).toEqual({ error: "Couldn't save your review. Please try again.", code: null });
+    expect(f.removed).toEqual([f.uploaded]);
+    spy.mockRestore();
+  });
+
+  it("uses code UNKNOWN when the RPC error has no message", async () => {
+    const f = fakeClient({ rpcError: "  " });
+    const res = await saveVisitReview(f.client, "u1", draft(1), "submit");
+    expect(res.code).toBe("UNKNOWN");
+    expect(res.error).toBeNull();
     expect(f.removed).toEqual([f.uploaded]);
   });
 

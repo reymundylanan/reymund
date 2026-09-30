@@ -68,7 +68,7 @@ function one<T>(v: Rel<T>): T | null {
 }
 
 const LIST_SELECT =
-  "id, target_type, rating, text, status, created_at, admin_seen_at, appointment_id, client:profiles!reviews_client_id_fkey(full_name), staff:staff_members(full_name), branch:branches(name), service:branch_services(name), review_photos(count), review_reports(count)";
+  "id, target_type, rating, text, status, created_at, admin_seen_at, appointment_id, service_position, client:profiles!reviews_client_id_fkey(full_name), staff:staff_members(full_name), branch:branches(name), service:branch_services(name), review_photos(count), review_reports(count)";
 
 type RawRow = {
   id: string;
@@ -79,6 +79,7 @@ type RawRow = {
   created_at: string;
   admin_seen_at: string | null;
   appointment_id: string | null;
+  service_position?: number | null;
   client: Rel<{ full_name: string | null }>;
   staff: Rel<{ full_name: string }>;
   branch: Rel<{ name: string }>;
@@ -87,7 +88,28 @@ type RawRow = {
   review_reports?: { count: number }[] | null;
 };
 
-function toRow(r: RawRow): AdminReviewRow {
+/** Booked service names ("appointmentId:position") for service parts whose
+ * branch service no longer resolves. */
+async function bookedServiceNames(supabase: SupabaseClient, raws: RawRow[]): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  const ids = [
+    ...new Set(
+      raws.filter((r) => r.target_type === "service" && !one(r.service) && r.appointment_id).map((r) => r.appointment_id as string)
+    ),
+  ];
+  if (ids.length === 0) return names;
+  const { data, error } = await supabase
+    .from("appointment_services")
+    .select("appointment_id, position, service_name")
+    .in("appointment_id", ids);
+  if (error) logQueryError("bookedServiceNames", error);
+  for (const b of (data ?? []) as { appointment_id: string; position: number; service_name: string }[]) {
+    names.set(`${b.appointment_id}:${b.position}`, b.service_name);
+  }
+  return names;
+}
+
+function toRow(r: RawRow, booked?: Map<string, string>): AdminReviewRow {
   return {
     id: r.id,
     targetType: r.target_type,
@@ -102,7 +124,7 @@ function toRow(r: RawRow): AdminReviewRow {
         ? one(r.staff)?.full_name ?? "Former staff"
         : r.target_type === "branch"
           ? one(r.branch)?.name ?? "Branch"
-          : one(r.service)?.name ?? "Service",
+          : one(r.service)?.name ?? booked?.get(`${r.appointment_id}:${r.service_position}`) ?? "Service",
     appointmentId: r.appointment_id,
     photoCount: r.review_photos?.[0]?.count ?? 0,
     reportCount: r.review_reports?.[0]?.count ?? 0,
@@ -111,6 +133,16 @@ function toRow(r: RawRow): AdminReviewRow {
 
 function escapeLike(s: string) {
   return s.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
+/** PostgREST `or` filter: comment text matches, or the reviewer is one of
+ * `clientIds`. The pattern is double-quoted so commas/parentheses in the
+ * search text can't break the filter. */
+export function reviewSearchFilter(q: string, clientIds: string[]): string {
+  const pattern = `%${escapeLike(q)}%`.replace(/[\\"]/g, (c) => `\\${c}`);
+  const text = `text.ilike."${pattern}"`;
+  const ids = clientIds.filter((id) => UUID_RE.test(id));
+  return ids.length ? `${text},client_id.in.(${ids.join(",")})` : text;
 }
 
 export async function listAdminReviews(supabase: SupabaseClient, f: ReviewFilters) {
@@ -131,13 +163,23 @@ export async function listAdminReviews(supabase: SupabaseClient, f: ReviewFilter
   if (f.to) q = q.lte("created_at", `${f.to}T23:59:59.999+08:00`);
   if (f.status === "new") q = q.is("admin_seen_at", null);
   else if (f.status) q = q.eq("status", f.status);
-  if (f.q) q = q.ilike("text", `%${escapeLike(f.q)}%`);
+  if (f.q) {
+    const { data: people, error: peopleError } = await supabase
+      .from("profiles")
+      .select("id")
+      .ilike("full_name", `%${escapeLike(f.q)}%`)
+      .limit(200);
+    if (peopleError) logQueryError("listAdminReviews client lookup", peopleError);
+    q = q.or(reviewSearchFilter(f.q, ((people ?? []) as { id: string }[]).map((p) => p.id)));
+  }
   const page = f.page ?? 1;
   q = q.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
   const { data, count, error } = await q;
   if (error) logQueryError("listAdminReviews", error);
-  return { rows: ((data as unknown as RawRow[]) ?? []).map(toRow), total: count ?? 0 };
+  const raws = (data as unknown as RawRow[]) ?? [];
+  const booked = await bookedServiceNames(supabase, raws);
+  return { rows: raws.map((r) => toRow(r, booked)), total: count ?? 0 };
 }
 
 export async function getAdminReviewStats(supabase: SupabaseClient) {
@@ -199,18 +241,18 @@ export async function getAdminReviewDetail(supabase: SupabaseClient, id: string)
   const { data, error: detailError } = await supabase.from("reviews").select(LIST_SELECT).eq("id", id).maybeSingle();
   if (detailError) logQueryError("getAdminReviewDetail", detailError);
   if (!data) return null;
-  const review = toRow(data as unknown as RawRow);
+  const rawReview = data as unknown as RawRow;
 
   const [appt, siblings, history, photoRows, reportRows] = await Promise.all([
-    review.appointmentId
+    rawReview.appointment_id
       ? supabase
           .from("appointments")
           .select("id, booking_code, scheduled_date, start_time, notes, service:branch_services(name), professional:staff_members(full_name), branch:branches(name)")
-          .eq("id", review.appointmentId)
+          .eq("id", rawReview.appointment_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
-    review.appointmentId
-      ? supabase.from("reviews").select(LIST_SELECT).eq("appointment_id", review.appointmentId).neq("id", id)
+    rawReview.appointment_id
+      ? supabase.from("reviews").select(LIST_SELECT).eq("appointment_id", rawReview.appointment_id).neq("id", id)
       : Promise.resolve({ data: [] }),
     supabase
       .from("review_moderation_log")
@@ -224,6 +266,9 @@ export async function getAdminReviewDetail(supabase: SupabaseClient, id: string)
       .eq("review_id", id)
       .order("created_at", { ascending: false }),
   ]);
+  const rawSiblings = (siblings.data as unknown as RawRow[]) ?? [];
+  const booked = await bookedServiceNames(supabase, [rawReview, ...rawSiblings]);
+  const review = toRow(rawReview, booked);
   if (photoRows.error) logQueryError("getAdminReviewDetail photos", photoRows.error);
   if (reportRows.error) logQueryError("getAdminReviewDetail reports", reportRows.error);
 
@@ -259,7 +304,7 @@ export async function getAdminReviewDetail(supabase: SupabaseClient, id: string)
           branchName: one(a.branch)?.name ?? null,
         }
       : null,
-    siblings: ((siblings.data as unknown as RawRow[]) ?? []).map(toRow),
+    siblings: rawSiblings.map((r) => toRow(r, booked)),
     photos,
     reports: (
       (reportRows.data as unknown as {
