@@ -44,14 +44,34 @@ describe("evaluateAppointment", () => {
   it("records a failure and stays pending when grading throws", async () => {
     const deps = makeDeps({ grade: vi.fn(async () => { throw new Error("timeout"); }) });
     expect(await evaluateAppointment("ap1", deps)).toEqual({ status: "pending" });
-    expect(deps.fail).toHaveBeenCalledWith("ev1", "timeout");
+    expect(deps.fail).toHaveBeenCalledWith("ev1", "ai_error");
     expect(deps.apply).not.toHaveBeenCalled();
+  });
+
+  it("returns pending without grading when claim throws", async () => {
+    const deps = makeDeps({ claim: vi.fn(async () => { throw new Error("db down"); }) });
+    expect(await evaluateAppointment("ap1", deps)).toEqual({ status: "pending" });
+    expect(deps.grade).not.toHaveBeenCalled();
+    expect(deps.apply).not.toHaveBeenCalled();
+  });
+
+  it("records apply_error when apply throws", async () => {
+    const deps = makeDeps({ apply: vi.fn(async () => { throw new Error("rpc boom"); }) });
+    expect(await evaluateAppointment("ap1", deps)).toEqual({ status: "pending" });
+    expect(deps.fail).toHaveBeenCalledWith("ev1", "apply_error");
+  });
+
+  it("uses ai_timeout for aborted requests", async () => {
+    const abort = Object.assign(new Error("aborted"), { name: "AbortError" });
+    const deps = makeDeps({ grade: vi.fn(async () => { throw abort; }) });
+    await evaluateAppointment("ap1", deps);
+    expect(deps.fail).toHaveBeenCalledWith("ev1", "ai_timeout");
   });
 
   it("records a failure when the AI answer is junk", async () => {
     const deps = makeDeps({ grade: vi.fn(async () => "not json") });
     expect(await evaluateAppointment("ap1", deps)).toEqual({ status: "pending" });
-    expect(deps.fail).toHaveBeenCalledWith("ev1", "invalid AI response");
+    expect(deps.fail).toHaveBeenCalledWith("ev1", "ai_invalid_response");
     expect(deps.apply).not.toHaveBeenCalled();
   });
 

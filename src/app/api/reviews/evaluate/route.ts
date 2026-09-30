@@ -5,14 +5,18 @@ import { createClient } from "@/lib/supabase/server";
 import { safeEqual } from "@/lib/messenger/signature";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 import { GEMINI_REVIEW_MODEL, geminiJson, type GeminiImage } from "@/lib/ai/gemini";
-import { AI_RESPONSE_SCHEMA, evaluateAppointment, type EvaluateDeps } from "@/lib/reviewEvaluation";
+import { AI_RESPONSE_SCHEMA, evaluateAppointment, type EvaluateDeps, type EvaluateOutcome } from "@/lib/reviewEvaluation";
 import type { EvaluationPart } from "@/lib/reviewRewards";
 
 export const maxDuration = 60;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CRON_BATCH = 10;
-const CRON_TIME_BUDGET_MS = 45_000;
+const CRON_ITEM_TIMEOUT_MS = 20_000;
+const PHOTO_DOWNLOAD_TIMEOUT_MS = 5_000;
+// Start a new item only if it can finish (Gemini + photo + slack) inside maxDuration.
+const CRON_START_DEADLINE_MS = 50_000 - CRON_ITEM_TIMEOUT_MS - PHOTO_DOWNLOAD_TIMEOUT_MS;
+const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 const EVALUATION_SELECT =
   "id, status, points_awarded, ai_summary, settings_snapshot, " +
@@ -31,13 +35,19 @@ function buildDeps(admin: SupabaseClient, timeoutMs: number): EvaluateDeps {
       return { evaluationId: data.evaluationId as string, parts: (data.parts ?? []) as EvaluationPart[] };
     },
     async downloadPhoto(path) {
-      const { data, error } = await admin.storage.from("review-photos").download(path);
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), PHOTO_DOWNLOAD_TIMEOUT_MS));
+      const result = await Promise.race([admin.storage.from("review-photos").download(path), timeout]);
+      if (!result) {
+        console.warn("review-photos download timed out");
+        return null;
+      }
+      const { data, error } = result;
       if (error || !data) {
         logQueryError("review-photos download", error ?? { message: "empty download" });
         return null;
       }
       return {
-        mimeType: data.type || "image/jpeg",
+        mimeType: ALLOWED_MIME.has(data.type) ? data.type : "image/jpeg",
         base64: Buffer.from(await data.arrayBuffer()).toString("base64"),
       } satisfies GeminiImage;
     },
@@ -62,7 +72,6 @@ function buildDeps(admin: SupabaseClient, timeoutMs: number): EvaluateDeps {
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get("authorization");
-  const admin = createAdminClient();
 
   // Cron retry ping.
   if (authHeader !== null) {
@@ -70,17 +79,18 @@ export async function POST(request: Request) {
     if (!expected || !safeEqual(authHeader, `Bearer ${expected}`)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const admin = createAdminClient();
     const { data, error } = await admin.rpc("due_review_evaluations", { p_limit: CRON_BATCH });
     if (error) {
       logQueryError("due_review_evaluations", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Could not load due evaluations" }, { status: 500 });
     }
     const ids = (data as string[] | null) ?? [];
-    const deps = buildDeps(admin, 20_000);
+    const deps = buildDeps(admin, CRON_ITEM_TIMEOUT_MS);
     const started = Date.now();
     let processed = 0;
     for (const id of ids) {
-      if (Date.now() - started > CRON_TIME_BUDGET_MS) break;
+      if (Date.now() - started > CRON_START_DEADLINE_MS) break;
       try {
         await evaluateAppointment(id, deps);
       } catch (err) {
@@ -106,7 +116,7 @@ export async function POST(request: Request) {
 
   const { data: owned, error: ownedError } = await supabase
     .from("review_evaluations")
-    .select("id")
+    .select("id, status, attempts, next_attempt_at")
     .eq("appointment_id", appointmentId)
     .eq("client_id", user.id)
     .maybeSingle();
@@ -116,7 +126,15 @@ export async function POST(request: Request) {
   }
   if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const outcome = await evaluateAppointment(appointmentId, buildDeps(admin, 15_000));
+  const admin = createAdminClient();
+  const state = owned as { status: string; attempts: number; next_attempt_at: string | null };
+  const claimable =
+    state.status === "pending" &&
+    (state.attempts === 0 || !state.next_attempt_at || new Date(state.next_attempt_at).getTime() <= Date.now());
+  // Repeated client calls must not burn attempts or Gemini cost.
+  const outcome: EvaluateOutcome = claimable
+    ? await evaluateAppointment(appointmentId, buildDeps(admin, 15_000))
+    : { status: "not_found" };
 
   const { data: evaluation, error: evalError } = await admin
     .from("review_evaluations")
