@@ -16,6 +16,7 @@ import MyBookingsSection from "@/components/my-glow/MyBookingsSection";
 import MyServicesList from "@/components/my-glow/MyServicesList";
 import MyRewardsCard from "@/components/my-glow/MyRewardsCard";
 import { getMyRewards } from "@/lib/supabase/queries/rewards";
+import { getRedemptionState, getMyVouchers } from "@/lib/supabase/queries/vouchers";
 import WelcomeBanner from "@/components/my-glow/WelcomeBanner";
 import GlowJourneyBanner from "@/components/my-glow/GlowJourneyBanner";
 import ReviewsPanel from "@/components/my-glow/ReviewsPanel";
@@ -49,7 +50,7 @@ export default async function MyGlowPage({
 
   if (!profile || profile.role !== "customer") redirect("/");
 
-  const [upcoming, recent, myReviews, visitedBranches, visitReviews, rewards] =
+  const [upcoming, recent, myReviews, visitedBranches, visitReviews, rewards, redemption, vouchers] =
     await Promise.all([
       getUpcomingAppointment(supabase, auth.user.id),
       getRecentAppointments(supabase, auth.user.id),
@@ -57,6 +58,8 @@ export default async function MyGlowPage({
       getVisitedBranches(supabase, auth.user.id),
       getVisitReviews(supabase, auth.user.id),
       getMyRewards(supabase, auth.user.id, profile.loyalty_points),
+      getRedemptionState(supabase),
+      getMyVouchers(supabase, auth.user.id),
     ]);
 
   if (reviewId && !recent.some((a) => a.id === reviewId)) {
@@ -93,7 +96,13 @@ export default async function MyGlowPage({
               <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews}
                 openReviewId={reviewId}
               />
-              <MyRewardsCard key={`${rewards.balance}-${rewards.history[0]?.id ?? ""}`} initial={rewards} clientId={auth.user.id} />
+              <MyRewardsCard
+                key={`${rewards.balance}-${rewards.history[0]?.id ?? ""}-${vouchers.map((v) => `${v.id}${v.status}`).join(",")}`}
+                initial={rewards}
+                clientId={auth.user.id}
+                redemption={redemption}
+                vouchers={vouchers}
+              />
             </div>
             <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
           </div>
