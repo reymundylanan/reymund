@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateSettings, type RewardSettings } from "./adminRewards";
+import { computeRewardStats, validateSettings, type RewardSettings } from "./adminRewards";
 
 const OK: RewardSettings = {
   ratingPoints: 10,
@@ -41,5 +41,19 @@ describe("validateSettings", () => {
     expect(validateSettings({ ...OK, maxPoints: -1 })).toBe(MAX);
     expect(validateSettings({ ...OK, maxPoints: 5001 })).toBe(MAX);
     expect(validateSettings({ ...OK, maxPoints: 10.5 })).toBe(MAX);
+  });
+});
+
+describe("computeRewardStats", () => {
+  it("counts only review_reward rows and averages their points", () => {
+    const stats = computeRewardStats([
+      { type: "review_reward", points: 30 },
+      { type: "review_reward", points: 40 },
+      { type: "admin_adjustment", points: 20 },
+    ]);
+    expect(stats).toEqual({ pointsThisMonth: 90, reviewsRewarded: 2, averagePoints: 35 });
+  });
+  it("handles no rewards", () => {
+    expect(computeRewardStats([{ type: "admin_adjustment", points: 10 }])).toEqual({ pointsThisMonth: 10, reviewsRewarded: 0, averagePoints: 0 });
   });
 });

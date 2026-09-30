@@ -282,18 +282,26 @@ export async function getRewardStats(
   const manila = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 7);
   const { data, error } = await supabase
     .from("points_transactions")
-    .select("points, review_evaluation_id")
+    .select("type, points, review_evaluation_id")
     .not("review_evaluation_id", "is", null)
     .gte("created_at", `${manila}-01T00:00:00+08:00`);
   if (error) logQueryError("getRewardStats", error);
-  const rows = (data ?? []) as { points: number; review_evaluation_id: string }[];
-  const perEvaluation = new Map<string, number>();
-  for (const r of rows) perEvaluation.set(r.review_evaluation_id, (perEvaluation.get(r.review_evaluation_id) ?? 0) + r.points);
-  const pointsThisMonth = rows.reduce((sum, r) => sum + r.points, 0);
-  const reviewsRewarded = [...perEvaluation.values()].filter((p) => p > 0).length;
+  return computeRewardStats((data ?? []) as RewardTxRow[]);
+}
+
+export type RewardTxRow = { type: string; points: number };
+
+/** "Rewarded" counts review_reward rows only; the average is review_reward
+ * points per rewarded review; points issued also include admin adjustments. */
+export function computeRewardStats(rows: RewardTxRow[]): { pointsThisMonth: number; reviewsRewarded: number; averagePoints: number } {
+  const rewards = rows.filter((r) => r.type === "review_reward");
+  const rewardPoints = rewards.reduce((sum, r) => sum + r.points, 0);
+  const pointsThisMonth = rows
+    .filter((r) => r.type === "review_reward" || r.type === "admin_adjustment")
+    .reduce((sum, r) => sum + r.points, 0);
   return {
     pointsThisMonth,
-    reviewsRewarded,
-    averagePoints: reviewsRewarded ? Math.round(pointsThisMonth / reviewsRewarded) : 0,
+    reviewsRewarded: rewards.length,
+    averagePoints: rewards.length ? Math.round(rewardPoints / rewards.length) : 0,
   };
 }

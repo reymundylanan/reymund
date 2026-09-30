@@ -226,6 +226,7 @@ export default function MyServicesList({
             // Drop ?review= so the same "View Review" link can open it again.
             if (openReviewId) router.replace("/my-glow#services", { scroll: false });
           }}
+          onViewRewards={() => setModal(null)}
           onSaved={async () => {
             await refresh();
             router.refresh();

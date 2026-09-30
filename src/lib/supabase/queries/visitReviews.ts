@@ -153,10 +153,11 @@ export type EvaluationResponse = {
 };
 
 /** Asks the server to grade a just-submitted review. Any failure (network,
- * timeout, server error) resolves to null so the UI can show a soft message. */
+ * timeout, network error) resolves to null so the UI can show a soft message;
+ * a non-OK response resolves to { status: "unavailable" }. */
 export async function requestReviewEvaluation(
   appointmentId: string,
-  timeoutMs = 20000
+  timeoutMs = 25000
 ): Promise<EvaluationResponse | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -167,9 +168,9 @@ export async function requestReviewEvaluation(
       body: JSON.stringify({ appointmentId }),
       signal: controller.signal,
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { status: "unavailable" };
     const json = (await res.json()) as EvaluationResponse | null;
-    return json && typeof json.status === "string" ? json : null;
+    return json && typeof json.status === "string" ? json : { status: "unavailable" };
   } catch {
     return null;
   } finally {

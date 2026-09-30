@@ -93,7 +93,7 @@ export default async function MyGlowPage({
               <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews}
                 openReviewId={reviewId}
               />
-              <MyRewardsCard initial={rewards} clientId={auth.user.id} />
+              <MyRewardsCard key={`${rewards.balance}-${rewards.history[0]?.id ?? ""}`} initial={rewards} clientId={auth.user.id} />
             </div>
             <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
           </div>

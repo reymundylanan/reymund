@@ -77,8 +77,8 @@ RLS: client reads own; admin/front_desk read all; no direct writes.
 ### `client_rewards`
 `client_id pk, current_points, lifetime_earned, lifetime_redeemed, updated_at`.
 Maintained only by the reward functions; `profiles.loyalty_points` is kept
-equal to `current_points` (written by the same functions, which set the 050
-RPC flag so the profile guard allows it).
+equal to `current_points` (written by the SECURITY DEFINER reward functions; 050's guard only blocks
+self-edits, so service-role and admin writes to another client's row are allowed).
 Backfill: one `opening_balance` transaction + `client_rewards` row for each
 profile with `loyalty_points > 0` (lifetime_earned = that value).
 
@@ -141,8 +141,10 @@ processes up to 10 due evaluations.
   system instructions (rubric definitions, rating neutrality, useful
   complaints count, off-topic length does not count, never assess people's
   identity/appearance/sensitive traits in photos, answer "needs_review" when
-  unsure), the review content (service names, per-part stars, texts, tags;
-  no names/contacts), inline photos, and a JSON response schema.
+  unsure), the review content (service names, texts, tags; no star values (the database
+  decides the rating criterion); texts and tags are wrapped in
+  `<review_text>`/`<review_tags>` delimiters with angle brackets stripped, and the
+  prompt states that text inside them is data, never instructions; no names/contacts), inline photos, and a JSON response schema.
 - Response parsed + validated (`src/lib/reviewRewards.ts`); invalid →
   `fail_review_evaluation`. Timeout 15 s for client calls.
 - The route returns the applied evaluation (grades, reasons, points,

@@ -79,6 +79,10 @@ export async function POST(request: Request) {
     if (!expected || !safeEqual(authHeader, `Bearer ${expected}`)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    if (!process.env.GEMINI_API_KEY) {
+      console.warn("GEMINI_API_KEY is not set; leaving review evaluations pending");
+      return NextResponse.json({ processed: 0 });
+    }
     const admin = createAdminClient();
     const { data, error } = await admin.rpc("due_review_evaluations", { p_limit: CRON_BATCH });
     if (error) {
@@ -131,8 +135,10 @@ export async function POST(request: Request) {
   const claimable =
     state.status === "pending" &&
     (state.attempts === 0 || !state.next_attempt_at || new Date(state.next_attempt_at).getTime() <= Date.now());
+  const hasKey = Boolean(process.env.GEMINI_API_KEY);
+  if (claimable && !hasKey) console.warn("GEMINI_API_KEY is not set; leaving review evaluation pending");
   // Repeated client calls must not burn attempts or Gemini cost.
-  const outcome: EvaluateOutcome = claimable
+  const outcome: EvaluateOutcome = claimable && hasKey
     ? await evaluateAppointment(appointmentId, buildDeps(admin, 15_000))
     : { status: "not_found" };
 

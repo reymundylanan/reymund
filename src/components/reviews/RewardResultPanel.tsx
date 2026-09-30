@@ -15,10 +15,12 @@ export default function RewardResultPanel({
   evaluation,
   balance,
   onClose,
+  onViewRewards,
 }: {
   evaluation: EvaluationRow;
   balance?: number;
   onClose: () => void;
+  onViewRewards?: () => void;
 }) {
   const rows = breakdownRows(evaluation);
   const total = evaluation.points_awarded;
@@ -81,7 +83,7 @@ export default function RewardResultPanel({
       <div className="flex gap-2">
         <Link
           href="/my-glow#rewards"
-          onClick={onClose}
+          onClick={onViewRewards ?? onClose}
           className="flex-1 rounded-full border border-ink/15 bg-white py-2 text-sm font-semibold text-ink/70 hover:border-ink/30"
         >
           View My Rewards

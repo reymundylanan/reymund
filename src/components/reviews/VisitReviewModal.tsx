@@ -47,6 +47,7 @@ export default function VisitReviewModal({
   existing,
   mode,
   onClose,
+  onViewRewards,
   onSaved,
 }: {
   appointment: RecentAppointment;
@@ -54,6 +55,8 @@ export default function VisitReviewModal({
   existing?: VisitReview;
   mode: Mode;
   onClose: () => void;
+  /** Close without any URL cleanup, because the caller navigates to My Rewards. */
+  onViewRewards?: () => void;
   onSaved: () => void;
 }) {
   const readOnly = mode === "view";
@@ -273,14 +276,16 @@ export default function VisitReviewModal({
             <p className="text-sm font-medium text-ink">Evaluating your review…</p>
           </div>
         ) : saved && reward?.evaluation && (reward.status === "evaluated" || reward.status === "needs_review") ? (
-          <RewardResultPanel evaluation={reward.evaluation} balance={reward.balance} onClose={onClose} />
+          <RewardResultPanel evaluation={reward.evaluation} balance={reward.balance} onClose={onClose} onViewRewards={onViewRewards} />
         ) : saved ? (
           <div className="py-8 text-center">
             <h3 className="text-lg font-semibold text-ink">Thank you for your review!</h3>
             <p className="mt-1 text-sm text-ink/60">
               {mode === "edit"
                 ? "Your review was updated."
-                : "Thanks! Your reward is being calculated — we'll notify you."}
+                : reward && ["skipped", "failed", "unavailable"].includes(reward.status)
+                  ? "Thanks for your review!"
+                  : "Thanks! Your reward is being calculated — we'll notify you."}
             </p>
             <button
               onClick={onClose}

@@ -3,7 +3,7 @@ import { logQueryError } from "@/lib/supabase/logQueryError";
 
 export type ClientNotification = {
   id: string;
-  kind: "confirmed" | "cancelled" | "review_request";
+  kind: "confirmed" | "cancelled" | "review_request" | "review_reward";
   title: string;
   body: string;
   linkPath: string;
@@ -13,7 +13,7 @@ export type ClientNotification = {
 
 type Row = {
   id: string;
-  kind: "confirmed" | "cancelled" | "review_request";
+  kind: "confirmed" | "cancelled" | "review_request" | "review_reward";
   title: string;
   body: string;
   link_path: string;
