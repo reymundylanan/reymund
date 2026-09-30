@@ -60,8 +60,8 @@ begin
       raise exception 'PROFILE_FIELD_LOCKED';
     end if;
     -- The booking form updates phone directly; it must still be a normalized PH mobile.
-    if new.phone is distinct from old.phone and new.phone is not null
-       and new.phone !~ '^\+63 9[0-9]{2} [0-9]{3} [0-9]{4}$' then
+    if new.phone is distinct from old.phone
+       and (new.phone is null or new.phone !~ '^\+63 9[0-9]{2} [0-9]{3} [0-9]{4}$') then
       raise exception 'PROFILE_INVALID:phone';
     end if;
   end if;
@@ -152,6 +152,7 @@ begin
   update profiles
      set full_name = v_name, phone = v_phone, gender = v_gender, address = v_address
    where id = v_uid;
+  perform set_config('glowsync.profile_rpc', 'off', true);
 end;
 $$;
 
@@ -170,7 +171,7 @@ begin
     raise exception 'PROFILE_FORBIDDEN';
   end if;
   v_path := substring(coalesce(p_url, '')
-    from '^https://[a-z0-9]+\.supabase\.co/storage/v1/object/public/avatars/(clients/[0-9a-f-]+/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp))$');
+    from '^https://zxcgdirwkzdiufmhstau\.supabase\.co/storage/v1/object/public/avatars/(clients/[0-9a-f-]+/[A-Za-z0-9_-]+\.(jpg|jpeg|png|webp))$');
   if v_path is null
      or v_path not like 'clients/' || v_uid::text || '/%'
      or not exists (select 1 from storage.objects where bucket_id = 'avatars' and name = v_path) then
@@ -178,6 +179,7 @@ begin
   end if;
   perform set_config('glowsync.profile_rpc', 'on', true);
   update profiles set avatar_url = p_url where id = v_uid;
+  perform set_config('glowsync.profile_rpc', 'off', true);
 end;
 $$;
 
@@ -191,6 +193,7 @@ begin
   end if;
   perform set_config('glowsync.profile_rpc', 'on', true);
   update profiles set avatar_url = null where id = v_uid;
+  perform set_config('glowsync.profile_rpc', 'off', true);
 end;
 $$;
 

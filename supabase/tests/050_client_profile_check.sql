@@ -4,6 +4,7 @@
 --   :STAFF_ID    a front_desk profile id
 begin;
 
+-- If this insert is rejected on your Supabase version, upload any image to avatars/clients/<CLIENT_ID>/check.jpg in the Storage dashboard and delete this line.
 insert into storage.objects (bucket_id, name) values ('avatars', 'clients/:CLIENT_ID/check.jpg');
 
 select set_config('request.jwt.claims', json_build_object('sub', ':CLIENT_ID', 'role', 'authenticated')::text, true);
@@ -25,7 +26,7 @@ do $$ declare f text; begin
         case when f = 'address' then 'abc' else 'Purok 1, Pagadian' end);
       raise warning 'FAIL % accepted', f;
     exception when others then
-      if sqlerrm = 'PROFILE_INVALID:' || case when f = 'name_symbols' then 'full_name' when f = 'name' then 'full_name' else f end then
+      if sqlerrm = ('PROFILE_INVALID:' || case when f in ('name', 'name_symbols') then 'full_name' else f end) then
         raise notice 'PASS % rejected: %', f, sqlerrm;
       else
         raise warning 'FAIL % got %', f, sqlerrm;
@@ -66,6 +67,13 @@ exception when others then
   if sqlerrm = 'PROFILE_INVALID:phone' then raise notice 'PASS direct bad phone rejected'; else raise warning 'FAIL bad phone got %', sqlerrm; end if;
 end $$;
 
+do $$ begin
+  update profiles set phone = null where id = ':CLIENT_ID';
+  raise warning 'FAIL clearing phone accepted';
+exception when others then
+  if sqlerrm = 'PROFILE_INVALID:phone' then raise notice 'PASS clearing phone rejected'; else raise warning 'FAIL clear phone got %', sqlerrm; end if;
+end $$;
+
 -- 4. Direct update of a normalized phone (booking form) still works
 update profiles set phone = '+63 918 000 0000' where id = ':CLIENT_ID';
 select 'phone still editable:' as check, phone from profiles where id = ':CLIENT_ID';
@@ -88,12 +96,18 @@ exception when others then
   if sqlerrm = 'PROFILE_BAD_AVATAR' then raise notice 'PASS foreign host rejected'; else raise warning 'FAIL foreign host got %', sqlerrm; end if;
 end $$;
 do $$ begin
-  perform set_my_avatar('https://abc123.supabase.co/storage/v1/object/public/avatars/clients/:CLIENT_ID/missing.jpg');
+  perform set_my_avatar('https://attackerproj.supabase.co/storage/v1/object/public/avatars/clients/:CLIENT_ID/check.jpg');
+  raise warning 'FAIL other supabase project accepted';
+exception when others then
+  if sqlerrm = 'PROFILE_BAD_AVATAR' then raise notice 'PASS other project rejected'; else raise warning 'FAIL other project got %', sqlerrm; end if;
+end $$;
+do $$ begin
+  perform set_my_avatar('https://zxcgdirwkzdiufmhstau.supabase.co/storage/v1/object/public/avatars/clients/:CLIENT_ID/missing.jpg');
   raise warning 'FAIL missing object accepted';
 exception when others then
   if sqlerrm = 'PROFILE_BAD_AVATAR' then raise notice 'PASS missing object rejected'; else raise warning 'FAIL missing object got %', sqlerrm; end if;
 end $$;
-select set_my_avatar('https://abc123.supabase.co/storage/v1/object/public/avatars/clients/:CLIENT_ID/check.jpg');
+select set_my_avatar('https://zxcgdirwkzdiufmhstau.supabase.co/storage/v1/object/public/avatars/clients/:CLIENT_ID/check.jpg');
 select 'avatar set:' as check, avatar_url from profiles where id = ':CLIENT_ID';
 select remove_my_avatar();
 select 'avatar removed (must be null):' as check, avatar_url from profiles where id = ':CLIENT_ID';
