@@ -23,7 +23,7 @@ export async function GET() {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("profiles")
-    .select("id, full_name, email, created_at, restricted")
+    .select("id, full_name, email, created_at, restricted, phone, gender, address, avatar_url")
     .eq("role", "customer")
     .order("created_at", { ascending: false });
 
@@ -37,6 +37,10 @@ export async function GET() {
     email: row.email,
     createdAt: row.created_at,
     isRestricted: row.restricted ?? false,
+    phone: row.phone ?? null,
+    gender: row.gender ?? null,
+    address: row.address ?? null,
+    avatarUrl: row.avatar_url ?? null,
   }));
 
   return NextResponse.json({ clients });

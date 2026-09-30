@@ -7,6 +7,7 @@ export type CurrentUser = {
   id: string;
   fullName: string;
   role: string;
+  avatarUrl: string | null;
 };
 
 export function useCurrentUser() {
@@ -19,12 +20,19 @@ export function useCurrentUser() {
     async function loadProfile(userId: string) {
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, role")
+        .select("full_name, role, avatar_url")
         .eq("id", userId)
         .single();
 
       setUser(
-        data ? { id: userId, fullName: data.full_name, role: data.role } : null
+        data
+          ? {
+              id: userId,
+              fullName: data.full_name,
+              role: data.role,
+              avatarUrl: data.avatar_url ?? null,
+            }
+          : null
       );
     }
 
@@ -47,7 +55,17 @@ export function useCurrentUser() {
       }
     );
 
-    return () => subscription.subscription.unsubscribe();
+    const onUpdated = () => {
+      supabase.auth.getUser().then(({ data }) => {
+        if (data.user) loadProfile(data.user.id);
+      });
+    };
+    window.addEventListener("glowsync:profile-updated", onUpdated);
+
+    return () => {
+      subscription.subscription.unsubscribe();
+      window.removeEventListener("glowsync:profile-updated", onUpdated);
+    };
   }, []);
 
   return { user, loading };

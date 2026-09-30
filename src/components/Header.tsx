@@ -32,6 +32,21 @@ export default function Header() {
     router.refresh();
   }
 
+  const avatarCircle = user ? (
+    <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-blush text-sm font-semibold text-coral-dark">
+      {user.avatarUrl ? (
+        <Image src={user.avatarUrl} alt="" fill sizes="36px" className="object-cover" />
+      ) : (
+        user.fullName.charAt(0)
+      )}
+    </span>
+  ) : null;
+  const nameLabel = user ? (
+    <span className="hidden text-sm font-medium text-ink sm:inline">
+      {user.fullName}
+    </span>
+  ) : null;
+
   return (
     <header className="sticky top-0 z-50">
       <div className="bg-coral px-4 py-2 text-center text-sm text-white">
@@ -82,12 +97,21 @@ export default function Header() {
             {user ? (
               <div className="flex items-center gap-3">
                 {user.role === "customer" && <ClientNotificationBell clientId={user.id} />}
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blush text-sm font-semibold text-coral-dark">
-                  {user.fullName.charAt(0)}
-                </span>
-                <span className="hidden text-sm font-medium text-ink sm:inline">
-                  {user.fullName}
-                </span>
+                {user.role === "customer" ? (
+                  <Link
+                    href="/my-glow/profile"
+                    aria-label="My profile"
+                    className="flex items-center gap-3 rounded-full hover:opacity-80"
+                  >
+                    {avatarCircle}
+                    {nameLabel}
+                  </Link>
+                ) : (
+                  <>
+                    {avatarCircle}
+                    {nameLabel}
+                  </>
+                )}
                 <button
                   onClick={handleLogout}
                   aria-label="Logout"

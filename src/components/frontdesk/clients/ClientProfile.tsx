@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   BadgeCheck,
   Gift,
@@ -18,6 +19,7 @@ import {
   type FrontDeskClient,
 } from "@/lib/supabase/queries/frontdeskClients";
 import { getTierProgress } from "@/lib/myGlowTiers";
+import { GENDER_OPTIONS } from "@/lib/profileValidation";
 
 const tabs = ["Service History", "Preferences & Notes"];
 
@@ -73,13 +75,20 @@ export default function ClientProfile({
   ).length;
   const lastVisit = completed[0]?.date ?? "—";
   const tier = getTierProgress(client.loyaltyPoints);
+  const genderLabel = GENDER_OPTIONS.find((g) => g.value === client.gender)?.label ?? null;
 
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-4">
-          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-blush text-ink/40">
-            <User className="h-7 w-7" />
+          <span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-blush text-xl font-semibold text-coral-dark">
+            {client.avatarUrl ? (
+              <Image src={client.avatarUrl} alt="" fill sizes="64px" className="object-cover" />
+            ) : client.name ? (
+              client.name.charAt(0)
+            ) : (
+              <User className="h-7 w-7 text-ink/40" />
+            )}
           </span>
           <div>
             <div className="flex items-center gap-2">
@@ -107,6 +116,20 @@ export default function ClientProfile({
                 </span>
               )}
             </p>
+            {(genderLabel || client.address) && (
+              <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink/60">
+                {genderLabel && (
+                  <span className="flex items-center gap-1">
+                    <User className="h-3.5 w-3.5" /> {genderLabel}
+                  </span>
+                )}
+                {client.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" /> {client.address}
+                  </span>
+                )}
+              </p>
+            )}
             <p className="mt-1 text-xs text-ink/40">
               Member since {client.memberSince} &bull; GDPR:{" "}
               {client.gdprConsented ? "Consented" : "Not Consented"}

@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ShieldOff, ShieldCheck, X } from "lucide-react";
 import type { ClientUser } from "@/components/admin/users/types";
+import { GENDER_OPTIONS } from "@/lib/profileValidation";
 
 export default function ClientViewPanel({
   client,
@@ -53,8 +55,12 @@ export default function ClientViewPanel({
         </div>
 
         <div className="mt-6 flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blush text-lg font-semibold text-coral-dark">
-            {client.fullName.charAt(0)}
+          <span className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-blush text-lg font-semibold text-coral-dark">
+            {client.avatarUrl ? (
+              <Image src={client.avatarUrl} alt="" fill sizes="56px" className="object-cover" />
+            ) : (
+              client.fullName.charAt(0)
+            )}
           </span>
           <div>
             <div className="flex items-center gap-2">
@@ -71,6 +77,20 @@ export default function ClientViewPanel({
           <div className="flex justify-between">
             <span className="text-ink/40">Account Type</span>
             <span className="text-ink/70">Customer</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-ink/40">Phone</span>
+            <span className="text-ink/70">{client.phone || "—"}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-ink/40">Gender</span>
+            <span className="text-ink/70">
+              {GENDER_OPTIONS.find((g) => g.value === client.gender)?.label ?? "—"}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-ink/40">Address</span>
+            <span className="text-right text-ink/70">{client.address || "—"}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-ink/40">Sign-in Method</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import ClientList from "@/components/frontdesk/clients/ClientList";
 import ClientProfile from "@/components/frontdesk/clients/ClientProfile";
 import { createClient } from "@/lib/supabase/client";
@@ -19,6 +19,26 @@ export default function ClientsManager() {
       setSelectedId(list[0]?.id ?? null);
       setLoading(false);
     });
+  }, []);
+
+  const reloadRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    reloadRef.current = () => {
+      getClients(createClient()).then(setClients);
+    };
+  });
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`frontdesk-clients-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () =>
+        reloadRef.current()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const selected = clients.find((c) => c.id === selectedId) ?? null;

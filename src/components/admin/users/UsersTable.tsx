@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MoreHorizontal, Search, UserPlus, Users, ShieldCheck, UserCog, MonitorSmartphone, UserCircle } from "lucide-react";
 import UserEditPanel from "@/components/admin/users/UserEditPanel";
 import ClientViewPanel from "@/components/admin/users/ClientViewPanel";
@@ -69,8 +69,8 @@ export default function UsersTable({
     fetchCounts();
   }, []);
 
-  const fetchClients = async () => {
-    setClientsLoading(true);
+  const fetchClients = async (silent = false) => {
+    if (!silent) setClientsLoading(true);
     try {
       const res = await fetch("/api/admin/clients");
       const data = await res.json();
@@ -89,6 +89,27 @@ export default function UsersTable({
       fetchClients();
     }
   }, [tab, clientsLoaded]);
+
+  // Live refresh: quiet refetch (no "Loading…" row), only once the list has been loaded.
+  const refreshClientsRef = useRef(() => {});
+  useEffect(() => {
+    refreshClientsRef.current = () => {
+      if (clientsLoaded) fetchClients(true);
+    };
+  });
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`admin-clients-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () =>
+        refreshClientsRef.current()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const adminCount = users.filter((u) => u.role === "admin").length;
   const frontDeskCount = users.filter((u) => u.role === "front_desk").length;
@@ -366,7 +387,7 @@ export default function UsersTable({
       )}
       {activeClient && (
         <ClientViewPanel
-          client={activeClient}
+          client={clients.find((c) => c.id === activeClient.id) ?? activeClient}
           onClose={() => setActiveClient(null)}
           onRestricted={(id, restricted) => {
             setClients((prev) =>
