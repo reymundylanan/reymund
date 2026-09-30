@@ -207,7 +207,7 @@ insert into points_transactions (client_id, type, points, balance_after, note)
 select p.id, 'opening_balance', p.loyalty_points, p.loyalty_points, 'Starting balance'
   from profiles p
  where p.loyalty_points > 0
-   and not exists (select 1 from points_transactions t where t.client_id = p.id and t.type = 'opening_balance');
+   and not exists (select 1 from points_transactions t where t.client_id = p.id);
 
 -- ── Review tags ───────────────────────────────────────────────────────
 

@@ -371,4 +371,18 @@ do $$ declare v_status text; begin
   else raise warning 'FAIL status with rewards disabled %', v_status; end if;
 end $$;
 
+-- 16. Re-running the 052 opening-balance backfill adds nothing for a client who already has ledger rows
+do $$ declare v_before integer; v_after integer; begin
+  select count(*) into v_before from points_transactions where client_id = ':CLIENT_ID' and type = 'opening_balance';
+  insert into client_rewards (client_id, current_points, lifetime_earned)
+  select p.id, p.loyalty_points, p.loyalty_points from profiles p
+   where p.loyalty_points > 0 and not exists (select 1 from client_rewards c where c.client_id = p.id);
+  insert into points_transactions (client_id, type, points, balance_after, note)
+  select p.id, 'opening_balance', p.loyalty_points, p.loyalty_points, 'Starting balance' from profiles p
+   where p.loyalty_points > 0 and not exists (select 1 from points_transactions t where t.client_id = p.id);
+  select count(*) into v_after from points_transactions where client_id = ':CLIENT_ID' and type = 'opening_balance';
+  if v_after = v_before then raise notice 'PASS backfill re-run adds no opening_balance for a client with a ledger';
+  else raise warning 'FAIL backfill re-run added % opening_balance rows', v_after - v_before; end if;
+end $$;
+
 rollback;
