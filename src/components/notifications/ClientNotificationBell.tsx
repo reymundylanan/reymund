@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CalendarCheck, CalendarX, Sparkles, Star } from "lucide-react";
+import { Bell, CalendarCheck, CalendarX, Gift, Sparkles, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   listClientNotifications,
@@ -97,7 +97,9 @@ export default function ClientNotificationBell({ clientId }: { clientId: string 
                     >
                       {n.kind === "confirmed" ? (
                         <CalendarCheck className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
-                      ) : n.kind === "review_reward" ? (
+                      ) : n.kind === "voucher_expired" || n.kind === "voucher_cancelled" ? (
+                        <Gift className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
+                      ) : n.kind === "review_reward" || n.kind === "points_adjusted" ? (
                         <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
                       ) : n.kind === "review_request" ? (
                         <Star className="mt-0.5 h-5 w-5 shrink-0 fill-gold text-gold" />

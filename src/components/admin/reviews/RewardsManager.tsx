@@ -20,6 +20,7 @@ import {
   type RewardSettings,
 } from "@/lib/supabase/queries/adminRewards";
 import EvaluationCard from "./EvaluationCard";
+import RedemptionAdmin from "./RedemptionAdmin";
 
 type Stats = Awaited<ReturnType<typeof getRewardStats>>;
 
@@ -314,6 +315,8 @@ export default function RewardsManager({
           </div>
         )}
       </section>
+
+      <RedemptionAdmin />
 
       {confirming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setConfirming(false)}>

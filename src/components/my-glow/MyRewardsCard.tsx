@@ -5,11 +5,26 @@ import { createClient } from "@/lib/supabase/client";
 import { getTierProgress } from "@/lib/myGlowTiers";
 import { getPointsHistoryPage, type MyRewards, type PointsEntry } from "@/lib/supabase/queries/rewards";
 
+import MyVouchersList from "@/components/my-glow/MyVouchersList";
+import RedeemRewardsModal from "@/components/my-glow/RedeemRewardsModal";
+import type { RedemptionState, Voucher } from "@/lib/supabase/queries/vouchers";
+
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { timeZone: "Asia/Manila", month: "short", day: "numeric" });
 }
 
-export default function MyRewardsCard({ initial, clientId }: { initial: MyRewards; clientId: string }) {
+export default function MyRewardsCard({
+  initial,
+  clientId,
+  redemption,
+  vouchers,
+}: {
+  initial: MyRewards;
+  clientId: string;
+  redemption: RedemptionState;
+  vouchers: Voucher[];
+}) {
+  const [redeemOpen, setRedeemOpen] = useState(false);
   const [history, setHistory] = useState<PointsEntry[]>(initial.history);
   const [hasMore, setHasMore] = useState(initial.hasMore);
   const [loading, setLoading] = useState(false);
@@ -77,14 +92,36 @@ export default function MyRewardsCard({ initial, clientId }: { initial: MyReward
       )}
       {loadError && <p className="mt-1 text-xs text-red-600">Couldn&apos;t load more. Please try again.</p>}
 
-      <button
-        type="button"
-        disabled
-        className="mt-5 w-full cursor-not-allowed rounded-full bg-blush px-4 py-2 text-sm font-semibold text-ink/40"
-      >
-        Redeem Rewards
-      </button>
-      <p className="mt-1 text-center text-xs text-ink/50">Coming soon</p>
+      <MyVouchersList vouchers={vouchers} />
+
+      {redemption ? (
+        <button
+          type="button"
+          onClick={() => setRedeemOpen(true)}
+          className="mt-5 w-full rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark"
+        >
+          Redeem Rewards
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            disabled
+            className="mt-5 w-full cursor-not-allowed rounded-full bg-blush px-4 py-2 text-sm font-semibold text-ink/40"
+          >
+            Redeem Rewards
+          </button>
+          <p className="mt-1 text-center text-xs text-ink/50">Coming soon</p>
+        </>
+      )}
+      {redemption && redeemOpen && (
+        <RedeemRewardsModal
+          balance={initial.balance}
+          enabled={redemption.enabled}
+          options={redemption.options}
+          onClose={() => setRedeemOpen(false)}
+        />
+      )}
     </div>
   );
 }

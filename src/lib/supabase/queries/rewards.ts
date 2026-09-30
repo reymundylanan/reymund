@@ -3,7 +3,7 @@ import { logQueryError } from "@/lib/supabase/logQueryError";
 
 export type PointsEntry = {
   id: string;
-  type: "opening_balance" | "review_reward" | "admin_adjustment";
+  type: "opening_balance" | "review_reward" | "admin_adjustment" | "redemption" | "voucher_refund";
   points: number;
   balanceAfter: number;
   createdAt: string;
@@ -14,9 +14,10 @@ export type MyRewards = { balance: number; lifetimeEarned: number; history: Poin
 export const REWARDS_PAGE_SIZE = 10;
 
 export function describeEntry(type: string, note: string | null, serviceName: string | null): string {
-  void note;
+  if (type === "redemption") return note ? note.replace(/\s*\(GLOW-[^)]*\)\s*$/, "") : "Redeemed a reward";
+  if (type === "voucher_refund") return /cancel/i.test(note ?? "") ? "Voucher returned — cancelled" : "Voucher returned — expired";
   if (type === "review_reward") return serviceName ? `Review — ${serviceName}` : "Review reward";
-  if (type === "admin_adjustment") return "Review check (team)";
+  if (type === "admin_adjustment") return (note ?? "").startsWith("Review check") ? "Review check (team)" : "Adjustment by GlowSync";
   if (type === "opening_balance") return "Starting balance";
   return "GlowPoints";
 }
