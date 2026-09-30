@@ -198,6 +198,12 @@ export default function MyServicesList({
                       </button>
                     )}
                   </div>
+                  {review.reward &&
+                    (review.reward.status === "evaluated" || review.reward.status === "needs_review") &&
+                    review.reward.points > 0 && (
+                      <p className="text-xs font-semibold text-gold">+{review.reward.points} GlowPoints</p>
+                    )}
+                  {review.reward?.status === "pending" && <p className="text-xs text-ink/50">Reward pending</p>}
                   {partHidden && (
                     <p className="text-xs text-ink/50">Part of this review was hidden by GlowSync</p>
                   )}
