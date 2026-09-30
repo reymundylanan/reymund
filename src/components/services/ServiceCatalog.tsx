@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, ChevronLeft, Clock, Search } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
@@ -59,7 +60,13 @@ const CATEGORY_META: Record<string, { image: string; description: string }> = {
 
 const FALLBACK = { image: "/images/hero/clinic.jpeg", description: "Explore our curated selection of professional treatments." };
 
-export default function ServiceCatalog({ services }: { services: DbService[] }) {
+export default function ServiceCatalog({
+  services,
+  ratings = {},
+}: {
+  services: DbService[];
+  ratings?: Record<string, { average: number; count: number }>;
+}) {
   const { open } = useBooking();
   const searchParams = useSearchParams();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(() => searchParams.get("category"));
@@ -164,7 +171,16 @@ export default function ServiceCatalog({ services }: { services: DbService[] }) 
             <div key={svc.id} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm">
               <div className="flex flex-1 flex-col gap-3 p-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-ink">{svc.name}</h3>
+                  <h3 className="text-lg font-semibold text-ink">
+                    <Link href={`/services/${svc.id}`} className="hover:text-coral-dark">{svc.name}</Link>
+                  </h3>
+                  {ratings[svc.id] ? (
+                    <p className="mt-0.5 text-sm text-gold">
+                      ★ {ratings[svc.id].average} <span className="text-ink/50">({ratings[svc.id].count})</span>
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-sm text-ink/40">No reviews yet</p>
+                  )}
                 </div>
                 {(svc.description || svc.benefits) && (
                   <p className="line-clamp-2 text-base text-ink/60">

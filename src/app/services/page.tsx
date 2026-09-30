@@ -4,6 +4,7 @@ import ServicesHero from "@/components/services/ServicesHero";
 import ServiceCatalog, { type DbService } from "@/components/services/ServiceCatalog";
 import ConsultCta from "@/components/services/ConsultCta";
 import { createClient } from "@/lib/supabase/server";
+import { getServiceRatings } from "@/lib/supabase/queries/serviceReviews";
 
 async function fetchServices(): Promise<DbService[]> {
   const supabase = await createClient();
@@ -33,13 +34,14 @@ export const dynamic = "force-dynamic";
 
 export default async function ServicesPage() {
   const services = await fetchServices();
+  const ratings = await getServiceRatings(await createClient(), services.map((s) => s.id));
 
   return (
     <>
       <Header />
       <main className="flex-1">
         <ServicesHero />
-        <ServiceCatalog services={services} />
+        <ServiceCatalog services={services} ratings={ratings} />
         <ConsultCta />
       </main>
       <Footer />
