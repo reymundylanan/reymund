@@ -149,6 +149,8 @@ export default function PromoSideAd() {
   if (hidden || !promo) return null;
 
   const href = `/promos/${promo.id}`;
+  // Same destination as the promo page's own "Book Now" button.
+  const bookHref = promo.category ? `/services?category=${encodeURIComponent(promo.category)}` : "/services";
   const image = getServiceImage(promo.category ?? promo.department ?? promo.title);
   // The chat button sits bottom-right on every client page except My Glow.
   const chatVisible = !pathname.startsWith("/my-glow");
@@ -179,43 +181,63 @@ export default function PromoSideAd() {
           </button>
 
           {/* Mobile: compact banner */}
-          <Link href={href} className="flex items-center gap-3 p-2 pr-8 sm:hidden">
-            <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-              <Image src={image} alt="" fill sizes="56px" className="object-cover" />
-            </span>
-            <span className="min-w-0 flex-1">
-              {promo.badge && (
-                <span className="promo-ad-border inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                  {promo.badge}
-                </span>
-              )}
-              <span className="block truncate text-sm font-semibold text-ink">{promo.title}</span>
-              {promo.description && <span className="block truncate text-xs text-ink/60">{promo.description}</span>}
-            </span>
-            <span className="promo-ad-border shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white">View</span>
-          </Link>
+          <div className="flex items-center gap-3 p-2 pr-8 sm:hidden">
+            <Link href={href} className="flex min-w-0 flex-1 items-center gap-3">
+              <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
+                <Image src={image} alt="" fill sizes="56px" className="object-cover" />
+              </span>
+              <span className="min-w-0 flex-1">
+                {promo.badge && (
+                  <span className="promo-ad-border inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                    {promo.badge}
+                  </span>
+                )}
+                <span className="block truncate text-sm font-semibold text-ink">{promo.title}</span>
+                {promo.description && <span className="block truncate text-xs text-ink/60">{promo.description}</span>}
+              </span>
+            </Link>
+            <Link
+              href={bookHref}
+              className="promo-ad-border shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+            >
+              Book Now
+            </Link>
+          </div>
 
           {/* Tablet & desktop: card */}
-          <Link href={href} className="hidden sm:block">
-            <span className="relative block h-28 w-full lg:h-36">
-              <Image src={image} alt="" fill sizes="(min-width: 1280px) 320px, (min-width: 1024px) 280px, 260px" className="object-cover" />
-              {promo.badge && (
-                <span className="promo-ad-border absolute bottom-2 left-2 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow">
-                  {promo.badge}
+          <div className="hidden sm:block">
+            <Link href={href} className="block">
+              <span className="relative block h-28 w-full lg:h-36">
+                <Image src={image} alt="" fill sizes="(min-width: 1280px) 320px, (min-width: 1024px) 280px, 260px" className="object-cover" />
+                {promo.badge && (
+                  <span className="promo-ad-border absolute bottom-2 left-2 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow">
+                    {promo.badge}
+                  </span>
+                )}
+              </span>
+              <span className="block px-4 pt-4">
+                <span className="block text-[11px] font-semibold uppercase tracking-wide text-coral-dark">
+                  GlowSync Promo{promo.branchName && <> · {promo.branchName}</>}
                 </span>
-              )}
-            </span>
-            <span className="block p-4">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-coral-dark">
-                GlowSync Promo{promo.branchName && <> · {promo.branchName}</>}
+                <span className="mt-0.5 line-clamp-2 block font-semibold text-ink">{promo.title}</span>
+                {promo.description && <span className="mt-1 line-clamp-2 block text-sm text-ink/60">{promo.description}</span>}
               </span>
-              <span className="mt-0.5 line-clamp-2 block font-semibold text-ink">{promo.title}</span>
-              {promo.description && <span className="mt-1 line-clamp-2 block text-sm text-ink/60">{promo.description}</span>}
-              <span className="promo-ad-border mt-3 block rounded-full py-2 text-center text-sm font-semibold text-white">
+            </Link>
+            <div className="flex gap-2 p-4 pt-3">
+              <Link
+                href={bookHref}
+                className="promo-ad-border flex-1 rounded-full py-2 text-center text-sm font-semibold text-white shadow-sm hover:opacity-90"
+              >
+                Book Now
+              </Link>
+              <Link
+                href={href}
+                className="flex-1 rounded-full border border-ink/15 py-2 text-center text-sm font-semibold text-ink/70 hover:border-ink/30 hover:text-ink"
+              >
                 View Promo
-              </span>
-            </span>
-          </Link>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </aside>

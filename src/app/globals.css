@@ -34,7 +34,7 @@ body {
   display: none;
 }
 
-/* ── GlowSync side promo ad ─────────────────────────────────────────── */
+/* GlowSync side promo ad */
 .promo-ad-border {
   background: linear-gradient(135deg, #8b5cf6, #ec4899, #3b82f6, #06b6d4, #f97316, #facc15);
 }
