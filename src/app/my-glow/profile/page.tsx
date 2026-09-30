@@ -20,7 +20,6 @@ export default async function MyProfilePage() {
   if (!roleRow || roleRow.role !== "customer") redirect("/");
 
   const profile = await getMyProfile(supabase, auth.user.id);
-  if (!profile) redirect("/my-glow");
 
   return (
     <>
@@ -30,7 +29,13 @@ export default async function MyProfilePage() {
           <Link href="/my-glow" className="text-sm font-medium text-coral-dark hover:underline">
             &larr; Back to My Glow
           </Link>
-          <ProfileEditor initial={profile} />
+          {profile ? (
+            <ProfileEditor initial={profile} />
+          ) : (
+            <p role="alert" className="rounded-2xl bg-white p-6 text-sm text-ink/70 shadow-sm">
+              We couldn&apos;t load your profile right now. Please refresh the page or try again later.
+            </p>
+          )}
         </div>
       </main>
       <Footer />
