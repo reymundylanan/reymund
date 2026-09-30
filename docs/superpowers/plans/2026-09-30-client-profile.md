@@ -685,6 +685,7 @@ import {
   cleanAddress,
   formatPhoneForInput,
   normalizeName,
+  normalizePhone,
   validateProfile,
   validatePhotoFile,
   type ProfileField,
@@ -750,7 +751,7 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
     const next: MyProfile = {
       ...profile,
       fullName: normalizeName(form.fullName),
-      phone: form.phone,
+      phone: normalizePhone(form.phone) ?? form.phone,
       gender: form.gender || null,
       address: cleanAddress(form.address),
     };
