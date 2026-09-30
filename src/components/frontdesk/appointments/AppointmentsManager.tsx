@@ -37,6 +37,8 @@ export default function AppointmentsManager() {
   const [view, setView] = useState<"calendar" | "list">("list");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("today");
+  // A specific day chosen in the toolbar's date picker (YYYY-MM-DD); overrides the status tab.
+  const [dateFilter, setDateFilter] = useState("");
   const [staffFilter, setStaffFilter] = useState("all");
   const [serviceFilter, setServiceFilter] = useState("all");
   const [rows, setRows] = useState<AppointmentRow[]>([]);
@@ -201,17 +203,24 @@ export default function AppointmentsManager() {
   }, [todaysRows]);
 
   const filteredRows = useMemo(() => {
-    return rows.filter((r) => {
-      if (statusFilter === "today" && r.scheduled_date !== todayKey) return false;
-      if (statusFilter === "upcoming" && !(r.scheduled_date > todayKey && r.status !== "cancelled")) return false;
-      if (statusFilter === "completed" && r.session_status !== "completed") return false;
-      if (statusFilter === "cancelled" && r.status !== "cancelled") return false;
-      if (statusFilter === "no_show" && r.session_status !== "no_show") return false;
+    const matched = rows.filter((r) => {
+      if (dateFilter) {
+        if (r.scheduled_date !== dateFilter) return false;
+      } else {
+        if (statusFilter === "today" && r.scheduled_date !== todayKey) return false;
+        if (statusFilter === "past" && r.scheduled_date >= todayKey) return false;
+        if (statusFilter === "upcoming" && !(r.scheduled_date > todayKey && r.status !== "cancelled")) return false;
+        if (statusFilter === "completed" && r.session_status !== "completed") return false;
+        if (statusFilter === "cancelled" && r.status !== "cancelled") return false;
+        if (statusFilter === "no_show" && r.session_status !== "no_show") return false;
+      }
       if (staffFilter !== "all" && r.professional_id !== staffFilter) return false;
       if (serviceFilter !== "all" && r.service_id !== serviceFilter) return false;
       return true;
     });
-  }, [rows, statusFilter, staffFilter, serviceFilter, todayKey]);
+    // Rows load oldest-first; previous days read better newest-first.
+    return !dateFilter && statusFilter === "past" ? [...matched].reverse() : matched;
+  }, [rows, statusFilter, dateFilter, staffFilter, serviceFilter, todayKey]);
 
   const searchedRows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -286,6 +295,8 @@ export default function AppointmentsManager() {
         services={services}
         serviceFilter={serviceFilter}
         onServiceFilterChange={setServiceFilter}
+        dateFilter={dateFilter}
+        onDateFilterChange={setDateFilter}
       />
       <AppointmentsSummary
         summary={summary}

@@ -72,21 +72,6 @@ export async function checkInClient(
   return updateSessionStatus(supabase, appointmentId, "in_service");
 }
 
-/** A client who arrives after already being auto-marked No-Show — this
- * never erases the No-Show event (the appointment_history trigger keeps
- * it permanently), it just moves the session forward from here. */
-export async function markLateArrival(
-  supabase: SupabaseClient,
-  appointmentId: string
-): Promise<{ error: string | null }> {
-  const checkedInBy = await currentUserId(supabase);
-  const { error } = await supabase
-    .from("appointments")
-    .update({ arrival_time: new Date().toISOString(), checked_in_by: checkedInBy, session_status: "late_arrival" })
-    .eq("id", appointmentId);
-  return { error: error?.message ?? null };
-}
-
 export async function confirmAppointment(
   supabase: SupabaseClient,
   appointmentId: string

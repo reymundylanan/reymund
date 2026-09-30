@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import {
   X,
@@ -8,9 +8,6 @@ import {
   CalendarClock,
   Ban,
   LogIn,
-  UserCheck,
-  UserX,
-  PlayCircle,
   CheckSquare,
   CreditCard,
 } from "lucide-react";
@@ -20,10 +17,8 @@ import {
   cancelAppointment,
   rescheduleAppointment,
   checkInClient,
-  markLateArrival,
   updateSessionStatus,
 } from "@/lib/supabase/queries/appointments";
-import { getGracePeriodMinutes } from "@/lib/supabase/queries/spaSettings";
 import { SESSION_LABEL, SESSION_STYLE, CANCELLED_LABEL } from "@/lib/sessionStatus";
 import { serviceTimingLabel, serviceTimingStyle, computeServiceTiming, useServiceTimingClock } from "@/lib/serviceTiming";
 import {
@@ -111,17 +106,6 @@ export default function AppointmentDetailPanel({
   const [newDate, setNewDate] = useState(appointment.scheduled_date);
   const [newTime, setNewTime] = useState(appointment.start_time.slice(0, 5));
   const [showPayment, setShowPayment] = useState(false);
-  const [graceMinutes, setGraceMinutes] = useState(15);
-
-  useEffect(() => {
-    let cancelled = false;
-    getGracePeriodMinutes(createClient()).then((minutes) => {
-      if (!cancelled) setGraceMinutes(minutes);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const client = clientInfo(appointment.client);
   const staffPhoto =
@@ -155,9 +139,10 @@ export default function AppointmentDetailPanel({
   const estimatedEnd = new Date(estimatedStart.getTime() + appointment.duration_minutes * 60000);
 
   const scheduledStart = new Date(`${appointment.scheduled_date}T${appointment.start_time}`);
-  const graceExpiresAt = new Date(scheduledStart.getTime() + graceMinutes * 60000);
   const isAwaitingArrival = status !== "cancelled" && !sessionStatus && now >= scheduledStart;
-  const canMarkNoShow = isAwaitingArrival && now >= graceExpiresAt;
+  // Check-in opens at the scheduled start time (the spa does not check clients in early).
+  const checkInOpen = now >= scheduledStart;
+  const checkedInLate = !!arrivalDate && arrivalDate.getTime() > scheduledStart.getTime();
 
   const supabase = createClient();
 
@@ -194,6 +179,14 @@ export default function AppointmentDetailPanel({
     return "confirmed";
   }
   const derivedStatus = computeDerivedStatus();
+  /** Check In is the one arrival action: it also covers a client who was
+   * auto-marked No-Show and then arrives (the No-Show stays in history). */
+  const checkInEligible =
+    derivedStatus === "confirmed" ||
+    derivedStatus === "late_awaiting_arrival" ||
+    derivedStatus === "no_show" ||
+    derivedStatus === "late_arrival";
+  const checkInOpensAt = scheduledStart.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 
   async function run(action: () => Promise<{ error: string | null }>) {
     setSaving(true);
@@ -296,8 +289,13 @@ export default function AppointmentDetailPanel({
         <div className="mt-3 flex items-center justify-between rounded-xl bg-blush/40 p-3">
           <p className="text-[11px] text-ink/40">Current Status</p>
           {serviceTiming ? (
-            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${serviceTimingStyle(serviceTiming)}`}>
-              {serviceTimingLabel(serviceTiming)}
+            <span className="flex items-center gap-1.5">
+              {checkedInLate && (
+                <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700">Late arrival</span>
+              )}
+              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${serviceTimingStyle(serviceTiming)}`}>
+                {serviceTimingLabel(serviceTiming)}
+              </span>
             </span>
           ) : status === "cancelled" ? (
             <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-600">
@@ -365,6 +363,7 @@ export default function AppointmentDetailPanel({
                 disabled={
                   saving ||
                   !(
+                    derivedStatus === "pending" ||
                     derivedStatus === "confirmed" ||
                     derivedStatus === "late_awaiting_arrival" ||
                     derivedStatus === "no_show" ||
@@ -392,30 +391,8 @@ export default function AppointmentDetailPanel({
               <ActionButton
                 icon={LogIn}
                 label="Check In"
-                disabled={saving || !(derivedStatus === "confirmed" || derivedStatus === "late_awaiting_arrival")}
+                disabled={saving || !checkInEligible || !checkInOpen}
                 onClick={() => run(() => checkInClient(supabase, appointment.id))}
-              />
-
-              <ActionButton
-                icon={UserX}
-                label="Mark No-Show"
-                tone="danger"
-                disabled={saving || !canMarkNoShow}
-                onClick={() => run(() => updateSessionStatus(supabase, appointment.id, "no_show"))}
-              />
-
-              <ActionButton
-                icon={UserCheck}
-                label="Mark Late Arrival"
-                disabled={saving || derivedStatus !== "no_show"}
-                onClick={() => run(() => markLateArrival(supabase, appointment.id))}
-              />
-
-              <ActionButton
-                icon={PlayCircle}
-                label="Start Service"
-                disabled={saving || derivedStatus !== "late_arrival"}
-                onClick={() => run(() => updateSessionStatus(supabase, appointment.id, "in_service"))}
               />
 
               <ActionButton
@@ -425,6 +402,10 @@ export default function AppointmentDetailPanel({
                 onClick={() => run(() => updateSessionStatus(supabase, appointment.id, "completed"))}
               />
             </div>
+
+            {checkInEligible && !checkInOpen && (
+              <p className="mt-2 text-center text-xs text-ink/50">Check-in opens at {checkInOpensAt}.</p>
+            )}
 
             {derivedStatus === "payment_pending" && (
               <button
