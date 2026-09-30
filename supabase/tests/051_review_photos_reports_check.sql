@@ -258,4 +258,138 @@ do $$ declare v_other uuid; v_stored uuid; begin
   if v_stored is null then raise notice 'PASS cross-branch service_id nulled'; else raise warning 'FAIL cross-branch service_id kept'; end if;
 end $$;
 
+-- 17. Another client reports the service part 0 review: it becomes flagged and a 'flag' log row is written
+select set_config('request.jwt.claims', json_build_object('sub', ':OTHER_ID', 'role', 'authenticated')::text, true);
+set local role authenticated;
+select report_review(
+  (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0),
+  'spam', 'test');
+reset role;
+do $$ declare v_status text; v_logs integer; begin
+  select status, (select count(*) from review_moderation_log l where l.review_id = r.id and l.action = 'flag')
+    into v_status, v_logs
+    from reviews r
+   where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0;
+  if v_status = 'flagged' and v_logs = 1 then raise notice 'PASS report flags the review and logs it';
+  else raise warning 'FAIL after report status %, flag log rows %', v_status, v_logs; end if;
+end $$;
+
+-- 18. Same reporter again
+select set_config('request.jwt.claims', json_build_object('sub', ':OTHER_ID', 'role', 'authenticated')::text, true);
+set local role authenticated;
+do $$ begin
+  perform report_review(
+    (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0),
+    'spam', null);
+  raise warning 'FAIL duplicate report accepted';
+exception when others then
+  if sqlerrm = 'REVIEW_REPORTED' then raise notice 'PASS duplicate report rejected';
+  else raise warning 'FAIL duplicate report got %', sqlerrm; end if;
+end $$;
+
+-- 19. Author cannot report own review
+select set_config('request.jwt.claims', json_build_object('sub', ':CLIENT_ID', 'role', 'authenticated')::text, true);
+do $$ begin
+  perform report_review(
+    (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0),
+    'spam', null);
+  raise warning 'FAIL author reported own review';
+exception when others then
+  if sqlerrm = 'REVIEW_NOT_ALLOWED' then raise notice 'PASS author cannot report own review';
+  else raise warning 'FAIL author report got %', sqlerrm; end if;
+end $$;
+
+-- 20. Unknown reason (as a third id; admins may report)
+select set_config('request.jwt.claims', json_build_object('sub', ':ADMIN_ID', 'role', 'authenticated')::text, true);
+do $$ begin
+  perform report_review(
+    (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0),
+    'bad', null);
+  raise warning 'FAIL bad reason accepted';
+exception when others then
+  if sqlerrm = 'REVIEW_INVALID' then raise notice 'PASS bad reason rejected';
+  else raise warning 'FAIL bad reason got %', sqlerrm; end if;
+end $$;
+reset role;
+
+-- 21. Flagged review is still public. Case 10b left the only photo on part 1 (which has no service_id and is
+-- not in the view), so move it to part 0 first to check photo_count.
+update review_photos
+   set review_id = (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0)
+ where review_id = (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 1);
+do $$ declare v_n integer; v_photos integer; begin
+  select count(*), max(photo_count) into v_n, v_photos from public_service_reviews
+   where id = (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0);
+  if v_n = 1 and v_photos = 1 then raise notice 'PASS flagged review still public with 1 photo';
+  else raise warning 'FAIL public_service_reviews rows %, photo_count %', v_n, v_photos; end if;
+end $$;
+
+-- 22. Admin keeps, then hides
+select set_config('request.jwt.claims', json_build_object('sub', ':ADMIN_ID', 'role', 'authenticated')::text, true);
+set local role authenticated;
+select moderate_review(
+  (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0),
+  'keep', null);
+reset role;
+do $$ declare v_status text; begin
+  select status into v_status from reviews
+   where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0;
+  if v_status = 'visible' then raise notice 'PASS keep returns flagged review to visible';
+  else raise warning 'FAIL after keep status %', v_status; end if;
+end $$;
+set local role authenticated;
+select moderate_review(
+  (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0),
+  'hide', 'x');
+reset role;
+do $$ declare v_status text; begin
+  select status into v_status from reviews
+   where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0;
+  if v_status = 'hidden' then raise notice 'PASS hide sets hidden';
+  else raise warning 'FAIL after hide status %', v_status; end if;
+end $$;
+
+-- 23. Hidden review and its photos are invisible to anon
+select set_config('request.jwt.claims', '{}', true);
+set local role anon;
+do $$ declare v_n integer; v_ph integer; begin
+  select count(*) into v_n from public_service_reviews
+   where id = (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0);
+  select count(*) into v_ph from review_photos
+   where review_id = (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0);
+  if v_n = 0 and v_ph = 0 then raise notice 'PASS hidden review and photos not public';
+  else raise warning 'FAIL anon sees hidden review rows %, photos %', v_n, v_ph; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claims', json_build_object('sub', ':ADMIN_ID', 'role', 'authenticated')::text, true);
+set local role authenticated;
+select moderate_review(
+  (select id from reviews where appointment_id = '00000000-0000-4000-8000-000000000051' and target_type = 'service' and service_position = 0),
+  'show', null);
+reset role;
+
+-- 24. Completing a booking creates exactly one review_request notification
+insert into appointments (id, booking_code, branch_id, client_id, professional_id, appointment_type,
+                          scheduled_date, start_time, duration_minutes, status, notes)
+values ('00000000-0000-4000-8000-000000000053', 'CHK053', ':BRANCH_ID', ':CLIENT_ID', ':STAFF_ID', 'solo',
+        current_date, '12:00', 60, 'confirmed', 'Check Service with Tester — ₱1.00');
+update appointments set session_status = 'completed' where id = '00000000-0000-4000-8000-000000000053';
+do $$ declare v_n integer; v_ok integer; begin
+  select count(*), count(*) filter (where link_path = '/my-glow?review=' || appointment_id)
+    into v_n, v_ok from client_notifications
+   where appointment_id = '00000000-0000-4000-8000-000000000053' and kind = 'review_request';
+  if v_n = 1 and v_ok = 1 then raise notice 'PASS one review_request notification with link';
+  else raise warning 'FAIL review_request rows %, correct links %', v_n, v_ok; end if;
+end $$;
+update appointments set status = 'completed' where id = '00000000-0000-4000-8000-000000000053';
+do $$ declare v_n integer; begin
+  select count(*) into v_n from client_notifications
+   where appointment_id = '00000000-0000-4000-8000-000000000053' and kind = 'review_request';
+  if v_n = 1 then raise notice 'PASS still one review_request after status also completed';
+  else raise warning 'FAIL review_request rows after second update %', v_n; end if;
+end $$;
+
+-- 25. Storage policies: expect 4 rows listed
+select policyname from pg_policies where tablename = 'objects' and policyname like '%review photos%';
+
 rollback;

@@ -458,3 +458,225 @@ $$;
 
 revoke execute on function edit_visit_review(uuid, jsonb, smallint, text, smallint, text) from public, anon;
 grant execute on function edit_visit_review(uuid, jsonb, smallint, text, smallint, text) to authenticated;
+
+-- ════════════════════════════════════════════════════════════════════
+-- Part B: reports + Flagged, public review views, review requests.
+-- ════════════════════════════════════════════════════════════════════
+
+-- ── Reports ───────────────────────────────────────────────────────────
+
+create table if not exists review_reports (
+  id uuid primary key default gen_random_uuid(),
+  review_id uuid not null references reviews(id) on delete cascade,
+  reporter_id uuid not null references profiles(id) on delete cascade,
+  reason text not null check (reason in ('spam', 'offensive', 'inappropriate_photo', 'fake', 'other')),
+  note text check (note is null or length(note) <= 500),
+  created_at timestamptz not null default now(),
+  unique (review_id, reporter_id)
+);
+
+create index if not exists review_reports_review_idx on review_reports (review_id, created_at desc);
+
+alter table review_reports enable row level security;
+
+drop policy if exists "read review reports" on review_reports;
+create policy "read review reports" on review_reports for select using (
+  reporter_id = auth.uid() or coalesce(public.current_user_role()::text, '') = 'admin'
+);
+
+revoke insert, update, delete on review_reports from anon, authenticated;
+grant select on review_reports to authenticated;
+
+alter table review_moderation_log drop constraint if exists review_moderation_log_action_check;
+alter table review_moderation_log add constraint review_moderation_log_action_check
+  check (action in ('hide', 'show', 'remove', 'restore', 'keep', 'flag'));
+
+create or replace function report_review(p_review_id uuid, p_reason text, p_note text) returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_uid uuid := auth.uid();
+  v_rev record;
+  v_note text := clean_review_text(p_note);
+begin
+  if v_uid is null then
+    raise exception 'REVIEW_NOT_ALLOWED';
+  end if;
+  select id, client_id, status into v_rev from reviews where id = p_review_id for update;
+  if v_rev.id is null or v_rev.status not in ('visible', 'flagged') or v_rev.client_id = v_uid then
+    raise exception 'REVIEW_NOT_ALLOWED';
+  end if;
+  if coalesce(p_reason, '') not in ('spam', 'offensive', 'inappropriate_photo', 'fake', 'other')
+     or length(coalesce(v_note, '')) > 500 then
+    raise exception 'REVIEW_INVALID';
+  end if;
+
+  insert into review_reports (review_id, reporter_id, reason, note) values (p_review_id, v_uid, p_reason, v_note);
+
+  if v_rev.status = 'visible' then
+    update reviews
+       set status = 'flagged', status_changed_at = now(), status_changed_by = v_uid, admin_seen_at = null
+     where id = p_review_id;
+    insert into review_moderation_log (review_id, action, from_status, to_status, reason, actor_id)
+    values (p_review_id, 'flag', 'visible', 'flagged', p_reason, v_uid);
+  end if;
+exception
+  when unique_violation then
+    raise exception 'REVIEW_REPORTED';
+end;
+$$;
+
+revoke execute on function report_review(uuid, text, text) from public, anon;
+grant execute on function report_review(uuid, text, text) to authenticated;
+
+-- Same signature as 048; adds Flagged transitions and "keep".
+create or replace function moderate_review(p_review_id uuid, p_action text, p_reason text)
+returns void
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_from text;
+  v_to text;
+begin
+  if coalesce(public.current_user_role()::text, '') <> 'admin' then
+    raise exception 'REVIEW_FORBIDDEN';
+  end if;
+
+  select status into v_from from reviews where id = p_review_id for update;
+  if v_from is null then
+    raise exception 'REVIEW_BAD_TRANSITION';
+  end if;
+
+  v_to := case
+    when p_action = 'hide' and v_from in ('visible', 'flagged') then 'hidden'
+    when p_action = 'show' and v_from = 'hidden' then 'visible'
+    when p_action = 'keep' and v_from = 'flagged' then 'visible'
+    when p_action = 'remove' and v_from in ('visible', 'flagged', 'hidden') then 'removed'
+    when p_action = 'restore' and v_from = 'removed' then 'visible'
+  end;
+  if v_to is null then
+    raise exception 'REVIEW_BAD_TRANSITION';
+  end if;
+
+  update reviews
+     set status = v_to,
+         status_changed_at = now(),
+         status_changed_by = auth.uid(),
+         admin_seen_at = coalesce(admin_seen_at, now())
+   where id = p_review_id;
+
+  insert into review_moderation_log (review_id, action, from_status, to_status, reason, actor_id)
+  values (p_review_id, p_action, v_from, v_to, nullif(btrim(coalesce(p_reason, '')), ''), auth.uid());
+end;
+$$;
+
+-- ── Public views ──────────────────────────────────────────────────────
+
+create or replace view public_staff_reviews as
+select r.id, r.staff_id, r.rating, r.text, r.created_at,
+       coalesce(
+         nullif(btrim(split_part(btrim(p.full_name), ' ', 1) || ' ' ||
+                      coalesce(left(nullif(split_part(btrim(p.full_name), ' ', 2), ''), 1) || '.', '')), ''),
+         'Client') as reviewer,
+       coalesce(
+         (select string_agg(x.service_name, ', ' order by x.position)
+            from appointment_services x where x.appointment_id = r.appointment_id),
+         s.name) as service_name,
+       a.scheduled_date as service_date,
+       r.edited_at
+  from reviews r
+  left join profiles p on p.id = r.client_id
+  left join appointments a on a.id = r.appointment_id
+  left join branch_services s on s.id = r.service_id
+ where r.target_type = 'staff' and r.status in ('visible', 'flagged') and r.staff_id is not null;
+
+create or replace view public_service_reviews as
+select r.id, r.service_id, r.rating, r.text, r.created_at, r.edited_at,
+       coalesce(
+         nullif(btrim(split_part(btrim(p.full_name), ' ', 1) || ' ' ||
+                      coalesce(left(nullif(split_part(btrim(p.full_name), ' ', 2), ''), 1) || '.', '')), ''),
+         'Client') as reviewer,
+       a.professional_id as staff_id,
+       sm.full_name as staff_name,
+       a.scheduled_date as service_date,
+       (select count(*) from review_photos ph where ph.review_id = r.id)::integer as photo_count
+  from reviews r
+  left join profiles p on p.id = r.client_id
+  left join appointments a on a.id = r.appointment_id
+  left join staff_members sm on sm.id = a.professional_id
+ where r.target_type = 'service' and r.status in ('visible', 'flagged') and r.service_id is not null;
+
+grant select on public_staff_reviews to anon, authenticated;
+grant select on public_service_reviews to anon, authenticated;
+
+-- ── Review request (bell + Messenger) ─────────────────────────────────
+
+alter table client_notifications drop constraint if exists client_notifications_kind_check;
+alter table client_notifications add constraint client_notifications_kind_check
+  check (kind in ('confirmed', 'cancelled', 'review_request'));
+
+create unique index if not exists client_notifications_one_review_request
+  on client_notifications (appointment_id) where kind = 'review_request';
+
+alter table messenger_outbox drop constraint if exists messenger_outbox_kind_check;
+alter table messenger_outbox add constraint messenger_outbox_kind_check
+  check (kind in ('reminder', 'appointment_update', 'promo', 'booking_invite', 'review_request'));
+
+create or replace function notify_client_review_request() returns trigger
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+  v_services text;
+  v_staff text;
+begin
+  if new.client_id is null then
+    return new;
+  end if;
+  if not (new.status::text = 'completed' or coalesce(new.session_status, '') in ('completed', 'paid')) then
+    return new;
+  end if;
+  if old.status::text = 'completed' or coalesce(old.session_status, '') in ('completed', 'paid') then
+    return new;
+  end if;
+  if exists (select 1 from reviews where appointment_id = new.id) then
+    return new;
+  end if;
+
+  select string_agg(service_name, ', ' order by position) into v_services
+    from appointment_services where appointment_id = new.id;
+  v_services := coalesce(
+    v_services,
+    (select name from branch_services where id = new.service_id),
+    nullif(btrim(split_part(coalesce(new.notes, ''), ' with ', 1)), ''),
+    'visit');
+  select full_name into v_staff from staff_members where id = new.professional_id;
+
+  insert into client_notifications (client_id, appointment_id, kind, title, body, link_path)
+  values (
+    new.client_id, new.id, 'review_request',
+    'How was your GlowSync experience?',
+    'Your ' || v_services || coalesce(' with ' || v_staff, '') || ' has been completed. Tap to rate and review.',
+    '/my-glow?review=' || new.id
+  )
+  on conflict do nothing;
+
+  insert into messenger_outbox (profile_id, kind, appointment_id, link_path)
+  select new.client_id, 'review_request', new.id, '/my-glow?review=' || new.id
+   where exists (select 1 from messenger_subscriptions s where s.profile_id = new.client_id and s.opted_out_at is null)
+     and not exists (select 1 from messenger_outbox o where o.appointment_id = new.id and o.kind = 'review_request');
+
+  return new;
+exception when others then
+  -- Never block completing a service over a notification.
+  raise warning 'notify_client_review_request failed: %', sqlerrm;
+  return new;
+end;
+$$;
+
+revoke execute on function notify_client_review_request() from public, anon, authenticated;
+
+drop trigger if exists appointments_review_request_trigger on appointments;
+create trigger appointments_review_request_trigger
+  after update of status, session_status on appointments
+  for each row execute function notify_client_review_request();
+
+do $$ begin
+  alter publication supabase_realtime add table review_reports;
+exception when duplicate_object then null; end $$;
