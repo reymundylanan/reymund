@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MoreHorizontal, Search, UserPlus, Users, ShieldCheck, UserCog, MonitorSmartphone, UserCircle } from "lucide-react";
 import UserEditPanel from "@/components/admin/users/UserEditPanel";
 import ClientViewPanel from "@/components/admin/users/ClientViewPanel";
@@ -89,6 +89,24 @@ export default function UsersTable({
       fetchClients();
     }
   }, [tab, clientsLoaded]);
+
+  const fetchClientsRef = useRef(fetchClients);
+  useEffect(() => {
+    fetchClientsRef.current = fetchClients;
+  });
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`admin-clients-${crypto.randomUUID()}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () =>
+        fetchClientsRef.current()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const adminCount = users.filter((u) => u.role === "admin").length;
   const frontDeskCount = users.filter((u) => u.role === "front_desk").length;
@@ -366,7 +384,7 @@ export default function UsersTable({
       )}
       {activeClient && (
         <ClientViewPanel
-          client={activeClient}
+          client={clients.find((c) => c.id === activeClient.id) ?? activeClient}
           onClose={() => setActiveClient(null)}
           onRestricted={(id, restricted) => {
             setClients((prev) =>

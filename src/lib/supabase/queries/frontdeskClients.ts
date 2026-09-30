@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 export type FrontDeskClient = {
   id: string;
@@ -6,6 +7,9 @@ export type FrontDeskClient = {
   vip: boolean;
   phone: string | null;
   email: string | null;
+  gender: string | null;
+  address: string | null;
+  avatarUrl: string | null;
   branchName: string | null;
   memberSince: string;
   totalSpend: number;
@@ -37,6 +41,9 @@ type RawClientRow = {
   vip: boolean;
   phone: string | null;
   email: string | null;
+  gender: string | null;
+  address: string | null;
+  avatar_url: string | null;
   loyalty_points: number;
   total_spend: number;
   allergy: string | null;
@@ -50,12 +57,12 @@ export async function getClients(supabase: SupabaseClient): Promise<FrontDeskCli
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, full_name, vip, phone, email, loyalty_points, total_spend, allergy, preferences, gdpr_consented, created_at, branches(name)"
+      "id, full_name, vip, phone, email, gender, address, avatar_url, loyalty_points, total_spend, allergy, preferences, gdpr_consented, created_at, branches(name)"
     )
     .eq("role", "customer")
     .order("full_name", { ascending: true });
 
-  if (error) console.error("getClients failed:", error);
+  logQueryError("getClients", error);
 
   return ((data as unknown as RawClientRow[]) ?? []).map((row) => ({
     id: row.id,
@@ -63,6 +70,9 @@ export async function getClients(supabase: SupabaseClient): Promise<FrontDeskCli
     vip: row.vip,
     phone: row.phone,
     email: row.email,
+    gender: row.gender,
+    address: row.address,
+    avatarUrl: row.avatar_url,
     branchName: one(row.branches)?.name ?? null,
     memberSince: new Date(row.created_at).toLocaleDateString("en-US", {
       month: "short",

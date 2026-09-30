@@ -14,4 +14,8 @@ export type ClientUser = {
   email: string;
   createdAt: string;
   isRestricted?: boolean;
+  phone?: string | null;
+  gender?: string | null;
+  address?: string | null;
+  avatarUrl?: string | null;
 };
