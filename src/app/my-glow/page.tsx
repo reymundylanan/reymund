@@ -6,10 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getUpcomingAppointment,
   getRecentAppointments,
-  getReviewableProfessionals,
   getMyReviews,
   getVisitedBranches,
-  getServiceReviews,
+  getVisitReviews,
 } from "@/lib/supabase/queries/myGlow";
 import UpcomingBookingCard from "@/components/my-glow/UpcomingBookingCard";
 import MyBookingsSection from "@/components/my-glow/MyBookingsSection";
@@ -38,14 +37,13 @@ export default async function MyGlowPage() {
 
   if (!profile || profile.role !== "customer") redirect("/");
 
-  const [upcoming, recent, reviewable, myReviews, visitedBranches, serviceReviews] =
+  const [upcoming, recent, myReviews, visitedBranches, visitReviews] =
     await Promise.all([
       getUpcomingAppointment(supabase, auth.user.id),
       getRecentAppointments(supabase, auth.user.id),
-      getReviewableProfessionals(supabase, auth.user.id),
       getMyReviews(supabase, auth.user.id),
       getVisitedBranches(supabase, auth.user.id),
-      getServiceReviews(supabase, auth.user.id),
+      getVisitReviews(supabase, auth.user.id),
     ]);
 
   let recommendBranchId = visitedBranches[0]?.id ?? null;
@@ -71,15 +69,10 @@ export default async function MyGlowPage() {
             <div className="space-y-6">
               <UpcomingBookingCard appointment={upcoming} />
               {messengerEnabled && <MessengerConnectCard userId={auth.user.id} initialStatus={messengerStatus} />}
-              <ReviewsPanel
-                clientId={auth.user.id}
-                reviewable={reviewable}
-                visitedBranches={visitedBranches}
-                myReviews={myReviews}
-              />
+              <ReviewsPanel myReviews={myReviews} />
             </div>
             <div className="space-y-6">
-              <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={serviceReviews} />
+              <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews} />
               <GlowRewardsCard points={profile.loyalty_points} />
             </div>
             <AssistantPanel firstName={profile.full_name.split(" ")[0]} />

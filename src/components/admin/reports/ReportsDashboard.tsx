@@ -76,7 +76,7 @@ export default function ReportsDashboard() {
   const [topServices, setTopServices] = useState<TopService[]>([]);
   const [topStaff, setTopStaff] = useState<TopStaffRow[]>([]);
   const [clientAnalytics, setClientAnalytics] = useState<ClientAnalytics>({ topSpenders: [], growth: [] });
-  const [reviews, setReviews] = useState<ReviewsSummary>({ average: 0, count: 0, breakdown: [], recent: [] });
+  const [reviews, setReviews] = useState<ReviewsSummary>({ average: 0, count: 0, breakdown: [], byType: { service: { average: 0, count: 0 }, staff: { average: 0, count: 0 }, branch: { average: 0, count: 0 } }, recent: [] });
   const [attendance, setAttendance] = useState<AttendanceSummary>({ present: 0, onLeave: 0, dayOff: 0, schedule: [] });
   const [loading, setLoading] = useState(true);
 

@@ -187,22 +187,6 @@ export const promotions: Promotion[] = [
   { id: "gcash-weekend", title: "GCash Weekend", badge: "₱500 OFF" },
 ];
 
-export type TeamMember = {
-  id: string;
-  name: string;
-  position: string;
-};
-
-export const team: TeamMember[] = [
-  { id: "t1", name: "Name", position: "Position" },
-  { id: "t2", name: "Name", position: "Position" },
-  { id: "t3", name: "Name", position: "Position" },
-  { id: "t4", name: "Name", position: "Position" },
-  { id: "t5", name: "Name", position: "Position" },
-  { id: "t6", name: "Name", position: "Position" },
-  { id: "t7", name: "Name", position: "Position" },
-];
-
 export type Review = {
   id: string;
   name: string;

@@ -14,6 +14,7 @@ import {
   type DisplayStatus,
 } from "./StaffStatusControls";
 import { serviceTimingLabel, serviceTimingStyle, type ServiceTiming } from "@/lib/serviceTiming";
+import StaffRatingBlock from "@/components/staff/StaffRatingBlock";
 
 type StaffOption = { id: string; full_name: string; department: string | null; avatar_url: string | null };
 
@@ -234,6 +235,8 @@ export default function StaffDetailPanel({
           </dl>
         </div>
       )}
+
+      {selectedStaffId && <StaffRatingBlock key={selectedStaffId} staffId={selectedStaffId} showManageLink={false} />}
 
       <div className="rounded-2xl bg-white p-5 shadow-sm">
         <h3 className="text-sm font-semibold text-ink">Status Legend</h3>
