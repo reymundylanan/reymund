@@ -1,10 +1,11 @@
-export type OutboxKind = "reminder" | "appointment_update" | "promo" | "booking_invite";
+export type OutboxKind = "reminder" | "appointment_update" | "promo" | "booking_invite" | "review_request";
 
 export type SkipContext = {
   kind: OutboxKind;
   subscription: { optedOutAt: string | null; lastInboundAt: string | null } | null;
   appointment: { status: string; sessionStatus: string | null; scheduledAt: string } | null;
   remindFor: string | null;
+  alreadyReviewed?: boolean;
   now: Date;
 };
 
@@ -22,7 +23,7 @@ export function skipReason(ctx: SkipContext): string | null {
   if (!ctx.subscription) return "not_subscribed";
   if (ctx.subscription.optedOutAt) return "opted_out";
 
-  if (ctx.kind === "reminder" || ctx.kind === "appointment_update") {
+  if (ctx.kind === "reminder" || ctx.kind === "appointment_update" || ctx.kind === "review_request") {
     if (!ctx.appointment) return "appointment_missing";
   }
 
@@ -32,6 +33,8 @@ export function skipReason(ctx: SkipContext): string | null {
     if (ctx.remindFor && Date.parse(ctx.remindFor) !== Date.parse(a.scheduledAt)) return "appointment_moved";
     if (Date.parse(a.scheduledAt) <= ctx.now.getTime()) return "appointment_passed";
   }
+
+  if (ctx.kind === "review_request" && ctx.alreadyReviewed) return "already_reviewed";
 
   if (ctx.kind === "promo" || ctx.kind === "booking_invite") {
     const last = ctx.subscription.lastInboundAt;
