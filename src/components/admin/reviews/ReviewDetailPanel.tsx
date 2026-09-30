@@ -14,6 +14,8 @@ import {
   type AdminReviewDetail,
 } from "@/lib/supabase/queries/adminReviews";
 import { formatAppointmentDate, formatAppointmentTime } from "@/lib/appointmentFormat";
+import { getEvaluationForAppointment, type EvaluationDetail } from "@/lib/supabase/queries/adminRewards";
+import EvaluationCard from "./EvaluationCard";
 
 const ACTIONS = {
   visible: [
@@ -42,6 +44,7 @@ export default function ReviewDetailPanel({
   onChanged: () => void;
 }) {
   const [detail, setDetail] = useState<AdminReviewDetail | null>(null);
+  const [evaluation, setEvaluation] = useState<EvaluationDetail | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +55,7 @@ export default function ReviewDetailPanel({
     const supabase = createClient();
     const d = await getAdminReviewDetail(supabase, reviewId);
     setDetail(d);
+    setEvaluation(d?.review.appointmentId ? await getEvaluationForAppointment(supabase, d.review.appointmentId) : null);
     if (d?.review.isNew) {
       await markReviewsSeen(supabase, [reviewId]);
       onChanged();
@@ -119,6 +123,8 @@ export default function ReviewDetailPanel({
               <p className="mt-2 whitespace-pre-wrap text-ink/80">{detail.review.text ?? <span className="text-ink/40">No comment.</span>}</p>
               <p className="mt-2 text-xs capitalize text-ink/50">Status: {detail.review.status}</p>
             </div>
+
+            {evaluation && <EvaluationCard evaluation={evaluation} admin onChanged={load} />}
 
             {detail.photos.length > 0 && (
               <div>

@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ReviewStatus, ReviewTarget } from "@/lib/reviews";
 import { reviewPhotoPath } from "@/lib/reviewPhotos";
-import { logQueryError } from "@/lib/supabase/logQueryError";
+import type { EvaluationRow } from "@/lib/reviewRewards";
+import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 
 export type BookedService = { position: number; serviceId: string | null; name: string };
 export type ServicePart = {
@@ -9,6 +10,7 @@ export type ServicePart = {
   position: number;
   rating: number;
   text: string | null;
+  tags: string[];
   status: ReviewStatus;
   photos: { path: string; url: string }[];
 };
@@ -19,8 +21,9 @@ export type VisitReview = {
   branch?: OtherPart;
   firstSubmittedAt: string;
   editedAt: string | null;
+  reward: { status: string; points: number } | null;
 };
-export type ServiceDraft = { position: number; rating: number; text: string; keep: string[]; add: Blob[] };
+export type ServiceDraft = { position: number; rating: number; text: string; tags: string[]; keep: string[]; add: Blob[] };
 export type VisitReviewDraft = {
   appointmentId: string;
   services: ServiceDraft[];
@@ -62,6 +65,7 @@ type ReviewRow = {
   service_position: number | null;
   rating: number;
   text: string | null;
+  tags: string[] | null;
   status: ReviewStatus;
   first_submitted_at: string | null;
   edited_at: string | null;
@@ -74,13 +78,15 @@ export async function getVisitReviews(
   supabase: SupabaseClient,
   clientId: string
 ): Promise<Record<string, VisitReview>> {
-  const { data, error } = await supabase
-    .from("reviews")
-    .select(
-      "id, appointment_id, target_type, service_position, rating, text, status, first_submitted_at, edited_at, review_photos(storage_path, position)"
-    )
-    .eq("client_id", clientId)
-    .not("appointment_id", "is", null);
+  const columns =
+    "id, appointment_id, target_type, service_position, rating, text, status, first_submitted_at, edited_at, review_photos(storage_path, position)";
+  const load = (select: string) =>
+    supabase.from("reviews").select(select).eq("client_id", clientId).not("appointment_id", "is", null);
+  let { data, error } = await load(`${columns}, tags`);
+  if (error && (isNotMigratedError(error) || error.code === "42703")) {
+    // `tags` doesn't exist until migration 052 is applied: retry without it.
+    ({ data, error } = await load(columns));
+  }
   if (error) {
     logQueryError("getVisitReviews", error);
     return {};
@@ -97,6 +103,7 @@ export async function getVisitReviews(
       services: [],
       firstSubmittedAt: row.first_submitted_at ?? "",
       editedAt: null,
+      reward: null,
     });
     if (row.first_submitted_at && (!visit.firstSubmittedAt || row.first_submitted_at < visit.firstSubmittedAt)) {
       visit.firstSubmittedAt = row.first_submitted_at;
@@ -109,6 +116,7 @@ export async function getVisitReviews(
         position: row.service_position ?? 0,
         rating: row.rating,
         text: row.text,
+        tags: row.tags ?? [],
         status: row.status,
         // Keep every stored path: a photo whose URL failed to sign gets an
         // empty url (placeholder) so an edit still sends it as "keep".
@@ -119,7 +127,55 @@ export async function getVisitReviews(
     }
   }
   for (const visit of Object.values(map)) visit.services.sort((a, b) => a.position - b.position);
+
+  // Rewards live in their own table; before migration 052 this query fails and
+  // every visit simply has no reward.
+  const { data: evals, error: evalError } = await supabase
+    .from("review_evaluations")
+    .select("appointment_id, status, points_awarded")
+    .eq("client_id", clientId);
+  if (evalError) {
+    logQueryError("getVisitReviews rewards", evalError);
+  } else {
+    for (const e of (evals ?? []) as { appointment_id: string; status: string; points_awarded: number | null }[]) {
+      const visit = map[e.appointment_id];
+      if (visit) visit.reward = { status: e.status, points: e.points_awarded ?? 0 };
+    }
+  }
   return map;
+}
+
+export type EvaluationResponse = {
+  status: string;
+  points?: number;
+  balance?: number;
+  evaluation?: EvaluationRow;
+};
+
+/** Asks the server to grade a just-submitted review. Any failure (network,
+ * timeout, network error) resolves to null so the UI can show a soft message;
+ * a non-OK response resolves to { status: "unavailable" }. */
+export async function requestReviewEvaluation(
+  appointmentId: string,
+  timeoutMs = 25000
+): Promise<EvaluationResponse | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch("/api/reviews/evaluate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appointmentId }),
+      signal: controller.signal,
+    });
+    if (!res.ok) return { status: "unavailable" };
+    const json = (await res.json()) as EvaluationResponse | null;
+    return json && typeof json.status === "string" ? json : { status: "unavailable" };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Uploads new photos, then calls the submit/edit RPC. `code` is the bare
@@ -180,6 +236,20 @@ export async function saveVisitReview(
     if (error) {
       await cleanUp();
       return { error: null, code: error.message?.trim() || "UNKNOWN" };
+    }
+    // On edit always send tags so clearing them all is saved too.
+    if (mode === "edit" || draft.services.some((s) => s.tags.length > 0)) {
+      // Tags are a bonus: the review is already saved, so failures (e.g. before
+      // migration 052) are logged and ignored.
+      try {
+        const { error: tagsError } = await supabase.rpc("set_visit_review_tags", {
+          p_appointment_id: draft.appointmentId,
+          p_tags: draft.services.map((s) => ({ position: s.position, tags: s.tags })),
+        });
+        logQueryError("saveVisitReview tags", tagsError);
+      } catch (e) {
+        logQueryError("saveVisitReview tags", e as { message: string });
+      }
     }
     const unused = (mode === "edit" ? (data as string[] | null) : null) ?? [];
     if (unused.length) {

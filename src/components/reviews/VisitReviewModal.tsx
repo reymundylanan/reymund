@@ -4,18 +4,27 @@ import { useEffect, useRef, useState } from "react";
 import { BadgeCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { RecentAppointment } from "@/lib/supabase/queries/myGlow";
-import { SAVE_FAILED, saveVisitReview, type VisitReview } from "@/lib/supabase/queries/visitReviews";
+import {
+  SAVE_FAILED,
+  requestReviewEvaluation,
+  saveVisitReview,
+  type EvaluationResponse,
+  type VisitReview,
+} from "@/lib/supabase/queries/visitReviews";
 import { isPublicStatus, reviewErrorMessage, type ReviewStatus } from "@/lib/reviews";
 import { MAX_REVIEW_PHOTOS, resizeToJpeg, validateReviewPhoto } from "@/lib/reviewPhotos";
 import { formatAppointmentDate } from "@/lib/appointmentFormat";
 import StarInput from "@/components/reviews/StarInput";
 import ReviewPhotoPicker from "@/components/reviews/ReviewPhotoPicker";
 import PhotoLightbox from "@/components/reviews/PhotoLightbox";
+import ReviewTagPicker from "@/components/reviews/ReviewTagPicker";
+import RewardResultPanel from "@/components/reviews/RewardResultPanel";
 
 type Mode = "submit" | "edit" | "view";
 type ServiceState = {
   rating: number;
   text: string;
+  tags: string[];
   existing: { path: string; url: string }[];
   added: { blob: Blob; preview: string }[];
   photoError: string | null;
@@ -38,6 +47,7 @@ export default function VisitReviewModal({
   existing,
   mode,
   onClose,
+  onViewRewards,
   onSaved,
 }: {
   appointment: RecentAppointment;
@@ -45,6 +55,8 @@ export default function VisitReviewModal({
   existing?: VisitReview;
   mode: Mode;
   onClose: () => void;
+  /** Close without any URL cleanup, because the caller navigates to My Rewards. */
+  onViewRewards?: () => void;
   onSaved: () => void;
 }) {
   const readOnly = mode === "view";
@@ -54,6 +66,7 @@ export default function VisitReviewModal({
       return {
         rating: part?.rating ?? 0,
         text: part?.text ?? "",
+        tags: part?.tags ?? [],
         existing: part?.photos ?? [],
         added: [],
         photoError: null,
@@ -75,6 +88,8 @@ export default function VisitReviewModal({
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
+  const [reward, setReward] = useState<EvaluationResponse | null>(null);
   const [lightbox, setLightbox] = useState<{ photos: { url: string }[]; index: number } | null>(null);
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -201,6 +216,7 @@ export default function VisitReviewModal({
             position: appointment.bookedServices[i].position,
             rating: s.rating,
             text: s.text,
+            tags: s.tags,
             keep: s.existing.map((p) => p.path),
             add: s.added.map((p) => p.blob),
           })),
@@ -224,6 +240,15 @@ export default function VisitReviewModal({
     }
     setSaved(true);
     onSaved();
+    if (mode === "submit") {
+      setEvaluating(true);
+      const result = await requestReviewEvaluation(appointment.id);
+      // Pick up the awarded points in My Services, even if the modal was closed meanwhile.
+      if (result) onSaved();
+      if (!mountedRef.current) return;
+      setEvaluating(false);
+      setReward(result);
+    }
   }
 
   const serviceNames = appointment.bookedServices.map((s) => s.name).join(" + ");
@@ -245,11 +270,22 @@ export default function VisitReviewModal({
         aria-label="Service review"
         className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 outline-none sm:max-w-lg sm:rounded-3xl"
       >
-        {saved ? (
+        {saved && evaluating ? (
+          <div role="status" className="flex flex-col items-center gap-3 py-10 text-center">
+            <span className="h-8 w-8 animate-spin rounded-full border-4 border-coral/30 border-t-coral" />
+            <p className="text-sm font-medium text-ink">Evaluating your review…</p>
+          </div>
+        ) : saved && reward?.evaluation && (reward.status === "evaluated" || reward.status === "needs_review") ? (
+          <RewardResultPanel evaluation={reward.evaluation} balance={reward.balance} onClose={onClose} onViewRewards={onViewRewards} />
+        ) : saved ? (
           <div className="py-8 text-center">
             <h3 className="text-lg font-semibold text-ink">Thank you for your review!</h3>
             <p className="mt-1 text-sm text-ink/60">
-              {mode === "edit" ? "Your review was updated." : "Your review has been added to GlowSync."}
+              {mode === "edit"
+                ? "Your review was updated."
+                : reward && ["skipped", "failed", "unavailable"].includes(reward.status)
+                  ? "Thanks for your review!"
+                  : "Thanks! Your reward is being calculated — we'll notify you."}
             </p>
             <button
               onClick={onClose}
@@ -301,6 +337,13 @@ export default function VisitReviewModal({
                       maxLength={1000}
                       placeholder={readOnly ? undefined : TEXT_PLACEHOLDER}
                       className={TEXT_CLASS}
+                    />
+                    <ReviewTagPicker
+                      serviceName={b.name}
+                      selected={s.tags}
+                      onChange={(tags) => patchService(i, { tags })}
+                      readOnly={readOnly}
+                      disabled={saving}
                     />
                     <ReviewPhotoPicker
                       existing={s.existing}

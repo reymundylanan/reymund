@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { branchContacts } from "@/lib/data";
 import { getUpcomingAppointment, getVisitedBranches } from "@/lib/supabase/queries/myGlow";
 import { getTierProgress } from "@/lib/myGlowTiers";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 const GEMINI_MODEL = "gemini-2.5-flash-lite";
 
@@ -169,11 +170,18 @@ export async function POST(request: Request) {
     getVisitedBranches(supabase, auth.user.id),
     loadLiveServices(supabase),
   ]);
-  const tier = getTierProgress(profile.loyalty_points);
+  const { data: rewards, error: rewardsError } = await supabase
+    .from("client_rewards")
+    .select("current_points, lifetime_earned")
+    .eq("client_id", auth.user.id)
+    .maybeSingle();
+  if (rewardsError) logQueryError("assistant client_rewards", rewardsError);
+  const balance = rewards?.current_points ?? profile.loyalty_points;
+  const tier = getTierProgress(rewards?.lifetime_earned ?? profile.loyalty_points);
   const preferredBranchName = visitedBranches[0]?.name ?? null;
 
   const userContext = `The customer you're talking to is ${profile.full_name}.
-Their loyalty status: ${tier.points} Glow Points, ${tier.tier} tier.
+Their loyalty status: ${balance} GlowPoints, ${tier.tier} tier.
 ${
   upcoming
     ? `Their next booking is ${upcoming.serviceName ?? "a service"}${

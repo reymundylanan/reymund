@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -100,6 +101,11 @@ export default function ReviewsManager({
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Link href="/admin/reviews/rewards" className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
+          Rewards
+        </Link>
+      </div>
       <div className="grid gap-4 sm:grid-cols-4">
         {(["service", "staff", "branch"] as const).map((t) => (
           <div key={t} className="rounded-2xl bg-white p-4 shadow-sm">

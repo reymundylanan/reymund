@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { saveVisitReview, type VisitReviewDraft } from "./visitReviews";
 
-function fakeClient(opts: { failUploadAt?: number; rpcError?: string; rpcThrows?: boolean; editReturns?: string[] }) {
+function fakeClient(opts: { failUploadAt?: number; rpcError?: string; rpcThrows?: boolean; editReturns?: string[]; tagsError?: string }) {
   const uploaded: string[] = [];
   const removed: string[][] = [];
   let n = 0;
@@ -17,7 +17,11 @@ function fakeClient(opts: { failUploadAt?: number; rpcError?: string; rpcThrows?
       return { error: null };
     }),
   };
-  const rpc = vi.fn(async () => {
+  const rpc = vi.fn(async (name?: string, args?: unknown) => {
+    void args;
+    if (name === "set_visit_review_tags") {
+      return opts.tagsError ? { data: null, error: { message: opts.tagsError } } : { data: null, error: null };
+    }
     if (opts.rpcThrows) throw new Error("network down");
     return opts.rpcError !== undefined
       ? { data: null, error: { message: opts.rpcError } }
@@ -26,9 +30,9 @@ function fakeClient(opts: { failUploadAt?: number; rpcError?: string; rpcThrows?
   return { client: { storage: { from: () => bucket }, rpc } as never, uploaded, removed, rpc };
 }
 
-const draft = (add: number): VisitReviewDraft => ({
+const draft = (add: number, tags: string[] = []): VisitReviewDraft => ({
   appointmentId: "a1",
-  services: [{ position: 0, rating: 5, text: "Great", keep: ["u1/a1/old.jpg"], add: Array.from({ length: add }, () => new Blob(["x"])) }],
+  services: [{ position: 0, rating: 5, text: "Great", tags, keep: ["u1/a1/old.jpg"], add: Array.from({ length: add }, () => new Blob(["x"])) }],
   staff: { rating: 4, text: "" },
   branch: null,
 });
@@ -80,5 +84,39 @@ describe("saveVisitReview", () => {
     await saveVisitReview(f.client, "u1", draft(0), "edit");
     expect((f.rpc.mock.calls[0] as unknown[])[0]).toBe("edit_visit_review");
     expect(f.removed).toEqual([["u1/a1/gone.jpg"]]);
+  });
+
+  it("does not call the tags RPC when no part has tags", async () => {
+    const f = fakeClient({});
+    await saveVisitReview(f.client, "u1", draft(0), "submit");
+    expect(f.rpc.mock.calls.map((c) => c[0])).toEqual(["submit_visit_review"]);
+  });
+
+  it("saves tags after a successful submit", async () => {
+    const f = fakeClient({});
+    const res = await saveVisitReview(f.client, "u1", draft(0, ["Clean"]), "submit");
+    expect(res.error).toBeNull();
+    expect(f.rpc).toHaveBeenLastCalledWith("set_visit_review_tags", {
+      p_appointment_id: "a1",
+      p_tags: [{ position: 0, tags: ["Clean"] }],
+    });
+  });
+
+  it("on edit, sends empty tags so clearing them is saved", async () => {
+    const f = fakeClient({});
+    await saveVisitReview(f.client, "u1", draft(0), "edit");
+    expect(f.rpc).toHaveBeenLastCalledWith("set_visit_review_tags", {
+      p_appointment_id: "a1",
+      p_tags: [{ position: 0, tags: [] }],
+    });
+  });
+
+  it("logs a failing tags RPC without failing the save", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const f = fakeClient({ tagsError: "relation missing" });
+    const res = await saveVisitReview(f.client, "u1", draft(0, ["Clean"]), "submit");
+    expect(res).toEqual({ error: null, code: null });
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
