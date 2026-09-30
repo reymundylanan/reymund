@@ -60,6 +60,7 @@ export default function ReviewPhotoPicker({
   onView,
   error,
   disabled,
+  adding = false,
 }: {
   existing: Existing[];
   added: Added[];
@@ -70,6 +71,8 @@ export default function ReviewPhotoPicker({
   onView?: (index: number) => void;
   error: string | null;
   disabled: boolean;
+  /** Photos are still being resized: hold the Add tile. */
+  adding?: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const full = existing.length + added.length >= MAX_REVIEW_PHOTOS;
@@ -90,7 +93,7 @@ export default function ReviewPhotoPicker({
         {added.map((p, i) => (
           <Thumb key={p.preview} src={p.preview} onRemove={disabled ? undefined : () => onRemoveAdded(i)} />
         ))}
-        {!disabled && !full && (
+        {!disabled && !full && !adding && (
           <button
             type="button"
             onClick={() => fileRef.current?.click()}

@@ -89,14 +89,18 @@ export default function MyServicesList({
   openReviewId?: string;
 }) {
   const [reviews, setReviews] = useState(initialReviews);
-  // Deep link (?review=<id>): open the modal on first render when the visit
-  // is in the list and completed.
-  const [modal, setModal] = useState<ModalState>(() => {
-    const target = openReviewId ? appointments.find((a) => a.id === openReviewId) : undefined;
-    if (!target || !isCompleted(target)) return null;
-    return { id: target.id, mode: initialReviews[target.id] ? "view" : "submit" };
-  });
+  const [modal, setModal] = useState<ModalState>(null);
+  const [handledId, setHandledId] = useState<string | undefined>(undefined);
   const router = useRouter();
+
+  // Deep link (?review=<id>), also on same-page soft navigation: open the
+  // modal when the visit is in the list and completed. Adjusted during render
+  // so the prop change is picked up without an effect-driven state update.
+  if (openReviewId !== handledId) {
+    setHandledId(openReviewId);
+    const target = openReviewId ? appointments.find((a) => a.id === openReviewId) : undefined;
+    if (target && isCompleted(target)) setModal({ id: target.id, mode: reviews[target.id] ? "view" : "submit" });
+  }
 
   async function refresh() {
     setReviews(await getVisitReviews(createClient(), clientId));
@@ -104,9 +108,7 @@ export default function MyServicesList({
 
   useEffect(() => {
     if (openReviewId) document.getElementById("services")?.scrollIntoView();
-    // Only on mount: the deep link is a one-time action.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [openReviewId]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -213,7 +215,11 @@ export default function MyServicesList({
           clientId={clientId}
           existing={reviews[modal.id]}
           mode={modal.mode}
-          onClose={() => setModal(null)}
+          onClose={() => {
+            setModal(null);
+            // Drop ?review= so the same "View Review" link can open it again.
+            if (openReviewId) router.replace("/my-glow#services", { scroll: false });
+          }}
           onSaved={async () => {
             await refresh();
             router.refresh();

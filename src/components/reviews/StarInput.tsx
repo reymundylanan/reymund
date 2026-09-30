@@ -10,16 +10,19 @@ export default function StarInput({
   onChange,
   size = "md",
   showLabel = true,
+  label,
 }: {
   value: number;
   onChange?: (n: number) => void;
   size?: "sm" | "md";
   showLabel?: boolean;
+  /** Accessible name for the star group. */
+  label?: string;
 }) {
   const icon = size === "sm" ? "h-4 w-4" : "h-7 w-7";
   return (
     <div>
-      <div className="flex gap-0.5">
+      <div className="flex gap-0.5" role="group" aria-label={label}>
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}

@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { Star } from "lucide-react";
 import { isPublicStatus } from "@/lib/reviews";
-import { formatAppointmentDate } from "@/lib/appointmentFormat";
 import type { MyReview } from "@/lib/supabase/queries/myGlow";
 
 const TYPE_LABEL = { service: "Service", staff: "Therapist", branch: "Branch" } as const;
@@ -54,7 +53,7 @@ export default function ReviewsPanel({ myReviews }: { myReviews: MyReview[] }) {
             )}
             <div className="mt-2 flex items-center justify-between gap-2 text-xs text-ink/40">
               <span>
-                {formatAppointmentDate(r.createdAt)}
+                {new Date(r.createdAt).toLocaleDateString("en-US", { timeZone: "Asia/Manila", dateStyle: "medium" })}
                 {r.editedAt && " · Edited"}
               </span>
               {r.appointmentId && (

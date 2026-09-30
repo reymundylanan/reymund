@@ -86,30 +86,24 @@ export async function getUpcomingAppointment(
 export async function getRecentAppointments(
   supabase: SupabaseClient,
   clientId: string,
-  limit = 10
+  limit = 10,
+  onlyId?: string
 ): Promise<RecentAppointment[]> {
+  const query = (select: string) => {
+    let q = supabase.from("appointments").select(select).eq("client_id", clientId);
+    if (onlyId) q = q.eq("id", onlyId);
+    return q.order("scheduled_date", { ascending: false }).order("start_time", { ascending: false }).limit(limit);
+  };
   const base =
     "id, scheduled_date, start_time, status, session_status, branch_id, service_id, notes, service:branch_services(name), professional:staff_members(full_name), branch:branches(name)";
-  const first = await supabase
-    .from("appointments")
-    .select(`${base}, booked:appointment_services(position, service_id, service_name)`)
-    .eq("client_id", clientId)
-    .order("scheduled_date", { ascending: false })
-    .order("start_time", { ascending: false })
-    .limit(limit);
+  const first = await query(`${base}, booked:appointment_services(position, service_id, service_name)`);
   let data: unknown = first.data;
 
   if (first.error) {
     // Before migration 051 the appointment_services embed fails; keep the
     // list working with the single legacy service instead of going blank.
     logQueryError("getRecentAppointments", first.error);
-    const fallback = await supabase
-      .from("appointments")
-      .select(base)
-      .eq("client_id", clientId)
-      .order("scheduled_date", { ascending: false })
-      .order("start_time", { ascending: false })
-      .limit(limit);
+    const fallback = await query(base);
     if (fallback.error) logQueryError("getRecentAppointments fallback", fallback.error);
     data = fallback.data;
   }
@@ -136,6 +130,15 @@ export async function getRecentAppointments(
         : [{ position: 0, serviceId: row.service_id ?? null, name: serviceName ?? "Your service" }],
     };
   });
+}
+
+/** One appointment of this client by id (deep links to visits outside the recent list). */
+export async function getAppointmentForClient(
+  supabase: SupabaseClient,
+  clientId: string,
+  id: string
+): Promise<RecentAppointment | null> {
+  return (await getRecentAppointments(supabase, clientId, 1, id))[0] ?? null;
 }
 
 export type MyReview = {

@@ -80,11 +80,18 @@ export default function VisitReviewModal({
   const panelRef = useRef<HTMLDivElement>(null);
   const previewsRef = useRef<Set<string>>(new Set());
   const busyRef = useRef(false);
+  const mountedRef = useRef(true);
+  const [resizing, setResizing] = useState<Record<number, number>>({});
 
   // Revoke every preview URL still alive when the modal unmounts.
   useEffect(() => {
+    mountedRef.current = true;
+  }, []);
+
+  useEffect(() => {
     const previews = previewsRef.current;
     return () => {
+      mountedRef.current = false;
       previews.forEach((u) => URL.revokeObjectURL(u));
       previews.clear();
     };
@@ -119,9 +126,11 @@ export default function VisitReviewModal({
       else photoError = `You can add up to ${MAX_REVIEW_PHOTOS} photos.`;
     }
     const added: { blob: Blob; preview: string }[] = [];
+    setResizing((r) => ({ ...r, [i]: (r[i] ?? 0) + 1 }));
     for (const file of accepted) {
       try {
         const blob = await resizeToJpeg(file);
+        if (!mountedRef.current) continue;
         const preview = URL.createObjectURL(blob);
         previewsRef.current.add(preview);
         added.push({ blob, preview });
@@ -129,8 +138,24 @@ export default function VisitReviewModal({
         photoError = "One of your photos couldn't be read. Please try another.";
       }
     }
+    if (!mountedRef.current) return;
+    setResizing((r) => ({ ...r, [i]: Math.max(0, (r[i] ?? 1) - 1) }));
     setServices((list) =>
-      list.map((s, idx) => (idx === i ? { ...s, added: [...s.added, ...added], photoError } : s))
+      list.map((s, idx) => {
+        if (idx !== i) return s;
+        // Re-clamp against the latest state: other batches may have landed meanwhile.
+        const fit = added.slice(0, Math.max(0, MAX_REVIEW_PHOTOS - s.existing.length - s.added.length));
+        for (const dropped of added.slice(fit.length)) {
+          URL.revokeObjectURL(dropped.preview);
+          previewsRef.current.delete(dropped.preview);
+        }
+        const capped = fit.length < added.length;
+        return {
+          ...s,
+          added: [...s.added, ...fit],
+          photoError: capped ? `You can add up to ${MAX_REVIEW_PHOTOS} photos.` : photoError,
+        };
+      })
     );
   }
 
@@ -143,15 +168,19 @@ export default function VisitReviewModal({
     patchService(i, { added: services[i].added.filter((_, n) => n !== index), photoError: null });
   }
 
+  // An existing part must stay in the draft (the RPC rejects dropping it), even
+  // if the visit no longer names a therapist or branch.
+  const showStaff = !!appointment.professionalName || !!existing?.staff;
+  const showBranch = !!appointment.branchId || !!existing?.branch;
   const canSubmit = !saving && services.every((s) => s.rating > 0);
 
   async function submit() {
     if (!canSubmit || readOnly) return;
-    if (appointment.professionalName && staff.text.trim() && staff.rating === 0) {
+    if (showStaff && staff.text.trim() && staff.rating === 0) {
       setError("Tap a star to rate your therapist.");
       return;
     }
-    if (appointment.branchId && branch.text.trim() && branch.rating === 0) {
+    if (showBranch && branch.text.trim() && branch.rating === 0) {
       setError("Tap a star to rate the branch.");
       return;
     }
@@ -172,8 +201,8 @@ export default function VisitReviewModal({
           keep: s.existing.map((p) => p.path),
           add: s.added.map((p) => p.blob),
         })),
-        staff: appointment.professionalName && staff.rating > 0 ? { rating: staff.rating, text: staff.text } : null,
-        branch: appointment.branchId && branch.rating > 0 ? { rating: branch.rating, text: branch.text } : null,
+        staff: showStaff && staff.rating > 0 ? { rating: staff.rating, text: staff.text } : null,
+        branch: showBranch && branch.rating > 0 ? { rating: branch.rating, text: branch.text } : null,
       },
       mode === "edit" ? "edit" : "submit",
       (done, t) => setProgress({ done, total: t })
@@ -252,11 +281,13 @@ export default function VisitReviewModal({
                     <p className="text-sm font-semibold text-ink">How was your {b.name}?</p>
                     <StarInput
                       value={s.rating}
+                      label={`Rating for ${b.name}`}
                       onChange={readOnly ? undefined : (rating) => patchService(i, { rating })}
                     />
                     <HiddenNote status={s.status} />
                     <textarea
                       value={s.text}
+                      aria-label={`Comment about ${b.name}`}
                       onChange={(e) => patchService(i, { text: e.target.value })}
                       readOnly={readOnly}
                       rows={3}
@@ -274,22 +305,25 @@ export default function VisitReviewModal({
                       onRemoveAdded={(n) => removeAdded(i, n)}
                       onView={readOnly ? (n) => setLightbox({ photos: s.existing, index: n }) : undefined}
                       error={s.photoError}
+                      adding={(resizing[i] ?? 0) > 0}
                       disabled={readOnly || saving}
                     />
                   </div>
                 );
               })}
 
-              {appointment.professionalName && (
+              {showStaff && (
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-ink">Your therapist — {appointment.professionalName}</p>
+                  <p className="text-sm font-semibold text-ink">Your therapist — {appointment.professionalName ?? "no longer listed"}</p>
                   <StarInput
                     value={staff.rating}
+                    label="Rating for your therapist"
                     onChange={readOnly ? undefined : (rating) => setStaff((p) => ({ ...p, rating }))}
                   />
                   <HiddenNote status={staff.status} />
                   <textarea
                     value={staff.text}
+                    aria-label="Comment about your therapist"
                     onChange={(e) => setStaff((p) => ({ ...p, text: e.target.value }))}
                     readOnly={readOnly}
                     rows={2}
@@ -300,18 +334,20 @@ export default function VisitReviewModal({
                 </div>
               )}
 
-              {appointment.branchId && (
+              {showBranch && (
                 <div className="space-y-2">
                   <p className="text-sm font-semibold text-ink">
                     The branch — {appointment.branchName ?? "Blush Spa"} (optional)
                   </p>
                   <StarInput
                     value={branch.rating}
+                    label="Rating for the branch"
                     onChange={readOnly ? undefined : (rating) => setBranch((p) => ({ ...p, rating }))}
                   />
                   <HiddenNote status={branch.status} />
                   <textarea
                     value={branch.text}
+                    aria-label="Comment about the branch"
                     onChange={(e) => setBranch((p) => ({ ...p, text: e.target.value }))}
                     readOnly={readOnly}
                     rows={2}

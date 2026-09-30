@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   getUpcomingAppointment,
   getRecentAppointments,
+  getAppointmentForClient,
   getMyReviews,
   getVisitedBranches,
 } from "@/lib/supabase/queries/myGlow";
@@ -51,6 +52,12 @@ export default async function MyGlowPage({
       getVisitReviews(supabase, auth.user.id),
     ]);
 
+  const reviewId = typeof review === "string" ? review : undefined;
+  if (reviewId && !recent.some((a) => a.id === reviewId)) {
+    const linked = await getAppointmentForClient(supabase, auth.user.id, reviewId);
+    if (linked) recent.push(linked);
+  }
+
   let recommendBranchId = visitedBranches[0]?.id ?? null;
   if (!recommendBranchId) {
     const { data: defaultBranch } = await supabase.from("branches").select("id").eq("name", "One Cecilia Center").maybeSingle();
@@ -78,7 +85,7 @@ export default async function MyGlowPage({
             </div>
             <div className="space-y-6">
               <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews}
-                openReviewId={typeof review === "string" ? review : undefined}
+                openReviewId={reviewId}
               />
               <GlowRewardsCard points={profile.loyalty_points} />
             </div>
