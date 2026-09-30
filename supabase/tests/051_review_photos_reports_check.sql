@@ -142,6 +142,19 @@ do $$ declare v_ret text[]; v_rating smallint; v_edited timestamptz; begin
   end if;
 end $$;
 
+-- 10b. Edit moving photo 2222 from part 0 to part 1
+do $$ declare v_ph text; begin
+  perform edit_visit_review('00000000-0000-4000-8000-000000000051',
+    ('[{"position":0,"rating":3},{"position":1,"rating":4,"photos":["' || ':CLIENT_ID/00000000-0000-4000-8000-000000000051/22222222-2222-4222-8222-222222222222.jpg' || '"]}]')::jsonb,
+    5::smallint, 'Great therapist', null, null);
+  select string_agg(r.service_position::text, ',') into v_ph
+    from review_photos p join reviews r on r.id = p.review_id
+   where r.appointment_id = '00000000-0000-4000-8000-000000000051';
+  if v_ph = '1' then raise notice 'PASS photo moved between parts'; else raise warning 'FAIL photo move left photos on parts %', v_ph; end if;
+exception when others then
+  raise warning 'FAIL photo move got %', sqlerrm;
+end $$;
+
 -- 11. Edit removing the existing staff part
 do $$ begin
   perform edit_visit_review('00000000-0000-4000-8000-000000000051',
@@ -201,7 +214,36 @@ do $$ begin
   values ('00000000-0000-4000-8000-000000000051', 5, 'x');
   raise warning 'FAIL other user inserted booking service';
 exception when others then
-  raise notice 'PASS other user blocked from booking services: %', sqlerrm;
+  if sqlerrm like 'new row violates row-level security policy%' then raise notice 'PASS other user blocked from booking services';
+  else raise warning 'FAIL other user booking services got %', sqlerrm; end if;
+end $$;
+reset role;
+
+-- 15b. Client can add the list once, in one statement, to a fresh booking
+insert into appointments (id, booking_code, branch_id, client_id, professional_id, appointment_type,
+                          scheduled_date, start_time, duration_minutes, status, notes)
+values ('00000000-0000-4000-8000-000000000052', 'CHK052', ':BRANCH_ID', ':CLIENT_ID', ':STAFF_ID', 'solo',
+        current_date + 1, '11:00', 60, 'pending', 'A, B with Tester — ₱1.00');
+select set_config('request.jwt.claims', json_build_object('sub', ':CLIENT_ID', 'role', 'authenticated')::text, true);
+set local role authenticated;
+do $$ declare v_n integer; begin
+  insert into appointment_services (appointment_id, position, service_name) values
+    ('00000000-0000-4000-8000-000000000052', 0, 'A'),
+    ('00000000-0000-4000-8000-000000000052', 1, 'B');
+  select count(*) into v_n from appointment_services where appointment_id = '00000000-0000-4000-8000-000000000052';
+  if v_n = 2 then raise notice 'PASS client added two booking services'; else raise warning 'FAIL expected 2 booking services, got %', v_n; end if;
+exception when others then
+  raise warning 'FAIL client booking services insert got %', sqlerrm;
+end $$;
+
+-- 15c. A second batch is rejected
+do $$ begin
+  insert into appointment_services (appointment_id, position, service_name)
+  values ('00000000-0000-4000-8000-000000000052', 2, 'C');
+  raise warning 'FAIL second batch of booking services accepted';
+exception when others then
+  if sqlerrm like 'new row violates row-level security policy%' then raise notice 'PASS second batch rejected';
+  else raise warning 'FAIL second batch got %', sqlerrm; end if;
 end $$;
 reset role;
 

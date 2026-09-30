@@ -48,6 +48,15 @@ create policy "read appointment services" on appointment_services for select usi
   or coalesce(public.current_user_role()::text, '') in ('admin', 'front_desk', 'specialist')
 );
 
+-- Used by the client insert policy (a policy cannot query its own table).
+create or replace function appointment_services_empty(p_appointment_id uuid) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select not exists (select 1 from appointment_services where appointment_id = p_appointment_id)
+$$;
+
+revoke execute on function appointment_services_empty(uuid) from public, anon;
+grant execute on function appointment_services_empty(uuid) to authenticated;
+
 -- The booking form adds the list once, right after creating the booking.
 drop policy if exists "client add own booking services" on appointment_services;
 create policy "client add own booking services" on appointment_services for insert to authenticated with check (
@@ -58,7 +67,7 @@ create policy "client add own booking services" on appointment_services for inse
        and a.status::text in ('pending', 'confirmed')
        and a.created_at > now() - interval '15 minutes'
   )
-  and not exists (select 1 from appointment_services x where x.appointment_id = appointment_services.appointment_id)
+  and public.appointment_services_empty(appointment_services.appointment_id)
 );
 
 drop policy if exists "staff add booking services" on appointment_services;
@@ -80,14 +89,18 @@ on conflict do nothing;
 insert into appointment_services (appointment_id, position, service_id, service_name)
 select a.id,
        (t.ord - 1)::smallint,
-       (select s.id from branch_services s
-         where s.branch_id = a.branch_id and lower(btrim(s.name)) = lower(btrim(t.name))
-         order by s.id limit 1),
-       left(btrim(t.name), 200)
+       m.id,
+       coalesce(left(m.name, 200), left(btrim(t.name), 200))
   from appointments a
  cross join lateral unnest(string_to_array(split_part(coalesce(a.notes, ''), ' with ', 1), ', '))
        with ordinality as t(name, ord)
+  left join lateral (
+    select s.id, s.name from branch_services s
+     where s.branch_id = a.branch_id and lower(btrim(s.name)) = lower(btrim(t.name))
+     order by s.id limit 1
+  ) m on true
  where a.service_id is null
+   and a.notes like '% with % — ₱%'
    and btrim(t.name) <> ''
    and t.ord <= 20
    and not exists (select 1 from appointment_services x where x.appointment_id = a.id)
@@ -102,6 +115,13 @@ alter table reviews add column if not exists first_submitted_at timestamptz;
 update reviews set first_submitted_at = created_at where first_submitted_at is null;
 alter table reviews alter column first_submitted_at set default now();
 update reviews set service_position = 0 where target_type = 'service' and service_position is null;
+
+update reviews r set service_id = x.service_id
+  from appointment_services x
+ where r.target_type = 'service' and r.service_id is null
+   and x.appointment_id = r.appointment_id
+   and x.position = coalesce(r.service_position, 0)
+   and x.service_id is not null;
 
 alter table reviews drop constraint if exists reviews_status_check;
 alter table reviews add constraint reviews_status_check
@@ -384,9 +404,13 @@ begin
     from review_photos ph join reviews r on r.id = ph.review_id
    where r.appointment_id = p_appointment_id;
 
+  -- Cleared up front so a photo can move between parts without a duplicate-path error.
+  delete from review_photos
+   where review_id in (select id from reviews where appointment_id = p_appointment_id and target_type = 'service');
+
   for v_part in select * from review_service_parts(v_uid, p_appointment_id, p_services) loop
     v_review_id := null;
-    update reviews set rating = v_part.stars, text = v_part.body, edited_at = now()
+    update reviews set rating = v_part.stars, text = v_part.body, service_id = v_part.svc_id, edited_at = now()
      where appointment_id = p_appointment_id and target_type = 'service' and service_position = v_part.pos
      returning id into v_review_id;
     if v_review_id is null then
@@ -396,7 +420,6 @@ begin
               v_appt.branch_id, 'visible', v_first, now())
       returning id into v_review_id;
     end if;
-    delete from review_photos where review_id = v_review_id;
     insert into review_photos (review_id, storage_path, position)
     select v_review_id, p, (o - 1)::smallint from unnest(v_part.photos) with ordinality as t(p, o);
     v_new := v_new || v_part.photos;
