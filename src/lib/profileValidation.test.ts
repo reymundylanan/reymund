@@ -15,7 +15,7 @@ describe("validateFullName", () => {
   it.each(["Ana Cruz", "José Mari Dela Cruz-Santos", "O'Neil", "Ma. Theresa", "Li"])("accepts %s", (n) => {
     expect(validateFullName(n)).toBeNull();
   });
-  it.each(["A", "J0hn", "Ana 😀", "x".repeat(81), "   "])("rejects %s", (n) => {
+  it.each(["A", "J0hn", "Ana 😀", "x".repeat(81), "   ", "--", "..", "A.", "' -"])("rejects %s", (n) => {
     expect(validateFullName(n)).toBe("Enter your full name (2–80 letters).");
   });
 });
@@ -34,7 +34,7 @@ describe("normalizePhone", () => {
 
 describe("validateGender", () => {
   it("accepts the options and empty", () => {
-    for (const g of ["female", "male", "prefer_not_to_say", ""]) expect(validateGender(g)).toBeNull();
+    for (const g of ["female", "male", "prefer_not_to_say", "", " male "]) expect(validateGender(g)).toBeNull();
   });
   it("rejects other values", () => expect(validateGender("other")).toBe("Choose a gender option."));
 });

@@ -69,8 +69,8 @@ export default function UsersTable({
     fetchCounts();
   }, []);
 
-  const fetchClients = async () => {
-    setClientsLoading(true);
+  const fetchClients = async (silent = false) => {
+    if (!silent) setClientsLoading(true);
     try {
       const res = await fetch("/api/admin/clients");
       const data = await res.json();
@@ -90,9 +90,12 @@ export default function UsersTable({
     }
   }, [tab, clientsLoaded]);
 
-  const fetchClientsRef = useRef(fetchClients);
+  // Live refresh: quiet refetch (no "Loading…" row), only once the list has been loaded.
+  const refreshClientsRef = useRef(() => {});
   useEffect(() => {
-    fetchClientsRef.current = fetchClients;
+    refreshClientsRef.current = () => {
+      if (clientsLoaded) fetchClients(true);
+    };
   });
 
   useEffect(() => {
@@ -100,7 +103,7 @@ export default function UsersTable({
     const channel = supabase
       .channel(`admin-clients-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () =>
-        fetchClientsRef.current()
+        refreshClientsRef.current()
       )
       .subscribe();
     return () => {

@@ -27,7 +27,9 @@ export function normalizeName(s: string): string {
 
 export function validateFullName(s: string): string | null {
   const n = normalizeName(s);
-  return n.length >= 2 && n.length <= 80 && /^[\p{L} .'-]+$/u.test(n) ? null : PROFILE_MESSAGES.fullName;
+  return n.length >= 2 && n.length <= 80 && /^[\p{L} .'-]+$/u.test(n) && /\p{L}.*\p{L}/u.test(n)
+    ? null
+    : PROFILE_MESSAGES.fullName;
 }
 
 /** "+63 9XX XXX XXXX", or null if not a PH mobile number. */
@@ -44,11 +46,11 @@ export function validatePhone(s: string): string | null {
 }
 
 export function validateGender(s: string): string | null {
-  return s === "" || GENDER_OPTIONS.some((g) => g.value === s) ? null : PROFILE_MESSAGES.gender;
+  const g = s.trim();
+  return g === "" || GENDER_OPTIONS.some((o) => o.value === g) ? null : PROFILE_MESSAGES.gender;
 }
 
 export function cleanAddress(s: string): string {
-  // eslint-disable-next-line no-control-regex
   return s
     .replace(/<\/?[a-zA-Z][^>]*>/g, "")
     .replace(/[\u0000-\u001f\u007f]/g, " ")

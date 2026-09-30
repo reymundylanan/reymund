@@ -256,7 +256,7 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
         </dl>
       ) : (
         <form
-          className="mt-6 space-y-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-0"
+          className="mt-6 space-y-4 pb-[calc(6rem_+_env(safe-area-inset-bottom))] sm:pb-0"
           onSubmit={(e) => {
             e.preventDefault();
             save();
