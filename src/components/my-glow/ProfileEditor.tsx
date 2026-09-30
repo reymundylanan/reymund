@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Camera, Pencil, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -46,6 +46,23 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cropSrcRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    cropSrcRef.current = cropSrc;
+  }, [cropSrc]);
+
+  useEffect(
+    () => () => {
+      if (cropSrcRef.current) URL.revokeObjectURL(cropSrcRef.current);
+    },
+    [],
+  );
+
+  function closeCrop() {
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+  }
 
   const errors = validateProfile(form);
   const baseline = toForm(profile);
@@ -93,6 +110,7 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
     setForm(toForm(profile));
     setTouched({});
     setServerErrors({});
+    setConfirmRemove(false);
     setEditing(false);
   }
 
@@ -109,7 +127,7 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
   }
 
   async function onCropped(blob: Blob) {
-    setCropSrc(null);
+    closeCrop();
     setPhotoBusy(true);
     setNotice(null);
     const { url, error } = await uploadMyAvatar(createClient(), profile.id, blob, profile.avatarUrl);
@@ -142,11 +160,23 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
       fieldError(k) ? "border-red-400" : "border-ink/15"
     }`;
 
+  const a11y = (k: ProfileField) => ({
+    id: `profile-${k}`,
+    "aria-invalid": !!fieldError(k),
+    "aria-describedby": fieldError(k) ? `profile-${k}-error` : undefined,
+  });
+  const errorText = (k: ProfileField) =>
+    fieldError(k) && (
+      <p id={`profile-${k}-error`} role="alert" className="mt-1 text-xs text-red-600">
+        {fieldError(k)}
+      </p>
+    );
+
   return (
     <div className="rounded-3xl bg-white p-5 shadow-sm sm:p-8">
       {notice && (
         <p
-          role="status"
+          role={notice.kind === "error" ? "alert" : "status"}
           className={`mb-4 rounded-xl px-3 py-2 text-sm ${notice.kind === "ok" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}
         >
           {notice.text}
@@ -168,7 +198,7 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
             <div className="mt-2 flex flex-wrap justify-center gap-2 sm:justify-start">
               <button
                 type="button"
-                disabled={photoBusy}
+                disabled={photoBusy || saving}
                 onClick={() => fileRef.current?.click()}
                 className="flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-sm font-medium text-ink/70 hover:border-coral disabled:opacity-50"
               >
@@ -184,7 +214,7 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
                 ) : (
                   <button
                     type="button"
-                    disabled={photoBusy}
+                    disabled={photoBusy || saving}
                     onClick={() => setConfirmRemove(true)}
                     className="flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1.5 text-sm font-medium text-red-600 hover:border-red-300 disabled:opacity-50"
                   >
@@ -226,16 +256,17 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
         </dl>
       ) : (
         <form
-          className="mt-6 space-y-4 pb-24 sm:pb-0"
+          className="mt-6 space-y-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-0"
           onSubmit={(e) => {
             e.preventDefault();
             save();
           }}
           noValidate
         >
-          <label className="block text-sm font-medium text-ink/70">
-            Full name
+          <div>
+            <label htmlFor="profile-fullName" className="block text-sm font-medium text-ink/70">Full name</label>
             <input
+              {...a11y("fullName")}
               className={input("fullName")}
               value={form.fullName}
               onChange={(e) => set("fullName", e.target.value)}
@@ -243,12 +274,13 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
               autoComplete="name"
               maxLength={80}
             />
-            {fieldError("fullName") && <span className="mt-1 block text-xs text-red-600">{fieldError("fullName")}</span>}
-          </label>
+            {errorText("fullName")}
+          </div>
 
-          <label className="block text-sm font-medium text-ink/70">
-            Phone number
+          <div>
+            <label htmlFor="profile-phone" className="block text-sm font-medium text-ink/70">Phone number</label>
             <input
+              {...a11y("phone")}
               className={input("phone")}
               value={form.phone}
               onChange={(e) => set("phone", e.target.value)}
@@ -258,12 +290,13 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
               placeholder="0917 123 4567"
               maxLength={16}
             />
-            {fieldError("phone") && <span className="mt-1 block text-xs text-red-600">{fieldError("phone")}</span>}
-          </label>
+            {errorText("phone")}
+          </div>
 
-          <label className="block text-sm font-medium text-ink/70">
-            Gender
+          <div>
+            <label htmlFor="profile-gender" className="block text-sm font-medium text-ink/70">Gender</label>
             <select
+              {...a11y("gender")}
               className={input("gender")}
               value={form.gender}
               onChange={(e) => set("gender", e.target.value)}
@@ -276,12 +309,13 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
                 </option>
               ))}
             </select>
-            {fieldError("gender") && <span className="mt-1 block text-xs text-red-600">{fieldError("gender")}</span>}
-          </label>
+            {errorText("gender")}
+          </div>
 
-          <label className="block text-sm font-medium text-ink/70">
-            Address
+          <div>
+            <label htmlFor="profile-address" className="block text-sm font-medium text-ink/70">Address</label>
             <textarea
+              {...a11y("address")}
               className={input("address")}
               value={form.address}
               onChange={(e) => set("address", e.target.value)}
@@ -291,8 +325,8 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
               autoComplete="street-address"
               placeholder="Purok 3, Brgy. San Francisco, Pagadian City"
             />
-            {fieldError("address") && <span className="mt-1 block text-xs text-red-600">{fieldError("address")}</span>}
-          </label>
+            {errorText("address")}
+          </div>
 
           <div className="fixed inset-x-0 bottom-0 z-30 flex gap-2 border-t border-ink/10 bg-white p-4 pb-[calc(env(safe-area-inset-bottom)_+_16px)] sm:static sm:border-0 sm:p-0 sm:pt-2">
             <button
@@ -314,7 +348,7 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
         </form>
       )}
 
-      {cropSrc && <AvatarCropModal src={cropSrc} onDone={onCropped} onCancel={() => setCropSrc(null)} />}
+      {cropSrc && <AvatarCropModal src={cropSrc} onDone={onCropped} onCancel={closeCrop} />}
     </div>
   );
 }

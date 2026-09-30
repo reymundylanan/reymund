@@ -6,6 +6,7 @@ import ProfileEditor from "@/components/my-glow/ProfileEditor";
 import { createClient } from "@/lib/supabase/server";
 import { getMyProfile } from "@/lib/supabase/queries/myProfile";
 import { loginRedirectPath } from "@/lib/loginRedirect";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,8 @@ export default async function MyProfilePage() {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect(loginRedirectPath("/my-glow/profile"));
 
-  const { data: roleRow } = await supabase.from("profiles").select("role").eq("id", auth.user.id).single();
+  const { data: roleRow, error: roleError } = await supabase.from("profiles").select("role").eq("id", auth.user.id).single();
+  logQueryError("MyProfilePage role", roleError);
   if (!roleRow || roleRow.role !== "customer") redirect("/");
 
   const profile = await getMyProfile(supabase, auth.user.id);
