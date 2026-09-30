@@ -343,6 +343,8 @@ create or replace function apply_voucher(p_appointment_id uuid, p_code text, p_r
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare
   v_appt_client uuid;
+  v_appt_status text;
+  v_appt_session text;
   v_v reward_vouchers;
   v_max numeric(10,2);
   v_discount numeric(10,2);
@@ -353,8 +355,9 @@ begin
   if p_remaining is null or p_remaining <= 0 then
     raise exception 'VOUCHER_INVALID';
   end if;
-  select client_id into v_appt_client from appointments where id = p_appointment_id;
-  if v_appt_client is null then
+  select client_id, status::text, session_status into v_appt_client, v_appt_status, v_appt_session
+    from appointments where id = p_appointment_id;
+  if v_appt_client is null or v_appt_status = 'cancelled' or coalesce(v_appt_session, '') = 'no_show' then
     raise exception 'VOUCHER_INVALID';
   end if;
   select * into v_v from reward_vouchers where code = upper(btrim(coalesce(p_code, ''))) for update;
@@ -404,7 +407,11 @@ begin
     raise exception 'VOUCHER_INVALID';
   end if;
   if (v_v.used_at at time zone 'Asia/Manila')::date <> (now() at time zone 'Asia/Manila')::date
-     or exists (select 1 from appointments where id = v_v.used_appointment_id and session_status = 'paid') then
+     or exists (select 1 from appointments where id = v_v.used_appointment_id and session_status = 'paid')
+     or exists (select 1 from payments p
+                 where p.appointment_id = v_v.used_appointment_id
+                   and p.status::text = 'settled'
+                   and p.created_at >= v_v.used_at) then
     raise exception 'VOUCHER_UNDO_EXPIRED';
   end if;
   update reward_vouchers

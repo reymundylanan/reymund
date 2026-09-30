@@ -43,8 +43,11 @@ values
   ('00000000-0000-4000-8000-000000005313', 'CHK533', ':BRANCH_ID', ':CLIENT_ID', ':STAFF_ID', 'solo', current_date + 3, '09:00', 60, 'pending', 'Check Service with Tester — ₱500.00'),
   ('00000000-0000-4000-8000-000000005314', 'CHK534', ':BRANCH_ID', ':CLIENT_ID', ':STAFF_ID', 'solo', current_date + 4, '09:00', 60, 'pending', 'Check Service with Tester — ₱500.00'),
   ('00000000-0000-4000-8000-000000005315', 'CHK535', ':BRANCH_ID', ':OTHER_ID', ':STAFF_ID', 'solo', current_date + 5, '09:00', 60, 'pending', 'Check Service with Tester — ₱500.00'),
-  ('00000000-0000-4000-8000-000000005316', 'CHK536', ':BRANCH_ID', ':CLIENT_ID', ':STAFF_ID', 'solo', current_date - 1, '09:00', 60, 'completed', 'Check Service with Tester — ₱1.00');
+  ('00000000-0000-4000-8000-000000005316', 'CHK536', ':BRANCH_ID', ':CLIENT_ID', ':STAFF_ID', 'solo', current_date - 1, '09:00', 60, 'completed', 'Check Service with Tester — ₱1.00'),
+  ('00000000-0000-4000-8000-000000005317', 'CHK537', ':BRANCH_ID', ':CLIENT_ID', ':STAFF_ID', 'solo', current_date + 6, '09:00', 60, 'cancelled', 'Check Service with Tester — ₱500.00'),
+  ('00000000-0000-4000-8000-000000005318', 'CHK538', ':BRANCH_ID', ':CLIENT_ID', ':STAFF_ID', 'solo', current_date + 7, '09:00', 60, 'pending', 'Check Service with Tester — ₱500.00');
 update appointments set session_status = 'paid' where id = '00000000-0000-4000-8000-000000005314';
+update appointments set session_status = 'no_show' where id = '00000000-0000-4000-8000-000000005318';
 insert into appointment_services (appointment_id, position, service_id, service_name)
 values ('00000000-0000-4000-8000-000000005316', 0, ':SVC_ID', 'Check Service');
 
@@ -260,6 +263,45 @@ update reward_vouchers
    set status = 'active', used_at = null, used_appointment_id = null, discount_applied = null, applied_by = null
  where id = (select id from chk_v where tag = 'V2');
 
+-- 9b. Vouchers cannot go on cancelled or no-show bookings
+select set_config('request.jwt.claims', json_build_object('sub', ':FRONTDESK_ID', 'role', 'authenticated')::text, true);
+set local role authenticated;
+do $$ begin
+  perform apply_voucher('00000000-0000-4000-8000-000000005317', (select code from chk_v where tag = 'V2'), 500);
+  raise warning 'FAIL voucher applied to a cancelled booking';
+exception when others then
+  if sqlerrm = 'VOUCHER_INVALID' then raise notice 'PASS cancelled booking rejected';
+  else raise warning 'FAIL cancelled booking got %', sqlerrm; end if;
+end $$;
+do $$ begin
+  perform apply_voucher('00000000-0000-4000-8000-000000005318', (select code from chk_v where tag = 'V2'), 500);
+  raise warning 'FAIL voucher applied to a no-show booking';
+exception when others then
+  if sqlerrm = 'VOUCHER_INVALID' then raise notice 'PASS no-show booking rejected';
+  else raise warning 'FAIL no-show booking got %', sqlerrm; end if;
+end $$;
+-- 9c. No undo once the booking has a settled payment made after the voucher was applied
+do $$ begin
+  perform apply_voucher('00000000-0000-4000-8000-000000005313', (select code from chk_v where tag = 'V2'), 500);
+end $$;
+reset role;
+insert into payments (appointment_id, amount, method, status, created_at)
+values ('00000000-0000-4000-8000-000000005313', 450, 'cash', 'settled', now() + interval '1 second');
+select set_config('request.jwt.claims', json_build_object('sub', ':FRONTDESK_ID', 'role', 'authenticated')::text, true);
+set local role authenticated;
+do $$ begin
+  perform undo_voucher((select id from chk_v where tag = 'V2'));
+  raise warning 'FAIL undo after a settled payment accepted';
+exception when others then
+  if sqlerrm = 'VOUCHER_UNDO_EXPIRED' then raise notice 'PASS undo rejected after a settled payment';
+  else raise warning 'FAIL undo after payment got %', sqlerrm; end if;
+end $$;
+reset role;
+delete from payments where appointment_id = '00000000-0000-4000-8000-000000005313';
+update reward_vouchers
+   set status = 'active', used_at = null, used_appointment_id = null, discount_applied = null, applied_by = null
+ where id = (select id from chk_v where tag = 'V2');
+
 -- 10. The client cannot apply, undo or cancel
 select set_config('request.jwt.claims', json_build_object('sub', ':CLIENT_ID', 'role', 'authenticated')::text, true);
 set local role authenticated;
@@ -346,14 +388,19 @@ exception when others then
 end $$;
 do $$ begin
   perform cancel_voucher((select id from chk_v where tag = 'V3'), 'test');
+exception when others then
+  raise warning 'FAIL cancel got %', sqlerrm;
+end $$;
+reset role;
+do $$ begin
   if (select current_points from client_rewards where client_id = ':CLIENT_ID') = 700
      and (select count(*) from client_notifications where client_id = ':CLIENT_ID' and kind = 'voucher_cancelled') = 1
      and (select status from reward_vouchers where id = (select id from chk_v where tag = 'V3')) = 'cancelled' then
     raise notice 'PASS cancel refunds 500 and sends the bell';
   else raise warning 'FAIL cancel effects'; end if;
-exception when others then
-  raise warning 'FAIL cancel got %', sqlerrm;
 end $$;
+select set_config('request.jwt.claims', json_build_object('sub', ':ADMIN_ID', 'role', 'authenticated')::text, true);
+set local role authenticated;
 do $$ begin
   perform cancel_voucher((select id from chk_v where tag = 'V3'), 'again');
   raise warning 'FAIL second cancel accepted';
@@ -380,17 +427,25 @@ exception when others then
   if sqlerrm = 'POINTS_NEGATIVE' then raise notice 'PASS adjustment below zero rejected';
   else raise warning 'FAIL below-zero got %', sqlerrm; end if;
 end $$;
+create temp table chk_adj (bal integer);
+grant all on chk_adj to public;
+do $$ begin
+  insert into chk_adj values (adjust_client_points(':CLIENT_ID', 50, 'goodwill'));
+exception when others then
+  raise warning 'FAIL adjustment got %', sqlerrm;
+end $$;
+reset role;
 do $$ declare v_bal integer; begin
-  v_bal := adjust_client_points(':CLIENT_ID', 50, 'goodwill');
+  select bal into v_bal from chk_adj;
   if v_bal = 750
      and (select lifetime_earned from client_rewards where client_id = ':CLIENT_ID') = 1250
      and (select loyalty_points from profiles where id = ':CLIENT_ID') = 750
      and (select count(*) from client_notifications where client_id = ':CLIENT_ID' and kind = 'points_adjusted') = 1 then
     raise notice 'PASS +50 adjustment: balance 750, lifetime_earned 1250, bell sent';
   else raise warning 'FAIL adjustment result %', v_bal; end if;
-exception when others then
-  raise warning 'FAIL adjustment got %', sqlerrm;
 end $$;
+select set_config('request.jwt.claims', json_build_object('sub', ':FRONTDESK_ID', 'role', 'authenticated')::text, true);
+set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', ':FRONTDESK_ID', 'role', 'authenticated')::text, true);
 do $$ begin
   perform adjust_client_points(':CLIENT_ID', 10, 'x');
