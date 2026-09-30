@@ -102,6 +102,15 @@ describe("saveVisitReview", () => {
     });
   });
 
+  it("on edit, sends empty tags so clearing them is saved", async () => {
+    const f = fakeClient({});
+    await saveVisitReview(f.client, "u1", draft(0), "edit");
+    expect(f.rpc).toHaveBeenLastCalledWith("set_visit_review_tags", {
+      p_appointment_id: "a1",
+      p_tags: [{ position: 0, tags: [] }],
+    });
+  });
+
   it("logs a failing tags RPC without failing the save", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const f = fakeClient({ tagsError: "relation missing" });

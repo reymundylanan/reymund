@@ -30,10 +30,13 @@ export default function ReviewTagPicker({
     );
   }
 
-  const full = selected.length >= MAX_REVIEW_TAGS;
+  const options = tagsForService(serviceName);
+  // Saved tags no longer offered stay visible and removable, but don't count toward the cap.
+  const stale = selected.filter((t) => !options.includes(t));
+  const full = selected.filter((t) => options.includes(t)).length >= MAX_REVIEW_TAGS;
   return (
     <div role="group" aria-label={`Tags for ${serviceName}`} className="flex flex-wrap gap-1.5">
-      {tagsForService(serviceName).map((tag) => {
+      {[...options, ...stale].map((tag) => {
         const on = selected.includes(tag);
         return (
           <button

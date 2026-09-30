@@ -240,11 +240,11 @@ export default function VisitReviewModal({
     if (mode === "submit") {
       setEvaluating(true);
       const result = await requestReviewEvaluation(appointment.id);
+      // Pick up the awarded points in My Services, even if the modal was closed meanwhile.
+      if (result) onSaved();
       if (!mountedRef.current) return;
       setEvaluating(false);
       setReward(result);
-      // Pick up the awarded points in My Services.
-      if (result) onSaved();
     }
   }
 

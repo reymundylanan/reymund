@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ReviewStatus, ReviewTarget } from "@/lib/reviews";
 import { reviewPhotoPath } from "@/lib/reviewPhotos";
 import type { EvaluationRow } from "@/lib/reviewRewards";
-import { logQueryError } from "@/lib/supabase/logQueryError";
+import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 
 export type BookedService = { position: number; serviceId: string | null; name: string };
 export type ServicePart = {
@@ -83,7 +83,7 @@ export async function getVisitReviews(
   const load = (select: string) =>
     supabase.from("reviews").select(select).eq("client_id", clientId).not("appointment_id", "is", null);
   let { data, error } = await load(`${columns}, tags`);
-  if (error) {
+  if (error && (isNotMigratedError(error) || error.code === "42703")) {
     // `tags` doesn't exist until migration 052 is applied: retry without it.
     ({ data, error } = await load(columns));
   }
@@ -236,7 +236,8 @@ export async function saveVisitReview(
       await cleanUp();
       return { error: null, code: error.message?.trim() || "UNKNOWN" };
     }
-    if (draft.services.some((s) => s.tags.length > 0)) {
+    // On edit always send tags so clearing them all is saved too.
+    if (mode === "edit" || draft.services.some((s) => s.tags.length > 0)) {
       // Tags are a bonus: the review is already saved, so failures (e.g. before
       // migration 052) are logged and ignored.
       try {

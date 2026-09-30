@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { breakdownRows, type CriterionResult, type EvaluationRow } from "@/lib/reviewRewards";
+import { breakdownRows, pointsFor, type CriterionResult, type EvaluationRow } from "@/lib/reviewRewards";
 
 const ICONS: Record<CriterionResult, { icon: string; className: string; label: string }> = {
   pass: { icon: "✓", className: "text-green-600", label: "Full points" },
@@ -22,6 +22,11 @@ export default function RewardResultPanel({
 }) {
   const rows = breakdownRows(evaluation);
   const total = evaluation.points_awarded;
+  const snapshot = evaluation.settings_snapshot;
+  const pendingFull = snapshot
+    ? rows.filter((r) => r.result === "needs_review").reduce((n, r) => n + pointsFor(r.criterion, "pass", snapshot), 0)
+    : 0;
+  const pending = snapshot ? Math.max(0, Math.min(pendingFull, snapshot.max_points - total)) : 0;
   return (
     <div className="space-y-4 py-2 text-center">
       <div>
@@ -41,7 +46,11 @@ export default function RewardResultPanel({
           const meta = ICONS[r.result];
           return (
             <li key={r.criterion} className="flex items-start gap-2">
-              <span aria-label={meta.label} className={`w-5 shrink-0 text-center font-semibold ${meta.className}`}>
+              <span
+                role="img"
+                aria-label={meta.label}
+                className={`w-5 shrink-0 text-center font-semibold ${meta.className}`}
+              >
                 {meta.icon}
               </span>
               <span className="flex-1">
@@ -49,6 +58,7 @@ export default function RewardResultPanel({
                 {r.result === "needs_review" && (
                   <span className="block text-xs text-amber-700">Our team will check this</span>
                 )}
+                {r.reason && <span className="block text-xs text-ink/60">{r.reason}</span>}
               </span>
               <span className="shrink-0 font-semibold text-ink/70">+{r.points}</span>
             </li>
@@ -61,7 +71,11 @@ export default function RewardResultPanel({
       </ul>
 
       {evaluation.status === "needs_review" && (
-        <p className="text-xs text-ink/60">Some points are waiting for our team to check.</p>
+        <p className="text-xs text-ink/60">
+          {pending > 0
+            ? `+${total} now, up to +${pending} more after our team checks.`
+            : "Some points are waiting for our team to check."}
+        </p>
       )}
 
       <div className="flex gap-2">
