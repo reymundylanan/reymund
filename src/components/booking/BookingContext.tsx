@@ -13,6 +13,7 @@ export type BookableService = {
 
 type BookingContextValue = {
   open: (service: BookableService) => void;
+  isOpen: boolean;
 };
 
 const BookingContext = createContext<BookingContextValue | null>(null);
@@ -37,7 +38,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <BookingContext.Provider value={{ open }}>
+    <BookingContext.Provider value={{ open, isOpen: service !== null }}>
       {children}
       {service && (
         <BookingModal service={service} onClose={() => setService(null)} />

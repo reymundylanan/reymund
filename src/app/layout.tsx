@@ -5,6 +5,7 @@ import { BookingProvider } from "@/components/booking/BookingContext";
 import { LoginModalProvider } from "@/components/auth/LoginModalContext";
 import ChatWidgetWrapper from "@/components/ChatWidgetWrapper";
 import IntentHandler from "@/components/notifications/IntentHandler";
+import PromoSideAd from "@/components/promos/PromoSideAd";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -43,6 +44,7 @@ export default function RootLayout({
             <Suspense fallback={null}>
               <IntentHandler />
             </Suspense>
+            <PromoSideAd />
           </BookingProvider>
           <ChatWidgetWrapper />
         </LoginModalProvider>
