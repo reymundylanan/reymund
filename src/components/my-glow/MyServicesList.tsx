@@ -5,13 +5,14 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import type { RecentAppointment } from "@/lib/supabase/queries/myGlow";
 import {
   getVisitReviews,
-  submitVisitReview,
-  type RecentAppointment,
-  type ReviewPart,
+  saveVisitReview,
+  type OtherPart,
+  type ServicePart,
   type VisitReview,
-} from "@/lib/supabase/queries/myGlow";
+} from "@/lib/supabase/queries/visitReviews";
 import { reviewErrorMessage } from "@/lib/reviews";
 import { getServiceImage } from "@/lib/serviceImage";
 import { formatAppointmentDate } from "@/lib/appointmentFormat";
@@ -151,16 +152,29 @@ function VisitReviewForm({
     }
     setSaving(true);
     setError(null);
-    const { error: rpcError } = await submitVisitReview(createClient(), {
-      appointmentId: appointment.id,
-      service,
-      staff: appointment.professionalName && staff.rating > 0 ? staff : null,
-      branch: appointment.branchId && branch.rating > 0 ? branch : null,
-    });
+    const supabase = createClient();
+    const { data: auth } = await supabase.auth.getUser();
+    const { error: saveError, code } = await saveVisitReview(
+      supabase,
+      auth.user?.id ?? "",
+      {
+        appointmentId: appointment.id,
+        services: appointment.bookedServices.map((s) => ({
+          position: s.position,
+          rating: service.rating,
+          text: service.text,
+          keep: [],
+          add: [],
+        })),
+        staff: appointment.professionalName && staff.rating > 0 ? staff : null,
+        branch: appointment.branchId && branch.rating > 0 ? branch : null,
+      },
+      "submit"
+    );
     setSaving(false);
-    if (rpcError) {
-      setError(reviewErrorMessage(rpcError));
-      if (rpcError.message === "REVIEW_DUPLICATE") onDuplicate();
+    if (saveError || code) {
+      setError(saveError ?? reviewErrorMessage({ message: code ?? "" }));
+      if (code === "REVIEW_DUPLICATE") onDuplicate();
       return;
     }
     onDone();
@@ -213,7 +227,7 @@ function VisitReviewForm({
   );
 }
 
-function ReviewPartView({ label, part }: { label: string; part: ReviewPart | undefined }) {
+function ReviewPartView({ label, part }: { label: string; part: ServicePart | OtherPart | undefined }) {
   if (!part) return null;
   return (
     <div className="mt-1">
@@ -300,7 +314,7 @@ export default function MyServicesList({
 
               {completed && review && (
                 <div className="mt-1.5 pl-[60px]">
-                  <ReviewPartView label="Service" part={review.service} />
+                  <ReviewPartView label="Service" part={review.services[0]} />
                   <ReviewPartView label="Therapist" part={review.staff} />
                   <ReviewPartView label="Branch" part={review.branch} />
                 </div>

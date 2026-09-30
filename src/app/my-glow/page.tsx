@@ -8,8 +8,8 @@ import {
   getRecentAppointments,
   getMyReviews,
   getVisitedBranches,
-  getVisitReviews,
 } from "@/lib/supabase/queries/myGlow";
+import { getVisitReviews } from "@/lib/supabase/queries/visitReviews";
 import UpcomingBookingCard from "@/components/my-glow/UpcomingBookingCard";
 import MyBookingsSection from "@/components/my-glow/MyBookingsSection";
 import MyServicesList from "@/components/my-glow/MyServicesList";
