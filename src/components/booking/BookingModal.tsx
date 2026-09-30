@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, MapPin, Phone, Star, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Hourglass, MapPin, Phone, Star, X } from "lucide-react";
+import Link from "next/link";
 import Image from "next/image";
 import {
   branchContacts,
@@ -217,7 +218,7 @@ export default function BookingModal({
   const [step, setStep] = useState<Step>("type");
   const [branchId, setBranchId] = useState<string | null>(null);
   const [appointmentType, setAppointmentType] = useState<AppointmentType>("solo");
-  const [payLater, setPayLater] = useState(false);
+  const [, setPayLater] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [selectedServices, setSelectedServices] = useState<BranchService[]>([]);
   const [professionalId, setProfessionalId] = useState<string | "any" | null>(
@@ -232,6 +233,8 @@ export default function BookingModal({
   const [secondsLeft, setSecondsLeft] = useState(OTP_SECONDS);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // What was actually saved, for the summary on the final screen.
+  const [savedBooking, setSavedBooking] = useState<{ code: string; confirmed: boolean } | null>(null);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
   const [branchUuid, setBranchUuid] = useState<string | null>(null);
@@ -652,6 +655,7 @@ export default function BookingModal({
         });
       }
 
+      setSavedBooking({ code: bookingCode, confirmed: opts.paid });
       setSaving(false);
       return true;
     } catch {
@@ -1461,19 +1465,67 @@ export default function BookingModal({
           )}
 
           {step === "success" && (
-            <div className="space-y-3 py-8 text-center">
-              <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700">
-                <Check className="h-7 w-7" />
-              </span>
-              <h2 className="text-xl font-semibold text-ink">Booking confirmed!</h2>
-              <p className="text-base text-ink/60">
-                {serviceNames} on{" "}
-                {selectedDate ? formatDate(selectedDate) : ""} at {selectedTime}.
-              </p>
-              {payLater && (
-                <p className="text-base text-ink/60">
-                  Please settle payment of ₱{total.toLocaleString()}.00 at the
-                  branch on your appointment date.
+            <div className="space-y-4 py-4">
+              {savedBooking?.confirmed ? (
+                <div className="space-y-2 text-center">
+                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700">
+                    <Check className="h-7 w-7" />
+                  </span>
+                  <h2 className="text-xl font-semibold text-ink">Booking confirmed!</h2>
+                  <p className="text-sm text-ink/60">Your payment was received and your slot is secured.</p>
+                </div>
+              ) : (
+                <div className="space-y-2 text-center">
+                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                    <Hourglass className="h-7 w-7" />
+                  </span>
+                  <h2 className="text-xl font-semibold text-ink">Booking request sent</h2>
+                  <p className="text-sm font-medium text-amber-700">Waiting for confirmation</p>
+                </div>
+              )}
+
+              <dl className="divide-y divide-ink/5 rounded-2xl border border-ink/10 text-sm">
+                <div className="flex justify-between gap-4 px-4 py-2.5">
+                  <dt className="text-ink/50">Services</dt>
+                  <dd className="text-right font-medium text-ink">{serviceNames}</dd>
+                </div>
+                <div className="flex justify-between gap-4 px-4 py-2.5">
+                  <dt className="text-ink/50">Branch</dt>
+                  <dd className="text-right font-medium text-ink">{branch.name}</dd>
+                </div>
+                <div className="flex justify-between gap-4 px-4 py-2.5">
+                  <dt className="text-ink/50">Therapist</dt>
+                  <dd className="text-right font-medium capitalize text-ink">{professionalLabel}</dd>
+                </div>
+                <div className="flex justify-between gap-4 px-4 py-2.5">
+                  <dt className="text-ink/50">Date &amp; time</dt>
+                  <dd className="text-right font-medium text-ink">
+                    {selectedDate ? formatDate(selectedDate) : ""}
+                    {selectedTime && <>, {selectedTime} – {endTime(selectedTime, `${totalDuration} mins`)}</>}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4 px-4 py-2.5">
+                  <dt className="text-ink/50">Total</dt>
+                  <dd className="text-right font-semibold text-ink">₱{total.toLocaleString()}.00</dd>
+                </div>
+                <div className="flex justify-between gap-4 px-4 py-2.5">
+                  <dt className="text-ink/50">Payment</dt>
+                  <dd className="text-right font-medium text-ink">
+                    {savedBooking?.confirmed ? "Paid via GCash" : "Pay at the branch on your appointment date"}
+                  </dd>
+                </div>
+                {savedBooking?.code && (
+                  <div className="flex justify-between gap-4 px-4 py-2.5">
+                    <dt className="text-ink/50">Reference</dt>
+                    <dd className="text-right font-mono font-medium text-ink">{savedBooking.code}</dd>
+                  </div>
+                )}
+              </dl>
+
+              {!savedBooking?.confirmed && (
+                <p className="text-center text-sm text-ink/60">
+                  Our front desk will confirm your booking shortly. We&apos;ll notify you here as soon as it&apos;s
+                  confirmed or if anything changes.
                 </p>
               )}
             </div>
@@ -1613,12 +1665,21 @@ export default function BookingModal({
           )}
 
           {step === "success" && (
-            <button
-              onClick={close}
-              className="ml-auto rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark"
-            >
-              Done
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <Link
+                href="/my-glow#my-bookings"
+                onClick={close}
+                className="rounded-full border border-ink/15 px-5 py-2.5 text-sm font-semibold text-ink/70 hover:border-coral hover:text-coral-dark"
+              >
+                View my bookings
+              </Link>
+              <button
+                onClick={close}
+                className="rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark"
+              >
+                Done
+              </button>
+            </div>
           )}
         </div>
       </div>

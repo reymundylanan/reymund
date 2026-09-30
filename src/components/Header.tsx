@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { LogOut, Sparkles } from "lucide-react";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import ClientNotificationBell from "@/components/notifications/ClientNotificationBell";
 import { createClient } from "@/lib/supabase/client";
 
 const baseNavLinks = [
@@ -80,6 +81,7 @@ export default function Header() {
           <div className="flex items-center gap-4">
             {user ? (
               <div className="flex items-center gap-3">
+                {user.role === "customer" && <ClientNotificationBell clientId={user.id} />}
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blush text-sm font-semibold text-coral-dark">
                   {user.fullName.charAt(0)}
                 </span>
