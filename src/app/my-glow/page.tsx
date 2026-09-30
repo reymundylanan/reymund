@@ -24,7 +24,12 @@ import MessengerConnectCard from "@/components/notifications/MessengerConnectCar
 import { getMyMessengerStatus } from "@/lib/supabase/queries/messenger";
 import { getMessengerConfig } from "@/lib/messenger/config";
 
-export default async function MyGlowPage() {
+export default async function MyGlowPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ review?: string | string[] }>;
+}) {
+  const { review } = await searchParams;
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) redirect(loginRedirectPath("/my-glow"));
@@ -72,7 +77,9 @@ export default async function MyGlowPage() {
               <ReviewsPanel myReviews={myReviews} />
             </div>
             <div className="space-y-6">
-              <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews} />
+              <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews}
+                openReviewId={typeof review === "string" ? review : undefined}
+              />
               <GlowRewardsCard points={profile.loyalty_points} />
             </div>
             <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
