@@ -7,6 +7,10 @@
 alter table profiles add column if not exists gender text;
 alter table profiles add column if not exists address text;
 
+-- restricted exists on the live DB but was never added by a migration file;
+-- make sure it exists so the guard below can reference it.
+alter table profiles add column if not exists restricted boolean not null default false;
+
 alter table profiles drop constraint if exists profiles_gender_check;
 alter table profiles add constraint profiles_gender_check
   check (gender is null or gender in ('female', 'male', 'prefer_not_to_say'));
