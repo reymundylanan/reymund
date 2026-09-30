@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateAdjustment, validateOption, type OptionInput } from "./adminVouchers";
+import { loadStatus, validateAdjustment, validateOption, type OptionInput } from "./adminVouchers";
 
 const OK: OptionInput = { id: null, name: "₱50 OFF", pointsCost: 500, discountAmount: 50, validDays: 90, active: true, sortOrder: 1 };
 
@@ -42,5 +42,15 @@ describe("validateAdjustment", () => {
   it("rejects bad reasons", () => {
     expect(validateAdjustment(5, "  ")).toBe(REASON);
     expect(validateAdjustment(5, "x".repeat(501))).toBe(REASON);
+  });
+});
+
+describe("loadStatus", () => {
+  it("maps errors to a status", () => {
+    expect(loadStatus([null, undefined])).toBe("ok");
+    expect(loadStatus([null, { code: "42P01", message: "x" }])).toBe("unavailable");
+    expect(loadStatus([{ code: "PGRST205" }])).toBe("unavailable");
+    expect(loadStatus([{ code: "57014", message: "timeout" }])).toBe("error");
+    expect(loadStatus([{ code: "57014" }, { code: "42P01" }])).toBe("unavailable");
   });
 });

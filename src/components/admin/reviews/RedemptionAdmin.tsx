@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { reviewerName } from "@/lib/reviews";
 import { peso } from "@/lib/vouchers";
@@ -18,10 +18,11 @@ import {
   validateAdjustment,
   validateOption,
   type AdminVoucherRow,
+  type StatsResult,
+  type VouchersResult,
   type OptionInput,
 } from "@/lib/supabase/queries/adminVouchers";
 
-type Stats = Awaited<ReturnType<typeof getRedemptionStats>>;
 type Settings = { maxPerBooking: number; enabled: boolean };
 type Client = { id: string; name: string; balance: number };
 
@@ -36,10 +37,23 @@ const STATUS_STYLE: Record<string, string> = {
   cancelled: "bg-red-50 text-red-600",
 };
 
-const EMPTY_OPTION: OptionInput = { id: null, name: "", pointsCost: 500, discountAmount: 50, validDays: 90, active: true, sortOrder: 0 };
+const EMPTY_OPTION: OptionInput = {
+  id: null,
+  name: "",
+  pointsCost: 500,
+  discountAmount: 50,
+  validDays: 90,
+  active: true,
+  sortOrder: 0,
+};
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-PH", { timeZone: "Asia/Manila", month: "short", day: "numeric", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 function Dialog({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
@@ -53,10 +67,15 @@ function Dialog({ children, onClose }: { children: React.ReactNode; onClose: () 
 }
 
 export default function RedemptionAdmin() {
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<StatsResult | null>(null);
   const [options, setOptions] = useState<(OptionInput & { id: string })[] | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [vouchers, setVouchers] = useState<{ rows: AdminVoucherRow[]; total: number } | null>(null);
+  const [vouchers, setVouchers] = useState<{
+    rows: AdminVoucherRow[];
+    total: number;
+  } | null>(null);
+  const [vouchersStatus, setVouchersStatus] = useState<"loading" | "ok" | "unavailable" | "error">("loading");
+  const voucherReq = useRef(0);
   const [loaded, setLoaded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -84,6 +103,7 @@ export default function RedemptionAdmin() {
   // adjust
   const [clientQuery, setClientQuery] = useState("");
   const [clientResults, setClientResults] = useState<Client[]>([]);
+  const [clientSearchFailed, setClientSearchFailed] = useState(false);
   const [client, setClient] = useState<Client | null>(null);
   const [pointsText, setPointsText] = useState("");
   const [reason, setReason] = useState("");
@@ -101,6 +121,7 @@ export default function RedemptionAdmin() {
       setStats(await getRedemptionStats(createClient()));
     } catch (e) {
       console.error("load redemption stats failed:", e);
+      setStats({ status: "error" });
     }
   }, []);
 
@@ -114,9 +135,22 @@ export default function RedemptionAdmin() {
 
   const refreshVouchers = useCallback(async () => {
     try {
-      setVouchers(await listVouchers(createClient(), { search, status, page }));
+      const id = ++voucherReq.current;
+      const r: VouchersResult = await listVouchers(createClient(), {
+        search,
+        status,
+        page,
+      });
+      if (id !== voucherReq.current) return; // a newer request superseded this one
+      if (r.status === "ok") {
+        setVouchers({ rows: r.rows, total: r.total });
+        setVouchersStatus("ok");
+      } else {
+        setVouchersStatus(r.status); // keep previous rows on error
+      }
     } catch (e) {
       console.error("load vouchers failed:", e);
+      setVouchersStatus("error");
     }
   }, [search, status, page]);
 
@@ -156,7 +190,9 @@ export default function RedemptionAdmin() {
     const t = setTimeout(async () => {
       try {
         const r = await searchClients(createClient(), term);
-        if (!cancelled) setClientResults(r);
+        if (cancelled) return;
+        setClientSearchFailed(r === null);
+        setClientResults(r ?? []);
       } catch (e) {
         console.error("search clients failed:", e);
       }
@@ -266,21 +302,30 @@ export default function RedemptionAdmin() {
       <h2 className="text-lg font-semibold text-ink">GlowPoints Redemption</h2>
 
       <section aria-label="Redemption stats">
-        {!loaded ? null : options === null ? (
+        {stats === null ? null : stats.status === "unavailable" ? (
           <div className={tile}>{notSet}</div>
+        ) : stats.status === "error" ? (
+          <div className={tile}>
+            <p className="py-6 text-center text-sm text-ink/60">
+              Couldn&apos;t load stats —{" "}
+              <button className="font-semibold text-coral-dark underline" onClick={refreshStats}>
+                Retry
+              </button>
+            </p>
+          </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-3">
             <div className={tile}>
               <p className={tileLabel}>Points redeemed this month</p>
-              <p className="mt-1 text-xl font-semibold text-ink">{(stats?.pointsRedeemedThisMonth ?? 0).toLocaleString("en-PH")}</p>
+              <p className="mt-1 text-xl font-semibold text-ink">{stats.stats.pointsRedeemedThisMonth.toLocaleString("en-PH")}</p>
             </div>
             <div className={tile}>
               <p className={tileLabel}>Active vouchers</p>
-              <p className="mt-1 text-xl font-semibold text-ink">{stats?.activeVouchers ?? 0}</p>
+              <p className="mt-1 text-xl font-semibold text-ink">{stats.stats.activeVouchers}</p>
             </div>
             <div className={tile}>
               <p className={tileLabel}>Discounts given this month</p>
-              <p className="mt-1 text-xl font-semibold text-ink">{peso(stats?.discountsThisMonth ?? 0)}</p>
+              <p className="mt-1 text-xl font-semibold text-ink">{peso(stats.stats.discountsThisMonth)}</p>
             </div>
           </div>
         )}
@@ -294,7 +339,10 @@ export default function RedemptionAdmin() {
               className={btn}
               onClick={() => {
                 setOptError(null);
-                setOptForm({ ...EMPTY_OPTION, sortOrder: (options.at(-1)?.sortOrder ?? 0) + 1 });
+                setOptForm({
+                  ...EMPTY_OPTION,
+                  sortOrder: (options.at(-1)?.sortOrder ?? 0) + 1,
+                });
               }}
             >
               Add option
@@ -302,7 +350,9 @@ export default function RedemptionAdmin() {
           )}
         </div>
         {options === null ? (
-          loaded ? notSet : null
+          loaded ? (
+            notSet
+          ) : null
         ) : options.length === 0 ? (
           <p className="py-6 text-center text-sm text-ink/40">No reward options yet.</p>
         ) : (
@@ -360,7 +410,12 @@ export default function RedemptionAdmin() {
                   inputMode="numeric"
                   className={`${input} mt-1 w-full`}
                   value={Number.isNaN(optForm.pointsCost) ? "" : optForm.pointsCost}
-                  onChange={(e) => setOptForm({ ...optForm, pointsCost: e.target.value === "" ? NaN : Number(e.target.value) })}
+                  onChange={(e) =>
+                    setOptForm({
+                      ...optForm,
+                      pointsCost: e.target.value === "" ? NaN : Number(e.target.value),
+                    })
+                  }
                 />
               </label>
               <label className="text-sm text-ink">
@@ -370,7 +425,12 @@ export default function RedemptionAdmin() {
                   inputMode="decimal"
                   className={`${input} mt-1 w-full`}
                   value={Number.isNaN(optForm.discountAmount) ? "" : optForm.discountAmount}
-                  onChange={(e) => setOptForm({ ...optForm, discountAmount: e.target.value === "" ? NaN : Number(e.target.value) })}
+                  onChange={(e) =>
+                    setOptForm({
+                      ...optForm,
+                      discountAmount: e.target.value === "" ? NaN : Number(e.target.value),
+                    })
+                  }
                 />
               </label>
               <label className="text-sm text-ink">
@@ -380,7 +440,12 @@ export default function RedemptionAdmin() {
                   inputMode="numeric"
                   className={`${input} mt-1 w-full`}
                   value={Number.isNaN(optForm.validDays) ? "" : optForm.validDays}
-                  onChange={(e) => setOptForm({ ...optForm, validDays: e.target.value === "" ? NaN : Number(e.target.value) })}
+                  onChange={(e) =>
+                    setOptForm({
+                      ...optForm,
+                      validDays: e.target.value === "" ? NaN : Number(e.target.value),
+                    })
+                  }
                 />
               </label>
             </div>
@@ -403,9 +468,9 @@ export default function RedemptionAdmin() {
 
       <section className="rounded-2xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold text-ink">Vouchers</h2>
-        {vouchers === null ? (
-          loaded ? notSet : null
-        ) : (
+        {vouchersStatus === "unavailable" ? (
+          notSet
+        ) : vouchersStatus === "loading" && !vouchers ? null : (
           <>
             <div className="mt-3 flex flex-wrap gap-2">
               <input
@@ -434,7 +499,15 @@ export default function RedemptionAdmin() {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
-            {vouchers.rows.length === 0 ? (
+            {vouchersStatus === "error" && (
+              <p className="mt-3 text-sm text-red-600">
+                Couldn&apos;t load vouchers —{" "}
+                <button className="font-semibold underline" onClick={refreshVouchers}>
+                  Retry
+                </button>
+              </p>
+            )}
+            {!vouchers || vouchers.rows.length === 0 ? (
               <p className="py-6 text-center text-sm text-ink/40">No vouchers found.</p>
             ) : (
               <div className="mt-3 overflow-x-auto">
@@ -451,13 +524,15 @@ export default function RedemptionAdmin() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-ink/5">
-                    {vouchers.rows.map((v) => (
+                    {vouchers!.rows.map((v) => (
                       <tr key={v.id}>
                         <td className="py-2 pr-3 font-mono text-xs">{v.code}</td>
                         <td className="pr-3">{reviewerName(v.clientName)}</td>
                         <td className="pr-3">{v.name}</td>
                         <td className="pr-3">
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${STATUS_STYLE[v.status] ?? ""}`}>{v.status}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${STATUS_STYLE[v.status] ?? ""}`}>
+                            {v.status}
+                          </span>
                         </td>
                         <td className="pr-3">{fmtDate(v.createdAt)}</td>
                         <td className="pr-3">
@@ -505,7 +580,9 @@ export default function RedemptionAdmin() {
       <section className="rounded-2xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold text-ink">Redemption settings</h2>
         {settings === null ? (
-          loaded ? notSet : null
+          loaded ? (
+            notSet
+          ) : null
         ) : (
           <div className="mt-3 space-y-3">
             <label className="flex items-center justify-between gap-3 text-sm text-ink">
@@ -515,11 +592,21 @@ export default function RedemptionAdmin() {
                 inputMode="decimal"
                 className={`${input} w-28`}
                 value={maxText}
-                onChange={(e) => setMaxText(e.target.value)}
+                onChange={(e) => {
+                  setMaxText(e.target.value);
+                  setSettingsError(null);
+                }}
               />
             </label>
             <label className="flex items-center gap-2 text-sm text-ink">
-              <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={enabled}
+                onChange={(e) => {
+                  setEnabled(e.target.checked);
+                  setSettingsError(null);
+                }}
+              />
               Redemption enabled
             </label>
             {(settingsError || maxInvalid) && (
@@ -534,74 +621,77 @@ export default function RedemptionAdmin() {
 
       <section className="rounded-2xl bg-white p-4 shadow-sm">
         <h2 className="font-semibold text-ink">Adjust points</h2>
-        {options === null ? (
-          loaded ? notSet : null
-        ) : (
-          <div className="mt-3 space-y-3">
-            <div>
-              <input
-                className={`${input} w-full`}
-                placeholder="Search client by name"
-                aria-label="Search clients"
-                value={clientQuery}
-                onChange={(e) => {
-                  setClientQuery(e.target.value);
-                  setClient(null);
-                  if (!e.target.value.trim()) setClientResults([]);
-                }}
-              />
-              {!client && clientQuery.trim() && clientResults.length > 0 && (
-                <ul className="mt-1 divide-y divide-ink/5 rounded-lg border border-ink/10">
-                  {clientResults.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-blush/40"
-                        onClick={() => {
-                          setClient(c);
-                          setClientQuery(c.name);
-                          setClientResults([]);
-                        }}
-                      >
-                        <span>{c.name || "Client"}</span>
-                        <span className="text-xs text-ink/50">{c.balance.toLocaleString("en-PH")} pts</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {client && (
-              <>
-                <p className="text-sm text-ink">
-                  {reviewerName(client.name)} · balance <span className="font-semibold">{client.balance.toLocaleString("en-PH")}</span> GlowPoints
-                </p>
-                <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    className={input}
-                    placeholder="+/− points"
-                    aria-label="Points to add or remove"
-                    value={pointsText}
-                    onChange={(e) => setPointsText(e.target.value)}
-                  />
-                  <input
-                    className={input}
-                    placeholder="Reason"
-                    aria-label="Reason"
-                    maxLength={500}
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                  />
-                </div>
-                {adjustError && <p className="text-xs text-red-600">{adjustError}</p>}
-                <button className={btn} disabled={adjusting} onClick={requestAdjust}>
-                  Adjust points
-                </button>
-              </>
+        <div className="mt-3 space-y-3">
+          <div>
+            <input
+              className={`${input} w-full`}
+              placeholder="Search client by name"
+              aria-label="Search clients"
+              value={clientQuery}
+              onChange={(e) => {
+                setClientQuery(e.target.value);
+                setClient(null);
+                setPointsText("");
+                setReason("");
+                setAdjustError(null);
+                if (!e.target.value.trim()) setClientResults([]);
+              }}
+            />
+            {clientSearchFailed && <p className="mt-1 text-xs text-red-600">Couldn&apos;t search clients. Please try again.</p>}
+            {!client && clientQuery.trim() && clientResults.length > 0 && (
+              <ul className="mt-1 divide-y divide-ink/5 rounded-lg border border-ink/10">
+                {clientResults.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-blush/40"
+                      onClick={() => {
+                        setPointsText("");
+                        setReason("");
+                        setAdjustError(null);
+                        setClient(c);
+                        setClientQuery(c.name);
+                        setClientResults([]);
+                      }}
+                    >
+                      <span>{c.name || "Client"}</span>
+                      <span className="text-xs text-ink/50">{c.balance.toLocaleString("en-PH")} pts</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
-        )}
+          {client && (
+            <>
+              <p className="text-sm text-ink">
+                {reviewerName(client.name)} · balance <span className="font-semibold">{client.balance.toLocaleString("en-PH")}</span> GlowPoints
+              </p>
+              <div className="grid gap-3 sm:grid-cols-[8rem_1fr]">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  className={input}
+                  placeholder="+/− points"
+                  aria-label="Points to add or remove"
+                  value={pointsText}
+                  onChange={(e) => setPointsText(e.target.value)}
+                />
+                <input
+                  className={input}
+                  placeholder="Reason"
+                  aria-label="Reason"
+                  maxLength={500}
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </div>
+              {adjustError && <p className="text-xs text-red-600">{adjustError}</p>}
+              <button className={btn} disabled={adjusting} onClick={requestAdjust}>
+                Adjust points
+              </button>
+            </>
+          )}
+        </div>
       </section>
 
       {cancelTarget && (

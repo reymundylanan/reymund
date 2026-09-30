@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { logQueryError } from "@/lib/supabase/logQueryError";
+import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 
 export type OptionInput = {
   id: string | null;
@@ -27,6 +27,19 @@ export type AdminVoucherRow = {
 };
 
 export const VOUCHER_PAGE_SIZE = 20;
+
+export type LoadStatus = "ok" | "unavailable" | "error";
+
+/** "unavailable" = the migration isn't applied yet; "error" = any other failure. */
+export function loadStatus(errors: ({ code?: string; message?: string } | null | undefined)[]): LoadStatus {
+  const failed = errors.filter((e): e is { code?: string; message?: string } => !!e);
+  if (failed.length === 0) return "ok";
+  return failed.some((e) => isNotMigratedError(e)) ? "unavailable" : "error";
+}
+
+export type VouchersResult = { status: "unavailable" } | { status: "error" } | { status: "ok"; rows: AdminVoucherRow[]; total: number };
+export type RedemptionStats = { pointsRedeemedThisMonth: number; activeVouchers: number; discountsThisMonth: number };
+export type StatsResult = { status: "unavailable" } | { status: "error" } | { status: "ok"; stats: RedemptionStats };
 
 export function validateOption(o: OptionInput): string | null {
   const name = o.name.trim();
@@ -129,7 +142,7 @@ type RawVoucher = {
 export async function listVouchers(
   supabase: SupabaseClient,
   q: { search?: string; status?: string; page?: number }
-): Promise<{ rows: AdminVoucherRow[]; total: number } | null> {
+): Promise<VouchersResult> {
   let query = supabase
     .from("reward_vouchers")
     .select(
@@ -156,7 +169,7 @@ export async function listVouchers(
   const { data, count, error } = await query;
   if (error) {
     logQueryError("listVouchers", error);
-    return null;
+    return { status: loadStatus([error]) === "unavailable" ? "unavailable" : "error" };
   }
   const rows = ((data ?? []) as unknown as RawVoucher[]).map((r) => {
     const client = Array.isArray(r.client) ? r.client[0] : r.client;
@@ -173,7 +186,7 @@ export async function listVouchers(
       discountApplied: r.discount_applied == null ? null : Number(r.discount_applied),
     };
   });
-  return { rows, total: count ?? 0 };
+  return { status: "ok", rows, total: count ?? 0 };
 }
 
 export async function cancelVoucher(supabase: SupabaseClient, id: string, reason: string): Promise<string | null> {
@@ -206,7 +219,7 @@ export async function saveRedemptionSettings(
 
 export async function getRedemptionStats(
   supabase: SupabaseClient
-): Promise<{ pointsRedeemedThisMonth: number; activeVouchers: number; discountsThisMonth: number }> {
+): Promise<StatsResult> {
   const since = manilaMonthStart();
   const [redeemed, active, used] = await Promise.all([
     supabase.from("points_transactions").select("points").eq("type", "redemption").gte("created_at", since),
@@ -216,17 +229,22 @@ export async function getRedemptionStats(
   if (redeemed.error) logQueryError("getRedemptionStats redemptions", redeemed.error);
   if (active.error) logQueryError("getRedemptionStats active", active.error);
   if (used.error) logQueryError("getRedemptionStats used", used.error);
+  const status = loadStatus([redeemed.error, active.error, used.error]);
+  if (status !== "ok") return { status };
   return {
-    pointsRedeemedThisMonth: ((redeemed.data ?? []) as { points: number }[]).reduce((s, r) => s + -Number(r.points), 0),
-    activeVouchers: active.count ?? 0,
-    discountsThisMonth: ((used.data ?? []) as { discount_applied: number | string | null }[]).reduce(
-      (s, r) => s + Number(r.discount_applied ?? 0),
-      0
-    ),
+    status: "ok",
+    stats: {
+      pointsRedeemedThisMonth: ((redeemed.data ?? []) as { points: number }[]).reduce((s, r) => s + -Number(r.points), 0),
+      activeVouchers: active.count ?? 0,
+      discountsThisMonth: ((used.data ?? []) as { discount_applied: number | string | null }[]).reduce(
+        (s, r) => s + Number(r.discount_applied ?? 0),
+        0
+      ),
+    },
   };
 }
 
-export async function searchClients(supabase: SupabaseClient, q: string): Promise<{ id: string; name: string; balance: number }[]> {
+export async function searchClients(supabase: SupabaseClient, q: string): Promise<{ id: string; name: string; balance: number }[] | null> {
   const term = q.trim();
   if (!term) return [];
   const { data, error } = await supabase
@@ -235,7 +253,10 @@ export async function searchClients(supabase: SupabaseClient, q: string): Promis
     .eq("role", "customer")
     .ilike("full_name", `%${escapeLike(term)}%`)
     .limit(10);
-  if (error) logQueryError("searchClients", error);
+  if (error) {
+    logQueryError("searchClients", error);
+    return null;
+  }
   type Raw = { id: string; full_name: string | null; client_rewards: { current_points: number } | { current_points: number }[] | null };
   return ((data ?? []) as unknown as Raw[]).map((p) => {
     const cr = Array.isArray(p.client_rewards) ? p.client_rewards[0] : p.client_rewards;
