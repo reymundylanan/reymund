@@ -91,13 +91,15 @@ profile with `loyalty_points > 0` (lifetime_earned = that value).
 `Professional, Relaxing, Clean, Friendly, Good Value, Great Service,
 Skilled Therapist, Comfortable, Effective` (max 6). The client shows the last
 three only for massage services (service/category name contains
-"massage", case-insensitive). `p_services` elements gain optional `tags`;
-`submit_visit_review` / `edit_visit_review` validate and store them.
+"massage", case-insensitive). Saved right after submit/edit by the owner-only
+RPC `set_visit_review_tags(p_appointment_id, [{position, tags}])` (051's
+submit/edit functions stay unchanged).
 
 ### Functions (SECURITY DEFINER)
-- `start_review_evaluation(p_appointment_id)` — called inside
-  `submit_visit_review`: inserts the `pending` evaluation (or `skipped` when
-  rewards are disabled). Never on edit.
+- `start_review_evaluation()` — AFTER INSERT trigger on `reviews`: for a
+  service part inserted with `first_submitted_at = now()` (a first
+  submission, never an edit) it inserts the `pending` evaluation (or
+  `skipped` when rewards are disabled), once per appointment.
 - `claim_review_evaluation(p_appointment_id) returns jsonb` — service role
   only: returns the evaluation id + everything the AI needs (services,
   ratings, texts, tags, photo paths) if status is `pending` or `failed` with
