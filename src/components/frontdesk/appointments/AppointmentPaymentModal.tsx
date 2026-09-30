@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { markPaid, updateSessionStatus } from "@/lib/supabase/queries/appointments";
-import VoucherSection from "@/components/frontdesk/appointments/VoucherSection";
+import VoucherSection, { type VoucherState } from "@/components/frontdesk/appointments/VoucherSection";
 import { clientInfo, appointmentStaffName, appointmentServiceName, type AppointmentRow } from "@/components/frontdesk/appointments/utils";
 
 function peso(n: number) {
@@ -38,6 +38,9 @@ export default function AppointmentPaymentModal({
 
   const [discount, setDiscount] = useState(0);
   const [voucherDiscount, setVoucherDiscount] = useState(0);
+  // Walk-ins have no client, so there is no voucher to wait for.
+  const [voucherState, setVoucherState] = useState<VoucherState>({ ready: !appointment.client_id, busy: false });
+  const voucherPending = !voucherState.ready || voucherState.busy;
   const [recordingCash, setRecordingCash] = useState(false);
   const [cashReceived, setCashReceived] = useState("");
   const [cashJustRecorded, setCashJustRecorded] = useState(false);
@@ -136,7 +139,8 @@ export default function AppointmentPaymentModal({
               </p>
               <button
                 onClick={() => setRecordingCash(true)}
-                className="mt-2 w-full rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700"
+                disabled={voucherPending}
+                className="mt-2 w-full rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
               >
                 Record Cash Payment
               </button>
@@ -174,7 +178,7 @@ export default function AppointmentPaymentModal({
                 </button>
                 <button
                   onClick={confirmCash}
-                  disabled={saving || cashReceivedNum < remainingBalance}
+                  disabled={saving || voucherPending || cashReceivedNum < remainingBalance}
                   className="flex-1 rounded-full bg-teal-600 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
                 >
                   {saving ? "Recording..." : "Confirm"}
@@ -190,6 +194,7 @@ export default function AppointmentPaymentModal({
           remainingBeforeVoucher={remainingBeforeVoucher}
           paid={voucherLocked}
           onChange={setVoucherDiscount}
+          onStateChange={setVoucherState}
         />
 
         <div className="mt-3 space-y-1.5 rounded-xl bg-blush/40 p-3 text-sm">
@@ -245,7 +250,7 @@ export default function AppointmentPaymentModal({
         {(isFullyCoveredByAdvance && !cashJustRecorded) || cashJustRecorded ? (
           <button
             onClick={cashJustRecorded ? onPaid : acknowledgeFullyPaid}
-            disabled={saving}
+            disabled={saving || (!cashJustRecorded && voucherPending)}
             className="mt-4 w-full rounded-full bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
           >
             {saving ? "Saving..." : "Done"}

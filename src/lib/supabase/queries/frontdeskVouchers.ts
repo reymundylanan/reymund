@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { logQueryError } from "@/lib/supabase/logQueryError";
+import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 import { normalizeVoucherCode, voucherErrorMessage } from "@/lib/vouchers";
 
 export type DeskVoucher = {
@@ -34,12 +34,18 @@ function toVoucher(r: Row): DeskVoucher {
   };
 }
 
-/** null = vouchers aren't set up yet (migration 053 not applied) or the load failed. */
+export type DeskVouchersResult =
+  | { status: "ok"; applied: DeskVoucher | null; available: DeskVoucher[]; maxPerBooking: number }
+  /** Migration 053 not applied: nothing to show, payment can proceed. */
+  | { status: "unavailable" }
+  /** Any other load failure: the caller must not assume there is no voucher. */
+  | { status: "error" };
+
 export async function getDeskVouchers(
   supabase: SupabaseClient,
   clientId: string,
   appointmentId: string
-): Promise<{ applied: DeskVoucher | null; available: DeskVoucher[]; maxPerBooking: number } | null> {
+): Promise<DeskVouchersResult> {
   const nowIso = new Date().toISOString();
   const [vouchersRes, settingsRes] = await Promise.all([
     supabase
@@ -51,11 +57,13 @@ export async function getDeskVouchers(
     supabase.from("review_reward_settings").select("max_voucher_discount").maybeSingle(),
   ]);
   if (vouchersRes.error || settingsRes.error) {
-    logQueryError("getDeskVouchers", vouchersRes.error ?? settingsRes.error);
-    return null;
+    const err = vouchersRes.error ?? settingsRes.error;
+    logQueryError("getDeskVouchers", err);
+    return isNotMigratedError(err) ? { status: "unavailable" } : { status: "error" };
   }
   const all = ((vouchersRes.data ?? []) as Row[]).map(toVoucher);
   return {
+    status: "ok",
     applied: all.find((v) => v.status === "used") ?? null,
     available: all.filter((v) => v.status === "active"),
     maxPerBooking: Number(settingsRes.data?.max_voucher_discount ?? 100),

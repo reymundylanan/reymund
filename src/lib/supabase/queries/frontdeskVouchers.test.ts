@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { applyVoucher, undoVoucher } from "./frontdeskVouchers";
+import { applyVoucher, getDeskVouchers, undoVoucher } from "./frontdeskVouchers";
 
 function fake(result: { data: unknown; error: { message: string } | null }) {
   const calls: { fn: string; args: unknown }[] = [];
@@ -40,5 +40,47 @@ describe("undoVoucher", () => {
   it("returns a message on failure", async () => {
     const { client } = fake({ data: null, error: { message: "VOUCHER_UNDO_EXPIRED" } });
     expect(await undoVoucher(client, "v1")).toBe("This voucher can no longer be removed.");
+  });
+});
+
+describe("getDeskVouchers", () => {
+  type Res = { data: unknown; error: { message: string; code?: string } | null };
+  function table(res: Res) {
+    const q: Record<string, unknown> = {};
+    for (const m of ["select", "eq", "or", "order"]) q[m] = () => q;
+    q.maybeSingle = async () => res;
+    q.then = (resolve: (r: Res) => unknown) => resolve(res);
+    return q;
+  }
+  function client(vouchers: Res, settings: Res) {
+    return { from: (t: string) => table(t === "reward_vouchers" ? vouchers : settings) } as unknown as SupabaseClient;
+  }
+  const row = (id: string, status: string, applied: number | null) => ({
+    id, code: "GLOW-AAAA-BBBB", name: "₱50 OFF", discount_amount: "50", expires_at: "2027-01-01T00:00:00Z", status, discount_applied: applied,
+  });
+
+  it("maps ok with applied, available and the cap", async () => {
+    const res = await getDeskVouchers(
+      client({ data: [row("a", "active", null), row("u", "used", 50)], error: null }, { data: { max_voucher_discount: "100" }, error: null }),
+      "c", "appt"
+    );
+    expect(res).toMatchObject({ status: "ok", maxPerBooking: 100 });
+    if (res.status === "ok") {
+      expect(res.applied?.id).toBe("u");
+      expect(res.applied?.discountApplied).toBe(50);
+      expect(res.available.map((v) => v.id)).toEqual(["a"]);
+    }
+  });
+  it("is unavailable when the table isn't there yet", async () => {
+    const res = await getDeskVouchers(
+      client({ data: null, error: { message: "missing", code: "PGRST205" } }, { data: null, error: null }), "c", "appt"
+    );
+    expect(res).toEqual({ status: "unavailable" });
+  });
+  it("is an error for any other failure", async () => {
+    const res = await getDeskVouchers(
+      client({ data: null, error: { message: "boom", code: "XX000" } }, { data: null, error: null }), "c", "appt"
+    );
+    expect(res).toEqual({ status: "error" });
   });
 });
