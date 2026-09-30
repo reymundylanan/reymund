@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { markPaid, updateSessionStatus } from "@/lib/supabase/queries/appointments";
+import VoucherSection from "@/components/frontdesk/appointments/VoucherSection";
 import { clientInfo, appointmentStaffName, appointmentServiceName, type AppointmentRow } from "@/components/frontdesk/appointments/utils";
 
 function peso(n: number) {
@@ -36,6 +37,7 @@ export default function AppointmentPaymentModal({
   const servicePrice = Math.max(quoted - appointment.additional_charges, 0);
 
   const [discount, setDiscount] = useState(0);
+  const [voucherDiscount, setVoucherDiscount] = useState(0);
   const [recordingCash, setRecordingCash] = useState(false);
   const [cashReceived, setCashReceived] = useState("");
   const [cashJustRecorded, setCashJustRecorded] = useState(false);
@@ -43,9 +45,13 @@ export default function AppointmentPaymentModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const total = Math.max(servicePrice + appointment.additional_charges - discount, 0);
+  const total = Math.max(servicePrice + appointment.additional_charges - discount - voucherDiscount, 0);
+  const remainingBeforeVoucher = Math.max(servicePrice + appointment.additional_charges - discount - advanceTotal, 0);
   const remainingBalance = Math.max(total - advanceTotal, 0);
   const isFullyCoveredByAdvance = remainingBalance <= 0;
+  // A voucher that took effect leaves remainingBeforeVoucher > 0, so this only locks
+  // undo once advance/cash payment (not the voucher) has settled the booking.
+  const voucherLocked = cashJustRecorded || remainingBeforeVoucher <= 0 || appointment.session_status === "paid";
   const totalPaid = advanceTotal + (cashJustRecorded ? remainingBalance : 0);
   const cashReceivedNum = Number(cashReceived) || 0;
   const change = cashReceivedNum - remainingBalance;
@@ -178,6 +184,14 @@ export default function AppointmentPaymentModal({
           )}
         </div>
 
+        <VoucherSection
+          appointmentId={appointment.id}
+          clientId={appointment.client_id}
+          remainingBeforeVoucher={remainingBeforeVoucher}
+          paid={voucherLocked}
+          onChange={setVoucherDiscount}
+        />
+
         <div className="mt-3 space-y-1.5 rounded-xl bg-blush/40 p-3 text-sm">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink/40">Payment Summary</p>
           <div className="flex justify-between">
@@ -200,6 +214,12 @@ export default function AppointmentPaymentModal({
               className="w-24 rounded-lg border border-ink/15 px-2 py-1 text-right text-sm outline-none focus:border-coral disabled:opacity-50"
             />
           </div>
+          {voucherDiscount > 0 && (
+            <div className="flex justify-between">
+              <span className="text-ink/50">Voucher</span>
+              <span className="text-green-600">−{peso(voucherDiscount)}</span>
+            </div>
+          )}
           <div className="flex justify-between border-t border-ink/10 pt-1.5 font-medium">
             <span className="text-ink">Total</span>
             <span className="text-ink">{peso(total)}</span>

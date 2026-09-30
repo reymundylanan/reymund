@@ -7,6 +7,7 @@ type NamedRef = { name?: string; full_name?: string; department?: string | null;
 
 export type AppointmentRow = {
   id: string;
+  client_id: string | null;
   booking_code: string | null;
   appointment_type: "solo" | "group";
   scheduled_date: string;
