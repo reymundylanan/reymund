@@ -94,7 +94,9 @@ real completed booking ("Verified Service").
 - Table `review_photos (id, review_id → reviews on delete cascade,
   storage_path text unique, position smallint 0–4, created_at)`;
   only for `target_type = 'service'`; max 5 per review (checked in
-  function). RLS: owner and staff read; no direct writes.
+  function). RLS: owner and staff read all; anyone may read rows of
+  publicly visible (visible/flagged) reviews (paths only — the files stay
+  private and are shown via signed URLs); no direct writes.
 
 ### Functions (SECURITY DEFINER, error codes as in 048)
 - `submit_visit_review(p_appointment_id, p_services jsonb, p_staff_rating,
