@@ -55,6 +55,7 @@ export default function VoucherSection({
     onStateChange({ ready: false, busy: false });
     const result = await getDeskVouchers(createClient(), clientId, appointmentId);
     setState(result);
+    setBusyState(false);
     onStateChange({ ready: result.status !== "error", busy: false });
     onChange(result.status === "ok" ? (result.applied?.discountApplied ?? 0) : 0);
   }, [appointmentId, clientId, onChange, onStateChange]);
