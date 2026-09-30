@@ -7,6 +7,7 @@ describe("logQueryError", () => {
   it("treats missing tables/views/columns as not migrated", () => {
     expect(isNotMigratedError({ code: "PGRST205" })).toBe(true);
     expect(isNotMigratedError({ code: "42703" })).toBe(true);
+    expect(isNotMigratedError({ code: "PGRST200" })).toBe(true);
     expect(isNotMigratedError({ code: "23505" })).toBe(false);
     expect(isNotMigratedError(null)).toBe(false);
   });

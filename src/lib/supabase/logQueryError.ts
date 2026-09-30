@@ -3,7 +3,7 @@
 // A table/view/column that doesn't exist yet (a migration not applied) is
 // expected during rollout: warn once per label instead of raising an error.
 
-const NOT_MIGRATED_CODES = new Set(["PGRST205", "42P01", "42703", "PGRST204"]);
+const NOT_MIGRATED_CODES = new Set(["PGRST205", "PGRST200", "42P01", "42703", "PGRST204"]);
 const warned = new Set<string>();
 
 type QueryError = { message?: string; code?: string; details?: string | null; hint?: string | null };
