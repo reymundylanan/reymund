@@ -14,7 +14,8 @@ import { getVisitReviews } from "@/lib/supabase/queries/visitReviews";
 import UpcomingBookingCard from "@/components/my-glow/UpcomingBookingCard";
 import MyBookingsSection from "@/components/my-glow/MyBookingsSection";
 import MyServicesList from "@/components/my-glow/MyServicesList";
-import GlowRewardsCard from "@/components/my-glow/GlowRewardsCard";
+import MyRewardsCard from "@/components/my-glow/MyRewardsCard";
+import { getMyRewards } from "@/lib/supabase/queries/rewards";
 import WelcomeBanner from "@/components/my-glow/WelcomeBanner";
 import GlowJourneyBanner from "@/components/my-glow/GlowJourneyBanner";
 import ReviewsPanel from "@/components/my-glow/ReviewsPanel";
@@ -48,13 +49,14 @@ export default async function MyGlowPage({
 
   if (!profile || profile.role !== "customer") redirect("/");
 
-  const [upcoming, recent, myReviews, visitedBranches, visitReviews] =
+  const [upcoming, recent, myReviews, visitedBranches, visitReviews, rewards] =
     await Promise.all([
       getUpcomingAppointment(supabase, auth.user.id),
       getRecentAppointments(supabase, auth.user.id),
       getMyReviews(supabase, auth.user.id),
       getVisitedBranches(supabase, auth.user.id),
       getVisitReviews(supabase, auth.user.id),
+      getMyRewards(supabase, auth.user.id, profile.loyalty_points),
     ]);
 
   if (reviewId && !recent.some((a) => a.id === reviewId)) {
@@ -91,7 +93,7 @@ export default async function MyGlowPage({
               <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews}
                 openReviewId={reviewId}
               />
-              <GlowRewardsCard points={profile.loyalty_points} />
+              <MyRewardsCard initial={rewards} clientId={auth.user.id} />
             </div>
             <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
           </div>
