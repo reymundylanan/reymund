@@ -10,6 +10,8 @@ import {
 } from "@/lib/data";
 import type { BookableService } from "@/components/booking/BookingContext";
 import { createClient } from "@/lib/supabase/client";
+import { useServiceTimingClock } from "@/lib/serviceTiming";
+import { isSlotPast } from "@/lib/slotTime";
 import { getStaffShiftsForRange, toDateKey, type StaffOffRecord } from "@/lib/supabase/queries/staffShifts";
 import { getStaffTransferredIntoBranch, getApprovedTransferDatesForBranch } from "@/lib/supabase/queries/branchTransferRequests";
 import {
@@ -232,6 +234,10 @@ export default function BookingModal({
   const [secondsLeft, setSecondsLeft] = useState(OTP_SECONDS);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Live clock (30s tick) so today's passed time slots disable themselves.
+  const now = useServiceTimingClock();
+  // Shown on the time step when a chosen time passed before the booking was saved.
+  const [timeNotice, setTimeNotice] = useState<string | null>(null);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
   const [branchUuid, setBranchUuid] = useState<string | null>(null);
@@ -474,6 +480,14 @@ export default function BookingModal({
     return new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), selectedDay);
   }, [calendarMonth, selectedDay]);
 
+  // A chosen time that passes while the client is still on the time step is
+  // cleared, so Continue can't carry a past slot forward (render-time update,
+  // the React-recommended alternative to a setState-in-effect).
+  const selectedTimePassed = !!selectedDate && !!selectedTime && isSlotPast(selectedDate, selectedTime, now);
+  if (step === "time" && selectedTimePassed) {
+    setSelectedTime(null);
+  }
+
   const branch = branchContacts.find((b) => b.id === branchId) ?? branchContacts[0];
 
   const professionalLabel =
@@ -522,6 +536,16 @@ export default function BookingModal({
 
       if (!branchRow || !selectedDate || !selectedTime) {
         setSaveError("Missing branch, date, or time.");
+        setSaving(false);
+        return false;
+      }
+
+      // Final guard: the chosen slot may have passed while the client was
+      // on the confirm/payment steps. Never save a booking in the past.
+      if (isSlotPast(selectedDate, selectedTime, new Date())) {
+        setTimeNotice("That time has already passed. Please pick a later time.");
+        setSelectedTime(null);
+        setStep("time");
         setSaving(false);
         return false;
       }
@@ -1105,6 +1129,9 @@ export default function BookingModal({
 
           {step === "time" && (
             <div className="space-y-4">
+            {timeNotice && (
+              <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{timeNotice}</p>
+            )}
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-ink">Pick a date & time</p>
               <button
@@ -1221,19 +1248,40 @@ export default function BookingModal({
                     );
                   }
 
-                  return availableSlots.map((time) => (
-                    <button
-                      key={time}
-                      onClick={() => setSelectedTime(time)}
-                      className={`block w-full rounded-lg border px-3 py-2.5 text-base ${
-                        selectedTime === time
-                          ? "border-coral bg-blush text-coral-dark"
-                          : "border-ink/10 text-ink/70 hover:border-coral"
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  ));
+                  // Only today's slots can have passed; future days are unaffected.
+                  const passed = (time: string) => !!selectedDate && isSlotPast(selectedDate, time, now);
+                  if (availableSlots.every(passed)) {
+                    return (
+                      <p className="text-sm text-ink/50">
+                        No more times available today. Please choose another date.
+                      </p>
+                    );
+                  }
+
+                  return availableSlots.map((time) => {
+                    const isPast = passed(time);
+                    return (
+                      <button
+                        key={time}
+                        disabled={isPast}
+                        aria-disabled={isPast}
+                        onClick={() => {
+                          setSelectedTime(time);
+                          setTimeNotice(null);
+                        }}
+                        className={`block w-full rounded-lg border px-3 py-2.5 text-base ${
+                          isPast
+                            ? "cursor-not-allowed border-ink/5 bg-ink/[0.03] text-ink/25"
+                            : selectedTime === time
+                              ? "border-coral bg-blush text-coral-dark"
+                              : "border-ink/10 text-ink/70 hover:border-coral"
+                        }`}
+                      >
+                        <span className={isPast ? "line-through" : undefined}>{time}</span>
+                        {isPast && <span className="ml-2 text-xs no-underline">Passed</span>}
+                      </button>
+                    );
+                  });
                 })()}
               </div>
             </div>
@@ -1569,7 +1617,7 @@ export default function BookingModal({
 
           {step === "time" && (
             <button
-              disabled={!selectedDay || !selectedTime}
+              disabled={!selectedDay || !selectedTime || selectedTimePassed}
               onClick={() => setStep("confirm")}
               className="rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             >
