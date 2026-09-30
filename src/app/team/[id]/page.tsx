@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import StaffReviewList from "@/components/reviews/StaffReviewList";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicStaffProfile } from "@/lib/supabase/queries/staffProfiles";
 
@@ -77,24 +78,7 @@ export default async function StaffProfilePage({ params }: { params: Promise<{ i
 
           <div className="rounded-3xl bg-white p-8 shadow-sm">
             <h2 className="font-semibold text-ink">Client reviews</h2>
-            {reviews.length === 0 ? (
-              <p className="mt-3 text-sm text-ink/50">No reviews yet.</p>
-            ) : (
-              <ul className="mt-4 space-y-4">
-                {reviews.map((r) => (
-                  <li key={r.id} className="border-b border-ink/5 pb-4 last:border-0">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-ink">{r.reviewer}</span>
-                      <StarRow value={r.rating} size="h-3.5 w-3.5" />
-                    </div>
-                    {r.text && <p className="mt-1 text-sm text-ink/70">{r.text}</p>}
-                    <p className="mt-1 text-xs text-ink/40">
-                      {new Date(r.createdAt).toLocaleDateString("en-US", { timeZone: "Asia/Manila", dateStyle: "medium" })}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <StaffReviewList reviews={reviews} />
           </div>
         </div>
       </main>
