@@ -157,6 +157,7 @@ export async function rejectPayNowPayment(supabase: SupabaseClient, paymentId: s
 export type OnlinePayment = {
   id: string;
   appointmentId: string;
+  visitType: "appointment" | "walk_in";
   amount: number;
   method: string;
   status: string;
@@ -202,6 +203,7 @@ type OnlineRow = {
   paid_to_number?: string | null;
   verifier: Rel<{ full_name: string | null }>;
   appointment: Rel<{
+    visit_type?: string | null;
     client_id: string | null;
     walkin_name: string | null;
     scheduled_date: string;
@@ -217,7 +219,7 @@ type OnlineRow = {
 };
 
 const ONLINE_SELECT =
-  "id, appointment_id, amount, method, status, payment_type, reference_no, sender_name, receipt_path, created_at, verified_at, rejected_reason, verifier:profiles!payments_verified_by_fkey(full_name), appointment:appointments!inner(client_id, walkin_name, scheduled_date, start_time, notes, branch_id, client:profiles!appointments_client_id_fkey(full_name), professional:staff_members(full_name), service:branch_services(name), branch:branches(name), appointment_services(service_name, position))";
+  "id, appointment_id, amount, method, status, payment_type, reference_no, sender_name, receipt_path, created_at, verified_at, rejected_reason, verifier:profiles!payments_verified_by_fkey(full_name), appointment:appointments!inner(visit_type, client_id, walkin_name, scheduled_date, start_time, notes, branch_id, client:profiles!appointments_client_id_fkey(full_name), professional:staff_members(full_name), service:branch_services(name), branch:branches(name), appointment_services(service_name, position))";
 
 export function toOnlinePayment(r: OnlineRow): OnlinePayment {
   const a = one(r.appointment);
@@ -225,6 +227,7 @@ export function toOnlinePayment(r: OnlineRow): OnlinePayment {
   return {
     id: r.id,
     appointmentId: r.appointment_id,
+    visitType: a?.visit_type === "walk_in" ? "walk_in" : "appointment",
     amount: Number(r.amount),
     method: r.method,
     status: r.status,
@@ -252,13 +255,13 @@ export function toOnlinePayment(r: OnlineRow): OnlinePayment {
  * limits Front Desk to its branch; branchId narrows Admin views. */
 export async function getOnlinePayments(
   supabase: SupabaseClient,
-  opts: { fromIso: string; toIso: string; branchId?: string | null }
+  opts: { fromIso: string; toIso: string; branchId?: string | null; method?: "gcash" | "cash" }
 ): Promise<{ rows: OnlinePayment[]; migrated: boolean }> {
   const build = (columns: string) => {
     let q = supabase
       .from("payments")
       .select(columns)
-      .eq("method", "gcash")
+      .eq("method", opts.method ?? "gcash")
       .gte("created_at", opts.fromIso)
       .lt("created_at", opts.toIso)
       .order("created_at", { ascending: false })

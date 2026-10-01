@@ -41,6 +41,7 @@ export default function PaymentsManager() {
     <div className="space-y-6">
       <PaymentsStats stats={stats} live={live} />
       <OnlinePaymentsTable />
+      <OnlinePaymentsTable method="cash" />
       {loading ? (
         <div className="rounded-2xl bg-white p-10 text-center text-sm text-ink/40 shadow-sm">
           Loading payments…

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CreditCard, Search, X } from "lucide-react";
+import { CreditCard, Search, Wallet, X } from "lucide-react";
+import { cashReceiptNo } from "@/lib/supabase/queries/frontdeskPayments";
 import { createClient } from "@/lib/supabase/client";
 import { getOnlinePayments, type OnlinePayment } from "@/lib/supabase/queries/payNow";
 import { dateRange, matchesPaymentSearch, type DateFilter } from "@/lib/onlinePaymentsFilter";
@@ -35,8 +36,8 @@ function apptStamp(p: OnlinePayment, long = false) {
   return `${date}${p.startTime ? `, ${formatAppointmentTime(p.startTime)}` : ""}`;
 }
 
-export function paymentStatus(p: Pick<OnlinePayment, "status" | "paymentType">): { label: string; style: string } {
-  if (p.status === "settled") return { label: "Verified", style: "bg-green-100 text-green-700" };
+export function paymentStatus(p: Pick<OnlinePayment, "status" | "paymentType">, cash = false): { label: string; style: string } {
+  if (p.status === "settled") return { label: cash ? "Paid" : "Verified", style: "bg-green-100 text-green-700" };
   if (p.status === "pending") return { label: p.paymentType === "pay_now" ? "Payment Submitted" : "Pending", style: "bg-amber-100 text-amber-700" };
   if (p.status === "failed") return { label: "Not Received", style: "bg-red-100 text-red-600" };
   if (p.status === "refunded") return { label: "Refunded", style: "bg-ink/10 text-ink/60" };
@@ -47,9 +48,10 @@ function typeLabel(p: OnlinePayment) {
   return p.paymentType === "pay_now" ? "GCash — Pay Now" : "GCash";
 }
 
-/** Payments → Online Payments: real GCash payments with search, date
- * filters and a details view with the attached receipt. */
-export default function OnlinePaymentsTable({ branchId }: { branchId?: string | null }) {
+/** Payments → Online Payments (GCash) or Cash Payments: search, date
+ * filters and a details view (with the receipt for Pay Now). */
+export default function OnlinePaymentsTable({ branchId, method = "gcash" }: { branchId?: string | null; method?: "gcash" | "cash" }) {
+  const isCash = method === "cash";
   const [filter, setFilter] = useState<DateFilter>("today");
   const [custom, setCustom] = useState(() => {
     const t = new Date();
@@ -66,27 +68,30 @@ export default function OnlinePaymentsTable({ branchId }: { branchId?: string | 
   const load = useCallback(async () => {
     const mine = ++seq.current;
     const { from, to } = dateRange(filter, new Date(), custom);
-    const res = await getOnlinePayments(createClient(), { fromIso: from.toISOString(), toIso: to.toISOString(), branchId });
+    const res = await getOnlinePayments(createClient(), { fromIso: from.toISOString(), toIso: to.toISOString(), branchId, method });
     if (mine !== seq.current) return;
     setRows(res.rows);
     setMigrated(res.migrated);
     setLoading(false);
-  }, [filter, custom, branchId]);
+  }, [filter, custom, branchId, method]);
 
   useEffect(() => {
     const first = setTimeout(load, 0);
     const supabase = createClient();
     const channel = supabase
-      .channel(`online-payments-${crypto.randomUUID()}`)
+      .channel(`${method}-payments-${crypto.randomUUID()}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, () => load())
       .subscribe();
     return () => {
       clearTimeout(first);
       supabase.removeChannel(channel);
     };
-  }, [load]);
+  }, [load, method]);
 
-  const visible = useMemo(() => rows.filter((r) => matchesPaymentSearch(r, query)), [rows, query]);
+  const visible = useMemo(
+    () => rows.filter((r) => matchesPaymentSearch(isCash ? { ...r, referenceNo: cashReceiptNo(r.id) } : r, query)),
+    [rows, query, isCash]
+  );
   const verifiedTotal = visible.filter((r) => r.status === "settled").reduce((s, r) => s + r.amount, 0);
   const waiting = visible.filter((r) => r.status === "pending").length;
 
@@ -98,20 +103,22 @@ export default function OnlinePaymentsTable({ branchId }: { branchId?: string | 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 font-semibold text-ink">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-600">
-              <CreditCard className="h-4 w-4" />
+            <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${isCash ? "bg-amber-50 text-amber-600" : "bg-teal-50 text-teal-600"}`}>
+              {isCash ? <Wallet className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
             </span>
-            Online Payments
+            {isCash ? "Cash Payments" : "Online Payments"}
           </h2>
-          <p className="mt-1 text-xs text-ink/50">GCash payments from Pay Now bookings and the Front Desk</p>
+          <p className="mt-1 text-xs text-ink/50">
+            {isCash ? "Cash collected at the Front Desk for bookings and walk-ins" : "GCash payments from Pay Now bookings and the Front Desk"}
+          </p>
         </div>
         <div className="flex items-center divide-x divide-ink/10 text-right">
           <div className="px-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-ink/40">Waiting Verification</p>
-            <p className="text-lg font-semibold text-amber-600">{waiting}</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-ink/40">{isCash ? "Transactions" : "Waiting Verification"}</p>
+            <p className="text-lg font-semibold text-amber-600">{isCash ? visible.length : waiting}</p>
           </div>
           <div className="px-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-ink/40">Verified Total</p>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-ink/40">{isCash ? "Cash Total" : "Verified Total"}</p>
             <p className="text-lg font-semibold text-teal-600">{pesoAmount(verifiedTotal)}</p>
           </div>
         </div>
@@ -123,7 +130,7 @@ export default function OnlinePaymentsTable({ branchId }: { branchId?: string | 
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search client, sender, reference, service or amount…"
+            placeholder={isCash ? "Search client, service, receipt no. or amount…" : "Search client, sender, reference, service or amount…"}
             aria-label="Search payments"
             className="w-full text-sm text-ink outline-none placeholder:text-ink/40"
           />
@@ -167,7 +174,7 @@ export default function OnlinePaymentsTable({ branchId }: { branchId?: string | 
         )}
       </div>
 
-      {!migrated && (
+      {!migrated && !isCash && (
         <p className="mt-4 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
           Online payments will appear here once the Pay Now update (migration 059) is applied.
         </p>
@@ -179,7 +186,7 @@ export default function OnlinePaymentsTable({ branchId }: { branchId?: string | 
             <tr className="text-xs text-ink/40">
               <th className="py-2 font-medium">Paid Date &amp; Time</th>
               <th className="py-2 font-medium">Client</th>
-              <th className="py-2 font-medium">Reference</th>
+              <th className="py-2 font-medium">{isCash ? "Receipt No." : "Reference"}</th>
               <th className="py-2 text-right font-medium">Amount</th>
               <th className="py-2 pl-4 font-medium">Method</th>
               <th className="py-2 font-medium">Status</th>
@@ -196,20 +203,20 @@ export default function OnlinePaymentsTable({ branchId }: { branchId?: string | 
             {!loading && visible.length === 0 && (
               <tr>
                 <td colSpan={8} className="py-8 text-center text-ink/40">
-                  {query ? "No payments match your search." : "No online payments for this period."}
+                  {query ? "No payments match your search." : isCash ? "No cash payments for this period." : "No online payments for this period."}
                 </td>
               </tr>
             )}
             {!loading &&
               visible.map((p) => {
-                const st = paymentStatus(p);
+                const st = paymentStatus(p, isCash);
                 return (
                   <tr key={p.id} className="cursor-pointer border-t border-ink/5 hover:bg-blush/30" onClick={() => setSelected(p)}>
                     <td className="whitespace-nowrap py-3 text-ink/60">{stamp(p.createdAt)}</td>
                     <td className="py-3 font-medium text-ink">{p.clientName}</td>
-                    <td className="py-3 font-mono text-xs text-ink/60">{p.referenceNo ?? "—"}</td>
+                    <td className="py-3 font-mono text-xs text-ink/60">{isCash ? cashReceiptNo(p.id) : p.referenceNo ?? "—"}</td>
                     <td className="whitespace-nowrap py-3 text-right font-semibold text-ink">{pesoAmount(p.amount)}</td>
-                    <td className="py-3 pl-4 text-ink/60">{p.paymentType === "pay_now" ? "GCash · Pay Now" : "GCash"}</td>
+                    <td className="py-3 pl-4 text-ink/60">{isCash ? "Cash" : p.paymentType === "pay_now" ? "GCash · Pay Now" : "GCash"}</td>
                     <td className="py-3">
                       <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${st.style}`}>{st.label}</span>
                     </td>
@@ -226,14 +233,26 @@ export default function OnlinePaymentsTable({ branchId }: { branchId?: string | 
         </table>
       </div>
 
-      {current && <PaymentDetailsModal payment={current} onClose={() => setSelected(null)} />}
+      {current && <PaymentDetailsModal payment={current} cash={isCash} onClose={() => setSelected(null)} />}
     </div>
   );
 }
 
-function PaymentDetailsModal({ payment: p, onClose }: { payment: OnlinePayment; onClose: () => void }) {
-  const st = paymentStatus(p);
-  const rows: [string, string][] = [
+function PaymentDetailsModal({ payment: p, cash, onClose }: { payment: OnlinePayment; cash: boolean; onClose: () => void }) {
+  const st = paymentStatus(p, cash);
+  const rows: [string, string][] = cash
+    ? [
+        ["Receipt No.", cashReceiptNo(p.id)],
+        ["Client", p.clientName],
+        [p.visitType === "walk_in" ? "Walk-in Visit" : "Appointment", apptStamp(p, true)],
+        ["Service", p.serviceName],
+        ["Staff", p.staffName ?? "—"],
+        ["Branch", p.branchName ?? "—"],
+        ["Amount", pesoAmount(p.amount)],
+        ["Payment Method", "Cash"],
+        ["Paid Date & Time", longStamp(p.createdAt)],
+      ]
+    : [
     ["Client", p.clientName],
     ["Appointment", apptStamp(p, true)],
     ["Service", p.serviceName],
@@ -261,7 +280,7 @@ function PaymentDetailsModal({ payment: p, onClose }: { payment: OnlinePayment; 
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-semibold text-ink">Payment Details</h3>
-            <p className="text-xs text-ink/50">{typeLabel(p)}</p>
+            <p className="text-xs text-ink/50">{cash ? "Cash" : typeLabel(p)}</p>
           </div>
           <div className="flex items-center gap-2">
             <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${st.style}`}>
@@ -298,10 +317,10 @@ function PaymentDetailsModal({ payment: p, onClose }: { payment: OnlinePayment; 
 
         <div className="mt-4 flex flex-wrap gap-2">
           <Link
-            href={`/frontdesk/appointments?id=${p.appointmentId}`}
+            href={p.visitType === "walk_in" ? `/frontdesk/walk-ins?id=${p.appointmentId}` : `/frontdesk/appointments?id=${p.appointmentId}`}
             className="w-full rounded-full border border-ink/15 px-4 py-2 text-center text-sm font-semibold text-ink/70 hover:border-coral"
           >
-            Open Appointment
+            {p.visitType === "walk_in" ? "Open Walk-in" : "Open Appointment"}
           </Link>
         </div>
       </div>
