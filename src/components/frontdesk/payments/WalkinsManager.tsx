@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
+import { readQueryParam } from "@/lib/queryParam";
 import { toDateKey } from "@/lib/supabase/queries/staffShifts";
 import {
   getTodaysWalkins,
@@ -28,7 +29,8 @@ export default function WalkinsManager() {
   const now = useSecondClock();
   const [entries, setEntries] = useState<WalkinRow[]>([]);
   const [dateKey, setDateKey] = useState(() => toDateKey(new Date()));
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Dashboard deep link: /frontdesk/walk-ins?id=… (entries load after mount).
+  const [selectedId, setSelectedId] = useState<string | null>(() => readQueryParam("id"));
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

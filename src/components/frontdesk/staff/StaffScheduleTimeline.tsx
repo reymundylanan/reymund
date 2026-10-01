@@ -5,6 +5,7 @@ import Image from "next/image";
 import { RefreshCw, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
+import { readQueryParam } from "@/lib/queryParam";
 import { getStaffShiftsForDate, removeStaffOff, toDateKey, type StaffOffRecord } from "@/lib/supabase/queries/staffShifts";
 import { getLeaveRequestsForBranch } from "@/lib/supabase/queries/leaveRequests";
 import {
@@ -126,7 +127,8 @@ export default function StaffScheduleTimeline({
   const [breaks, setBreaks] = useState<AttendanceBreak[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  // Dashboard deep link: /frontdesk/staff?staff=… (staff load after mount).
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(() => readQueryParam("staff"));
   const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string; label: string; source: string } | null>(null);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);

@@ -1,17 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import {
-  getFrontDeskStats,
-  getTodaySchedule,
-  getStaffRoster,
-  getPaymentVerifications,
-} from "@/lib/supabase/queries/frontdeskDashboard";
 import DashboardHeader from "@/components/frontdesk/dashboard/DashboardHeader";
-import DashboardStats from "@/components/frontdesk/dashboard/DashboardStats";
-import TodaySchedule from "@/components/frontdesk/dashboard/TodaySchedule";
-import TherapistsOnDuty from "@/components/frontdesk/dashboard/TherapistsOnDuty";
-import AlertsPanel from "@/components/frontdesk/dashboard/AlertsPanel";
-import LobbyQueue from "@/components/frontdesk/dashboard/LobbyQueue";
+import OperationsDashboard from "@/components/frontdesk/dashboard/OperationsDashboard";
 
 export default async function FrontDeskDashboardPage() {
   const supabase = await createClient();
@@ -30,15 +20,6 @@ export default async function FrontDeskDashboardPage() {
 
   const branchId = profile.branch_id;
 
-  const [stats, schedule, roster, verifications] = branchId
-    ? await Promise.all([
-        getFrontDeskStats(supabase, branchId),
-        getTodaySchedule(supabase, branchId),
-        getStaffRoster(supabase, branchId),
-        getPaymentVerifications(supabase, branchId),
-      ])
-    : [[], [], [], []];
-
   return (
     <div className="space-y-6">
       <DashboardHeader />
@@ -49,18 +30,7 @@ export default async function FrontDeskDashboardPage() {
           can&apos;t be shown. Contact an admin to get assigned.
         </div>
       ) : (
-        <>
-          <DashboardStats stats={stats} />
-
-          <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-            <TodaySchedule schedule={schedule} />
-            <TherapistsOnDuty roster={roster} />
-          </div>
-
-          <AlertsPanel verifications={verifications} />
-
-          <LobbyQueue />
-        </>
+        <OperationsDashboard branchId={branchId} />
       )}
     </div>
   );

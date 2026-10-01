@@ -7,6 +7,7 @@ import { getStaffShiftsForDate } from "@/lib/supabase/queries/staffShifts";
 import { getGracePeriodMinutes } from "@/lib/supabase/queries/spaSettings";
 import { updateSessionStatus } from "@/lib/supabase/queries/appointments";
 import { isNotMigratedError } from "@/lib/supabase/logQueryError";
+import { readQueryParam } from "@/lib/queryParam";
 import AppointmentsToolbar, { type StatusFilter } from "@/components/frontdesk/appointments/AppointmentsToolbar";
 import AppointmentsSummary from "@/components/frontdesk/appointments/AppointmentsSummary";
 import ConflictBanner from "@/components/frontdesk/appointments/ConflictBanner";
@@ -47,7 +48,9 @@ export default function AppointmentsManager() {
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [offToday, setOffToday] = useState<{ staff_member_id: string; source: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // Dashboard deep link: /frontdesk/appointments?id=… (rows load after
+  // mount, so the panel can't render during hydration).
+  const [activeId, setActiveId] = useState<string | null>(() => readQueryParam("id"));
   const [rescheduleTargetId, setRescheduleTargetId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => startOfDay(new Date()));
