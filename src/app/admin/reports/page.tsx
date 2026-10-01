@@ -1,5 +1,5 @@
-import ReportsDashboard from "@/components/admin/reports/ReportsDashboard";
+import ReportGenerator from "@/components/admin/reports/ReportGenerator";
 
 export default function AdminReportsPage() {
-  return <ReportsDashboard />;
+  return <ReportGenerator />;
 }
