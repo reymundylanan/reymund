@@ -6,6 +6,7 @@ import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { getStaffShiftsForDate } from "@/lib/supabase/queries/staffShifts";
 import { getGracePeriodMinutes } from "@/lib/supabase/queries/spaSettings";
 import { updateSessionStatus } from "@/lib/supabase/queries/appointments";
+import { isNotMigratedError } from "@/lib/supabase/logQueryError";
 import AppointmentsToolbar, { type StatusFilter } from "@/components/frontdesk/appointments/AppointmentsToolbar";
 import AppointmentsSummary from "@/components/frontdesk/appointments/AppointmentsSummary";
 import ConflictBanner from "@/components/frontdesk/appointments/ConflictBanner";
@@ -59,16 +60,28 @@ export default function AppointmentsManager() {
     }
     const supabase = createClient();
     const todayKey = toDateKey(new Date());
-    const [apptRes, staffRes, servicesRes, offRes] = await Promise.all([
+    const apptBase = () =>
       supabase
         .from("appointments")
         .select(
           "id, client_id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, additional_charges, professional_id, service_id, notes, staff_notes, created_at, client:profiles!appointments_client_id_fkey(full_name, phone, avatar_url), professional:staff_members(full_name, department, avatar_url), service:branch_services(name), payments(method, status, amount, reference_no, created_at)"
         )
-        .eq("branch_id", profile.branchId)
+        .eq("branch_id", profile.branchId);
+    // Walk-ins linked to an account have a client_id, so visit_type (054)
+    // keeps them out of this list; before 054 bookings are the rows with one.
+    const loadAppointments = async () => {
+      const res = await apptBase()
+        .eq("visit_type", "appointment")
+        .order("scheduled_date", { ascending: true })
+        .order("start_time", { ascending: true });
+      if (!res.error || !isNotMigratedError(res.error)) return res;
+      return apptBase()
         .not("client_id", "is", null)
         .order("scheduled_date", { ascending: true })
-        .order("start_time", { ascending: true }),
+        .order("start_time", { ascending: true });
+    };
+    const [apptRes, staffRes, servicesRes, offRes] = await Promise.all([
+      loadAppointments(),
       supabase
         .from("staff_members")
         .select("id, full_name, department")
