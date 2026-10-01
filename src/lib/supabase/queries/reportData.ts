@@ -83,7 +83,10 @@ export async function loadReportData(supabase: SupabaseClient, from: string, to:
   ] as const) {
     logQueryError(`loadReportData ${label}`, res.error);
   }
-  if (appts.error || pays.error) throw new Error("Couldn't load report data. Please try again.");
+  if (appts.error || pays.error) {
+    const reason = (appts.error ?? pays.error)?.message ?? "unknown error";
+    throw new Error(`Couldn't load report data (${reason}). Please try again.`);
+  }
 
   type ApptRow = ApptEmbed & {
     scheduled_date: string;
