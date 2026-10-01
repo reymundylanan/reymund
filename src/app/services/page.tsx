@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ServicesHero from "@/components/services/ServicesHero";
 import ServiceCatalog, { type DbService } from "@/components/services/ServiceCatalog";
-import ConsultCta from "@/components/services/ConsultCta";
+import MottoBanner from "@/components/services/MottoBanner";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceRatings } from "@/lib/supabase/queries/serviceReviews";
 
@@ -42,7 +42,7 @@ export default async function ServicesPage() {
       <main className="flex-1">
         <ServicesHero />
         <ServiceCatalog services={services} ratings={ratings} />
-        <ConsultCta />
+        <MottoBanner />
       </main>
       <Footer />
     </>
