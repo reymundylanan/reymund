@@ -18,11 +18,102 @@
   --color-gold: #A88930;
   --color-ink: #2b1a16;
   --color-footer: #1C1206;
+  /* Warm palette (Admin + Front Desk redesign) */
+  --color-champagne: #E8D5A5;
+  --color-nude: #EAD8C5;
+  --color-skin: #F5E9DC;
+  --color-cream: #FBF7EF;
+  --color-taupe: #8A7B70;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* ── Admin + Front Desk palette: gold + nude/skin + cream + white ─────────
+   Applied by the Admin and Front Desk layouts. Tailwind utilities read these
+   CSS variables, so any blue/purple/teal/pink/etc. class inside those
+   portals renders in the warm palette, and status colors (green / red /
+   amber) become soft sage / muted rose / champagne. The client site keeps
+   Tailwind's defaults. */
+.theme-warm {
+  /* Gold / champagne — replaces blue, sky, indigo, teal, cyan */
+  --warm-gold-50: #fbf5e6;
+  --warm-gold-100: #f4e8c8;
+  --warm-gold-200: #e8d5a5;
+  --warm-gold-300: #dcc386;
+  --warm-gold-400: #cfae5e;
+  --warm-gold-500: #c9a44a;
+  --warm-gold-600: #a88432;
+  --warm-gold-700: #8a6b26;
+  --warm-gold-800: #6b521d;
+  --warm-gold-900: #4e3b15;
+  /* Nude / skin tone — replaces purple, violet, pink, fuchsia */
+  --warm-nude-50: #fbf4ee;
+  --warm-nude-100: #f5e9dc;
+  --warm-nude-200: #ead8c5;
+  --warm-nude-300: #ddc2a8;
+  --warm-nude-400: #cba684;
+  --warm-nude-500: #b98d68;
+  --warm-nude-600: #9c7253;
+  --warm-nude-700: #7d5a41;
+  --warm-nude-800: #5e4331;
+  --warm-nude-900: #402d21;
+  /* Soft sage — success */
+  --warm-sage-50: #f1f5ee;
+  --warm-sage-100: #e1ead9;
+  --warm-sage-200: #c8d7ba;
+  --warm-sage-300: #a9c097;
+  --warm-sage-400: #8aa676;
+  --warm-sage-500: #6f8c5b;
+  --warm-sage-600: #5b7549;
+  --warm-sage-700: #4a5f3c;
+  --warm-sage-800: #3b4c30;
+  --warm-sage-900: #2d3a25;
+  /* Muted rose — danger */
+  --warm-rose-50: #fbf1ef;
+  --warm-rose-100: #f5e0db;
+  --warm-rose-200: #ebc6be;
+  --warm-rose-300: #dfa79c;
+  --warm-rose-400: #cf8576;
+  --warm-rose-500: #bf6b5b;
+  --warm-rose-600: #a5584a;
+  --warm-rose-700: #86473c;
+  --warm-rose-800: #67372f;
+  --warm-rose-900: #4a2822;
+  /* Champagne amber — warning */
+  --warm-amber-50: #fcf6e9;
+  --warm-amber-100: #f7eacb;
+  --warm-amber-200: #efd9a4;
+  --warm-amber-300: #e5c47a;
+  --warm-amber-400: #d9ad55;
+  --warm-amber-500: #c99a3e;
+  --warm-amber-600: #a97e2f;
+  --warm-amber-700: #876425;
+  --warm-amber-800: #664b1c;
+  --warm-amber-900: #473414;
+
+  --color-blue-50: var(--warm-gold-50); --color-blue-100: var(--warm-gold-100); --color-blue-200: var(--warm-gold-200); --color-blue-300: var(--warm-gold-300); --color-blue-400: var(--warm-gold-400); --color-blue-500: var(--warm-gold-500); --color-blue-600: var(--warm-gold-600); --color-blue-700: var(--warm-gold-700); --color-blue-800: var(--warm-gold-800); --color-blue-900: var(--warm-gold-900);
+  --color-sky-50: var(--warm-gold-50); --color-sky-100: var(--warm-gold-100); --color-sky-200: var(--warm-gold-200); --color-sky-300: var(--warm-gold-300); --color-sky-400: var(--warm-gold-400); --color-sky-500: var(--warm-gold-500); --color-sky-600: var(--warm-gold-600); --color-sky-700: var(--warm-gold-700); --color-sky-800: var(--warm-gold-800); --color-sky-900: var(--warm-gold-900);
+  --color-indigo-50: var(--warm-gold-50); --color-indigo-100: var(--warm-gold-100); --color-indigo-200: var(--warm-gold-200); --color-indigo-300: var(--warm-gold-300); --color-indigo-400: var(--warm-gold-400); --color-indigo-500: var(--warm-gold-500); --color-indigo-600: var(--warm-gold-600); --color-indigo-700: var(--warm-gold-700); --color-indigo-800: var(--warm-gold-800); --color-indigo-900: var(--warm-gold-900);
+  --color-teal-50: var(--warm-gold-50); --color-teal-100: var(--warm-gold-100); --color-teal-200: var(--warm-gold-200); --color-teal-300: var(--warm-gold-300); --color-teal-400: var(--warm-gold-400); --color-teal-500: var(--warm-gold-500); --color-teal-600: var(--warm-gold-600); --color-teal-700: var(--warm-gold-700); --color-teal-800: var(--warm-gold-800); --color-teal-900: var(--warm-gold-900);
+  --color-cyan-50: var(--warm-gold-50); --color-cyan-100: var(--warm-gold-100); --color-cyan-200: var(--warm-gold-200); --color-cyan-300: var(--warm-gold-300); --color-cyan-400: var(--warm-gold-400); --color-cyan-500: var(--warm-gold-500); --color-cyan-600: var(--warm-gold-600); --color-cyan-700: var(--warm-gold-700); --color-cyan-800: var(--warm-gold-800); --color-cyan-900: var(--warm-gold-900);
+  --color-purple-50: var(--warm-nude-50); --color-purple-100: var(--warm-nude-100); --color-purple-200: var(--warm-nude-200); --color-purple-300: var(--warm-nude-300); --color-purple-400: var(--warm-nude-400); --color-purple-500: var(--warm-nude-500); --color-purple-600: var(--warm-nude-600); --color-purple-700: var(--warm-nude-700); --color-purple-800: var(--warm-nude-800); --color-purple-900: var(--warm-nude-900);
+  --color-violet-50: var(--warm-nude-50); --color-violet-100: var(--warm-nude-100); --color-violet-200: var(--warm-nude-200); --color-violet-300: var(--warm-nude-300); --color-violet-400: var(--warm-nude-400); --color-violet-500: var(--warm-nude-500); --color-violet-600: var(--warm-nude-600); --color-violet-700: var(--warm-nude-700); --color-violet-800: var(--warm-nude-800); --color-violet-900: var(--warm-nude-900);
+  --color-pink-50: var(--warm-nude-50); --color-pink-100: var(--warm-nude-100); --color-pink-200: var(--warm-nude-200); --color-pink-300: var(--warm-nude-300); --color-pink-400: var(--warm-nude-400); --color-pink-500: var(--warm-nude-500); --color-pink-600: var(--warm-nude-600); --color-pink-700: var(--warm-nude-700); --color-pink-800: var(--warm-nude-800); --color-pink-900: var(--warm-nude-900);
+  --color-fuchsia-50: var(--warm-nude-50); --color-fuchsia-100: var(--warm-nude-100); --color-fuchsia-200: var(--warm-nude-200); --color-fuchsia-300: var(--warm-nude-300); --color-fuchsia-400: var(--warm-nude-400); --color-fuchsia-500: var(--warm-nude-500); --color-fuchsia-600: var(--warm-nude-600); --color-fuchsia-700: var(--warm-nude-700); --color-fuchsia-800: var(--warm-nude-800); --color-fuchsia-900: var(--warm-nude-900);
+  --color-green-50: var(--warm-sage-50); --color-green-100: var(--warm-sage-100); --color-green-200: var(--warm-sage-200); --color-green-300: var(--warm-sage-300); --color-green-400: var(--warm-sage-400); --color-green-500: var(--warm-sage-500); --color-green-600: var(--warm-sage-600); --color-green-700: var(--warm-sage-700); --color-green-800: var(--warm-sage-800); --color-green-900: var(--warm-sage-900);
+  --color-emerald-50: var(--warm-sage-50); --color-emerald-100: var(--warm-sage-100); --color-emerald-200: var(--warm-sage-200); --color-emerald-300: var(--warm-sage-300); --color-emerald-400: var(--warm-sage-400); --color-emerald-500: var(--warm-sage-500); --color-emerald-600: var(--warm-sage-600); --color-emerald-700: var(--warm-sage-700); --color-emerald-800: var(--warm-sage-800); --color-emerald-900: var(--warm-sage-900);
+  --color-lime-50: var(--warm-sage-50); --color-lime-100: var(--warm-sage-100); --color-lime-200: var(--warm-sage-200); --color-lime-300: var(--warm-sage-300); --color-lime-400: var(--warm-sage-400); --color-lime-500: var(--warm-sage-500); --color-lime-600: var(--warm-sage-600); --color-lime-700: var(--warm-sage-700); --color-lime-800: var(--warm-sage-800); --color-lime-900: var(--warm-sage-900);
+  --color-red-50: var(--warm-rose-50); --color-red-100: var(--warm-rose-100); --color-red-200: var(--warm-rose-200); --color-red-300: var(--warm-rose-300); --color-red-400: var(--warm-rose-400); --color-red-500: var(--warm-rose-500); --color-red-600: var(--warm-rose-600); --color-red-700: var(--warm-rose-700); --color-red-800: var(--warm-rose-800); --color-red-900: var(--warm-rose-900);
+  --color-rose-50: var(--warm-rose-50); --color-rose-100: var(--warm-rose-100); --color-rose-200: var(--warm-rose-200); --color-rose-300: var(--warm-rose-300); --color-rose-400: var(--warm-rose-400); --color-rose-500: var(--warm-rose-500); --color-rose-600: var(--warm-rose-600); --color-rose-700: var(--warm-rose-700); --color-rose-800: var(--warm-rose-800); --color-rose-900: var(--warm-rose-900);
+  --color-amber-50: var(--warm-amber-50); --color-amber-100: var(--warm-amber-100); --color-amber-200: var(--warm-amber-200); --color-amber-300: var(--warm-amber-300); --color-amber-400: var(--warm-amber-400); --color-amber-500: var(--warm-amber-500); --color-amber-600: var(--warm-amber-600); --color-amber-700: var(--warm-amber-700); --color-amber-800: var(--warm-amber-800); --color-amber-900: var(--warm-amber-900);
+  --color-yellow-50: var(--warm-amber-50); --color-yellow-100: var(--warm-amber-100); --color-yellow-200: var(--warm-amber-200); --color-yellow-300: var(--warm-amber-300); --color-yellow-400: var(--warm-amber-400); --color-yellow-500: var(--warm-amber-500); --color-yellow-600: var(--warm-amber-600); --color-yellow-700: var(--warm-amber-700); --color-yellow-800: var(--warm-amber-800); --color-yellow-900: var(--warm-amber-900);
+  --color-orange-50: var(--warm-amber-50); --color-orange-100: var(--warm-amber-100); --color-orange-200: var(--warm-amber-200); --color-orange-300: var(--warm-amber-300); --color-orange-400: var(--warm-amber-400); --color-orange-500: var(--warm-amber-500); --color-orange-600: var(--warm-amber-600); --color-orange-700: var(--warm-amber-700); --color-orange-800: var(--warm-amber-800); --color-orange-900: var(--warm-amber-900);
+  --color-gray-100: var(--warm-nude-100); --color-gray-300: var(--warm-nude-300); --color-gray-500: var(--warm-nude-600); --color-gray-900: var(--color-ink);
+
+  background-color: var(--color-cream);
 }
 
 .scrollbar-hidden {
