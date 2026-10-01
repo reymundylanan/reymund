@@ -10,6 +10,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
 
   --color-coral: #C9A84A;
   --color-coral-dark: #A88930;
@@ -219,3 +220,18 @@ body {
 .theme-warm ::-webkit-scrollbar-track { background: transparent; }
 .theme-warm ::-webkit-scrollbar-thumb { background: #dcc28a; border-radius: 999px; }
 .theme-warm ::-webkit-scrollbar-thumb:hover { background: #c9a44a; }
+
+/* Public site + client pages: serif display headings. Admin / Front Desk
+   (.portal) keep the clean sans headings. */
+@layer base {
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  .portal h1,
+  .portal h2 {
+    font-family: inherit;
+    letter-spacing: normal;
+  }
+}

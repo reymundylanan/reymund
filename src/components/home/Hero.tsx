@@ -21,7 +21,7 @@ export default function Hero() {
           playsInline
           className="absolute inset-0 h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1f2a20]/65 via-[#2c3a2a]/55 to-[#3a2a22]/50" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#2b1a10]/60 via-[#4a3020]/40 to-[#a8843a]/30" />
         <div className="relative mx-auto flex max-w-7xl flex-col items-start gap-6">
 
           <h1 className="max-w-2xl text-4xl font-semibold leading-tight sm:text-5xl">

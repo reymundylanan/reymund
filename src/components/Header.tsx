@@ -60,7 +60,7 @@ export default function Header() {
         </span>
       </div>
 
-      <div className="border-b border-rose/60 bg-white">
+      <div className="border-b border-nude/70 bg-white/95 backdrop-blur">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2">
             <Image
@@ -70,7 +70,7 @@ export default function Header() {
               height={46}
               className="h-[46px] w-[46px] object-contain"
             />
-            <span className="text-xl font-semibold text-coral-dark">
+            <span className="font-display text-2xl font-semibold text-coral-dark">
               Blush Spa & Aesthetics
             </span>
           </Link>

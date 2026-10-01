@@ -3,7 +3,7 @@ import FrontDeskTopbar from "@/components/frontdesk/FrontDeskTopbar";
 
 export default function FrontDeskLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="theme-warm flex h-screen overflow-hidden bg-cream">
+    <div className="portal theme-warm flex h-screen overflow-hidden bg-cream">
       <FrontDeskSidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <FrontDeskTopbar />
