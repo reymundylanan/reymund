@@ -8,7 +8,8 @@ export type NotificationKind =
   | "review_reward"
   | "voucher_expired"
   | "voucher_cancelled"
-  | "points_adjusted";
+  | "points_adjusted"
+  | "no_show";
 
 export type ClientNotification = {
   id: string;

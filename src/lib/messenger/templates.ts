@@ -24,8 +24,9 @@ export const APPOINTMENT_TEMPLATES: Record<
     example: ["Ana", "Signature Facial", "Robinsons", "Wed, Oct 7"],
   },
   no_show: {
-    name: "glowsync_appt_no_show",
-    body: "Hi {{1}}, we missed you for your {{2}} at {{3}} on {{4}}. Tap below to see your options.",
+    // v2: new wording needs a new template name so Meta reviews it again.
+    name: "glowsync_appt_no_show_v2",
+    body: "Hi {{1}}, your {{2}} at {{3}} on {{4}} was cancelled because you didn't arrive on time. Please contact us to reschedule.",
     example: ["Ana", "Signature Facial", "Robinsons", "Wed, Oct 7"],
   },
   review_request: {

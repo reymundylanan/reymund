@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const DEFAULT_GRACE_PERIOD_MINUTES = 15;
+const DEFAULT_GRACE_PERIOD_MINUTES = 10;
 
 export async function getGracePeriodMinutes(supabase: SupabaseClient): Promise<number> {
   const { data, error } = await supabase.from("spa_settings").select("grace_period_minutes").eq("id", true).maybeSingle();
