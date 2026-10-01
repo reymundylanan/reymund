@@ -1,9 +1,36 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
+
+/** Live date + time (like the Front Desk header). Rendered after mount so
+ * server and browser clocks can't mismatch. */
+function LiveClock() {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    const first = setTimeout(tick, 0);
+    const id = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
+  }, []);
+  if (!now) return null;
+  return (
+    <div className="hidden text-right leading-tight sm:block">
+      <p className="text-sm font-medium text-ink">
+        {now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })}
+      </p>
+      <p className="text-sm tabular-nums text-taupe">
+        {now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" })}
+      </p>
+    </div>
+  );
+}
 
 export default function AdminTopbar() {
   const { profile } = useStaffProfile();
@@ -25,6 +52,7 @@ export default function AdminTopbar() {
       </div>
 
       <div className="flex items-center gap-5">
+        <LiveClock />
         <Link
           href="/admin/notifications"
           aria-label="Notifications"
