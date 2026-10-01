@@ -14,16 +14,20 @@
     "@supabase/supabase-js": "^2.108.2",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
+    "nodemailer": "^10.0.13",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-image-crop": "^11.1.2",
-    "resend": "^6.28.1"
+    "resend": "^6.28.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
