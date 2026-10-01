@@ -104,7 +104,7 @@ export default function ServiceCatalog({
               <button
                 key={name}
                 onClick={() => { setSelectedCategory(name); setQuery(""); }}
-                className="group relative flex h-72 flex-col justify-end overflow-hidden rounded-3xl text-left shadow-sm ring-1 ring-nude/60 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#a8843a]/15"
+                className="group relative flex h-72 flex-col justify-end overflow-hidden rounded-3xl border-2 border-coral text-left shadow-sm ring-1 ring-champagne/60 ring-offset-2 ring-offset-cream transition duration-300 hover:-translate-y-1 hover:border-coral-dark hover:shadow-xl hover:shadow-[#a8843a]/15"
               >
                 <Image
                   src={meta.image}
@@ -115,7 +115,7 @@ export default function ServiceCatalog({
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#2b1a10]/90 via-[#3d2818]/45 to-transparent" />
                 <div className="relative p-5">
-                  <p className="font-display text-xl font-semibold text-white">{name}</p>
+                  <p className="text-xl font-semibold tracking-tight text-white">{name}</p>
                   <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-white/80">{meta.description}</p>
                   <div className="mt-4 flex items-center justify-between">
                     <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
