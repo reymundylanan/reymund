@@ -64,11 +64,18 @@ export async function checkInClient(
   appointmentId: string
 ): Promise<{ error: string | null }> {
   const checkedInBy = await currentUserId(supabase);
-  const { error } = await supabase
+  // A No-Show booking can't be checked in (it must be rescheduled), even
+  // from a panel that was opened before it was marked No-Show.
+  const { data, error } = await supabase
     .from("appointments")
     .update({ arrival_time: new Date().toISOString(), checked_in_by: checkedInBy })
-    .eq("id", appointmentId);
+    .eq("id", appointmentId)
+    .or("session_status.is.null,session_status.neq.no_show")
+    .select("id");
   if (error) return { error: error.message };
+  if (!data || data.length === 0) {
+    return { error: "This client was marked No Show — reschedule the booking instead of checking in." };
+  }
   return updateSessionStatus(supabase, appointmentId, "in_service");
 }
 

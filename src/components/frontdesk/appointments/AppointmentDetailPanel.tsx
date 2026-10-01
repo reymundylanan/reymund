@@ -179,12 +179,11 @@ export default function AppointmentDetailPanel({
     return "confirmed";
   }
   const derivedStatus = computeDerivedStatus();
-  /** Check In is the one arrival action: it also covers a client who was
-   * auto-marked No-Show and then arrives (the No-Show stays in history). */
+  /** Check In is the one arrival action. A No-Show booking cannot be
+   * checked in — it has to be rescheduled first. */
   const checkInEligible =
     derivedStatus === "confirmed" ||
     derivedStatus === "late_awaiting_arrival" ||
-    derivedStatus === "no_show" ||
     derivedStatus === "late_arrival";
   const checkInOpensAt = scheduledStart.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
 
