@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicStaffList } from "@/lib/supabase/queries/staffProfiles";
+import SectionHeading from "@/components/SectionHeading";
 
 export default async function Team() {
   const supabase = await createClient();
@@ -10,9 +11,7 @@ export default async function Team() {
 
   return (
     <section id="team" className="mx-auto max-w-7xl px-6 py-20">
-      <h2 className="mb-10 text-3xl font-semibold text-ink">
-        Meet the <span className="text-coral">Team</span>
-      </h2>
+      <SectionHeading eyebrow="Our Experts" title="Meet the Team" subtitle="Skilled, caring specialists dedicated to your glow." />
 
       {staff.length === 0 ? (
         <p className="text-sm text-ink/50">Our team will be introduced here soon.</p>
