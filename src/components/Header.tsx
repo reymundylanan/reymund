@@ -4,7 +4,8 @@ import { signOutSafely } from "@/lib/auth/signOut";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Sparkles } from "lucide-react";
+import { LogOut } from "lucide-react";
+import AnnouncementBar from "@/components/AnnouncementBar";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import ClientNotificationBell from "@/components/notifications/ClientNotificationBell";
@@ -49,16 +50,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50">
-      <div className="bg-coral px-4 py-2 text-center text-sm text-white">
-        <span className="inline-flex items-center gap-2">
-          <Sparkles className="h-4 w-4" />
-          Exclusive Mother&apos;s Day Special: Get 20% off all Floral Therapy
-          sessions.{" "}
-          <a href="#promotions" className="underline underline-offset-2">
-            Learn More
-          </a>
-        </span>
-      </div>
+      <AnnouncementBar />
 
       <div className="border-b border-nude/70 bg-white/95 backdrop-blur">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">

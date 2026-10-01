@@ -14,6 +14,7 @@ import {
 import { getMessengerConfig, missingMessengerEnv } from "@/lib/messenger/config";
 import NotificationsManager from "@/components/admin/notifications/NotificationsManager";
 import FeedbackInbox from "@/components/admin/notifications/FeedbackInbox";
+import AnnouncementCard from "@/components/admin/notifications/AnnouncementCard";
 
 export default async function AdminNotificationsPage() {
   const supabase = await createClient();
@@ -51,6 +52,7 @@ export default async function AdminNotificationsPage() {
         messenger={{ configured: messengerConfigured, missing: missingMessengerEnv(), ...audience, ...dispatch }}
         messengerResults={messengerResults}
       />
+      <AnnouncementCard />
       <FeedbackInbox />
     </div>
   );

@@ -13,7 +13,7 @@ export const adminBranches = [
     hours: "10:00 AM - 4:00 PM",
     status: "Active",
     image: "/images/branches/branches1.jpg",
-    phone: "+63 912 345 6789",
+    phone: "+63 970 081 0473",
     facebook: "blushspaxaesthetics",
     facebookLabel: "Blush Spa & Aesthetics Pagadian",
     instagram: "blushspaxaesthetics_onececilia",

@@ -749,7 +749,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
             </div>
             <div className="mt-4 space-y-2.5 text-lg text-ink/60">
               <p className="flex items-start gap-2"><MapPin className="mt-1 h-5 w-5 shrink-0 text-coral" />{branchForm.address}</p>
-              <p className="flex items-center gap-2"><Phone className="h-5 w-5 text-coral" />{branchForm.phone || "+63 912 345 6789"}</p>
+              <p className="flex items-center gap-2"><Phone className="h-5 w-5 text-coral" />{branchForm.phone || <span className="text-ink/40">No phone saved — use Edit Branch to add one</span>}</p>
               <p className="flex items-center gap-2">
                 <svg className="h-5 w-5 shrink-0 text-coral" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.235 2.686.235v2.97h-1.513c-1.491 0-1.956.93-1.956 1.883v2.258h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/></svg>
                 {branchForm.facebookLabel || branchForm.facebook}
