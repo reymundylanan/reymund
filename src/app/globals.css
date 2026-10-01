@@ -39,58 +39,58 @@ body {
    Tailwind's defaults. */
 .theme-warm {
   /* Gold / champagne — replaces blue, sky, indigo, teal, cyan */
-  --warm-gold-50: #fbf5e6;
-  --warm-gold-100: #f4e8c8;
-  --warm-gold-200: #e8d5a5;
+  --warm-gold-50: #fbf2dc;
+  --warm-gold-100: #f4e1b0;
+  --warm-gold-200: #e9cd86;
   --warm-gold-300: #dcc386;
   --warm-gold-400: #cfae5e;
   --warm-gold-500: #c9a44a;
-  --warm-gold-600: #a88432;
-  --warm-gold-700: #8a6b26;
+  --warm-gold-600: #9a7620;
+  --warm-gold-700: #7c5f18;
   --warm-gold-800: #6b521d;
   --warm-gold-900: #4e3b15;
   /* Nude / skin tone — replaces purple, violet, pink, fuchsia */
   --warm-nude-50: #fbf4ee;
-  --warm-nude-100: #f5e9dc;
+  --warm-nude-100: #f3e0c9;
   --warm-nude-200: #ead8c5;
   --warm-nude-300: #ddc2a8;
   --warm-nude-400: #cba684;
   --warm-nude-500: #b98d68;
-  --warm-nude-600: #9c7253;
+  --warm-nude-600: #8f6342;
   --warm-nude-700: #7d5a41;
   --warm-nude-800: #5e4331;
   --warm-nude-900: #402d21;
   /* Soft sage — success */
-  --warm-sage-50: #f1f5ee;
-  --warm-sage-100: #e1ead9;
-  --warm-sage-200: #c8d7ba;
+  --warm-sage-50: #ecf3e5;
+  --warm-sage-100: #d6e7c6;
+  --warm-sage-200: #b8d39e;
   --warm-sage-300: #a9c097;
   --warm-sage-400: #8aa676;
   --warm-sage-500: #6f8c5b;
-  --warm-sage-600: #5b7549;
-  --warm-sage-700: #4a5f3c;
+  --warm-sage-600: #4b7a34;
+  --warm-sage-700: #3c6529;
   --warm-sage-800: #3b4c30;
   --warm-sage-900: #2d3a25;
   /* Muted rose — danger */
-  --warm-rose-50: #fbf1ef;
-  --warm-rose-100: #f5e0db;
+  --warm-rose-50: #fcebe7;
+  --warm-rose-100: #f7d6cd;
   --warm-rose-200: #ebc6be;
   --warm-rose-300: #dfa79c;
   --warm-rose-400: #cf8576;
   --warm-rose-500: #bf6b5b;
-  --warm-rose-600: #a5584a;
-  --warm-rose-700: #86473c;
+  --warm-rose-600: #a8463a;
+  --warm-rose-700: #89372c;
   --warm-rose-800: #67372f;
   --warm-rose-900: #4a2822;
   /* Champagne amber — warning */
-  --warm-amber-50: #fcf6e9;
-  --warm-amber-100: #f7eacb;
+  --warm-amber-50: #fcf1da;
+  --warm-amber-100: #f8dfa8;
   --warm-amber-200: #efd9a4;
   --warm-amber-300: #e5c47a;
   --warm-amber-400: #d9ad55;
   --warm-amber-500: #c99a3e;
-  --warm-amber-600: #a97e2f;
-  --warm-amber-700: #876425;
+  --warm-amber-600: #9c6f17;
+  --warm-amber-700: #7d5810;
   --warm-amber-800: #664b1c;
   --warm-amber-900: #473414;
 
@@ -113,7 +113,11 @@ body {
   --color-orange-50: var(--warm-amber-50); --color-orange-100: var(--warm-amber-100); --color-orange-200: var(--warm-amber-200); --color-orange-300: var(--warm-amber-300); --color-orange-400: var(--warm-amber-400); --color-orange-500: var(--warm-amber-500); --color-orange-600: var(--warm-amber-600); --color-orange-700: var(--warm-amber-700); --color-orange-800: var(--warm-amber-800); --color-orange-900: var(--warm-amber-900);
   --color-gray-100: var(--warm-nude-100); --color-gray-300: var(--warm-nude-300); --color-gray-500: var(--warm-nude-600); --color-gray-900: var(--color-ink);
 
+  /* Warm dark brown instead of near-black text. */
+  --color-ink: #3b2a1f;
+  --color-taupe: #74604f;
   background-color: var(--color-cream);
+  scrollbar-color: #dcc28a transparent;
 }
 
 .scrollbar-hidden {
@@ -175,3 +179,43 @@ body {
     animation: none;
   }
 }
+
+/* Readable warm text, beige lines and gold scrollbars inside Admin / Front
+   Desk. Same specificity as the utilities and later in the layer, so plain
+   classes are restyled while hover/focus variants still win. */
+@layer utilities {
+  :where(.theme-warm) .text-ink\/15,
+  :where(.theme-warm) .text-ink\/20,
+  :where(.theme-warm) .text-ink\/25,
+  :where(.theme-warm) .text-ink\/30 { color: #a38d7a; }
+  :where(.theme-warm) .text-ink\/40 { color: #8b7360; }
+  :where(.theme-warm) .text-ink\/45,
+  :where(.theme-warm) .text-ink\/50 { color: #77604e; }
+  :where(.theme-warm) .text-ink\/60,
+  :where(.theme-warm) .text-ink\/65 { color: #654f3e; }
+  :where(.theme-warm) .text-ink\/70 { color: #574231; }
+  :where(.theme-warm) .text-ink\/80 { color: #4a3727; }
+
+  :where(.theme-warm) .border-ink\/5,
+  :where(.theme-warm) .border-ink\/10 { border-color: #eedfcd; }
+  :where(.theme-warm) .border-ink\/15,
+  :where(.theme-warm) .border-ink\/20 { border-color: #e3cdb3; }
+  :where(.theme-warm) .divide-ink\/5 > :not(:last-child),
+  :where(.theme-warm) .divide-ink\/10 > :not(:last-child) { border-color: #f1e5d6; }
+
+  :where(.theme-warm) .bg-black\/20,
+  :where(.theme-warm) .bg-black\/30,
+  :where(.theme-warm) .bg-black\/40,
+  :where(.theme-warm) .bg-black\/50,
+  :where(.theme-warm) .bg-black\/60 { background-color: rgb(59 42 31 / 0.35); }
+}
+
+/* Thin gold scrollbars instead of the dark default. */
+.theme-warm * {
+  scrollbar-width: thin;
+  scrollbar-color: #dcc28a transparent;
+}
+.theme-warm ::-webkit-scrollbar { width: 8px; height: 8px; }
+.theme-warm ::-webkit-scrollbar-track { background: transparent; }
+.theme-warm ::-webkit-scrollbar-thumb { background: #dcc28a; border-radius: 999px; }
+.theme-warm ::-webkit-scrollbar-thumb:hover { background: #c9a44a; }
