@@ -8,12 +8,17 @@ const BRAND_COLOR = "#C9A84A";
 
 type Channel = "email" | "messenger";
 
-function buildEmailHtml(subject: string, message: string, linkUrl: string, buttonLabel: string) {
+function escapeHtml(text: string) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function buildEmailHtml(subject: string, message: string, linkUrl: string, buttonLabel: string, imageUrl: string | null) {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
       <p style="font-size: 22px; font-weight: 700; color: #2b1a16; font-style: italic;">Blush Spa &amp; Aesthetics</p>
-      <h1 style="font-size: 18px; color: #2b1a16;">${subject}</h1>
-      <p style="font-size: 14px; color: #2b1a16; line-height: 1.6; white-space: pre-wrap;">${message}</p>
+      <h1 style="font-size: 18px; color: #2b1a16;">${escapeHtml(subject)}</h1>
+      <p style="font-size: 14px; color: #2b1a16; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(message)}</p>
+      ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" style="display: block; width: 100%; max-width: 480px; height: auto; margin-top: 16px; border-radius: 12px;" />` : ""}
       <a href="${linkUrl}" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background: ${BRAND_COLOR}; color: white; border-radius: 999px; text-decoration: none; font-weight: 600; font-size: 14px;">
         ${buttonLabel}
       </a>
@@ -41,6 +46,13 @@ export async function POST(request: Request) {
   const channels: Channel[] = Array.isArray(body?.channels)
     ? (body.channels as unknown[]).filter((c): c is Channel => c === "email" || c === "messenger")
     : ["email"];
+
+  // Optional image (061): must be one uploaded to our broadcast-images bucket.
+  const imagePrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/broadcast-images/`;
+  const imageUrl = typeof body?.imageUrl === "string" && body.imageUrl.startsWith(imagePrefix) ? body.imageUrl : null;
+  if (typeof body?.imageUrl === "string" && body.imageUrl && !imageUrl) {
+    return NextResponse.json({ error: "Invalid image." }, { status: 400 });
+  }
 
   if (!subject || !message) {
     return NextResponse.json({ error: "Subject and message are required." }, { status: 400 });
@@ -119,19 +131,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No eligible recipients." }, { status: 400 });
   }
 
-  const { data: broadcast, error: insertError } = await supabase
+  const row: Record<string, unknown> = {
+    subject,
+    message,
+    link_path: linkPath,
+    channels,
+    promo_id: linkTarget === "promo" ? promoId : null,
+    sent_by: auth.user.id,
+    recipient_count: 0,
+  };
+  let { data: broadcast, error: insertError } = await supabase
     .from("notification_broadcasts")
-    .insert({
-      subject,
-      message,
-      link_path: linkPath,
-      channels,
-      promo_id: linkTarget === "promo" ? promoId : null,
-      sent_by: auth.user.id,
-      recipient_count: 0,
-    })
+    .insert(imageUrl ? ({ ...row, image_url: imageUrl } as Record<string, unknown>) : row)
     .select("id")
     .single();
+  // Before 061 there's no image_url column: still send, just don't store it.
+  if (insertError && imageUrl && (insertError.code === "42703" || insertError.code === "PGRST204")) {
+    ({ data: broadcast, error: insertError } = await supabase.from("notification_broadcasts").insert(row).select("id").single());
+  }
 
   if (insertError || !broadcast) {
     return NextResponse.json({ error: insertError?.message ?? "Couldn't save the broadcast." }, { status: 500 });
@@ -166,7 +183,7 @@ export async function POST(request: Request) {
     const resend = new Resend(apiKey);
     const from = process.env.RESEND_FROM_EMAIL ?? "GlowSync <onboarding@resend.dev>";
     const origin = new URL(request.url).origin;
-    const html = buildEmailHtml(subject, message, `${origin}${linkPath}`, linkTarget === "promo" ? "View Promo" : "Book Now");
+    const html = buildEmailHtml(subject, message, `${origin}${linkPath}`, linkTarget === "promo" ? "View Promo" : "Book Now", imageUrl);
 
     const CHUNK_SIZE = 100;
     for (let i = 0; i < emails.length; i += CHUNK_SIZE) {
