@@ -3,16 +3,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Star } from "lucide-react";
+import { Sparkles, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   PAGE_SIZE,
   getAdminReviewStats,
   listAdminReviews,
+  parseReviewFilters,
   type AdminReviewRow,
   type ReviewFilters,
 } from "@/lib/supabase/queries/adminReviews";
 import ReviewDetailPanel from "./ReviewDetailPanel";
+import ReviewAssistantPanel from "./ReviewAssistantPanel";
 
 type Stats = Awaited<ReturnType<typeof getAdminReviewStats>>;
 type Options = { staff: { id: string; name: string }[]; branches: { id: string; name: string }[]; services: { id: string; name: string }[] };
@@ -60,6 +62,7 @@ export default function ReviewsManager({
   const [stats, setStats] = useState(initialStats);
   const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState(initialFilters.q ?? "");
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const filtersRef = useRef(filters);
   const requestRef = useRef(0);
@@ -101,11 +104,30 @@ export default function ReviewsManager({
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setAssistantOpen(true)}
+          className="flex items-center gap-1.5 rounded-full border border-coral px-4 py-2 text-sm font-semibold text-coral-dark hover:bg-blush"
+        >
+          <Sparkles className="h-4 w-4" /> AI Review Assistant
+        </button>
         <Link href="/admin/reviews/rewards" className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
           Rewards
         </Link>
       </div>
+      {assistantOpen && (
+        <ReviewAssistantPanel
+          onClose={() => setAssistantOpen(false)}
+          onOpenFilters={(href) => {
+            // Apply the assistant's filters on this page; the panel stays open.
+            const params = Object.fromEntries(new URL(href, window.location.origin).searchParams);
+            const next = parseReviewFilters(params);
+            setSearch(next.q ?? "");
+            apply({ ...next, page: undefined });
+          }}
+        />
+      )}
       <div className="grid gap-4 sm:grid-cols-4">
         {(["service", "staff", "branch"] as const).map((t) => (
           <div key={t} className="rounded-2xl bg-white p-4 shadow-sm">
