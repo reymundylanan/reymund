@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { MapPin } from "lucide-react";
 import { aboutLocations } from "@/lib/data";
 
@@ -19,10 +20,18 @@ export default function Locations() {
         {aboutLocations.map((loc) => (
           <div
             key={loc.id}
-            className="overflow-hidden rounded-2xl border border-ink/10"
+            className="group overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition hover:shadow-lg"
           >
-            <div className="relative h-48 bg-gradient-to-br from-rose to-coral-dark">
-              <span className="absolute left-4 top-4 rounded-full bg-gold px-3 py-1 text-xs font-semibold text-ink">
+            <div className="relative h-56 overflow-hidden bg-gradient-to-br from-rose to-coral-dark">
+              <Image
+                src={loc.image}
+                alt={loc.name}
+                fill
+                sizes="(max-width: 640px) 100vw, 50vw"
+                className="object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#2b1a10]/40 to-transparent" />
+              <span className="absolute left-4 top-4 rounded-full bg-gold px-3 py-1 text-xs font-semibold text-ink shadow-sm">
                 Open Daily
               </span>
             </div>

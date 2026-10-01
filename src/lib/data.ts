@@ -311,6 +311,7 @@ export type AboutLocation = {
   name: string;
   subtitle: string;
   description: string;
+  image: string;
 };
 
 export const aboutLocations: AboutLocation[] = [
@@ -320,6 +321,7 @@ export const aboutLocations: AboutLocation[] = [
     subtitle: "One Cecilia Center, Pagadian City",
     description:
       "Our flagship aesthetic center featuring advanced facial treatments, luxury massage suites, and a dedicated team of certified aesthetic professionals.",
+    image: "/images/hero/clinic.jpeg",
   },
   {
     id: "robinson-pagadian",
@@ -327,6 +329,7 @@ export const aboutLocations: AboutLocation[] = [
     subtitle: "Robinsons Mall, Pagadian City",
     description:
       "Experience premium relaxation during your city stroll. Our Robinsons branch offers express aesthetic services and therapeutic spa packages in a modern mall setting.",
+    image: "/images/services/body&wellness.jpeg",
   },
 ];
 
