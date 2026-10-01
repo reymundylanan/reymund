@@ -14,6 +14,8 @@ import ConflictBanner from "@/components/frontdesk/appointments/ConflictBanner";
 import StaffTimeline from "@/components/frontdesk/appointments/StaffTimeline";
 import AppointmentsListView, { type AvailabilityStatus } from "@/components/frontdesk/appointments/AppointmentsListView";
 import AppointmentDetailPanel from "@/components/frontdesk/appointments/AppointmentDetailPanel";
+import NewBookingModal from "@/components/frontdesk/appointments/NewBookingModal";
+import { CalendarPlus } from "lucide-react";
 import {
   clientInfo,
   appointmentStaffName,
@@ -55,6 +57,8 @@ export default function AppointmentsManager() {
   const [toast, setToast] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => startOfDay(new Date()));
   const [graceMinutes, setGraceMinutes] = useState(15);
+  // Dashboard "New Booking" links here with ?new=1.
+  const [newBookingOpen, setNewBookingOpen] = useState(() => readQueryParam("new") === "1");
 
   const load = useCallback(async () => {
     if (!profile?.branchId) {
@@ -70,7 +74,7 @@ export default function AppointmentsManager() {
       supabase
         .from("appointments")
         .select(
-          `id, client_id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, additional_charges, professional_id, service_id, notes, staff_notes, created_at, client:profiles!appointments_client_id_fkey(full_name, phone, avatar_url), professional:staff_members(full_name, department, avatar_url), service:branch_services(name), payments(${paymentColumns})`
+          `id, client_id, walkin_name, walkin_phone, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, additional_charges, professional_id, service_id, notes, staff_notes, created_at, client:profiles!appointments_client_id_fkey(full_name, phone, avatar_url), professional:staff_members(full_name, department, avatar_url), service:branch_services(name), payments(${paymentColumns})`
         )
         .eq("branch_id", profile.branchId);
     // Walk-ins linked to an account have a client_id, so visit_type (054)
@@ -109,7 +113,13 @@ export default function AppointmentsManager() {
       getStaffShiftsForDate(supabase, profile.branchId, todayKey),
     ]);
     if (apptRes.error) console.error("Failed to load appointments:", apptRes.error);
-    setRows((apptRes.data as unknown as AppointmentRow[]) ?? []);
+    // Guest bookings made by the Front Desk have no account: show the guest's name and phone.
+    type Loaded = AppointmentRow & { walkin_name?: string | null; walkin_phone?: string | null };
+    setRows(
+      ((apptRes.data as unknown as Loaded[]) ?? []).map((r) =>
+        r.client || !r.walkin_name ? r : { ...r, client: { full_name: r.walkin_name, phone: r.walkin_phone ?? null, avatar_url: null } }
+      )
+    );
     setStaff((staffRes.data as StaffRow[]) ?? []);
     setServices((servicesRes.data as ServiceRow[]) ?? []);
     setOffToday(offRes.map((r) => ({ staff_member_id: r.staff_member_id, source: r.source })));
@@ -308,6 +318,29 @@ export default function AppointmentsManager() {
         <div className="fixed right-6 top-20 z-40 flex items-center gap-2 rounded-full bg-coral px-4 py-2.5 text-sm font-medium text-white shadow-lg">
           {toast}
         </div>
+      )}
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={() => setNewBookingOpen(true)}
+          disabled={!profile?.branchId}
+          className="flex items-center gap-2 rounded-full bg-coral px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-coral-dark disabled:opacity-50"
+        >
+          <CalendarPlus className="h-4 w-4" /> New Booking
+        </button>
+      </div>
+      {newBookingOpen && profile?.branchId && (
+        <NewBookingModal
+          branchId={profile.branchId}
+          onClose={() => setNewBookingOpen(false)}
+          onCreated={(id) => {
+            setNewBookingOpen(false);
+            setToast("Booking created.");
+            setTimeout(() => setToast(null), 4000);
+            load().then(() => setActiveId(id));
+          }}
+        />
       )}
 
       <AppointmentsToolbar

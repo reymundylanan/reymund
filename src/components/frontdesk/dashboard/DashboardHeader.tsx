@@ -27,7 +27,7 @@ export default function DashboardHeader() {
       </div>
       <div className="flex flex-wrap gap-2">
         <Link
-          href="/frontdesk/appointments"
+          href="/frontdesk/appointments?new=1"
           className="flex items-center gap-2 rounded-xl bg-coral px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-coral-dark"
         >
           <CalendarPlus className="h-4 w-4" /> New Booking
