@@ -1,20 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  CalendarClock,
-  ChevronLeft,
-  LayoutDashboard,
-  LogOut,
-  UserCog,
-  UserPlus2,
-  Users2,
-  Wallet2,
-} from "lucide-react";
-import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { CalendarClock, LayoutDashboard, UserCog, UserPlus2, Users2, Wallet2 } from "lucide-react";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
+import PortalSidebar from "@/components/portal/PortalSidebar";
 
 const navItems = [
   { href: "/frontdesk", label: "Dashboard", icon: LayoutDashboard },
@@ -22,84 +10,12 @@ const navItems = [
   { href: "/frontdesk/payments", label: "Payments", icon: Wallet2 },
   { href: "/frontdesk/walk-ins", label: "Walk-Ins", icon: UserPlus2 },
   { href: "/frontdesk/clients", label: "Clients", icon: Users2 },
-  { href: "/frontdesk/staff", label: "Staff Schedule", icon: UserCog, frontDeskOnly: true },
+  { href: "/frontdesk/staff", label: "Staff Schedule", icon: UserCog, staffSchedule: true },
 ];
 
 export default function FrontDeskSidebar() {
-  const pathname = usePathname();
-  const router = useRouter();
   const { profile } = useStaffProfile();
-  const [collapsed, setCollapsed] = useState(false);
-  const visibleNavItems = navItems.filter((item) => !item.frontDeskOnly || profile?.role === "front_desk");
-
-  async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-  }
-
-  return (
-    <aside
-      className={`flex h-screen flex-col border-r border-ink/10 bg-white transition-all ${
-        collapsed ? "w-20" : "w-64"
-      }`}
-    >
-      <div className="flex items-center justify-center px-5 py-6">
-        {!collapsed && (
-          <span className="whitespace-nowrap text-2xl font-bold text-ink">
-            BLUSH Desk
-          </span>
-        )}
-      </div>
-
-      <nav className="flex-1 space-y-1 px-3">
-        {visibleNavItems.map((item) => {
-          const Icon = item.icon;
-          const active = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition ${
-                active
-                  ? "bg-coral text-white"
-                  : "text-ink/60 hover:bg-blush hover:text-ink"
-              }`}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              {!collapsed && (
-                <span className="whitespace-nowrap">{item.label}</span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <div className="space-y-1 border-t border-ink/10 px-3 py-4">
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-base font-medium text-ink/60 hover:bg-blush hover:text-ink"
-        >
-          <ChevronLeft
-            className={`h-5 w-5 shrink-0 transition-transform ${collapsed ? "rotate-180" : ""}`}
-          />
-          {!collapsed && <span className="whitespace-nowrap">Collapse Sidebar</span>}
-        </button>
-        <button
-          onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-base font-medium text-ink/60 hover:bg-blush hover:text-ink"
-        >
-          <LogOut className="h-5 w-5 shrink-0" />
-          {!collapsed && <span className="whitespace-nowrap">Logout</span>}
-        </button>
-      </div>
-
-      {!collapsed && (
-        <p className="border-t border-ink/10 px-5 py-3 text-[11px] text-ink/40">
-          © 2024 Blush Spa &amp; Aesthetics &bull; System Online &bull; Ver
-          1.4.2-stable &bull; Support Center
-        </p>
-      )}
-    </aside>
-  );
+  // Staff Schedule is for Front Desk and Admin (055).
+  const items = navItems.filter((item) => !item.staffSchedule || profile?.role === "front_desk" || profile?.role === "admin");
+  return <PortalSidebar items={items} rootHref="/frontdesk" portalLabel="Front Desk" />;
 }

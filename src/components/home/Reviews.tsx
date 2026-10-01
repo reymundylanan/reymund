@@ -4,7 +4,8 @@ import { reviews } from "@/lib/data";
 export default function Reviews() {
   return (
     <section className="mx-auto max-w-7xl px-6 py-20">
-      <h2 className="text-3xl font-semibold text-ink">Reviews</h2>
+      <p className="text-xs font-semibold uppercase tracking-[0.25em] text-coral-dark">Client Love</p>
+      <h2 className="mt-2 text-3xl font-semibold text-ink sm:text-4xl">Reviews</h2>
       <div className="mt-3 flex items-center gap-2">
         <div className="flex">
           {Array.from({ length: 5 }).map((_, i) => (

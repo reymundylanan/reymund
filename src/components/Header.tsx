@@ -1,8 +1,9 @@
 "use client";
 
+import { signOutSafely } from "@/lib/auth/signOut";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LogOut, Sparkles } from "lucide-react";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
@@ -23,13 +24,12 @@ export default function Header() {
     user?.role === "customer"
       ? [...baseNavLinks, { label: "My Glow", href: "/my-glow" }]
       : baseNavLinks;
-  const router = useRouter();
   const pathname = usePathname();
 
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.refresh();
+    // Works even if Supabase can't be reached; a full reload drops any cached user.
+    await signOutSafely(createClient());
+    window.location.assign(pathname || "/");
   }
 
   const avatarCircle = user ? (
@@ -60,7 +60,7 @@ export default function Header() {
         </span>
       </div>
 
-      <div className="border-b border-rose/60 bg-white">
+      <div className="border-b border-nude/70 bg-white/95 backdrop-blur">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-center gap-2">
             <Image
@@ -70,7 +70,7 @@ export default function Header() {
               height={46}
               className="h-[46px] w-[46px] object-contain"
             />
-            <span className="text-xl font-semibold text-coral-dark">
+            <span className="font-display text-2xl font-semibold text-coral-dark">
               Blush Spa & Aesthetics
             </span>
           </Link>

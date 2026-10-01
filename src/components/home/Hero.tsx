@@ -21,16 +21,19 @@ export default function Hero() {
           playsInline
           className="absolute inset-0 h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1f2a20]/65 via-[#2c3a2a]/55 to-[#3a2a22]/50" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#2b1a10]/60 via-[#4a3020]/40 to-[#a8843a]/30" />
         <div className="relative mx-auto flex max-w-7xl flex-col items-start gap-6">
+          <p className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] backdrop-blur">
+            Blush Spa &amp; Aesthetics
+          </p>
 
-          <h1 className="max-w-2xl text-4xl font-semibold leading-tight sm:text-5xl">
+          <h1 className="max-w-2xl text-4xl font-semibold leading-tight sm:text-6xl">
             Synchronized Care for
             <br />
-            <span className="italic text-rose">Your Natural Glow</span>
+            <span className="italic text-champagne">Your Natural Glow</span>
           </h1>
 
-          <p className="max-w-xl text-white/80">
+          <p className="max-w-xl text-lg leading-relaxed text-white/90">
             Discover a sanctuary where expert therapy meets aesthetic
             perfection. Your journey to radiance starts with a single click.
           </p>
@@ -38,7 +41,7 @@ export default function Hero() {
           <div className="flex flex-wrap gap-4 pt-2">
             <button
               onClick={() => open(defaultService)}
-              className="rounded-full bg-coral px-6 py-3 text-sm font-semibold text-white transition hover:bg-coral-dark"
+              className="rounded-full bg-coral px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-black/20 transition hover:bg-coral-dark"
             >
               Book an Experience
             </button>

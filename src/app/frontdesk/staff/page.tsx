@@ -13,7 +13,8 @@ export default async function FrontDeskStaffPage() {
     .eq("id", auth.user.id)
     .single();
 
-  if (!profile || profile.role !== "front_desk") {
+  // Admin may do everything Front Desk can (055).
+  if (!profile || !["front_desk", "admin"].includes(profile.role)) {
     redirect("/frontdesk");
   }
 

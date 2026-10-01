@@ -6,6 +6,7 @@ import UserEditPanel from "@/components/admin/users/UserEditPanel";
 import ClientViewPanel from "@/components/admin/users/ClientViewPanel";
 import CreateUserModal from "@/components/admin/users/CreateUserModal";
 import StaffMembersPanel from "@/components/admin/users/StaffMembersPanel";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import type { ClientUser, StaffUser } from "@/components/admin/users/types";
 
@@ -331,8 +332,12 @@ export default function UsersTable({
                 <tr key={user.id} className="border-t border-ink/5">
                   <td className="py-4">
                     <div className="flex items-center gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blush text-base font-semibold text-coral-dark">
-                        {user.fullName.charAt(0)}
+                      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-base font-semibold text-coral-dark">
+                        {user.avatarUrl ? (
+                          <Image src={user.avatarUrl} alt={user.fullName} fill sizes="40px" className="object-cover" />
+                        ) : (
+                          user.fullName.charAt(0)
+                        )}
                       </span>
                       <div>
                         <p className="font-medium text-ink">{user.fullName}</p>

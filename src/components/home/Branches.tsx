@@ -53,10 +53,10 @@ export default function Branches() {
 
   return (
     <section id="branches" className="mx-auto max-w-7xl px-6 py-20">
-      <span className="inline-block rounded-full bg-blush px-4 py-1.5 text-xs font-semibold text-coral-dark">
+      <p className="text-xs font-semibold uppercase tracking-[0.25em] text-coral-dark">
         Find Us Near You
-      </span>
-      <h2 className="mt-4 max-w-lg text-3xl font-semibold text-ink">
+      </p>
+      <h2 className="mt-3 max-w-lg text-3xl font-semibold text-ink sm:text-4xl">
         Luxury Comfort at Every Corner
       </h2>
       <p className="mt-2 max-w-xl text-ink/60">

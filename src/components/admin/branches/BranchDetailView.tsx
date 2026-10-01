@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import BranchImageCropper from "@/components/admin/branches/BranchImageCropper";
 import PromotionsTab from "@/components/admin/branches/PromotionsTab";
+import BranchPaymentSettings from "@/components/admin/branches/BranchPaymentSettings";
+import { BranchAnalyticsTab, BranchOverviewTab, BranchReviewsTab, BranchTodayStat } from "@/components/admin/branches/BranchInsightTabs";
 import {
   BarChart2,
   Calendar,
@@ -29,11 +31,7 @@ import { branchServiceCategories } from "@/lib/data";
 
 type Branch = (typeof adminBranches)[number];
 
-const TABS = ["Overview", "Services", "Staff", "Gallery", "Promo Packages", "Reviews", "Analytics"];
-
-const MOCK_STATS = [
-  { label: "Today's Appointments", value: "28" },
-];
+const TABS = ["Overview", "Services", "Staff", "Gallery", "Promo Packages", "Payment Settings", "Reviews", "Analytics"];
 
 const SERVICE_CATEGORIES = [
   "Doctor's Procedure",
@@ -178,7 +176,7 @@ function isOpenNow(hours: string, now: Date): boolean {
 
 export default function BranchDetailView({ branch, onBack }: { branch: Branch; onBack: () => void }) {
   const supabase = createClient();
-  const [activeTab, setActiveTab] = useState("Services");
+  const [activeTab, setActiveTab] = useState("Overview");
   const [now, setNow] = useState(new Date());
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [branchUuid, setBranchUuid] = useState<string | null>(null);
@@ -762,12 +760,7 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
               </p>
             </div>
             <div className="mt-5 grid grid-cols-3 gap-3">
-              {MOCK_STATS.map((stat) => (
-                <div key={stat.label} className="rounded-xl border border-ink/8 p-4">
-                  <p className="text-sm font-medium text-ink/50">{stat.label}</p>
-                  <p className="mt-1.5 text-2xl font-bold text-ink">{stat.value}</p>
-                </div>
-              ))}
+              <BranchTodayStat branchId={branchUuid} />
               <div className="rounded-xl border border-ink/8 p-4">
                 <p className="text-sm font-medium text-ink/50">Available Staff</p>
                 <p className="mt-1.5 text-2xl font-bold text-ink">{staffCount}</p>
@@ -1037,7 +1030,15 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
         <PromotionsTab branchId={branchUuid} />
       )}
 
-      {activeTab !== "Services" && activeTab !== "Staff" && activeTab !== "Gallery" && activeTab !== "Promo Packages" && (
+      {activeTab === "Overview" && branchUuid && <BranchOverviewTab branchId={branchUuid} branchName={branch.name} />}
+      {activeTab === "Reviews" && branchUuid && <BranchReviewsTab branchId={branchUuid} />}
+      {activeTab === "Analytics" && branchUuid && <BranchAnalyticsTab branchId={branchUuid} />}
+
+      {activeTab === "Payment Settings" && branchUuid && (
+        <BranchPaymentSettings key={branchUuid} branchId={branchUuid} branchName={branch.name} />
+      )}
+
+      {activeTab !== "Services" && activeTab !== "Staff" && activeTab !== "Gallery" && activeTab !== "Promo Packages" && activeTab !== "Payment Settings" && activeTab !== "Overview" && activeTab !== "Reviews" && activeTab !== "Analytics" && (
         <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
           <p className="text-ink/40">{activeTab} — coming soon.</p>
         </div>

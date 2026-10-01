@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getAdminPayments, computeStats, type AdminPaymentRow } from "@/lib/supabase/queries/adminPayments";
 import PaymentsStats from "@/components/admin/payments/PaymentsStats";
 import TransactionsTable from "@/components/admin/payments/TransactionsTable";
+import OnlinePaymentsTable from "@/components/frontdesk/payments/OnlinePaymentsTable";
 
 export default function PaymentsManager() {
   const [payments, setPayments] = useState<AdminPaymentRow[]>([]);
@@ -39,6 +40,8 @@ export default function PaymentsManager() {
   return (
     <div className="space-y-6">
       <PaymentsStats stats={stats} live={live} />
+      <OnlinePaymentsTable />
+      <OnlinePaymentsTable method="cash" />
       {loading ? (
         <div className="rounded-2xl bg-white p-10 text-center text-sm text-ink/40 shadow-sm">
           Loading payments…

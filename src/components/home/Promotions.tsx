@@ -1,14 +1,10 @@
 import { promotions } from "@/lib/data";
+import SectionHeading from "@/components/SectionHeading";
 
 export default function Promotions() {
   return (
     <section id="promotions" className="mx-auto max-w-7xl px-6 py-20">
-      <div className="mb-10 text-center">
-        <h2 className="text-3xl font-semibold text-ink">Active Promotions</h2>
-        <p className="mt-2 text-ink/60">
-          Exclusive deals for our synchronized members
-        </p>
-      </div>
+      <SectionHeading eyebrow="Special Offers" title="Active Promotions" subtitle="Exclusive deals for our synchronized members." />
 
       <div className="grid gap-6 sm:grid-cols-3">
         {promotions.map((promo) => (

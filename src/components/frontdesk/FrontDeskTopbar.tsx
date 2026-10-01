@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { setAdminBranch } from "@/lib/adminBranch";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { createClient } from "@/lib/supabase/client";
 import { getLeaveRequestsForBranch } from "@/lib/supabase/queries/leaveRequests";
@@ -65,7 +67,8 @@ function formatDateRange(sortedDateKeys: string[]) {
 }
 
 export default function FrontDeskTopbar() {
-  const { profile } = useStaffProfile();
+  const { profile, branches } = useStaffProfile();
+  const router = useRouter();
   const clock = useLiveClock();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
@@ -402,16 +405,16 @@ export default function FrontDeskTopbar() {
   }, [profile?.branchId]);
 
   return (
-    <header className="flex items-center justify-between border-b border-ink/10 bg-white px-6 py-5">
+    <header className="flex items-center justify-between border-b border-nude/70 bg-[#FFFDF8] px-6 py-4">
       <div className="flex items-center gap-2">
         <Image
           src="/images/logo/blushnewlogo.jpeg"
           alt="Blush Spa & Aesthetics"
           width={40}
           height={40}
-          className="h-10 w-10 shrink-0 object-contain"
+          className="h-10 w-10 shrink-0 rounded-full object-contain"
         />
-        <span className="whitespace-nowrap text-lg font-semibold text-coral-dark">
+        <span className="whitespace-nowrap text-xl text-coral-dark" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
           Blush Spa &amp; Aesthetics
         </span>
       </div>
@@ -430,9 +433,31 @@ export default function FrontDeskTopbar() {
           </p>
         </div>
 
-        <span className="rounded-full bg-blush px-5 py-2.5 text-base font-semibold text-coral-dark">
-          Branch: {profile?.branchName ?? "Not assigned"}
-        </span>
+        {profile?.role === "admin" && branches.length > 0 ? (
+          // Admins pick which branch the Front Desk screens show.
+          <label className="flex items-center gap-2 rounded-full bg-blush py-1.5 pl-5 pr-2 text-base font-semibold text-coral-dark">
+            Branch:
+            <select
+              value={profile.branchId ?? ""}
+              onChange={(e) => {
+                setAdminBranch(e.target.value);
+                router.refresh();
+              }}
+              aria-label="Branch to view"
+              className="cursor-pointer rounded-full border border-champagne bg-white px-3 py-1 text-sm font-semibold text-coral-dark outline-none focus:border-coral"
+            >
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <span className="rounded-full bg-blush px-5 py-2.5 text-base font-semibold text-coral-dark">
+            Branch: {profile?.branchName ?? "Not assigned"}
+          </span>
+        )}
 
         <div className="relative">
           <button
@@ -485,8 +510,12 @@ export default function FrontDeskTopbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-blush text-base font-semibold text-coral-dark">
-            {profile?.fullName?.charAt(0) ?? "?"}
+          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-base font-semibold text-coral-dark">
+            {profile?.avatarUrl ? (
+              <Image src={profile.avatarUrl} alt={profile.fullName ?? ""} fill sizes="44px" className="object-cover" />
+            ) : (
+              profile?.fullName?.charAt(0) ?? "?"
+            )}
           </span>
           <div>
             <p className="text-lg font-medium text-ink">{profile?.fullName ?? "—"}</p>

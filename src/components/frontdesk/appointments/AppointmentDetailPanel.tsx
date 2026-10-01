@@ -25,9 +25,11 @@ import {
   clientInfo,
   appointmentStaffName,
   appointmentServiceName,
+  payNowPayment,
   type AppointmentRow,
 } from "@/components/frontdesk/appointments/utils";
 import AppointmentPaymentModal from "@/components/frontdesk/appointments/AppointmentPaymentModal";
+import PayNowReview from "@/components/frontdesk/appointments/PayNowReview";
 import type { AvailabilityStatus } from "@/components/frontdesk/appointments/AppointmentsListView";
 import type { StaffRow } from "@/components/frontdesk/appointments/AppointmentsManager";
 
@@ -127,8 +129,11 @@ export default function AppointmentDetailPanel({
   const now = useServiceTimingClock();
   const serviceTiming =
     sessionStatus === "in_service" ? computeServiceTiming(appointment.service_started_at, appointment.duration_minutes, now) : null;
-  const payment = appointment.payments?.[0] ?? null;
+  const payment = appointment.payments?.find((p) => p.status === "settled") ?? appointment.payments?.[0] ?? null;
   const isPaid = payment?.status === "settled";
+  // Pay Now (059): a submitted GCash receipt must be verified before Confirm.
+  const payNow = payNowPayment(appointment.payments);
+  const awaitingPaymentCheck = payNow?.status === "pending";
   const availability = appointment.professional_id ? staffAvailability[appointment.professional_id] : undefined;
   const amount = quotedAmount(appointment.notes);
 
@@ -237,7 +242,7 @@ export default function AppointmentDetailPanel({
                 isPaid ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
               }`}
             >
-              {isPaid ? "Paid" : "Unpaid"}
+              {isPaid ? "Paid" : awaitingPaymentCheck ? "Payment Submitted" : "Unpaid"}
             </span>
           </div>
         </div>
@@ -338,6 +343,8 @@ export default function AppointmentDetailPanel({
           </div>
         )}
 
+        {payNow && <PayNowReview payment={payNow} clientName={client.full_name} branchName={branchName} onChanged={onChanged} />}
+
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
         {status === "cancelled" ? (
@@ -351,7 +358,7 @@ export default function AppointmentDetailPanel({
               <ActionButton
                 icon={Check}
                 label="Confirm"
-                disabled={saving || derivedStatus !== "pending"}
+                disabled={saving || derivedStatus !== "pending" || awaitingPaymentCheck}
                 onClick={() => setConfirmConfirm((v) => !v)}
               />
 
@@ -401,6 +408,12 @@ export default function AppointmentDetailPanel({
                 onClick={() => run(() => updateSessionStatus(supabase, appointment.id, "completed"))}
               />
             </div>
+
+            {derivedStatus === "pending" && awaitingPaymentCheck && (
+              <p className="mt-2 text-center text-xs font-medium text-amber-700">
+                Verify the GCash payment above before confirming this booking.
+              </p>
+            )}
 
             {checkInEligible && !checkInOpen && (
               <p className="mt-2 text-center text-xs text-ink/50">Check-in opens at {checkInOpensAt}.</p>
@@ -465,7 +478,25 @@ export default function AppointmentDetailPanel({
 
             {confirmConfirm && (
               <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-3 space-y-2">
-                <p className="text-center text-sm font-medium text-green-700">Confirm this booking?</p>
+                <p className="text-center text-sm font-medium text-green-700">Confirm Appointment?</p>
+                <dl className="grid grid-cols-2 gap-y-0.5 text-xs">
+                  <dt className="text-green-900/60">Client</dt>
+                  <dd className="text-right font-medium text-green-900">{client.full_name}</dd>
+                  <dt className="text-green-900/60">Service</dt>
+                  <dd className="text-right font-medium text-green-900">{appointmentServiceName(appointment)}</dd>
+                  <dt className="text-green-900/60">Date</dt>
+                  <dd className="text-right font-medium text-green-900">
+                    {scheduledStart.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                  </dd>
+                  <dt className="text-green-900/60">Time</dt>
+                  <dd className="text-right font-medium text-green-900">
+                    {scheduledStart.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" })}
+                  </dd>
+                  <dt className="text-green-900/60">Payment</dt>
+                  <dd className="text-right font-medium text-green-900">
+                    {payNow?.status === "settled" ? "🟢 Verified (GCash)" : isPaid ? "Paid" : "Pay at the branch"}
+                  </dd>
+                </dl>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setConfirmConfirm(false)}

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Smartphone, Wallet } from "lucide-react";
-import GCashFeedTable from "@/components/frontdesk/payments/GCashFeedTable";
+import OnlinePaymentsTable from "@/components/frontdesk/payments/OnlinePaymentsTable";
 import CashPaymentsTable from "@/components/frontdesk/payments/CashPaymentsTable";
 import SidePanels from "@/components/frontdesk/payments/SidePanels";
 
@@ -42,7 +42,7 @@ export default function PaymentsManager() {
         </div>
 
         <div ref={onlineRef}>
-          <GCashFeedTable />
+          <OnlinePaymentsTable />
         </div>
         <div ref={cashRef}>
           <CashPaymentsTable />

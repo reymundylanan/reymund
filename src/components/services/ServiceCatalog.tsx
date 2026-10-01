@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, ChevronLeft, Clock, Search } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
+import SectionHeading from "@/components/SectionHeading";
 
 export type DbService = {
   id: string;
@@ -90,16 +91,20 @@ export default function ServiceCatalog({
   // Category grid view
   if (!selectedCategory) {
     return (
-      <section className="mx-auto max-w-7xl px-6 py-12">
-        <h2 className="mb-8 text-2xl font-semibold text-ink">Explore our services</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section id="catalog" className="mx-auto max-w-7xl scroll-mt-28 px-6 py-16">
+        <SectionHeading
+          eyebrow="Our Menu"
+          title="Explore our services"
+          subtitle="Choose a category to see every treatment, price and duration — then book in a few taps."
+        />
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {categories.map(({ name, count }) => {
             const meta = CATEGORY_META[name] ?? FALLBACK;
             return (
               <button
                 key={name}
                 onClick={() => { setSelectedCategory(name); setQuery(""); }}
-                className="group relative flex h-64 flex-col justify-end overflow-hidden rounded-2xl text-left"
+                className="group relative flex h-72 flex-col justify-end overflow-hidden rounded-3xl text-left shadow-sm ring-1 ring-nude/60 transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#a8843a]/15"
               >
                 <Image
                   src={meta.image}
@@ -108,14 +113,16 @@ export default function ServiceCatalog({
                   className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
-                <div className="relative p-4">
-                  <p className="text-lg font-bold text-white">{name}</p>
-                  <p className="mt-1 line-clamp-2 text-sm text-white/70">{meta.description}</p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <span className="text-sm text-white/60">{count} service{count !== 1 ? "s" : ""}</span>
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm group-hover:bg-coral transition-colors">
-                      <ArrowRight className="h-3.5 w-3.5" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#2b1a10]/90 via-[#3d2818]/45 to-transparent" />
+                <div className="relative p-5">
+                  <p className="font-display text-xl font-semibold text-white">{name}</p>
+                  <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-white/80">{meta.description}</p>
+                  <div className="mt-4 flex items-center justify-between">
+                    <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                      {count} service{count !== 1 ? "s" : ""}
+                    </span>
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors group-hover:bg-coral">
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                     </span>
                   </div>
                 </div>
@@ -129,7 +136,7 @@ export default function ServiceCatalog({
 
   // Services list view
   return (
-    <section className="mx-auto max-w-7xl px-6 py-12">
+    <section id="catalog" className="mx-auto max-w-7xl scroll-mt-28 px-6 py-16">
       <button
         onClick={() => setSelectedCategory(null)}
         className="mb-6 flex items-center gap-2 text-base font-semibold text-ink/70 hover:text-coral-dark"
@@ -139,7 +146,8 @@ export default function ServiceCatalog({
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-semibold text-ink">{selectedCategory}</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-coral-dark">Our Menu</p>
+          <h2 className="mt-1 text-3xl font-semibold text-ink">{selectedCategory}</h2>
           <p className="mt-1 text-sm text-ink/50">Found {filteredServices.length} treatment{filteredServices.length !== 1 ? "s" : ""}</p>
         </div>
         <div className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2.5 sm:max-w-xs">
@@ -165,13 +173,13 @@ export default function ServiceCatalog({
             }, new Map<string, typeof filteredServices>())
           ).map(([type, group]) => (
             <div key={type}>
-              <h4 className="mb-4 text-base font-semibold uppercase tracking-widest text-ink/40">{type}</h4>
+              <h4 className="mb-4 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.2em] text-coral-dark">{type}<span className="h-px flex-1 bg-nude" aria-hidden /></h4>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {group.map((svc) => (
-            <div key={svc.id} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm">
-              <div className="flex flex-1 flex-col gap-3 p-4">
+            <div key={svc.id} className="flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#a8843a]/10">
+              <div className="flex flex-1 flex-col gap-3 p-5">
                 <div>
-                  <h3 className="text-lg font-semibold text-ink">
+                  <h3 className="font-display text-xl font-semibold text-ink">
                     <Link href={`/services/${svc.id}`} className="hover:text-coral-dark">{svc.name}</Link>
                   </h3>
                   {ratings[svc.id] ? (

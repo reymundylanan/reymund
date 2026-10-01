@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Hourglass, MapPin, Phone, Star, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Hourglass, MapPin, Phone, Star, Upload, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -23,6 +23,13 @@ import {
 } from "@/lib/supabase/queries/availability";
 import { toAppointmentServiceRows } from "@/lib/bookedServices";
 import { logQueryError } from "@/lib/supabase/logQueryError";
+import { formatGcashNumber, pesoAmount, receiptFileError } from "@/lib/payNow";
+import {
+  getGcashSettings,
+  submitPayNowPayment,
+  uploadPaymentReceipt,
+  type GcashSettings,
+} from "@/lib/supabase/queries/payNow";
 
 type StaffMember = {
   id: string;
@@ -88,7 +95,6 @@ type Step =
   | "confirm"
   | "payment-choice"
   | "checkout"
-  | "otp"
   | "success";
 
 type AppointmentType = "solo" | "group";
@@ -101,8 +107,6 @@ const TABS: { id: Step; label: string }[] = [
   { id: "confirm", label: "Confirm" },
 ];
 
-const REFERENCE_CODE = "9bf8f1";
-const OTP_SECONDS = 120;
 
 function startOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -231,10 +235,17 @@ export default function BookingModal({
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()));
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [mobileNumber, setMobileNumber] = useState("");
   const [contactPhone, setContactPhone] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [secondsLeft, setSecondsLeft] = useState(OTP_SECONDS);
+  // Pay Now (059): GCash details from Admin, the client's receipt, and the
+  // saved booking id so a failed receipt submit can be retried.
+  const [gcash, setGcash] = useState<GcashSettings | null>(null);
+  const [gcashBranch, setGcashBranch] = useState<string | null>(null);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [gcashReference, setGcashReference] = useState("");
+  const [senderName, setSenderName] = useState("");
+  const [savedAppointmentId, setSavedAppointmentId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   // Live clock (30s tick) so today's passed time slots disable themselves.
@@ -242,7 +253,7 @@ export default function BookingModal({
   // Shown on the time step when a chosen time passed before the booking was saved.
   const [timeNotice, setTimeNotice] = useState<string | null>(null);
   // What was actually saved, for the summary on the final screen.
-  const [savedBooking, setSavedBooking] = useState<{ code: string; confirmed: boolean } | null>(null);
+  const [savedBooking, setSavedBooking] = useState<{ code: string; confirmed: boolean; payNow?: boolean } | null>(null);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading] = useState(false);
   const [branchUuid, setBranchUuid] = useState<string | null>(null);
@@ -471,14 +482,40 @@ export default function BookingModal({
     setSelectedTime(null);
   }, [professionalId]);
 
+  // The selected branch's GCash details and Pay Now switch (060), loaded
+  // when the client reaches the payment steps.
   useEffect(() => {
-    if (step !== "otp") return;
-    setSecondsLeft(OTP_SECONDS);
-    const interval = setInterval(() => {
-      setSecondsLeft((s) => (s > 0 ? s - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [step]);
+    if ((step !== "checkout" && step !== "payment-choice") || !branchUuid) return;
+    if (gcash && gcashBranch === branchUuid) return;
+    let cancelled = false;
+    getGcashSettings(createClient(), branchUuid).then((s) => {
+      if (cancelled) return;
+      setGcash(s);
+      setGcashBranch(branchUuid);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [step, gcash, gcashBranch, branchUuid]);
+
+  // Free the receipt preview's memory when it's replaced or the form closes.
+  useEffect(() => {
+    return () => {
+      if (receiptPreview) URL.revokeObjectURL(receiptPreview);
+    };
+  }, [receiptPreview]);
+
+  function chooseReceipt(file: File | null | undefined) {
+    if (!file) return;
+    const problem = receiptFileError(file);
+    if (problem) {
+      setReceiptError(problem);
+      return;
+    }
+    setReceiptError(null);
+    setReceiptFile(file);
+    setReceiptPreview(URL.createObjectURL(file));
+  }
 
   const selectedDate = useMemo(() => {
     if (!selectedDay) return null;
@@ -503,6 +540,9 @@ export default function BookingModal({
   const subtotal = selectedServices.reduce((sum, s) => sum + s.price, 0);
   const total = subtotal;
   const payNowDisabled = branchHours ? !isOpenNow(branchHours, new Date()) : false;
+  // The selected branch's GCash setup (060); Pay Now is off until Admin completes it.
+  const branchGcash = gcash && gcashBranch === branchUuid ? gcash : null;
+  const payNowOff = !!branchGcash && !branchGcash.payNowEnabled;
   const totalDuration = selectedServices.reduce((sum, s) => sum + parseDurationMinutes(s.duration), 0);
   const serviceNames = selectedServices.map((s) => s.name).join(", ");
 
@@ -510,7 +550,50 @@ export default function BookingModal({
     onClose();
   }
 
-  async function saveBooking(opts: { paid: boolean }) {
+  /** Pay Now: upload the receipt, save the booking as Pending, then submit the
+   * payment for the Front Desk to verify. Nothing here confirms the booking. */
+  async function submitPayNow() {
+    if (!receiptFile) {
+      setReceiptError("Please upload your GCash receipt before submitting.");
+      return;
+    }
+    setSaving(true);
+    setSaveError(null);
+    const supabase = createClient();
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user) {
+      setSaveError("You must be logged in to book.");
+      setSaving(false);
+      return;
+    }
+    const upload = await uploadPaymentReceipt(supabase, authData.user.id, receiptFile);
+    if (!upload.path) {
+      setSaveError(upload.error);
+      setSaving(false);
+      return;
+    }
+    const appointmentId = savedAppointmentId ?? (await saveBooking());
+    if (!appointmentId) return;
+    setSavedAppointmentId(appointmentId);
+    setSaving(true);
+    const { error } = await submitPayNowPayment(supabase, {
+      appointmentId,
+      amount: total,
+      receiptPath: upload.path,
+      referenceNo: gcashReference,
+      senderName,
+    });
+    setSaving(false);
+    if (error) {
+      setSaveError(`Your booking was saved, but the receipt wasn't submitted: ${error} Tap Submit again.`);
+      return;
+    }
+    setSavedBooking((prev) => (prev ? { ...prev, payNow: true } : prev));
+    setStep("success");
+  }
+
+  /** Saves the booking as Pending and returns its id (null on failure). */
+  async function saveBooking(): Promise<string | null> {
     setSaving(true);
     setSaveError(null);
     try {
@@ -519,7 +602,7 @@ export default function BookingModal({
       if (!authData.user) {
         setSaveError("You must be logged in to book.");
         setSaving(false);
-        return false;
+        return null;
       }
 
       const { data: profile } = await supabase
@@ -530,7 +613,7 @@ export default function BookingModal({
       if (profile?.restricted) {
         setSaveError("Your account has been restricted. Please contact us for assistance.");
         setSaving(false);
-        return false;
+        return null;
       }
 
       const { data: branchRow } = await supabase
@@ -542,7 +625,7 @@ export default function BookingModal({
       if (!branchRow || !selectedDate || !selectedTime) {
         setSaveError("Missing branch, date, or time.");
         setSaving(false);
-        return false;
+        return null;
       }
 
       // Final guard: the chosen slot may have passed while the client was
@@ -552,7 +635,7 @@ export default function BookingModal({
         setSelectedTime(null);
         setStep("time");
         setSaving(false);
-        return false;
+        return null;
       }
 
       if (professionalId && professionalId !== "any") {
@@ -574,7 +657,7 @@ export default function BookingModal({
           if (transferResult.error || shiftResult.error) {
             setSaveError("Couldn't verify therapist availability. Please try again.");
             setSaving(false);
-            return false;
+            return null;
           }
           const allowedDates = new Set(
             ((transferResult.data as { dates: string[] }[]) ?? []).flatMap((r) => r.dates)
@@ -593,7 +676,7 @@ export default function BookingModal({
           if (!allowedDates.has(dateKey) || overriddenByLeave) {
             setSaveError("This professional just became unavailable for that date/time. Please pick another slot.");
             setSaving(false);
-            return false;
+            return null;
           }
         } else {
           const { data: conflictRows, error: conflictError } = await supabase
@@ -604,7 +687,7 @@ export default function BookingModal({
           if (conflictError) {
             setSaveError("Couldn't verify therapist availability. Please try again.");
             setSaving(false);
-            return false;
+            return null;
           }
           const conflicts = (conflictRows as { period: StaffOffRecord["period"] }[]) ?? [];
           const blockingConflict = conflicts.some(
@@ -616,7 +699,7 @@ export default function BookingModal({
           if (blockingConflict) {
             setSaveError("This professional just became unavailable for that date/time. Please pick another slot.");
             setSaving(false);
-            return false;
+            return null;
           }
         }
 
@@ -631,7 +714,7 @@ export default function BookingModal({
         if (!stillFree) {
           setSaveError("This time slot was just taken with that professional. Please pick another.");
           setSaving(false);
-          return false;
+          return null;
         }
       }
 
@@ -651,7 +734,8 @@ export default function BookingModal({
           scheduled_date: scheduledDate,
           start_time: to24Hour(selectedTime),
           duration_minutes: totalDuration,
-          status: opts.paid ? "confirmed" : "pending",
+          // Always Pending: Pay Now bookings wait for the Front Desk to verify the GCash payment.
+          status: "pending",
           notes: `${serviceNames} with ${professionalLabel} — ₱${total.toLocaleString()}.00`,
         })
         .select("id")
@@ -660,7 +744,7 @@ export default function BookingModal({
       if (error || !appt) {
         setSaveError(error?.message ?? "Failed to save booking.");
         setSaving(false);
-        return false;
+        return null;
       }
 
       const { error: servicesError } = await supabase
@@ -677,24 +761,13 @@ export default function BookingModal({
           .eq("id", authData.user.id);
       }
 
-      if (opts.paid) {
-        await supabase.from("payments").insert({
-          appointment_id: appt.id,
-          reference_no: REFERENCE_CODE,
-          sender_name: mobileNumber,
-          amount: total,
-          method: "gcash",
-          status: "settled",
-        });
-      }
-
-      setSavedBooking({ code: bookingCode, confirmed: opts.paid });
+      setSavedBooking({ code: bookingCode, confirmed: false });
       setSaving(false);
-      return true;
+      return appt.id as string;
     } catch {
       setSaveError("Network error — could not save booking.");
       setSaving(false);
-      return false;
+      return null;
     }
   }
 
@@ -723,7 +796,6 @@ export default function BookingModal({
         {step !== "type" &&
           step !== "payment-choice" &&
           step !== "checkout" &&
-          step !== "otp" &&
           step !== "success" && (
           <div className="flex border-b border-ink/10 px-6">
             {TABS.filter((tab) => !(appointmentType === "group" && tab.id === "professional")).map((tab) => (
@@ -1362,23 +1434,29 @@ export default function BookingModal({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <button
-                onClick={() => !payNowDisabled && setStep("checkout")}
-                disabled={payNowDisabled}
+                onClick={() => !payNowDisabled && !payNowOff && branchGcash && setStep("checkout")}
+                disabled={payNowDisabled || payNowOff || !branchGcash}
                 className="rounded-2xl border border-ink/10 p-6 text-left hover:border-coral disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-ink/10"
               >
                 <p className="font-semibold text-ink">Pay Now</p>
                 <p className="mt-1 text-sm text-ink/60">
-                  Pay via GCash now to fully secure your slot.
+                  Pay your required advance payment through GCash to secure your appointment.
                 </p>
-                {payNowDisabled && (
+                {payNowOff ? (
+                  <p className="mt-2 text-xs font-medium text-red-600">
+                    Pay Now isn&apos;t available at this branch yet. Choose Pay Later instead.
+                  </p>
+                ) : payNowDisabled ? (
                   <p className="mt-2 text-xs font-medium text-red-600">
                     Not available right now — the branch is currently closed. Choose Pay Later instead.
                   </p>
-                )}
+                ) : !branchGcash ? (
+                  <p className="mt-2 text-xs text-ink/40">Loading payment details…</p>
+                ) : null}
               </button>
               <button
                 onClick={async () => {
-                  const ok = await saveBooking({ paid: false });
+                  const ok = await saveBooking();
                   if (ok) {
                     setPayLater(true);
                     setStep("success");
@@ -1401,135 +1479,161 @@ export default function BookingModal({
           )}
 
           {step === "checkout" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-ink">Checkout</h2>
-                  <p className="text-sm text-ink/60">
-                    Please complete your payment to secure your appointment.
-                  </p>
+                  <h2 className="text-lg font-semibold text-ink">Pay via GCash</h2>
+                  <p className="text-sm text-ink/60">Pay the amount below, then upload your GCash receipt.</p>
                 </div>
                 <button
-                  onClick={() => setStep("payment-choice")}
+                  onClick={() => setStep(appointmentType === "group" ? "confirm" : "payment-choice")}
                   className="text-base font-medium text-ink/50 hover:text-ink"
                 >
                   ← Back
                 </button>
               </div>
 
-              <div>
-                <div className="rounded-xl border border-coral bg-blush p-4">
-                  <p className="font-medium text-ink">
-                    GCash Payment{" "}
-                    <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                      Secured
-                    </span>
-                  </p>
-                  <p className="text-sm text-ink/60">
-                    Pay instantly using your GCash wallet
-                  </p>
+              {payNowOff && (
+                <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  Pay Now isn&apos;t available at this branch yet. Please call the branch to arrange your booking.
+                </p>
+              )}
 
-                  <div className="mt-4 flex flex-col items-center rounded-lg border border-ink/10 bg-white p-4">
-                    <div className="relative h-48 w-48">
-                      <Image
-                        src="/images/payment/gcash-qr.png"
-                        alt="GCash QR code"
-                        fill
-                        className="object-contain"
-                      />
+              <div className="rounded-xl border border-coral bg-blush p-4">
+                <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                  <dl className="space-y-3 text-sm">
+                    <div>
+                      <dt className="text-xs font-medium uppercase text-ink/40">GCash Account Name</dt>
+                      <dd className="font-semibold text-ink">{branchGcash?.accountName || "Blush Spa & Aesthetics"}</dd>
                     </div>
-                    <p className="mt-2 text-center text-sm font-medium text-ink">
-                      Scan with your GCash app to pay ₱{total.toLocaleString()}.00
-                    </p>
-                  </div>
-
-                  <label className="mt-4 block text-xs font-medium text-ink/60">
-                    GCash Registered Mobile Number
-                  </label>
-                  <div className="mt-1 flex items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 py-2">
-                    <span className="text-sm text-ink/50">+63</span>
-                    <input
-                      value={mobileNumber}
-                      onChange={(e) => setMobileNumber(e.target.value)}
-                      placeholder="9XX XXX XXXX"
-                      className="w-full text-sm outline-none"
-                    />
-                  </div>
-                  <p className="mt-2 text-xs text-ink/40">
-                    We will send a 6-digit authentication code to this number.
-                  </p>
+                    <div>
+                      <dt className="text-xs font-medium uppercase text-ink/40">GCash Number</dt>
+                      <dd className="font-mono text-lg font-semibold text-ink">
+                        {branchGcash?.number ? formatGcashNumber(branchGcash.number) : branchGcash ? "Scan the QR code" : "Loading…"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-medium uppercase text-ink/40">Amount to Pay</dt>
+                      <dd className="text-2xl font-bold text-coral-dark">{pesoAmount(total)}</dd>
+                    </div>
+                  </dl>
+                  {branchGcash?.qrUrl && (
+                    <div className="mx-auto flex flex-col items-center rounded-lg border border-ink/10 bg-white p-3">
+                      {/* Admin-uploaded QR from Supabase Storage; a plain img keeps it full quality for scanning. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={branchGcash.qrUrl} alt="GCash QR code" className="h-48 w-48 object-contain" />
+                      <p className="mt-1 text-xs text-ink/50">Scan with your GCash app</p>
+                    </div>
+                  )}
                 </div>
+                <p className="mt-4 rounded-lg bg-white/70 p-3 text-sm text-ink/70">
+                  Send the <span className="font-semibold text-ink">exact amount</span> to the GCash account above, then upload
+                  your GCash receipt below.
+                </p>
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-semibold text-ink">Order Summary</p>
-                <div className="rounded-xl border border-ink/10 p-4 text-sm">
-                  <p className="font-medium text-ink">{serviceNames} with {professionalLabel}</p>
-                  <p className="mt-1 text-ink/60">
-                    {selectedDate ? formatDate(selectedDate) : ""} &bull;{" "}
-                    {selectedTime
-                      ? `${selectedTime} - ${endTime(selectedTime, `${totalDuration} mins`)}`
-                      : ""}
-                  </p>
-                  <p className="mt-2 font-semibold text-gold">₱{subtotal.toLocaleString()}.00</p>
-
-                  <div className="mt-3 flex items-center justify-between border-t border-ink/10 pt-3 font-semibold text-ink">
-                    <span>Total</span>
-                    <span>₱{total.toLocaleString()}.00</span>
+                <p className="text-sm font-semibold text-ink">
+                  Upload GCash Receipt <span className="text-red-500">*</span>
+                </p>
+                <p className="text-xs text-ink/50">Upload a screenshot or photo of your GCash payment receipt (JPG, PNG or WebP).</p>
+                {receiptPreview ? (
+                  <div className="mt-2 flex items-start gap-3 rounded-xl border border-ink/10 p-3">
+                    {/* Local preview (blob URL) of the chosen receipt. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={receiptPreview} alt="Your GCash receipt" className="h-32 w-24 rounded-lg border border-ink/10 object-cover" />
+                    <div className="flex-1 text-sm">
+                      <p className="flex items-center gap-1 font-medium text-green-700">
+                        <Check className="h-4 w-4" /> Receipt added
+                      </p>
+                      <p className="truncate text-xs text-ink/50">{receiptFile?.name}</p>
+                      <label className="mt-2 inline-block cursor-pointer rounded-full border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-coral">
+                        Change Receipt
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="sr-only"
+                          onChange={(e) => {
+                            chooseReceipt(e.target.files?.[0]);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
                   </div>
+                ) : (
+                  <label className="mt-2 flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-ink/15 p-6 text-center hover:border-coral">
+                    <Upload className="h-6 w-6 text-coral-dark" />
+                    <span className="text-sm font-semibold text-ink">Upload Receipt</span>
+                    <span className="text-xs text-ink/40">Tap to choose an image</span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={(e) => {
+                        chooseReceipt(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                )}
+                {receiptError && <p className="mt-2 text-sm text-red-600">{receiptError}</p>}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-medium text-ink/60">
+                  GCash Reference No. <span className="text-ink/40">(optional)</span>
+                  <input
+                    value={gcashReference}
+                    onChange={(e) => setGcashReference(e.target.value.slice(0, 40))}
+                    placeholder="e.g. 9021 882 731 12"
+                    className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm text-ink outline-none focus:border-coral"
+                  />
+                </label>
+                <label className="text-xs font-medium text-ink/60">
+                  Sender Name <span className="text-ink/40">(optional)</span>
+                  <input
+                    value={senderName}
+                    onChange={(e) => setSenderName(e.target.value.slice(0, 80))}
+                    placeholder="Name on your GCash"
+                    className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm text-ink outline-none focus:border-coral"
+                  />
+                </label>
+              </div>
+
+              <div className="rounded-xl border border-ink/10 p-4 text-sm">
+                <p className="font-medium text-ink">{serviceNames} with {professionalLabel}</p>
+                <p className="mt-1 text-ink/60">
+                  {selectedDate ? formatDate(selectedDate) : ""} &bull;{" "}
+                  {selectedTime ? `${selectedTime} - ${endTime(selectedTime, `${totalDuration} mins`)}` : ""}
+                </p>
+                <div className="mt-3 flex items-center justify-between border-t border-ink/10 pt-3 font-semibold text-ink">
+                  <span>Total</span>
+                  <span>{pesoAmount(total)}</span>
                 </div>
               </div>
-            </div>
-          )}
 
-          {step === "otp" && (
-            <div className="space-y-4 text-center">
-              <h2 className="text-lg font-semibold text-ink">One-Time PIN</h2>
-              <p className="text-sm text-ink/60">
-                Your One-Time PIN (OTP) with reference code {REFERENCE_CODE} has been
-                sent to your registered mobile number: +63 {mobileNumber || "9XX XXX XXXX"}
+              <p className="text-xs text-ink/50">
+                Your booking stays <span className="font-semibold">Pending</span> until the Front Desk checks the payment in
+                the spa&apos;s GCash account and confirms your appointment.
               </p>
-              <p className="text-sm text-ink/60">
-                Your OTP will expire in {Math.floor(secondsLeft / 60)}:
-                {(secondsLeft % 60).toString().padStart(2, "0")} minutes.
-              </p>
-
-              <div className="flex justify-center gap-2">
-                {otp.map((digit, i) => (
-                  <input
-                    key={i}
-                    value={digit}
-                    maxLength={1}
-                    onChange={(e) => {
-                      const next = [...otp];
-                      next[i] = e.target.value.replace(/\D/g, "");
-                      setOtp(next);
-                    }}
-                    className="h-12 w-10 rounded-lg border border-ink/15 text-center text-lg outline-none focus:border-coral"
-                  />
-                ))}
-              </div>
-
-              <button
-                disabled={secondsLeft === 0}
-                onClick={() => setSecondsLeft(OTP_SECONDS)}
-                className="text-sm font-medium text-coral-dark disabled:opacity-40"
-              >
-                Resend OTP
-              </button>
               {saveError && <p className="text-sm text-red-600">{saveError}</p>}
             </div>
           )}
 
           {step === "success" && (
             <div className="space-y-4 py-4">
-              {savedBooking?.confirmed ? (
+              {savedBooking?.payNow ? (
                 <div className="space-y-2 text-center">
-                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-700">
-                    <Check className="h-7 w-7" />
+                  <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+                    <Hourglass className="h-7 w-7" />
                   </span>
-                  <h2 className="text-xl font-semibold text-ink">Booking confirmed!</h2>
-                  <p className="text-sm text-ink/60">Your payment was received and your slot is secured.</p>
+                  <h2 className="text-xl font-semibold text-ink">Booking Submitted</h2>
+                  <p className="text-sm font-medium text-amber-700">🟡 Pending Verification</p>
+                  <p className="text-sm text-ink/60">
+                    Your GCash payment receipt has been submitted. Please wait while the Front Desk verifies your payment
+                    and confirms your appointment.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-2 text-center">
@@ -1568,7 +1672,9 @@ export default function BookingModal({
                 <div className="flex justify-between gap-4 px-4 py-2.5">
                   <dt className="text-ink/50">Payment</dt>
                   <dd className="text-right font-medium text-ink">
-                    {savedBooking?.confirmed ? "Paid via GCash" : "Pay at the branch on your appointment date"}
+                    {savedBooking?.payNow
+                      ? "GCash — Payment Submitted (waiting for verification)"
+                      : "Pay at the branch on your appointment date"}
                   </dd>
                 </div>
                 {savedBooking?.code && (
@@ -1579,7 +1685,7 @@ export default function BookingModal({
                 )}
               </dl>
 
-              {!savedBooking?.confirmed && (
+              {!savedBooking?.payNow && (
                 <p className="text-center text-sm text-ink/60">
                   Our front desk will confirm your booking shortly. We&apos;ll notify you here as soon as it&apos;s
                   confirmed or if anything changes.
@@ -1700,24 +1806,12 @@ export default function BookingModal({
 
           {step === "checkout" && (
             <button
-              disabled={mobileNumber.trim().length < 7}
-              onClick={() => setStep("otp")}
+              disabled={!receiptFile || saving || !branchGcash?.payNowEnabled}
+              onClick={submitPayNow}
+              title={!receiptFile ? "Upload your GCash receipt first" : undefined}
               className="ml-auto rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             >
-              Confirm
-            </button>
-          )}
-
-          {step === "otp" && (
-            <button
-              disabled={otp.some((d) => d === "") || saving}
-              onClick={async () => {
-                const ok = await saveBooking({ paid: true });
-                if (ok) setStep("success");
-              }}
-              className="ml-auto rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
-            >
-              {saving ? "Confirming..." : "Confirm"}
+              {saving ? "Submitting..." : "Submit Booking"}
             </button>
           )}
 

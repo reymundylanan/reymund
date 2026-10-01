@@ -1,51 +1,26 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  getAdminStats,
-  getBookingTrends,
-  getPendingBookingAlerts,
-  getRevenueByBranch,
-  getRecentActivity,
-} from "@/lib/supabase/queries/adminDashboard";
-import StatsCards from "@/components/admin/dashboard/StatsCards";
-import BookingTrends from "@/components/admin/dashboard/BookingTrends";
-import CriticalAlerts from "@/components/admin/dashboard/CriticalAlerts";
-import RevenueByBranch from "@/components/admin/dashboard/RevenueByBranch";
-import RecentActivity from "@/components/admin/dashboard/RecentActivity";
-import NewReviewsCard from "@/components/admin/dashboard/NewReviewsCard";
+import { getAdminOverview } from "@/lib/supabase/queries/adminOverview";
+import AdminOverview from "@/components/admin/dashboard/AdminOverview";
+import DateTimeChips from "@/components/admin/dashboard/DateTimeChips";
 import CommandCenter from "@/components/admin/dashboard/CommandCenter";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
-
-  const [stats, bookingTrends, alerts, revenueByBranch, activity, newReviews, flaggedReviews] = await Promise.all([
-    getAdminStats(supabase),
-    getBookingTrends(supabase),
-    getPendingBookingAlerts(supabase),
-    getRevenueByBranch(supabase),
-    getRecentActivity(supabase),
-    supabase.from("reviews").select("id", { count: "exact", head: true }).is("admin_seen_at", null),
-    supabase.from("reviews").select("id", { count: "exact", head: true }).eq("status", "flagged"),
-  ]);
+  const data = await getAdminOverview(supabase);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink">Dashboard Overview</h1>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold text-ink">Dashboard</h1>
+          <p className="text-sm text-taupe">Here&apos;s what&apos;s happening with your business today.</p>
+        </div>
+        <DateTimeChips />
       </div>
 
-      <StatsCards stats={stats} />
-
-      <NewReviewsCard count={newReviews.count ?? 0} flaggedCount={flaggedReviews.count ?? 0} />
-
-      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <BookingTrends bookingTrends={bookingTrends} />
-        <CriticalAlerts alerts={alerts} />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <RevenueByBranch revenueByBranch={revenueByBranch} />
-        <RecentActivity activity={activity} />
-      </div>
+      <AdminOverview data={data} />
 
       <CommandCenter />
     </div>

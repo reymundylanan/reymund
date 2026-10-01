@@ -9,6 +9,7 @@ export type NotificationBroadcast = {
   created_at: string;
   sent_by_name: string;
   channels: string[];
+  image_url?: string | null;
 };
 
 type Rel<T> = T | T[] | null;
@@ -40,15 +41,17 @@ type Row = {
   recipient_count: number;
   created_at: string;
   channels: string[] | null;
+  image_url?: string | null;
   sent_by: Rel<{ full_name: string }>;
 };
 
 export async function getBroadcastHistory(supabase: SupabaseClient): Promise<NotificationBroadcast[]> {
-  const { data, error } = await supabase
-    .from("notification_broadcasts")
-    .select("id, subject, message, link_path, recipient_count, created_at, channels, sent_by:profiles(full_name)")
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const query = (columns: string) =>
+    supabase.from("notification_broadcasts").select(columns).order("created_at", { ascending: false }).limit(50);
+  const base = "id, subject, message, link_path, recipient_count, created_at, channels, sent_by:profiles(full_name)";
+  // image_url arrives with 061.
+  let { data, error } = await query(`${base}, image_url`);
+  if (error && (error.code === "42703" || error.code === "PGRST204")) ({ data, error } = await query(base));
 
   if (error) {
     console.error("getBroadcastHistory failed:", error);
@@ -64,6 +67,7 @@ export async function getBroadcastHistory(supabase: SupabaseClient): Promise<Not
     created_at: row.created_at,
     sent_by_name: one(row.sent_by)?.full_name ?? "Unknown",
     channels: row.channels ?? ["email"],
+    image_url: row.image_url ?? null,
   }));
 }
 

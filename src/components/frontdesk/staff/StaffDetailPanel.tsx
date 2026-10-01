@@ -173,12 +173,12 @@ export default function StaffDetailPanel({
                       title={blockedByBooking ? "A booking starts within 15 minutes — can't start a break now" : undefined}
                       className={`w-full rounded-full px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40 ${
                         action === "punch_in"
-                          ? "bg-green-600 text-white hover:bg-green-700"
+                          ? "bg-green-500 text-white hover:bg-green-600"
                           : action === "end_break"
-                          ? "bg-purple-600 text-white hover:bg-purple-700"
+                          ? "bg-purple-500 text-white hover:bg-purple-600"
                           : action === "start_break"
-                          ? "border border-blue-200 text-blue-700 hover:border-blue-400"
-                          : "border border-ink/15 text-ink/70 hover:border-ink/30"
+                          ? "border border-purple-300 text-purple-600 hover:bg-purple-50"
+                          : "border border-red-300 text-red-600 hover:bg-red-50"
                       }`}
                     >
                       {ACTION_LABEL[action]}

@@ -24,7 +24,7 @@ export async function GET() {
   const { data, error } = await admin
     .from("profiles")
     .select(
-      "id, full_name, username, email, role, branch_id, created_at, branches(name)"
+      "id, full_name, username, email, role, branch_id, avatar_url, created_at, branches(name)"
     )
     .in("role", ["admin", "front_desk", "specialist"])
     .order("created_at", { ascending: false });
@@ -47,6 +47,7 @@ export async function GET() {
     email: row.email,
     role: row.role,
     branchName: extractBranchName(row.branches),
+    avatarUrl: row.avatar_url ?? null,
     createdAt: row.created_at,
   }));
 

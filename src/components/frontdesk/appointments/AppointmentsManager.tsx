@@ -7,6 +7,7 @@ import { getStaffShiftsForDate } from "@/lib/supabase/queries/staffShifts";
 import { getGracePeriodMinutes } from "@/lib/supabase/queries/spaSettings";
 import { updateSessionStatus } from "@/lib/supabase/queries/appointments";
 import { isNotMigratedError } from "@/lib/supabase/logQueryError";
+import { readQueryParam } from "@/lib/queryParam";
 import AppointmentsToolbar, { type StatusFilter } from "@/components/frontdesk/appointments/AppointmentsToolbar";
 import AppointmentsSummary from "@/components/frontdesk/appointments/AppointmentsSummary";
 import ConflictBanner from "@/components/frontdesk/appointments/ConflictBanner";
@@ -47,7 +48,9 @@ export default function AppointmentsManager() {
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [offToday, setOffToday] = useState<{ staff_member_id: string; source: string }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // Dashboard deep link: /frontdesk/appointments?id=… (rows load after
+  // mount, so the panel can't render during hydration).
+  const [activeId, setActiveId] = useState<string | null>(() => readQueryParam("id"));
   const [rescheduleTargetId, setRescheduleTargetId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => startOfDay(new Date()));
@@ -60,22 +63,32 @@ export default function AppointmentsManager() {
     }
     const supabase = createClient();
     const todayKey = toDateKey(new Date());
-    const apptBase = () =>
+    const BASE_PAYMENT = "method, status, amount, reference_no, created_at";
+    // Pay Now (059): receipt and who verified it.
+    const PAY_NOW_PAYMENT = `id, ${BASE_PAYMENT}, payment_type, sender_name, receipt_path, verified_at, rejected_reason, verifier:profiles!payments_verified_by_fkey(full_name)`;
+    const apptBase = (paymentColumns: string) =>
       supabase
         .from("appointments")
         .select(
-          "id, client_id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, additional_charges, professional_id, service_id, notes, staff_notes, created_at, client:profiles!appointments_client_id_fkey(full_name, phone, avatar_url), professional:staff_members(full_name, department, avatar_url), service:branch_services(name), payments(method, status, amount, reference_no, created_at)"
+          `id, client_id, booking_code, appointment_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, additional_charges, professional_id, service_id, notes, staff_notes, created_at, client:profiles!appointments_client_id_fkey(full_name, phone, avatar_url), professional:staff_members(full_name, department, avatar_url), service:branch_services(name), payments(${paymentColumns})`
         )
         .eq("branch_id", profile.branchId);
     // Walk-ins linked to an account have a client_id, so visit_type (054)
     // keeps them out of this list; before 054 bookings are the rows with one.
     const loadAppointments = async () => {
-      const res = await apptBase()
-        .eq("visit_type", "appointment")
-        .order("scheduled_date", { ascending: true })
-        .order("start_time", { ascending: true });
+      const byVisitType = (paymentColumns: string) =>
+        apptBase(paymentColumns)
+          .eq("visit_type", "appointment")
+          .order("scheduled_date", { ascending: true })
+          .order("start_time", { ascending: true });
+      // paid_to_* = the GCash account the client paid to (060).
+      let res = await byVisitType(`${PAY_NOW_PAYMENT}, paid_to_account_name, paid_to_number`);
       if (!res.error || !isNotMigratedError(res.error)) return res;
-      return apptBase()
+      res = await byVisitType(PAY_NOW_PAYMENT);
+      if (!res.error || !isNotMigratedError(res.error)) return res;
+      res = await byVisitType(BASE_PAYMENT);
+      if (!res.error || !isNotMigratedError(res.error)) return res;
+      return apptBase(BASE_PAYMENT)
         .not("client_id", "is", null)
         .order("scheduled_date", { ascending: true })
         .order("start_time", { ascending: true });
@@ -130,6 +143,9 @@ export default function AppointmentsManager() {
           load();
         }
       )
+      // Pay Now receipts arrive just after the booking row (059); RLS keeps
+      // this to the branch's payments.
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, () => load())
       .subscribe();
 
     return () => {

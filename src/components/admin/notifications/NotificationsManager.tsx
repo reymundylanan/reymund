@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { MessageCircle, Send } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ImagePlus, MessageCircle, Send, X } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import type { NotificationBroadcast, PromoOption } from "@/lib/supabase/queries/notificationBroadcasts";
 import type { DispatchStatus, MessengerResults } from "@/lib/supabase/queries/messenger";
 
@@ -50,6 +51,30 @@ export default function NotificationsManager({
   const [result, setResult] = useState<string | null>(null);
   const [history, setHistory] = useState(initialHistory);
   const [renderedAt] = useState(() => Date.now());
+  // Optional broadcast image (061), uploaded when Send is confirmed.
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
+
+  function chooseImage(file: File | undefined) {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+      setError("Please choose a JPG, PNG, WebP or GIF image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("That image is too large (max 5 MB).");
+      return;
+    }
+    setError(null);
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  }
 
   const channels = [...(useEmail ? ["email"] : []), ...(useMessenger ? ["messenger"] : [])];
   const emailCount = useEmail ? initialRecipientCount : 0;
@@ -61,10 +86,22 @@ export default function NotificationsManager({
     setError(null);
     setResult(null);
     try {
+      let imageUrl: string | undefined;
+      if (imageFile) {
+        const supabase = createClient();
+        const ext = imageFile.type === "image/png" ? "png" : imageFile.type === "image/webp" ? "webp" : imageFile.type === "image/gif" ? "gif" : "jpg";
+        const path = `${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from("broadcast-images").upload(path, imageFile, { contentType: imageFile.type });
+        if (uploadError) {
+          setError(`Couldn't upload the image: ${uploadError.message}`);
+          return;
+        }
+        imageUrl = supabase.storage.from("broadcast-images").getPublicUrl(path).data.publicUrl;
+      }
       const res = await fetch("/api/admin/notifications/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, message, linkTarget, promoId: linkTarget === "promo" ? promoId : undefined, channels }),
+        body: JSON.stringify({ subject, message, linkTarget, promoId: linkTarget === "promo" ? promoId : undefined, channels, imageUrl }),
       });
       const data = await res.json().catch(() => null);
 
@@ -97,11 +134,14 @@ export default function NotificationsManager({
           created_at: new Date().toISOString(),
           sent_by_name: "You",
           channels,
+          image_url: imagePreview,
         },
         ...prev,
       ]);
       setSubject("");
       setMessage("");
+      setImageFile(null);
+      setImagePreview(null);
     } catch {
       setError("Network error — please check your connection and try again.");
     } finally {
@@ -162,6 +202,36 @@ export default function NotificationsManager({
               placeholder="What do you want to tell your clients?"
               className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm"
             />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-ink/70">Image <span className="font-normal text-ink/40">(optional)</span></label>
+            {imagePreview ? (
+              <div className="mt-1 flex items-start gap-3">
+                {/* Local preview of the chosen image. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreview} alt="Broadcast image preview" className="max-h-48 rounded-xl border border-ink/10 object-contain" />
+                <div className="flex flex-col gap-2">
+                  <label className="cursor-pointer rounded-full border border-ink/15 px-3 py-1.5 text-xs font-semibold text-ink/70 hover:border-coral">
+                    Change Image
+                    <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={(e) => { chooseImage(e.target.files?.[0]); e.target.value = ""; }} />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setImageFile(null); setImagePreview(null); }}
+                    className="flex items-center gap-1 rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50"
+                  >
+                    <X className="h-3.5 w-3.5" /> Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label className="mt-1 flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-ink/15 px-4 py-4 text-sm text-ink/60 hover:border-coral">
+                <ImagePlus className="h-5 w-5 text-coral-dark" /> Add an image (JPG, PNG, WebP or GIF, up to 5 MB)
+                <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={(e) => { chooseImage(e.target.files?.[0]); e.target.value = ""; }} />
+              </label>
+            )}
+            {imagePreview && useMessenger && <p className="mt-1 text-xs text-ink/50">The image is included in the email. Messenger gets the text and button.</p>}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -242,7 +312,12 @@ export default function NotificationsManager({
             history.map((h) => {
               const m = messengerResults[h.id];
               return (
-                <div key={h.id} className="py-3">
+                <div key={h.id} className="flex gap-3 py-3">
+                  {h.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={h.image_url} alt="" className="h-14 w-14 shrink-0 rounded-lg border border-ink/10 object-cover" />
+                  )}
+                  <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium text-ink">{h.subject}</p>
                     <span className="text-xs text-ink/40">{formatRelative(h.created_at)}</span>
@@ -261,6 +336,7 @@ export default function NotificationsManager({
                         <> · Messenger: none</>
                       ))}
                   </p>
+                  </div>
                 </div>
               );
             })

@@ -29,6 +29,15 @@ import { getMessengerConfig } from "@/lib/messenger/config";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+const SECTIONS = [
+  { label: "Upcoming", href: "#upcoming" },
+  { label: "My Visits", href: "#services" },
+  { label: "My Bookings", href: "#my-bookings" },
+  { label: "Rewards", href: "#rewards" },
+  { label: "My Reviews", href: "#reviews" },
+  { label: "Assistant", href: "#assistant" },
+];
+
 export default async function MyGlowPage({
   searchParams,
 }: {
@@ -82,20 +91,36 @@ export default async function MyGlowPage({
   return (
     <>
       <Header />
-      <main className="flex-1 bg-blush/30 px-6 py-10">
-        <div className="mx-auto max-w-7xl space-y-6">
+      <main className="flex-1 bg-cream px-4 py-10 sm:px-6">
+        {/* Section links scroll to ids inside the cards; keep them clear of the sticky header. */}
+        <div className="mx-auto max-w-7xl space-y-6 [&_[id]]:scroll-mt-28">
           <WelcomeBanner firstName={profile.full_name.split(" ")[0]} />
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="space-y-6">
-              <UpcomingBookingCard appointment={upcoming} />
-              {messengerEnabled && <MessengerConnectCard userId={auth.user.id} initialStatus={messengerStatus} />}
-              <ReviewsPanel myReviews={myReviews} />
+          <nav aria-label="My Glow sections" className="flex flex-wrap gap-2">
+            {SECTIONS.map((s) => (
+              <a
+                key={s.href}
+                href={s.href}
+                className="rounded-full border border-nude bg-white px-4 py-1.5 text-sm font-medium text-ink/75 shadow-sm transition hover:border-coral hover:text-coral-dark"
+              >
+                {s.label}
+              </a>
+            ))}
+          </nav>
+
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+            {/* Main: what's next, then history and bookings. */}
+            <div className="min-w-0 space-y-6">
+              <div id="upcoming">
+                <UpcomingBookingCard appointment={upcoming} />
+              </div>
+              <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews} openReviewId={reviewId} />
+              <MyBookingsSection userId={auth.user.id} />
+              <RecommendedForYou recommendations={recommendations} />
             </div>
-            <div className="space-y-6">
-              <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews}
-                openReviewId={reviewId}
-              />
+
+            {/* Side: rewards, reviews, updates and help. */}
+            <aside className="min-w-0 space-y-6">
               <MyRewardsCard
                 key={`${rewards.balance}-${rewards.history[0]?.id ?? ""}-${vouchers.map((v) => `${v.id}${v.status}`).join(",")}`}
                 initial={rewards}
@@ -103,13 +128,13 @@ export default async function MyGlowPage({
                 redemption={redemption}
                 vouchers={vouchers}
               />
-            </div>
-            <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
+              <ReviewsPanel myReviews={myReviews} />
+              {messengerEnabled && <MessengerConnectCard userId={auth.user.id} initialStatus={messengerStatus} />}
+              <div id="assistant">
+                <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
+              </div>
+            </aside>
           </div>
-
-          <RecommendedForYou recommendations={recommendations} />
-
-          <MyBookingsSection userId={auth.user.id} />
 
           <GlowJourneyBanner />
         </div>

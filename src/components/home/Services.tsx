@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import SectionHeading from "@/components/SectionHeading";
 
 const categories = [
   {
@@ -35,22 +36,15 @@ export default function Services() {
   return (
     <section id="services" className="bg-blush py-20">
       <div className="mx-auto max-w-7xl px-6">
-        <div className="mb-10 text-center">
-          <span className="inline-block rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-coral-dark shadow-sm">
-            Blush Excellence
-          </span>
-          <h2 className="mt-4 text-3xl font-semibold text-ink">
-            Our Signature Services
-          </h2>
-          <p className="mx-auto mt-2 max-w-xl text-ink/60">
-            Expertly curated treatments designed to restore balance to your
-            body and mind.
-          </p>
-        </div>
+        <SectionHeading
+          eyebrow="Blush Excellence"
+          title="Our Signature Services"
+          subtitle="Expertly curated treatments designed to restore balance to your body and mind."
+        />
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {categories.map((cat) => (
-            <div key={cat.id} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-sm">
+            <div key={cat.id} className="flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#a8843a]/15">
               <div className="relative h-56 overflow-hidden">
                 <Image
                   src={cat.image}

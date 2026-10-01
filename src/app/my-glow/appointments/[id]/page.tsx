@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { CalendarClock, MapPin, Phone, User } from "lucide-react";
+import { CalendarClock, MapPin, Phone, User, Wallet } from "lucide-react";
+import AppointmentLiveRefresh from "@/components/my-glow/AppointmentLiveRefresh";
+import { payNowState } from "@/lib/payNow";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import MessengerConnectCard from "@/components/notifications/MessengerConnectCard";
@@ -32,6 +34,8 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
   const messengerStatus = messengerEnabled ? await getMyMessengerStatus(supabase, auth.user.id) : "none";
 
   const statusKey = appt.sessionStatus ?? appt.status;
+  const payNow = payNowState(appt.payments);
+  const paidAmount = appt.payments.find((p) => p.status === "settled")?.amount ?? null;
   const badgeClass = appointmentStatusStyles[statusKey] ?? appointmentStatusStyles[appt.status] ?? "bg-ink/10 text-ink/50";
 
   return (
@@ -42,6 +46,30 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
           <Link href="/my-glow" className="text-sm font-medium text-coral-dark hover:underline">
             &larr; Back to My Glow
           </Link>
+
+          <AppointmentLiveRefresh appointmentId={appt.id} />
+
+          {appt.status === "pending" && payNow === "submitted" && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+              <p className="font-semibold text-amber-800">🟡 Pending Verification</p>
+              <p className="mt-1 text-sm text-amber-900/80">
+                Your GCash payment receipt has been submitted. Please wait while the Front Desk verifies your payment and
+                confirms your appointment.
+              </p>
+            </div>
+          )}
+          {appt.status === "confirmed" && !appt.sessionStatus && (
+            <div className="rounded-2xl border border-green-200 bg-green-50 p-5">
+              <p className="font-semibold text-green-800">Appointment Confirmed</p>
+              <p className="mt-1 text-sm text-green-900/80">Your appointment has been confirmed. See you soon!</p>
+            </div>
+          )}
+          {appt.status === "pending" && payNow === "not_received" && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+              <p className="font-semibold text-red-700">We couldn&apos;t find your GCash payment</p>
+              <p className="mt-1 text-sm text-red-700/80">Please call your branch so we can sort it out.</p>
+            </div>
+          )}
 
           <div className="rounded-3xl bg-white p-8 shadow-sm">
             <div className="flex items-start justify-between gap-3">
@@ -72,6 +100,18 @@ export default async function AppointmentDetailPage({ params }: { params: Promis
                   {appt.originalStartTime && <> · {formatAppointmentTime(appt.originalStartTime)}</>}
                 </p>
               )}
+              <p className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-coral-dark" />
+                {payNow === "verified"
+                  ? `🟢 Paid via GCash${paidAmount != null ? ` (₱${paidAmount.toLocaleString()}.00)` : ""}`
+                  : payNow === "submitted"
+                    ? "🟡 GCash payment submitted — waiting for verification"
+                    : payNow === "not_received"
+                      ? "GCash payment not received"
+                      : paidAmount != null
+                        ? `Paid (₱${paidAmount.toLocaleString()}.00)`
+                        : "Pay at the branch"}
+              </p>
               {appt.bookingCode && <p className="text-xs text-ink/40">Ref: {appt.bookingCode}</p>}
             </div>
 

@@ -145,6 +145,11 @@ export async function startBreak(
     return { error: `A booking starts within ${BREAK_LOCKOUT_MINUTES} minutes — cannot start a break now.` };
   }
 
+  // 063: the database checks who may record the break and explains a refusal.
+  const { error: rpcError } = await supabase.rpc("start_staff_break", { p_attendance_id: row.id });
+  if (!rpcError) return { error: null };
+  if (!isMissingFunction(rpcError)) return { error: breakErrorMessage(rpcError.message) };
+
   const { error: breakError } = await supabase.from("staff_attendance_breaks").insert({ attendance_id: row.id });
   if (breakError) return { error: breakError.message };
 
@@ -156,6 +161,20 @@ export async function startBreak(
   return { error: updateError?.message ?? null };
 }
 
+/** Before migration 063 the break functions don't exist yet. */
+function isMissingFunction(error: { code?: string; message: string }): boolean {
+  return error.code === "PGRST202" || error.code === "42883";
+}
+
+/** "BREAK_FORBIDDEN: reason" → "Not allowed: reason." */
+export function breakErrorMessage(message: string): string {
+  const forbidden = message.split("BREAK_FORBIDDEN:")[1]?.trim();
+  if (forbidden) return `Not allowed: ${forbidden}.`;
+  const invalid = message.split("BREAK_INVALID:")[1]?.trim();
+  if (invalid) return invalid.charAt(0).toUpperCase() + invalid.slice(1) + ".";
+  return message;
+}
+
 export async function endBreak(
   supabase: SupabaseClient,
   input: { staffMemberId: string; branchId: string; dateKey: string }
@@ -163,6 +182,10 @@ export async function endBreak(
   const { row, error } = await ensureAttendanceRow(supabase, input);
   if (error || !row) return { error: error ?? "Could not load today's attendance record." };
   if (row.status !== "on_break") return { error: null };
+
+  const { error: rpcError } = await supabase.rpc("end_staff_break", { p_attendance_id: row.id });
+  if (!rpcError) return { error: null };
+  if (!isMissingFunction(rpcError)) return { error: breakErrorMessage(rpcError.message) };
 
   const { data: openBreak } = await supabase
     .from("staff_attendance_breaks")

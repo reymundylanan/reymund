@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KeyRound, ShieldCheck, Trash2, X } from "lucide-react";
+import Image from "next/image";
+import { Camera, KeyRound, ShieldCheck, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import AvatarCropModal from "@/components/admin/users/AvatarCropModal";
 import type { StaffUser } from "@/components/admin/users/types";
 
 const permissions = [
@@ -50,6 +52,12 @@ export default function UserEditPanel({
   const [branches, setBranches] = useState<Branch[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  // Account photo (Admin / Front Desk), saved with "Update Profile".
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [removePhoto, setRemovePhoto] = useState(false);
+  const shownPhoto = photoPreview ?? (removePhoto ? null : user.avatarUrl ?? null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -75,6 +83,20 @@ export default function UserEditPanel({
     setSaved(false);
     setError(null);
     try {
+      let avatarUrl: string | null | undefined = removePhoto ? null : undefined;
+      if (photoFile) {
+        const supabase = createClient();
+        const path = `staff-accounts/${user.id}/${Date.now()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(path, photoFile, { contentType: "image/jpeg", upsert: true });
+        if (uploadError) {
+          setError(`Couldn't upload the photo: ${uploadError.message}`);
+          setSaving(false);
+          return;
+        }
+        avatarUrl = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+      }
       const res = await fetch("/api/admin/update-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -85,6 +107,7 @@ export default function UserEditPanel({
           email,
           role,
           branchId: branchId || null,
+          avatarUrl,
         }),
       });
       const data = await res.json();
@@ -163,14 +186,62 @@ export default function UserEditPanel({
         </div>
 
         <div className="mt-6 flex items-center gap-4">
-          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blush text-lg font-semibold text-coral-dark">
-            {user.fullName.charAt(0)}
+          <span className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-lg font-semibold text-coral-dark">
+            {shownPhoto ? (
+              <Image src={shownPhoto} alt={user.fullName} fill sizes="64px" className="object-cover" unoptimized={!!photoPreview} />
+            ) : (
+              user.fullName.charAt(0)
+            )}
           </span>
-          <div>
+          <div className="min-w-0">
             <p className="font-semibold text-ink">{user.fullName}</p>
             <p className="text-sm text-ink/50">@{user.username ?? "—"}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/70 hover:border-coral">
+                <Camera className="h-3.5 w-3.5" /> {shownPhoto ? "Change Photo" : "Add Photo"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) setCropSrc(URL.createObjectURL(file));
+                  }}
+                />
+              </label>
+              {shownPhoto && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhotoFile(null);
+                    setPhotoPreview(null);
+                    setRemovePhoto(true);
+                  }}
+                  className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            {(photoFile || removePhoto) && (
+              <p className="mt-1 text-[11px] text-ink/40">Click &ldquo;Update Profile&rdquo; to save the photo.</p>
+            )}
           </div>
         </div>
+
+        {cropSrc && (
+          <AvatarCropModal
+            src={cropSrc}
+            onDone={(blob) => {
+              setPhotoFile(new File([blob], "photo.jpg", { type: "image/jpeg" }));
+              setPhotoPreview(URL.createObjectURL(blob));
+              setRemovePhoto(false);
+              setCropSrc(null);
+            }}
+            onCancel={() => setCropSrc(null)}
+          />
+        )}
 
         <div className="mt-6 space-y-4">
           <div>
