@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { ADMIN_BRANCH_COOKIE, pickBranch } from "@/lib/adminBranch";
 import { createClient } from "@/lib/supabase/server";
 import DashboardHeader from "@/components/frontdesk/dashboard/DashboardHeader";
 import OperationsDashboard from "@/components/frontdesk/dashboard/OperationsDashboard";
@@ -18,7 +20,13 @@ export default async function FrontDeskDashboardPage() {
     redirect("/");
   }
 
-  const branchId = profile.branch_id;
+  let branchId: string | null = profile.branch_id;
+  if (profile.role === "admin") {
+    // Admins view the branch chosen in the header (Admins have no branch).
+    const { data: branches } = await supabase.from("branches").select("id").order("name");
+    const chosen = (await cookies()).get(ADMIN_BRANCH_COOKIE)?.value ?? null;
+    branchId = pickBranch(((branches ?? []) as { id: string }[]).map((b) => b.id), chosen, profile.branch_id);
+  }
 
   return (
     <div className="space-y-6">
@@ -30,7 +38,7 @@ export default async function FrontDeskDashboardPage() {
           can&apos;t be shown. Contact an admin to get assigned.
         </div>
       ) : (
-        <OperationsDashboard branchId={branchId} />
+        <OperationsDashboard key={branchId} branchId={branchId} />
       )}
     </div>
   );

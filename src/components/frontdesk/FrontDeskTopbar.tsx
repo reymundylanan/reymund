@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { setAdminBranch } from "@/lib/adminBranch";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { createClient } from "@/lib/supabase/client";
 import { getLeaveRequestsForBranch } from "@/lib/supabase/queries/leaveRequests";
@@ -65,7 +67,8 @@ function formatDateRange(sortedDateKeys: string[]) {
 }
 
 export default function FrontDeskTopbar() {
-  const { profile } = useStaffProfile();
+  const { profile, branches } = useStaffProfile();
+  const router = useRouter();
   const clock = useLiveClock();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
@@ -430,9 +433,31 @@ export default function FrontDeskTopbar() {
           </p>
         </div>
 
-        <span className="rounded-full bg-blush px-5 py-2.5 text-base font-semibold text-coral-dark">
-          Branch: {profile?.branchName ?? "Not assigned"}
-        </span>
+        {profile?.role === "admin" && branches.length > 0 ? (
+          // Admins pick which branch the Front Desk screens show.
+          <label className="flex items-center gap-2 rounded-full bg-blush py-1.5 pl-5 pr-2 text-base font-semibold text-coral-dark">
+            Branch:
+            <select
+              value={profile.branchId ?? ""}
+              onChange={(e) => {
+                setAdminBranch(e.target.value);
+                router.refresh();
+              }}
+              aria-label="Branch to view"
+              className="cursor-pointer rounded-full border border-champagne bg-white px-3 py-1 text-sm font-semibold text-coral-dark outline-none focus:border-coral"
+            >
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <span className="rounded-full bg-blush px-5 py-2.5 text-base font-semibold text-coral-dark">
+            Branch: {profile?.branchName ?? "Not assigned"}
+          </span>
+        )}
 
         <div className="relative">
           <button
