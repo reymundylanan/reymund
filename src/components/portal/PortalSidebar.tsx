@@ -1,8 +1,9 @@
 "use client";
 
+import { signOutSafely } from "@/lib/auth/signOut";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState, type ComponentType } from "react";
 import { ChevronLeft, Heart, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -15,12 +16,12 @@ const SERIF = { fontFamily: "Georgia, 'Times New Roman', serif" };
  * cream background. `rootHref` is only active on its exact path. */
 export default function PortalSidebar({ items, rootHref, portalLabel }: { items: PortalNavItem[]; rootHref: string; portalLabel: string }) {
   const pathname = usePathname();
-  const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
 
   async function handleLogout() {
-    await createClient().auth.signOut();
-    router.push("/");
+    // Works even if Supabase can't be reached (clears this device's session).
+    await signOutSafely(createClient());
+    window.location.assign("/");
   }
 
   const isActive = (href: string) => (href === rootHref ? pathname === href : pathname === href || pathname.startsWith(`${href}/`));

@@ -1,8 +1,9 @@
 "use client";
 
+import { signOutSafely } from "@/lib/auth/signOut";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LogOut, Sparkles } from "lucide-react";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
@@ -23,13 +24,12 @@ export default function Header() {
     user?.role === "customer"
       ? [...baseNavLinks, { label: "My Glow", href: "/my-glow" }]
       : baseNavLinks;
-  const router = useRouter();
   const pathname = usePathname();
 
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.refresh();
+    // Works even if Supabase can't be reached; a full reload drops any cached user.
+    await signOutSafely(createClient());
+    window.location.assign(pathname || "/");
   }
 
   const avatarCircle = user ? (

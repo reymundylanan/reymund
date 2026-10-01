@@ -1,5 +1,6 @@
 "use client";
 
+import { signOutSafely } from "@/lib/auth/signOut";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
@@ -52,7 +53,7 @@ export default function StaffLoginForm({
 
     if (profileError || !profile) {
       setError("No staff account found for this login.");
-      await supabase.auth.signOut();
+      await signOutSafely(supabase);
       setLoading(false);
       return;
     }
