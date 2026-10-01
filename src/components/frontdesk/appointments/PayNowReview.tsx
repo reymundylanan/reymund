@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2, ShieldCheck, Smartphone, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { PAY_NOW_LABEL, PAY_NOW_STYLE, pesoAmount } from "@/lib/payNow";
+import { PAY_NOW_LABEL, PAY_NOW_STYLE, formatGcashNumber, pesoAmount } from "@/lib/payNow";
 import { rejectPayNowPayment, verifyPayNowPayment } from "@/lib/supabase/queries/payNow";
 import ReceiptViewer from "@/components/frontdesk/payments/ReceiptViewer";
 import type { PaymentInfo } from "@/components/frontdesk/appointments/utils";
@@ -33,10 +33,12 @@ const CHECKS = [
 export default function PayNowReview({
   payment,
   clientName,
+  branchName,
   onChanged,
 }: {
   payment: PaymentInfo;
   clientName: string;
+  branchName?: string | null;
   onChanged: () => void;
 }) {
   const [confirming, setConfirming] = useState<"verify" | "reject" | null>(null);
@@ -79,6 +81,21 @@ export default function PayNowReview({
         <dd className="text-right font-semibold text-ink">{pesoAmount(Number(payment.amount))}</dd>
         <dt className="text-ink/45">Submitted</dt>
         <dd className="text-right text-ink/70">{when(payment.created_at)}</dd>
+        {branchName && (
+          <>
+            <dt className="text-ink/45">Branch</dt>
+            <dd className="text-right text-ink/70">{branchName}</dd>
+          </>
+        )}
+        {(payment.paid_to_account_name || payment.paid_to_number) && (
+          <>
+            <dt className="text-ink/45">Paid to</dt>
+            <dd className="text-right text-ink/70">
+              {payment.paid_to_account_name}
+              {payment.paid_to_number ? ` · ${formatGcashNumber(payment.paid_to_number)}` : ""}
+            </dd>
+          </>
+        )}
         {payment.reference_no && (
           <>
             <dt className="text-ink/45">Reference No.</dt>

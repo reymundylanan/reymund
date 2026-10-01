@@ -67,7 +67,11 @@ export function payNowErrorMessage(message: string | null | undefined): string {
   if (m.includes("PAYNOW_DUPLICATE_REFERENCE")) return "This GCash reference number was already used for another verified payment.";
   if (m.includes("PAYNOW_DUPLICATE")) return "A payment was already submitted for this booking.";
   if (m.includes("PAYNOW_NOT_VERIFIED")) return "Verify the GCash payment before confirming this booking.";
-  if (m.includes("PAYNOW_FORBIDDEN")) return "You don't have permission to do that.";
+  if (m.includes("PAYNOW_FORBIDDEN")) {
+    // 060 says why (role / branch); older messages have no detail.
+    const detail = m.split("PAYNOW_FORBIDDEN:")[1]?.trim();
+    return detail ? `Not allowed: ${detail}.` : "You don't have permission to do that.";
+  }
   if (m.includes("PAYNOW_INVALID")) return m.split("PAYNOW_INVALID:")[1]?.trim() || "This payment can't be changed right now.";
   return "Something went wrong. Please try again.";
 }

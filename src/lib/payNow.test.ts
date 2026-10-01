@@ -46,5 +46,9 @@ describe("payNow", () => {
     expect(payNowErrorMessage("PAYNOW_NOT_VERIFIED: verify")).toMatch(/Verify the GCash/);
     expect(payNowErrorMessage("PAYNOW_INVALID: booking is no longer pending")).toBe("booking is no longer pending");
     expect(payNowErrorMessage(null)).toMatch(/went wrong/);
+    expect(payNowErrorMessage("PAYNOW_FORBIDDEN")).toBe("You don't have permission to do that.");
+    expect(payNowErrorMessage("PAYNOW_FORBIDDEN: this booking belongs to another branch")).toBe(
+      "Not allowed: this booking belongs to another branch."
+    );
   });
 });

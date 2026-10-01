@@ -239,6 +239,7 @@ export default function BookingModal({
   // Pay Now (059): GCash details from Admin, the client's receipt, and the
   // saved booking id so a failed receipt submit can be retried.
   const [gcash, setGcash] = useState<GcashSettings | null>(null);
+  const [gcashBranch, setGcashBranch] = useState<string | null>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
@@ -481,16 +482,21 @@ export default function BookingModal({
     setSelectedTime(null);
   }, [professionalId]);
 
+  // The selected branch's GCash details and Pay Now switch (060), loaded
+  // when the client reaches the payment steps.
   useEffect(() => {
-    if (step !== "checkout" || gcash) return;
+    if ((step !== "checkout" && step !== "payment-choice") || !branchUuid) return;
+    if (gcash && gcashBranch === branchUuid) return;
     let cancelled = false;
-    getGcashSettings(createClient()).then((s) => {
-      if (!cancelled) setGcash(s);
+    getGcashSettings(createClient(), branchUuid).then((s) => {
+      if (cancelled) return;
+      setGcash(s);
+      setGcashBranch(branchUuid);
     });
     return () => {
       cancelled = true;
     };
-  }, [step, gcash]);
+  }, [step, gcash, gcashBranch, branchUuid]);
 
   // Free the receipt preview's memory when it's replaced or the form closes.
   useEffect(() => {
@@ -534,6 +540,9 @@ export default function BookingModal({
   const subtotal = selectedServices.reduce((sum, s) => sum + s.price, 0);
   const total = subtotal;
   const payNowDisabled = branchHours ? !isOpenNow(branchHours, new Date()) : false;
+  // The selected branch's GCash setup (060); Pay Now is off until Admin completes it.
+  const branchGcash = gcash && gcashBranch === branchUuid ? gcash : null;
+  const payNowOff = !!branchGcash && !branchGcash.payNowEnabled;
   const totalDuration = selectedServices.reduce((sum, s) => sum + parseDurationMinutes(s.duration), 0);
   const serviceNames = selectedServices.map((s) => s.name).join(", ");
 
@@ -1425,19 +1434,25 @@ export default function BookingModal({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <button
-                onClick={() => !payNowDisabled && setStep("checkout")}
-                disabled={payNowDisabled}
+                onClick={() => !payNowDisabled && !payNowOff && branchGcash && setStep("checkout")}
+                disabled={payNowDisabled || payNowOff || !branchGcash}
                 className="rounded-2xl border border-ink/10 p-6 text-left hover:border-coral disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-ink/10"
               >
                 <p className="font-semibold text-ink">Pay Now</p>
                 <p className="mt-1 text-sm text-ink/60">
                   Pay your required advance payment through GCash to secure your appointment.
                 </p>
-                {payNowDisabled && (
+                {payNowOff ? (
+                  <p className="mt-2 text-xs font-medium text-red-600">
+                    Pay Now isn&apos;t available at this branch yet. Choose Pay Later instead.
+                  </p>
+                ) : payNowDisabled ? (
                   <p className="mt-2 text-xs font-medium text-red-600">
                     Not available right now — the branch is currently closed. Choose Pay Later instead.
                   </p>
-                )}
+                ) : !branchGcash ? (
+                  <p className="mt-2 text-xs text-ink/40">Loading payment details…</p>
+                ) : null}
               </button>
               <button
                 onClick={async () => {
@@ -1478,17 +1493,23 @@ export default function BookingModal({
                 </button>
               </div>
 
+              {payNowOff && (
+                <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  Pay Now isn&apos;t available at this branch yet. Please call the branch to arrange your booking.
+                </p>
+              )}
+
               <div className="rounded-xl border border-coral bg-blush p-4">
                 <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
                   <dl className="space-y-3 text-sm">
                     <div>
                       <dt className="text-xs font-medium uppercase text-ink/40">GCash Account Name</dt>
-                      <dd className="font-semibold text-ink">{gcash?.accountName ?? "Blush Spa & Aesthetics"}</dd>
+                      <dd className="font-semibold text-ink">{branchGcash?.accountName || "Blush Spa & Aesthetics"}</dd>
                     </div>
                     <div>
                       <dt className="text-xs font-medium uppercase text-ink/40">GCash Number</dt>
                       <dd className="font-mono text-lg font-semibold text-ink">
-                        {gcash?.number ? formatGcashNumber(gcash.number) : gcash ? "Scan the QR code" : "Loading…"}
+                        {branchGcash?.number ? formatGcashNumber(branchGcash.number) : branchGcash ? "Scan the QR code" : "Loading…"}
                       </dd>
                     </div>
                     <div>
@@ -1496,11 +1517,11 @@ export default function BookingModal({
                       <dd className="text-2xl font-bold text-coral-dark">{pesoAmount(total)}</dd>
                     </div>
                   </dl>
-                  {gcash?.qrUrl && (
+                  {branchGcash?.qrUrl && (
                     <div className="mx-auto flex flex-col items-center rounded-lg border border-ink/10 bg-white p-3">
                       {/* Admin-uploaded QR from Supabase Storage; a plain img keeps it full quality for scanning. */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={gcash.qrUrl} alt="GCash QR code" className="h-48 w-48 object-contain" />
+                      <img src={branchGcash.qrUrl} alt="GCash QR code" className="h-48 w-48 object-contain" />
                       <p className="mt-1 text-xs text-ink/50">Scan with your GCash app</p>
                     </div>
                   )}
@@ -1785,7 +1806,7 @@ export default function BookingModal({
 
           {step === "checkout" && (
             <button
-              disabled={!receiptFile || saving || !gcash}
+              disabled={!receiptFile || saving || !branchGcash?.payNowEnabled}
               onClick={submitPayNow}
               title={!receiptFile ? "Upload your GCash receipt first" : undefined}
               className="ml-auto rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-40"

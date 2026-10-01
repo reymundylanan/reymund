@@ -6,7 +6,7 @@ import { CreditCard, Search, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getOnlinePayments, type OnlinePayment } from "@/lib/supabase/queries/payNow";
 import { dateRange, matchesPaymentSearch, type DateFilter } from "@/lib/onlinePaymentsFilter";
-import { pesoAmount } from "@/lib/payNow";
+import { formatGcashNumber, pesoAmount } from "@/lib/payNow";
 import { formatAppointmentTime } from "@/lib/appointmentFormat";
 import ReceiptViewer from "@/components/frontdesk/payments/ReceiptViewer";
 
@@ -241,6 +241,7 @@ function PaymentDetailsModal({ payment: p, onClose }: { payment: OnlinePayment; 
     ["Branch", p.branchName ?? "—"],
     ["Amount", pesoAmount(p.amount)],
     ["Payment Method", "GCash"],
+    ["Paid To", p.paidToAccountName || p.paidToNumber ? [p.paidToAccountName, p.paidToNumber ? formatGcashNumber(p.paidToNumber) : null].filter(Boolean).join(" · ") : "—"],
     ["Payment Type", p.paymentType === "pay_now" ? "Pay Now" : "At the branch"],
     ["Reference No.", p.referenceNo ?? "—"],
     ["Sender", p.senderName ?? "—"],

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
 import BranchImageCropper from "@/components/admin/branches/BranchImageCropper";
 import PromotionsTab from "@/components/admin/branches/PromotionsTab";
+import BranchPaymentSettings from "@/components/admin/branches/BranchPaymentSettings";
 import {
   BarChart2,
   Calendar,
@@ -29,7 +30,7 @@ import { branchServiceCategories } from "@/lib/data";
 
 type Branch = (typeof adminBranches)[number];
 
-const TABS = ["Overview", "Services", "Staff", "Gallery", "Promo Packages", "Reviews", "Analytics"];
+const TABS = ["Overview", "Services", "Staff", "Gallery", "Promo Packages", "Payment Settings", "Reviews", "Analytics"];
 
 const MOCK_STATS = [
   { label: "Today's Appointments", value: "28" },
@@ -1037,7 +1038,11 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
         <PromotionsTab branchId={branchUuid} />
       )}
 
-      {activeTab !== "Services" && activeTab !== "Staff" && activeTab !== "Gallery" && activeTab !== "Promo Packages" && (
+      {activeTab === "Payment Settings" && branchUuid && (
+        <BranchPaymentSettings key={branchUuid} branchId={branchUuid} branchName={branch.name} />
+      )}
+
+      {activeTab !== "Services" && activeTab !== "Staff" && activeTab !== "Gallery" && activeTab !== "Promo Packages" && activeTab !== "Payment Settings" && (
         <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
           <p className="text-ink/40">{activeTab} — coming soon.</p>
         </div>

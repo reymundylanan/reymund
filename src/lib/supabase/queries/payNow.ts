@@ -2,51 +2,98 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 import { payNowErrorMessage, receiptPath } from "@/lib/payNow";
 
-// ── GCash details (Admin-configured, read by the booking form) ─────────
+// ── GCash details per branch (060; Admin → Branches → Payment Settings) ──
 
-export type GcashSettings = { accountName: string; number: string | null; qrUrl: string | null };
-
-const FALLBACK_QR = "/images/payment/gcash-qr.png";
+export type GcashSettings = {
+  accountName: string;
+  number: string | null;
+  qrPath: string | null;
+  qrUrl: string | null;
+  payNowEnabled: boolean;
+};
 
 export function gcashQrPublicUrl(supabase: SupabaseClient, path: string | null): string | null {
   if (!path) return null;
   return supabase.storage.from("gcash-qr").getPublicUrl(path).data.publicUrl;
 }
 
-export async function getGcashSettings(supabase: SupabaseClient): Promise<GcashSettings> {
+const EMPTY: GcashSettings = { accountName: "", number: null, qrPath: null, qrUrl: null, payNowEnabled: false };
+
+/** The branch's GCash details. Before 060, falls back to the single
+ * spa-wide setting from 059. */
+export async function getGcashSettings(supabase: SupabaseClient, branchId: string | null): Promise<GcashSettings> {
+  if (branchId) {
+    const { data, error } = await supabase
+      .from("branch_payment_settings")
+      .select("gcash_account_name, gcash_number, gcash_qr_path, pay_now_enabled")
+      .eq("branch_id", branchId)
+      .maybeSingle();
+    if (!error) {
+      if (!data) return EMPTY;
+      return {
+        accountName: data.gcash_account_name?.trim() ?? "",
+        number: data.gcash_number?.trim() || null,
+        qrPath: data.gcash_qr_path ?? null,
+        qrUrl: gcashQrPublicUrl(supabase, data.gcash_qr_path ?? null),
+        payNowEnabled: !!data.pay_now_enabled,
+      };
+    }
+    if (!isNotMigratedError(error)) {
+      logQueryError("getGcashSettings", error);
+      return EMPTY;
+    }
+  }
   const { data, error } = await supabase
     .from("spa_settings")
     .select("gcash_account_name, gcash_number, gcash_qr_path")
     .eq("id", true)
     .maybeSingle();
   if (error) {
-    if (!isNotMigratedError(error)) logQueryError("getGcashSettings", error);
-    return { accountName: "Blush Spa & Aesthetics", number: null, qrUrl: FALLBACK_QR };
+    if (!isNotMigratedError(error)) logQueryError("getGcashSettings (spa)", error);
+    return EMPTY;
   }
+  const complete = !!(data?.gcash_account_name?.trim() && data?.gcash_number?.trim() && data?.gcash_qr_path);
   return {
-    accountName: data?.gcash_account_name?.trim() || "Blush Spa & Aesthetics",
+    accountName: data?.gcash_account_name?.trim() ?? "",
     number: data?.gcash_number?.trim() || null,
-    qrUrl: gcashQrPublicUrl(supabase, data?.gcash_qr_path ?? null) ?? FALLBACK_QR,
+    qrPath: data?.gcash_qr_path ?? null,
+    qrUrl: gcashQrPublicUrl(supabase, data?.gcash_qr_path ?? null),
+    payNowEnabled: complete,
   };
 }
 
-export async function saveGcashSettings(
+export async function saveBranchGcashSettings(
   supabase: SupabaseClient,
-  input: { accountName: string; number: string; qrFile: File | null }
-): Promise<{ error: string | null }> {
-  const update: Record<string, string> = {
-    gcash_account_name: input.accountName.trim(),
-    gcash_number: input.number.trim(),
-  };
+  branchId: string,
+  input: { accountName: string; number: string; qrFile: File | null; removeQr: boolean; payNowEnabled: boolean; currentQrPath: string | null }
+): Promise<{ error: string | null; qrPath: string | null }> {
+  let qrPath = input.removeQr ? null : input.currentQrPath;
   if (input.qrFile) {
     const ext = input.qrFile.type === "image/png" ? "png" : input.qrFile.type === "image/webp" ? "webp" : "jpg";
-    const path = `qr-${Date.now()}.${ext}`;
+    const path = `branches/${branchId}/qr-${Date.now()}.${ext}`;
     const { error: uploadError } = await supabase.storage.from("gcash-qr").upload(path, input.qrFile, { contentType: input.qrFile.type });
-    if (uploadError) return { error: `Couldn't upload the QR image: ${uploadError.message}` };
-    update.gcash_qr_path = path;
+    if (uploadError) return { error: `Couldn't upload the QR image: ${uploadError.message}`, qrPath: input.currentQrPath };
+    qrPath = path;
   }
-  const { error } = await supabase.from("spa_settings").update(update).eq("id", true);
-  return { error: error?.message ?? null };
+  const { data: auth } = await supabase.auth.getUser();
+  const { error } = await supabase.from("branch_payment_settings").upsert({
+    branch_id: branchId,
+    gcash_account_name: input.accountName.trim() || null,
+    gcash_number: input.number.trim() || null,
+    gcash_qr_path: qrPath,
+    pay_now_enabled: input.payNowEnabled,
+    updated_at: new Date().toISOString(),
+    updated_by: auth.user?.id ?? null,
+  });
+  if (error) {
+    logQueryError("saveBranchGcashSettings", error);
+    if (error.message.includes("branch_payment_settings_complete")) {
+      return { error: "Please complete the GCash payment information before enabling Pay Now.", qrPath: input.currentQrPath };
+    }
+    if (isNotMigratedError(error)) return { error: "Apply migration 060 first.", qrPath: input.currentQrPath };
+    return { error: error.message, qrPath: input.currentQrPath };
+  }
+  return { error: null, qrPath };
 }
 
 // ── Client: upload receipt + submit ────────────────────────────────────
@@ -121,6 +168,8 @@ export type OnlinePayment = {
   verifiedAt: string | null;
   verifiedByName: string | null;
   rejectedReason: string | null;
+  paidToAccountName: string | null;
+  paidToNumber: string | null;
   clientId: string | null;
   clientName: string;
   scheduledDate: string;
@@ -149,6 +198,8 @@ type OnlineRow = {
   created_at: string;
   verified_at: string | null;
   rejected_reason: string | null;
+  paid_to_account_name?: string | null;
+  paid_to_number?: string | null;
   verifier: Rel<{ full_name: string | null }>;
   appointment: Rel<{
     client_id: string | null;
@@ -185,6 +236,8 @@ export function toOnlinePayment(r: OnlineRow): OnlinePayment {
     verifiedAt: r.verified_at,
     verifiedByName: one(r.verifier)?.full_name ?? null,
     rejectedReason: r.rejected_reason,
+    paidToAccountName: r.paid_to_account_name ?? null,
+    paidToNumber: r.paid_to_number ?? null,
     clientId: a?.client_id ?? null,
     clientName: (a && (one(a.client)?.full_name || a.walkin_name)) || "Client",
     scheduledDate: a?.scheduled_date ?? "",
@@ -201,16 +254,21 @@ export async function getOnlinePayments(
   supabase: SupabaseClient,
   opts: { fromIso: string; toIso: string; branchId?: string | null }
 ): Promise<{ rows: OnlinePayment[]; migrated: boolean }> {
-  let q = supabase
-    .from("payments")
-    .select(ONLINE_SELECT)
-    .eq("method", "gcash")
-    .gte("created_at", opts.fromIso)
-    .lt("created_at", opts.toIso)
-    .order("created_at", { ascending: false })
-    .limit(500);
-  if (opts.branchId) q = q.eq("appointment.branch_id", opts.branchId);
-  const { data, error } = await q;
+  const build = (columns: string) => {
+    let q = supabase
+      .from("payments")
+      .select(columns)
+      .eq("method", "gcash")
+      .gte("created_at", opts.fromIso)
+      .lt("created_at", opts.toIso)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (opts.branchId) q = q.eq("appointment.branch_id", opts.branchId);
+    return q;
+  };
+  // paid_to_* (what the client paid to) arrive with 060.
+  let { data, error } = await build(`${ONLINE_SELECT}, paid_to_account_name, paid_to_number`);
+  if (error && isNotMigratedError(error)) ({ data, error } = await build(ONLINE_SELECT));
   if (error) {
     if (isNotMigratedError(error)) return { rows: [], migrated: false };
     logQueryError("getOnlinePayments", error);

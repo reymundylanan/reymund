@@ -14,6 +14,8 @@ export type PaymentInfo = {
   receipt_path?: string | null;
   verified_at?: string | null;
   rejected_reason?: string | null;
+  paid_to_account_name?: string | null; // 060
+  paid_to_number?: string | null;
   verifier?: { full_name: string | null } | { full_name: string | null }[] | null;
 };
 

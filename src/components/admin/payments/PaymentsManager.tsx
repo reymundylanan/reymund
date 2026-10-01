@@ -5,7 +5,6 @@ import { createClient } from "@/lib/supabase/client";
 import { getAdminPayments, computeStats, type AdminPaymentRow } from "@/lib/supabase/queries/adminPayments";
 import PaymentsStats from "@/components/admin/payments/PaymentsStats";
 import TransactionsTable from "@/components/admin/payments/TransactionsTable";
-import GcashSettingsCard from "@/components/admin/payments/GcashSettingsCard";
 import OnlinePaymentsTable from "@/components/frontdesk/payments/OnlinePaymentsTable";
 
 export default function PaymentsManager() {
@@ -41,7 +40,6 @@ export default function PaymentsManager() {
   return (
     <div className="space-y-6">
       <PaymentsStats stats={stats} live={live} />
-      <GcashSettingsCard />
       <OnlinePaymentsTable />
       {loading ? (
         <div className="rounded-2xl bg-white p-10 text-center text-sm text-ink/40 shadow-sm">

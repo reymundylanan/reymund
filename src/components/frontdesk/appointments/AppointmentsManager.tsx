@@ -81,7 +81,10 @@ export default function AppointmentsManager() {
           .eq("visit_type", "appointment")
           .order("scheduled_date", { ascending: true })
           .order("start_time", { ascending: true });
-      let res = await byVisitType(PAY_NOW_PAYMENT);
+      // paid_to_* = the GCash account the client paid to (060).
+      let res = await byVisitType(`${PAY_NOW_PAYMENT}, paid_to_account_name, paid_to_number`);
+      if (!res.error || !isNotMigratedError(res.error)) return res;
+      res = await byVisitType(PAY_NOW_PAYMENT);
       if (!res.error || !isNotMigratedError(res.error)) return res;
       res = await byVisitType(BASE_PAYMENT);
       if (!res.error || !isNotMigratedError(res.error)) return res;

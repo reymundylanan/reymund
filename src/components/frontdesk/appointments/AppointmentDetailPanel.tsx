@@ -343,7 +343,7 @@ export default function AppointmentDetailPanel({
           </div>
         )}
 
-        {payNow && <PayNowReview payment={payNow} clientName={client.full_name} onChanged={onChanged} />}
+        {payNow && <PayNowReview payment={payNow} clientName={client.full_name} branchName={branchName} onChanged={onChanged} />}
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
