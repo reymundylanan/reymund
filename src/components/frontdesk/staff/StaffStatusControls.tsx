@@ -32,11 +32,11 @@ export const STATUS_DOT: Record<DisplayStatus, string> = {
 };
 
 export const STATUS_STYLE: Record<DisplayStatus, string> = {
-  scheduled: "bg-amber-50 text-amber-700",
-  available: "bg-green-50 text-green-700",
-  in_service: "bg-blue-50 text-blue-700",
-  on_break: "bg-purple-50 text-purple-700",
-  out: "bg-red-50 text-red-600",
+  scheduled: "bg-amber-100 text-amber-800",
+  available: "bg-green-100 text-green-800",
+  in_service: "bg-blue-100 text-blue-800",
+  on_break: "bg-purple-100 text-purple-800",
+  out: "bg-red-100 text-red-700",
   day_off: "bg-gray-100 text-gray-500",
 };
 
@@ -61,11 +61,12 @@ export const ACTION_FN: Record<AttendanceActionName, AttendanceActionFn> = {
   end_break: endBreak,
 };
 
+// Lighter versions of the status colors (Staff Schedule uses .status-colors).
 const ACTION_STYLE: Record<AttendanceActionName, string> = {
-  punch_in: "bg-green-600 text-white hover:bg-green-700",
-  punch_out: "border border-ink/15 text-ink/70 hover:border-ink/30",
-  start_break: "border border-blue-200 text-blue-700 hover:border-blue-400",
-  end_break: "bg-purple-600 text-white hover:bg-purple-700",
+  punch_in: "bg-green-500 text-white hover:bg-green-600",
+  punch_out: "border border-red-300 text-red-600 hover:bg-red-50",
+  start_break: "border border-purple-300 text-purple-600 hover:bg-purple-50",
+  end_break: "bg-purple-500 text-white hover:bg-purple-600",
 };
 
 /** Mirrors the server-side gating in staffAttendance.ts so the UI never

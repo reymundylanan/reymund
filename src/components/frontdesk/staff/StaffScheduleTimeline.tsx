@@ -372,10 +372,10 @@ export default function StaffScheduleTimeline({
                               style={positionStyle(offSpan[0], offSpan[1] - offSpan[0])}
                               className={`absolute top-0 flex h-full items-center justify-center gap-1.5 rounded-lg px-2 text-[11px] font-medium ${
                                 offRecord.source === "leave"
-                                  ? "bg-amber-50 text-amber-700"
+                                  ? "bg-gray-100 text-gray-500"
                                   : offRecord.source === "transfer"
-                                  ? "bg-blue-50 text-blue-700"
-                                  : "bg-red-50 text-red-600"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-gray-100 text-gray-500"
                               }`}
                             >
                               {offRecord.source === "leave"
@@ -395,18 +395,29 @@ export default function StaffScheduleTimeline({
                                 block.sessionStatus === "in_service"
                                   ? computeServiceTiming(block.serviceStartedAt, block.duration_minutes, now)
                                   : null;
-                              const tone =
+                              // Colored like the Status Legend: Scheduled (amber), In Service
+                              // (blue), Completed (green), over time (red).
+                              const session = block.sessionStatus ?? "";
+                              const state =
                                 blockTiming?.kind === "overdue"
-                                  ? "border-red-300 bg-red-50"
-                                  : blockTiming?.kind === "time_reached"
-                                  ? "border-amber-300 bg-amber-50"
-                                  : "border-teal-200 bg-teal-50";
-                              const textTone =
-                                blockTiming?.kind === "overdue"
-                                  ? "text-red-700"
-                                  : blockTiming?.kind === "time_reached"
-                                  ? "text-amber-700"
-                                  : "text-teal-700";
+                                  ? "overdue"
+                                  : session === "completed" || session === "paid"
+                                  ? "completed"
+                                  : session === "in_service"
+                                  ? "in_service"
+                                  : "scheduled";
+                              const tone = {
+                                overdue: "border-red-400 bg-red-100",
+                                completed: "border-green-400 bg-green-100",
+                                in_service: "border-blue-400 bg-blue-100",
+                                scheduled: "border-amber-400 bg-amber-100",
+                              }[state];
+                              const textTone = {
+                                overdue: "text-red-800",
+                                completed: "text-green-800",
+                                in_service: "text-blue-800",
+                                scheduled: "text-amber-900",
+                              }[state];
                               return (
                                 <div
                                   key={block.id}
@@ -445,10 +456,10 @@ export default function StaffScheduleTimeline({
                                 <div
                                   key={brk.id}
                                   style={positionStyle(startMin, duration)}
-                                  className="absolute top-0 flex h-full flex-col justify-center overflow-hidden rounded-lg border border-purple-200 bg-purple-50 px-2 py-1"
+                                  className="absolute top-0 flex h-full flex-col justify-center overflow-hidden rounded-lg border border-purple-400 bg-purple-100 px-2 py-1"
                                 >
-                                  <p className="truncate text-[11px] font-semibold uppercase text-purple-700">Break</p>
-                                  <p className="truncate text-[10px] text-purple-600">
+                                  <p className="truncate text-[11px] font-semibold uppercase text-purple-800">Break</p>
+                                  <p className="truncate text-[10px] text-purple-700">
                                     {minutesLabel(startMin)} – {brk.break_end ? minutesLabel(endMin) : "ongoing"}
                                   </p>
                                 </div>

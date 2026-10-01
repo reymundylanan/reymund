@@ -81,7 +81,8 @@ export default function StaffSchedulePageClient() {
   const openCardMeta = cards.find((c) => c.key === openCard);
 
   return (
-    <div className="space-y-6">
+    // status-colors: real (lighter) status hues here, not the warm remap.
+    <div className="status-colors space-y-6">
       <div className="grid grid-cols-3 gap-4">
         {cards.map((card) => {
           const Icon = card.icon;
