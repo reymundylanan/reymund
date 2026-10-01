@@ -67,20 +67,22 @@ export type ActivePromotion = {
   price: number | null;
   branchName: string;
   validUntil: string | null;
+  category: string | null;
+  department: string | null;
 };
 
 export async function getActivePromotions(supabase: SupabaseClient, limit = 6): Promise<ActivePromotion[]> {
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
   const { data, error } = await supabase
     .from("branch_promotions")
-    .select("id, title, badge, description, price, valid_until, created_at, branch:branches(name)")
+    .select("id, title, badge, description, price, valid_until, created_at, category, department, branch:branches(name)")
     .eq("is_active", true)
     .or(`valid_from.is.null,valid_from.lte.${today}`)
     .or(`valid_until.is.null,valid_until.gte.${today}`)
     .order("created_at", { ascending: false })
     .limit(limit);
   logQueryError("getActivePromotions", error);
-  type Row = { id: string; title: string; badge: string | null; description: string | null; price: number | null; valid_until: string | null; branch: { name: string } | { name: string }[] | null };
+  type Row = { id: string; title: string; badge: string | null; description: string | null; price: number | null; valid_until: string | null; category: string | null; department: string | null; branch: { name: string } | { name: string }[] | null };
   return ((data ?? []) as unknown as Row[]).map((p) => ({
     id: p.id,
     title: p.title,
@@ -89,6 +91,8 @@ export async function getActivePromotions(supabase: SupabaseClient, limit = 6): 
     price: p.price,
     branchName: (Array.isArray(p.branch) ? p.branch[0]?.name : p.branch?.name) ?? "Blush Spa",
     validUntil: p.valid_until,
+    category: p.category,
+    department: p.department,
   }));
 }
 
