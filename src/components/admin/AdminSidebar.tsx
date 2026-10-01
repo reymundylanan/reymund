@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Building2, CalendarCheck, LayoutDashboard, Settings, Star, Users, Wallet } from "lucide-react";
+import { BarChart3, Bell, Building2, CalendarCheck, LayoutDashboard, Star, Users, Wallet } from "lucide-react";
 import PortalSidebar from "@/components/portal/PortalSidebar";
 
 const navItems = [
@@ -11,7 +11,7 @@ const navItems = [
   { href: "/admin/branches", label: "Branches & Services", icon: Building2 },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
-  { href: "/admin/reports", label: "Reports", icon: Settings },
+  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
 ];
 
 export default function AdminSidebar() {
