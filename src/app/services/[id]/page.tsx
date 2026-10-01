@@ -141,7 +141,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
               </div>
             )}
 
-            <div className="mt-8">
+            <div id="reviews" className="mt-8 scroll-mt-28">
               <ServiceReviewsSection serviceId={id} initial={firstPage} />
             </div>
           </div>

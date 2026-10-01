@@ -70,6 +70,66 @@ export async function getServiceRatings(
   return out;
 }
 
+export type ServiceReviewSummary = {
+  average: number;
+  count: number;
+  latest: { reviewer: string; rating: number; text: string; date: string } | null;
+};
+
+/** For the Services catalog: rating and a recent review quote per listed
+ * service, counting reviews of the same service name at every branch. */
+export async function getServiceReviewSummaries(
+  supabase: SupabaseClient,
+  services: { id: string; name: string }[]
+): Promise<Record<string, ServiceReviewSummary>> {
+  if (services.length === 0) return {};
+  const names = [...new Set(services.map((s) => s.name))];
+  const { data: same, error: sameError } = await supabase.from("branch_services").select("id, name").in("name", names);
+  logQueryError("getServiceReviewSummaries services", sameError);
+  const nameById = new Map<string, string>(((same ?? []) as { id: string; name: string }[]).map((s) => [s.id, s.name]));
+  for (const s of services) nameById.set(s.id, s.name);
+
+  const { data, error } = await supabase
+    .from("public_service_reviews")
+    .select("service_id, rating, text, reviewer, created_at")
+    .in("service_id", [...nameById.keys()])
+    .order("created_at", { ascending: false })
+    .limit(3000);
+  logQueryError("getServiceReviewSummaries reviews", error);
+
+  type Row = { service_id: string; rating: number; text: string | null; reviewer: string | null; created_at: string };
+  const byName = new Map<string, Row[]>();
+  for (const r of (data ?? []) as Row[]) {
+    const name = nameById.get(r.service_id);
+    if (!name) continue;
+    const list = byName.get(name) ?? [];
+    list.push(r);
+    byName.set(name, list);
+  }
+
+  const out: Record<string, ServiceReviewSummary> = {};
+  for (const s of services) {
+    const rows = byName.get(s.name);
+    if (!rows?.length) continue;
+    const summary = summarizeRatings(rows.map((r) => r.rating));
+    // Prefer a recent 4–5★ review with a real comment for the quote.
+    const quote = rows.find((r) => r.rating >= 4 && (r.text ?? "").trim().length >= 8) ?? rows.find((r) => (r.text ?? "").trim().length >= 8);
+    out[s.id] = {
+      average: summary.average,
+      count: summary.count,
+      latest: quote
+        ? {
+            reviewer: quote.reviewer?.trim() || "Client",
+            rating: quote.rating,
+            text: (quote.text ?? "").trim(),
+            date: new Date(quote.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+          }
+        : null,
+    };
+  }
+  return out;
+}
+
 type ReviewRow = {
   id: string;
   rating: number;

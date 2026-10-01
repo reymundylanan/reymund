@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowRight, ChevronLeft, Clock, Search } from "lucide-react";
+import { ArrowRight, ChevronLeft, Clock, Search, Star } from "lucide-react";
+import type { ServiceReviewSummary } from "@/lib/supabase/queries/serviceReviews";
 import { useBooking } from "@/components/booking/BookingContext";
 import SectionHeading from "@/components/SectionHeading";
 
@@ -66,7 +67,7 @@ export default function ServiceCatalog({
   ratings = {},
 }: {
   services: DbService[];
-  ratings?: Record<string, { average: number; count: number }>;
+  ratings?: Record<string, ServiceReviewSummary>;
 }) {
   const { open } = useBooking();
   const searchParams = useSearchParams();
@@ -74,10 +75,23 @@ export default function ServiceCatalog({
   const [query, setQuery] = useState("");
 
   const categories = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const s of services) map.set(s.category, (map.get(s.category) ?? 0) + 1);
-    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
-  }, [services]);
+    const map = new Map<string, { count: number; ratingSum: number; reviews: number }>();
+    for (const s of services) {
+      const cur = map.get(s.category) ?? { count: 0, ratingSum: 0, reviews: 0 };
+      const r = ratings[s.id];
+      map.set(s.category, {
+        count: cur.count + 1,
+        ratingSum: cur.ratingSum + (r ? r.average * r.count : 0),
+        reviews: cur.reviews + (r?.count ?? 0),
+      });
+    }
+    return Array.from(map.entries()).map(([name, v]) => ({
+      name,
+      count: v.count,
+      reviews: v.reviews,
+      average: v.reviews ? Math.round((v.ratingSum / v.reviews) * 10) / 10 : null,
+    }));
+  }, [services, ratings]);
 
   const filteredServices = useMemo(() => {
     if (!selectedCategory) return [];
@@ -98,7 +112,7 @@ export default function ServiceCatalog({
           subtitle="Choose a category to see every treatment, price and duration — then book in a few taps."
         />
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {categories.map(({ name, count }) => {
+          {categories.map(({ name, count, reviews, average }) => {
             const meta = CATEGORY_META[name] ?? FALLBACK;
             return (
               <button
@@ -118,8 +132,15 @@ export default function ServiceCatalog({
                   <p className="text-xl font-semibold tracking-tight text-white">{name}</p>
                   <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-white/80">{meta.description}</p>
                   <div className="mt-4 flex items-center justify-between">
-                    <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
-                      {count} service{count !== 1 ? "s" : ""}
+                    <span className="flex flex-wrap items-center gap-1.5">
+                      <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                        {count} service{count !== 1 ? "s" : ""}
+                      </span>
+                      {average !== null && (
+                        <span className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                          <Star className="h-3 w-3 fill-champagne text-champagne" /> {average.toFixed(1)} · {reviews} review{reviews !== 1 ? "s" : ""}
+                        </span>
+                      )}
                     </span>
                     <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur-sm transition-colors group-hover:bg-coral">
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -179,17 +200,34 @@ export default function ServiceCatalog({
             <div key={svc.id} className="flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#a8843a]/10">
               <div className="flex flex-1 flex-col gap-3 p-5">
                 <div>
-                  <h3 className="font-display text-xl font-semibold text-ink">
+                  <h3 className="text-xl font-semibold tracking-tight text-ink">
                     <Link href={`/services/${svc.id}`} className="hover:text-coral-dark">{svc.name}</Link>
                   </h3>
                   {ratings[svc.id] ? (
-                    <p className="mt-0.5 text-sm text-gold">
-                      ★ {ratings[svc.id].average} <span className="text-ink/50">({ratings[svc.id].count})</span>
+                    <p className="mt-0.5 flex items-center gap-1 text-sm text-gold">
+                      <span aria-hidden>{"★".repeat(Math.round(ratings[svc.id].average))}</span>
+                      <span className="font-semibold">{ratings[svc.id].average.toFixed(1)}</span>
+                      <span className="text-ink/50">
+                        ({ratings[svc.id].count} review{ratings[svc.id].count !== 1 ? "s" : ""})
+                      </span>
                     </p>
                   ) : (
                     <p className="mt-0.5 text-sm text-ink/40">No reviews yet</p>
                   )}
                 </div>
+                {ratings[svc.id]?.latest && (
+                  <figure className="rounded-2xl bg-cream p-3">
+                    <blockquote className="line-clamp-3 text-sm italic leading-relaxed text-ink/75">&ldquo;{ratings[svc.id].latest!.text}&rdquo;</blockquote>
+                    <figcaption className="mt-1.5 flex items-center justify-between gap-2 text-xs text-ink/55">
+                      <span>
+                        — {ratings[svc.id].latest!.reviewer} · <span className="text-gold">{"★".repeat(ratings[svc.id].latest!.rating)}</span>
+                      </span>
+                      <Link href={`/services/${svc.id}#reviews`} className="shrink-0 font-semibold text-coral-dark hover:underline">
+                        Read all reviews →
+                      </Link>
+                    </figcaption>
+                  </figure>
+                )}
                 {(svc.description || svc.benefits) && (
                   <p className="line-clamp-2 text-base text-ink/60">
                     {svc.description || svc.benefits}

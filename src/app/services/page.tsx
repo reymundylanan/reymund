@@ -4,7 +4,7 @@ import ServicesHero from "@/components/services/ServicesHero";
 import ServiceCatalog, { type DbService } from "@/components/services/ServiceCatalog";
 import MottoBanner from "@/components/services/MottoBanner";
 import { createClient } from "@/lib/supabase/server";
-import { getServiceRatings } from "@/lib/supabase/queries/serviceReviews";
+import { getServiceReviewSummaries } from "@/lib/supabase/queries/serviceReviews";
 
 async function fetchServices(): Promise<DbService[]> {
   const supabase = await createClient();
@@ -34,7 +34,8 @@ export const dynamic = "force-dynamic";
 
 export default async function ServicesPage() {
   const services = await fetchServices();
-  const ratings = await getServiceRatings(await createClient(), services.map((s) => s.id));
+  // Rating + a recent review quote per service (same service name at any branch).
+  const ratings = await getServiceReviewSummaries(await createClient(), services.map((s) => ({ id: s.id, name: s.name })));
 
   return (
     <>
