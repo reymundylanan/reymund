@@ -283,6 +283,8 @@ export type ClientAppointmentDetail = {
   originalScheduledDate: string | null;
   originalStartTime: string | null;
   history: { id: string; eventType: string; fromValue: string | null; toValue: string | null; createdAt: string }[];
+  /** Readable by the client from 059; empty before it. */
+  payments: { status: string; paymentType: string | null; amount: number; method: string }[];
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -332,6 +334,18 @@ export async function getClientAppointment(
     .order("created_at", { ascending: true });
   if (historyError) console.error("getClientAppointment history failed:", historyError);
 
+  const { data: paymentRows, error: paymentsError } = await supabase
+    .from("payments")
+    .select("status, payment_type, amount, method")
+    .eq("appointment_id", appointmentId);
+  if (paymentsError && !isNotMigratedError(paymentsError)) logQueryError("getClientAppointment payments", paymentsError);
+  const payments = ((paymentRows ?? []) as { status: string; payment_type: string | null; amount: number; method: string }[]).map((p) => ({
+    status: p.status,
+    paymentType: p.payment_type,
+    amount: Number(p.amount),
+    method: p.method,
+  }));
+
   const branch = one(row.branch);
   return {
     id: row.id,
@@ -351,5 +365,6 @@ export async function getClientAppointment(
     history: ((historyRows as { id: string; event_type: string; from_value: string | null; to_value: string | null; created_at: string }[]) ?? []).map(
       (h) => ({ id: h.id, eventType: h.event_type, fromValue: h.from_value, toValue: h.to_value, createdAt: h.created_at })
     ),
+    payments,
   };
 }

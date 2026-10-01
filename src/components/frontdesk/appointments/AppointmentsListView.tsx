@@ -9,8 +9,10 @@ import {
   appointmentStaffName,
   appointmentServiceName,
   formatTime,
+  payNowPayment,
   type AppointmentRow,
 } from "@/components/frontdesk/appointments/utils";
+import { PAY_NOW_LABEL, PAY_NOW_STYLE } from "@/lib/payNow";
 
 export type AvailabilityStatus = "available" | "busy" | "on_leave" | "day_off";
 
@@ -129,6 +131,17 @@ export default function AppointmentsListView({
                   >
                     {r.status}
                   </span>
+                  {(() => {
+                    // Pay Now (059): show the GCash state right in the list.
+                    const p = payNowPayment(r.payments);
+                    if (!p) return null;
+                    const state = p.status === "settled" ? "verified" : p.status === "pending" ? "submitted" : "not_received";
+                    return (
+                      <span className={`mt-1 block w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${PAY_NOW_STYLE[state]}`}>
+                        GCash · {PAY_NOW_LABEL[state]}
+                      </span>
+                    );
+                  })()}
                 </td>
                 <td className="py-4">
                   {sessionStatus ? (

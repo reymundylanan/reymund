@@ -1,7 +1,33 @@
 import type { SessionStatus } from "@/lib/sessionStatus";
 
 export type ClientInfo = { full_name: string; phone: string | null; avatar_url?: string | null };
-export type PaymentInfo = { method: string; status: string; amount: number; reference_no: string | null; created_at: string };
+export type PaymentInfo = {
+  method: string;
+  status: string;
+  amount: number;
+  reference_no: string | null;
+  created_at: string;
+  // Pay Now (059); absent before the migration.
+  id?: string;
+  payment_type?: string | null;
+  sender_name?: string | null;
+  receipt_path?: string | null;
+  verified_at?: string | null;
+  rejected_reason?: string | null;
+  verifier?: { full_name: string | null } | { full_name: string | null }[] | null;
+};
+
+/** The booking's Pay Now payment that matters most: verified, else
+ * waiting, else the latest one marked not received. */
+export function payNowPayment(payments: PaymentInfo[] | null): PaymentInfo | null {
+  const list = (payments ?? []).filter((p) => p.payment_type === "pay_now");
+  return (
+    list.find((p) => p.status === "settled") ??
+    list.find((p) => p.status === "pending") ??
+    [...list].sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ??
+    null
+  );
+}
 
 type NamedRef = { name?: string; full_name?: string; department?: string | null; avatar_url?: string | null };
 

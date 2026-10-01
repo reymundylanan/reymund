@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionStatus } from "@/lib/sessionStatus";
 import { isProfessionalFreeNow } from "@/lib/supabase/queries/availability";
 import { syncAttendanceWithSession } from "@/lib/supabase/queries/staffAttendance";
+import { payNowErrorMessage } from "@/lib/payNow";
 
 async function currentUserId(supabase: SupabaseClient): Promise<string | null> {
   const { data } = await supabase.auth.getUser();
@@ -88,6 +89,8 @@ export async function confirmAppointment(
     .from("appointments")
     .update({ status: "confirmed", confirmed_at: new Date().toISOString(), confirmed_by: confirmedBy })
     .eq("id", appointmentId);
+  // 059 blocks confirming while a Pay Now receipt is unverified.
+  if (error?.message.includes("PAYNOW_")) return { error: payNowErrorMessage(error.message) };
   return { error: error?.message ?? null };
 }
 
