@@ -485,8 +485,12 @@ export default function FrontDeskTopbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-blush text-base font-semibold text-coral-dark">
-            {profile?.fullName?.charAt(0) ?? "?"}
+          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-base font-semibold text-coral-dark">
+            {profile?.avatarUrl ? (
+              <Image src={profile.avatarUrl} alt={profile.fullName ?? ""} fill sizes="44px" className="object-cover" />
+            ) : (
+              profile?.fullName?.charAt(0) ?? "?"
+            )}
           </span>
           <div>
             <p className="text-lg font-medium text-ink">{profile?.fullName ?? "—"}</p>

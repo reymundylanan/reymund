@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { userId, fullName, username, email, role, branchId } =
+  const { userId, fullName, username, email, role, branchId, avatarUrl } =
     (await request.json()) as {
       userId: string;
       fullName: string;
@@ -31,10 +31,17 @@ export async function POST(request: Request) {
       email: string;
       role: "admin" | "front_desk";
       branchId: string | null;
+      // undefined = keep, null = remove, string = new photo in avatars/staff-accounts/<userId>/
+      avatarUrl?: string | null;
     };
 
   if (!userId || !fullName || !username || !email || !role) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
+  }
+
+  const photoPrefix = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/staff-accounts/${userId}/`;
+  if (typeof avatarUrl === "string" && !avatarUrl.startsWith(photoPrefix)) {
+    return NextResponse.json({ error: "Invalid photo." }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -58,6 +65,7 @@ export async function POST(request: Request) {
       email,
       role,
       branch_id: branchId,
+      ...(avatarUrl !== undefined ? { avatar_url: avatarUrl } : {}),
     })
     .eq("id", userId);
 
