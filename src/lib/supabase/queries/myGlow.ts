@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ReviewStatus, ReviewTarget } from "@/lib/reviews";
-import { logQueryError } from "@/lib/supabase/logQueryError";
+import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 import { orderedPhotoPaths, signReviewPhotos, type BookedService } from "@/lib/supabase/queries/visitReviews";
 
 export type UpcomingAppointment = {
@@ -24,6 +24,8 @@ export type RecentAppointment = {
   professionalName: string | null;
   branchName: string | null;
   bookedServices: BookedService[];
+  /** "walk_in" for walk-ins Front Desk linked to the account (migration 054). */
+  visitType: "appointment" | "walk_in";
 };
 
 type Rel<T> = T | T[] | null;
@@ -96,7 +98,12 @@ export async function getRecentAppointments(
   };
   const base =
     "id, scheduled_date, start_time, status, session_status, branch_id, service_id, notes, service:branch_services(name), professional:staff_members(full_name), branch:branches(name)";
-  const first = await query(`${base}, booked:appointment_services(position, service_id, service_name)`);
+  const full = `${base}, booked:appointment_services(position, service_id, service_name)`;
+  let first = await query(`${full}, visit_type`);
+  if (first.error && isNotMigratedError(first.error)) {
+    // Before migration 054 there is no visit_type column.
+    first = await query(full);
+  }
   let data: unknown = first.data;
 
   if (first.error) {
@@ -111,6 +118,7 @@ export async function getRecentAppointments(
   type Row = RawAppointmentRow & {
     service_id?: string | null;
     booked?: { position: number; service_id: string | null; service_name: string }[] | null;
+    visit_type?: string | null;
   };
   return ((data as unknown as Row[]) ?? []).map((row) => {
     const serviceName = one(row.service)?.name ?? row.notes ?? null;
@@ -128,6 +136,7 @@ export async function getRecentAppointments(
       bookedServices: booked.length
         ? booked.map((b) => ({ position: b.position, serviceId: b.service_id, name: b.service_name }))
         : [{ position: 0, serviceId: row.service_id ?? null, name: serviceName ?? "Your service" }],
+      visitType: row.visit_type === "walk_in" ? "walk_in" : "appointment",
     };
   });
 }

@@ -7,8 +7,10 @@ import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { toDateKey } from "@/lib/supabase/queries/staffShifts";
 import { getBusyProfessionalIds, isProfessionalFreeNow } from "@/lib/supabase/queries/availability";
-import { createWalkinAppointment } from "@/lib/supabase/queries/walkins";
+import { createWalkinAppointment, linkWalkinClient, searchClientAccounts } from "@/lib/supabase/queries/walkins";
 import { getUnavailableStatusIds } from "@/lib/supabase/queries/staffAttendance";
+import ClientAccountSearch, { ClientAvatar, ClientFoundDialog } from "@/components/frontdesk/payments/ClientAccountSearch";
+import { findPossibleDuplicates, phoneHint, providerLabel, type ClientMatch } from "@/lib/walkinLinking";
 
 type BranchService = {
   id: string;
@@ -54,6 +56,9 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
   const [therapistId, setTherapistId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linked, setLinked] = useState<ClientMatch | null>(null);
+  const [possibleMatches, setPossibleMatches] = useState<ClientMatch[] | null>(null);
+  const [confirmMatch, setConfirmMatch] = useState<ClientMatch | null>(null);
 
   useEffect(() => {
     if (!profile?.branchId) {
@@ -172,16 +177,42 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
     setServiceId(nextSvc?.id ?? "");
   }
 
+  // A linked client's number comes from their account when left blank.
   const canProceed =
-    fullName.trim().length > 0 && mobileNumber.trim().length >= 7 && !!serviceId && !!therapistId;
+    fullName.trim().length > 0 &&
+    (linked !== null || mobileNumber.trim().length >= 7) &&
+    !!serviceId &&
+    !!therapistId;
 
-  async function handleProceed() {
+  /** Before registering an unlinked walk-in, look for an account that is
+   * probably the same person (same name, or same full mobile number). */
+  async function findDuplicates(): Promise<ClientMatch[]> {
+    const supabase = createClient();
+    const searches = [searchClientAccounts(supabase, fullName.trim())];
+    if (mobileNumber.replace(/\D/g, "").length >= 10) searches.push(searchClientAccounts(supabase, mobileNumber));
+    const results = await Promise.all(searches);
+    const byId = new Map<string, ClientMatch>();
+    for (const r of results) if (r.status === "ok") for (const m of r.matches) byId.set(m.id, m);
+    return findPossibleDuplicates([...byId.values()], fullName, mobileNumber);
+  }
+
+  async function handleProceed(skipDuplicateCheck = false) {
     if (!profile?.branchId || !selectedService || !therapistId) return;
     const therapist = staff.find((t) => t.id === therapistId);
     if (!therapist) return;
 
     setSaving(true);
     setError(null);
+
+    if (!linked && !skipDuplicateCheck) {
+      const dupes = await findDuplicates();
+      if (dupes.length > 0) {
+        setPossibleMatches(dupes);
+        setSaving(false);
+        return;
+      }
+    }
+
     const supabase = createClient();
     const durationMinutes = parseDurationMinutes(selectedService.duration);
     const todayKey = toDateKey(new Date());
@@ -199,7 +230,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
       return;
     }
 
-    const { error: createError } = await createWalkinAppointment(supabase, {
+    const { id: appointmentId, error: createError } = await createWalkinAppointment(supabase, {
       branchId: profile.branchId,
       professionalId: therapistId,
       serviceId: selectedService.id,
@@ -211,15 +242,20 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
       notes: `${selectedService.name} with ${therapist.full_name} — ₱${selectedService.price.toLocaleString()}.00`,
     });
 
-    setSaving(false);
-    if (createError) {
-      setError(`${createError} (service="${selectedService.name}" id=${selectedService.id})`);
+    if (createError || !appointmentId) {
+      setSaving(false);
+      setError(`${createError ?? "Failed to register walk-in."} (service="${selectedService.name}" id=${selectedService.id})`);
       return;
     }
+
+    const linkError = linked ? await linkWalkinClient(supabase, appointmentId, linked.id) : null;
+    setSaving(false);
+    setError(linkError);
 
     setFullName("");
     setMobileNumber("");
     setTherapistId(null);
+    setLinked(null);
     onRegistered();
   }
 
@@ -243,18 +279,22 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
         </p>
       ) : (
         <div className="mt-4 space-y-4 border-t border-ink/10 pt-4">
-          <div>
-            <label className="text-xs font-medium text-ink/60">Client Full Name</label>
-            <input
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="e.g. Sofia Vergara"
-              className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
-            />
-          </div>
+          <ClientAccountSearch
+            name={fullName}
+            onNameChange={setFullName}
+            linked={linked}
+            onLink={(m) => {
+              setLinked(m);
+              setFullName(m.fullName);
+            }}
+            onUnlink={() => setLinked(null)}
+          />
 
           <div>
-            <label className="text-xs font-medium text-ink/60">Mobile Number</label>
+            <label className="text-xs font-medium text-ink/60">
+              Mobile Number
+              {linked && <span className="font-normal text-ink/40"> (optional — uses the number on their account)</span>}
+            </label>
             <input
               value={mobileNumber}
               onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 11))}
@@ -352,13 +392,80 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
           {error && <p className="text-xs text-red-600">{error}</p>}
 
           <button
-            onClick={handleProceed}
+            onClick={() => handleProceed()}
             disabled={!canProceed || saving}
             className="w-full rounded-full bg-pink-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-pink-600 disabled:opacity-40"
           >
             {saving ? "Checking In..." : "Check In"}
           </button>
         </div>
+      )}
+
+      {possibleMatches && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="possible-client-title"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <h3 id="possible-client-title" className="font-semibold text-ink">
+              Possible Existing Client
+            </h3>
+            <p className="mt-1 text-xs text-ink/60">
+              An account with the same name or mobile number already exists. Ask the client whether it&apos;s theirs.
+            </p>
+            <ul className="mt-3 space-y-2">
+              {possibleMatches.map((m) => (
+                <li key={m.id} className="flex items-center gap-3 rounded-xl border border-ink/10 p-2.5">
+                  <ClientAvatar match={m} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink">{m.fullName}</p>
+                    <p className="truncate text-xs text-ink/50">
+                      {[m.emailMasked ?? providerLabel(m.provider), phoneHint(m.phoneLast4)].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setConfirmMatch(m)}
+                    className="rounded-full border border-pink-300 px-3 py-1 text-xs font-semibold text-pink-600 hover:bg-pink-50"
+                  >
+                    Use This Account
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setPossibleMatches(null)}
+                className="flex-1 rounded-full border border-ink/15 py-2 text-sm text-ink/60 hover:border-ink/30"
+              >
+                Back
+              </button>
+              <button
+                onClick={() => {
+                  setPossibleMatches(null);
+                  handleProceed(true);
+                }}
+                className="flex-1 rounded-full bg-pink-500 py-2 text-sm font-semibold text-white hover:bg-pink-600"
+              >
+                Continue Without Linking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmMatch && (
+        <ClientFoundDialog
+          match={confirmMatch}
+          onCancel={() => setConfirmMatch(null)}
+          onLink={() => {
+            setLinked(confirmMatch);
+            setFullName(confirmMatch.fullName);
+            setConfirmMatch(null);
+            setPossibleMatches(null);
+          }}
+        />
       )}
     </div>
   );

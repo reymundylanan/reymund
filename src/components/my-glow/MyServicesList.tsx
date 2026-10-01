@@ -160,7 +160,14 @@ export default function MyServicesList({
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-ink">{a.serviceName ?? "Appointment"}</p>
-                  <p className="text-xs text-ink/50">{formatAppointmentDate(a.scheduledDate)}</p>
+                  <p className="text-xs text-ink/50">
+                    {formatAppointmentDate(a.scheduledDate)}
+                    {a.visitType === "walk_in" && (
+                      <span className="ml-2 rounded-full bg-blush px-2 py-0.5 text-[10px] font-semibold text-coral-dark">
+                        Walk-In
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${status.style}`}>
                   {status.label}

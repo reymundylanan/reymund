@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionStatus } from "@/lib/sessionStatus";
 import { isProfessionalFreeNow } from "@/lib/supabase/queries/availability";
+import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
+import type { ClientMatch } from "@/lib/walkinLinking";
 
 export type { SessionStatus };
 
@@ -48,9 +50,7 @@ export async function createWalkinAppointment(
     notes: string;
   }
 ): Promise<{ id: string | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from("appointments")
-    .insert({
+  const row = {
       branch_id: input.branchId,
       client_id: null,
       professional_id: input.professionalId,
@@ -66,14 +66,71 @@ export async function createWalkinAppointment(
       walkin_name: input.walkinName,
       walkin_phone: input.walkinPhone,
       notes: input.notes,
-    })
-    .select("id")
-    .single();
+  };
+  const insert = (values: Record<string, unknown>) =>
+    supabase.from("appointments").insert(values).select("id").single();
+
+  let { data, error } = await insert({ ...row, visit_type: "walk_in" });
+  if (error && isNotMigratedError(error)) {
+    // Before migration 054 there is no visit_type column.
+    ({ data, error } = await insert(row));
+  }
 
   if (error || !data) {
     return { id: null, error: error?.message ?? "Failed to register walk-in." };
   }
-  return { id: data.id, error: null };
+  return { id: (data as { id: string }).id, error: null };
+}
+
+type SearchRow = {
+  id: string;
+  full_name: string;
+  email_masked: string | null;
+  phone_last4: string | null;
+  provider: string;
+  avatar_url: string | null;
+  member_since: string;
+};
+
+export type ClientSearchResult =
+  | { status: "ok"; matches: ClientMatch[] }
+  | { status: "unavailable" }
+  | { status: "error" };
+
+/** Existing client accounts by name (or phone), masked for Front Desk. */
+export async function searchClientAccounts(supabase: SupabaseClient, query: string): Promise<ClientSearchResult> {
+  const { data, error } = await supabase.rpc("search_client_accounts", { p_query: query });
+  if (error) {
+    logQueryError("searchClientAccounts", error);
+    return isNotMigratedError(error) ? { status: "unavailable" } : { status: "error" };
+  }
+  return {
+    status: "ok",
+    matches: ((data as SearchRow[] | null) ?? []).map((r) => ({
+      id: r.id,
+      fullName: r.full_name,
+      emailMasked: r.email_masked,
+      phoneLast4: r.phone_last4,
+      provider: r.provider === "facebook" || r.provider === "google" ? r.provider : "email",
+      avatarUrl: r.avatar_url,
+      memberSince: r.member_since,
+    })),
+  };
+}
+
+/** Links a just-registered walk-in to a client account (audited in SQL). */
+export async function linkWalkinClient(
+  supabase: SupabaseClient,
+  appointmentId: string,
+  clientId: string
+): Promise<string | null> {
+  const { error } = await supabase.rpc("link_walkin_client", {
+    p_appointment_id: appointmentId,
+    p_client_id: clientId,
+  });
+  if (!error) return null;
+  logQueryError("linkWalkinClient", error);
+  return "The walk-in was checked in, but linking the client account failed. Ask Admin to link it.";
 }
 
 export async function updateWalkinAppointment(
@@ -134,14 +191,20 @@ export async function getTodaysWalkins(
   branchId: string,
   todayKey: string
 ): Promise<WalkinRow[]> {
-  const { data, error } = await supabase
-    .from("appointments")
-    .select(WALKIN_SELECT)
-    .eq("branch_id", branchId)
-    .eq("scheduled_date", todayKey)
-    .is("client_id", null)
+  const base = () =>
+    supabase.from("appointments").select(WALKIN_SELECT).eq("branch_id", branchId).eq("scheduled_date", todayKey);
+  // Walk-ins linked to a client account have a client_id, so visit_type
+  // (migration 054) decides; before 054, walk-ins are the rows without one.
+  let { data, error } = await base()
+    .eq("visit_type", "walk_in")
     .neq("status", "cancelled")
     .order("start_time", { ascending: false });
+  if (error && isNotMigratedError(error)) {
+    ({ data, error } = await base()
+      .is("client_id", null)
+      .neq("status", "cancelled")
+      .order("start_time", { ascending: false }));
+  }
 
   if (error) {
     console.error("getTodaysWalkins failed:", error);
