@@ -11,7 +11,7 @@ const navItems = [
   { href: "/admin/branches", label: "Branches & Services", icon: Building2 },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
-  { href: "/admin/reports", label: "Reports & System Settings", icon: Settings },
+  { href: "/admin/reports", label: "Reports", icon: Settings },
 ];
 
 export default function AdminSidebar() {
