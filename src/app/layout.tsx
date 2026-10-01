@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Script from "next/script";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { BookingProvider } from "@/components/booking/BookingContext";
 import { LoginModalProvider } from "@/components/auth/LoginModalContext";
@@ -46,6 +47,12 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="theme-warm min-h-full flex flex-col">
+        {/* Browser autofill extensions (e.g. Edge's) stamp attributes such as
+            fdprocessedid onto inputs and buttons before React hydrates, which
+            shows a hydration-mismatch warning. Strip them until hydration is done. */}
+        <Script id="strip-extension-attrs" strategy="beforeInteractive">
+          {`(function(){var A=["fdprocessedid","__gchrome_uniqueid","data-lastpass-icon-root"];function clean(r){A.forEach(function(a){r.querySelectorAll("["+a+"]").forEach(function(e){e.removeAttribute(a)})})}clean(document);var o=new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==="attributes"&&m.attributeName){m.target.removeAttribute(m.attributeName)}})});o.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:A});setTimeout(function(){o.disconnect()},15000)})();`}
+        </Script>
         <LoginModalProvider>
           <BookingProvider>
             {children}
