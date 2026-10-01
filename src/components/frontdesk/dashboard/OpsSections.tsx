@@ -227,11 +227,11 @@ export function OverviewCards({ ops }: { ops: Ops }) {
             className={`group flex flex-col rounded-2xl border border-ink/5 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-coral/40 hover:shadow-md ${c.tint}`}
           >
             <span className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2.5 text-sm font-semibold text-ink">
-                <span className={`flex h-8 w-8 items-center justify-center rounded-full ${c.iconTint}`}>
-                  <IconCmp className="h-4 w-4" />
+              <span className="flex min-w-0 items-center gap-2 text-[13px] font-semibold text-ink">
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${c.iconTint}`}>
+                  <IconCmp className="h-3.5 w-3.5" />
                 </span>
-                {c.label}
+                <span className="truncate" title={c.label}>{c.label}</span>
               </span>
               <ChevronRight className="h-4 w-4 shrink-0 text-ink/25 transition group-hover:text-coral-dark" />
             </span>
