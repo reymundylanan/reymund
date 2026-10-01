@@ -20,6 +20,7 @@ import {
 } from "@/lib/supabase/queries/frontdeskClients";
 import { getTierProgress } from "@/lib/myGlowTiers";
 import { GENDER_OPTIONS } from "@/lib/profileValidation";
+import { formatVisitDate, statsFromVisits } from "@/lib/clientDirectory";
 
 const tabs = ["Service History", "Preferences & Notes"];
 
@@ -69,11 +70,11 @@ export default function ClientProfile({
     onVipChange(!client.vip);
   }
 
-  const completed = history.filter((h) => h.status === "completed");
-  const visitsThisYear = completed.filter(
-    (h) => new Date(h.date).getFullYear() === new Date().getFullYear()
-  ).length;
-  const lastVisit = completed[0]?.date ?? "—";
+  // All-branch totals come from 058; before it, count what this desk can see.
+  const fallback = statsFromVisits(history.map((h) => ({ scheduledDate: h.dateKey, completed: h.completed })));
+  const visitsThisYear = client.statsAvailable ? client.visitsThisYear : fallback.visitsThisYear;
+  const lastVisit = formatVisitDate(client.statsAvailable ? client.lastVisit : fallback.lastVisit);
+  const totalSpend = client.totalSpend;
   const tier = getTierProgress(client.loyaltyPoints);
   const genderLabel = GENDER_OPTIONS.find((g) => g.value === client.gender)?.label ?? null;
 
@@ -161,7 +162,12 @@ export default function ClientProfile({
       <div className="mt-6 grid grid-cols-2 gap-4 border-t border-ink/10 pt-4 sm:grid-cols-4">
         <div>
           <p className="text-xs text-ink/50">Total Lifetime Spend</p>
-          <p className="mt-1 font-semibold text-ink">₱{client.totalSpend.toLocaleString()}</p>
+          <p className="mt-1 font-semibold text-ink">₱{totalSpend.toLocaleString("en-PH", { maximumFractionDigits: 2 })}</p>
+          {client.statsAvailable && client.totalVisits > 0 && (
+            <p className="text-[11px] text-ink/40">
+              {client.totalVisits} {client.totalVisits === 1 ? "visit" : "visits"} total
+            </p>
+          )}
         </div>
         <div>
           <p className="text-xs text-ink/50">Loyalty Points</p>
