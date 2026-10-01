@@ -119,8 +119,11 @@ export default async function MyGlowPage({
               <RecommendedForYou recommendations={recommendations} />
             </div>
 
-            {/* Side: rewards, reviews, updates and help. */}
+            {/* Side: AI assistant first, then rewards, reviews and updates. */}
             <aside className="min-w-0 space-y-6">
+              <div id="assistant">
+                <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
+              </div>
               <MyRewardsCard
                 key={`${rewards.balance}-${rewards.history[0]?.id ?? ""}-${vouchers.map((v) => `${v.id}${v.status}`).join(",")}`}
                 initial={rewards}
@@ -130,9 +133,6 @@ export default async function MyGlowPage({
               />
               <ReviewsPanel myReviews={myReviews} />
               {messengerEnabled && <MessengerConnectCard userId={auth.user.id} initialStatus={messengerStatus} />}
-              <div id="assistant">
-                <AssistantPanel firstName={profile.full_name.split(" ")[0]} />
-              </div>
             </aside>
           </div>
 
