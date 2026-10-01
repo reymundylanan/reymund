@@ -109,14 +109,14 @@ export default async function MyGlowPage({
           </nav>
 
           <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
-            {/* Main: what's next, then history and bookings. */}
+            {/* Main: what's next, history, recommendations, then bookings. */}
             <div className="min-w-0 space-y-6">
               <div id="upcoming">
                 <UpcomingBookingCard appointment={upcoming} />
               </div>
               <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews} openReviewId={reviewId} />
-              <MyBookingsSection userId={auth.user.id} />
               <RecommendedForYou recommendations={recommendations} />
+              <MyBookingsSection userId={auth.user.id} />
             </div>
 
             {/* Side: AI assistant first, then rewards, reviews and updates. */}

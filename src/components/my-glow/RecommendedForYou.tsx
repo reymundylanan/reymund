@@ -45,7 +45,7 @@ export default function RecommendedForYou({ recommendations }: { recommendations
                   : `Because you previously booked ${r.category.replace(" Services", "").toLowerCase()}`}
               </p>
               <div className="mt-auto flex items-center justify-between pt-3">
-                <span className="font-semibold text-coral-dark">₱{r.price.toLocaleString()}</span>
+                <span className="font-semibold text-coral-dark">{r.price > 0 ? `₱${r.price.toLocaleString()}` : "Price varies"}</span>
                 <Link
                   href={`/services?category=${encodeURIComponent(r.category)}`}
                   className="rounded-full bg-coral px-3 py-1.5 text-xs font-semibold text-white hover:bg-coral-dark"
