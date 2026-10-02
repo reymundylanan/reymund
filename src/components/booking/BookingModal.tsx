@@ -777,19 +777,19 @@ export default function BookingModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
-      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white">
-        <div className="flex items-center justify-between border-b border-ink/10 px-6 py-4">
-          <div>
-            <p className="text-2xl font-bold italic text-ink" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>Blush Spa &amp; Aesthetics</p>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:px-4 sm:py-8">
+      <div className="flex h-[100dvh] w-full max-w-2xl flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-ink/10 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="min-w-0">
+            <p className="truncate text-xl font-bold italic text-ink sm:text-2xl" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>Blush Spa &amp; Aesthetics</p>
             {branchId && (
-              <p className="mt-0.5 text-base text-ink/65">
+              <p className="mt-0.5 text-sm text-ink/65 sm:text-base">
                 {branchContacts.find((b) => b.id === branchId)?.name ?? ""}
               </p>
             )}
           </div>
-          <button onClick={close} aria-label="Close" className="text-ink/40 hover:text-ink">
-            <X className="h-5 w-5" />
+          <button onClick={close} aria-label="Close" className="-mr-1 shrink-0 rounded-full p-1.5 text-ink/40 hover:bg-blush hover:text-ink">
+            <X className="h-6 w-6 sm:h-5 sm:w-5" />
           </button>
         </div>
 
@@ -797,12 +797,12 @@ export default function BookingModal({
           step !== "payment-choice" &&
           step !== "checkout" &&
           step !== "success" && (
-          <div className="flex border-b border-ink/10 px-6">
+          <div className="scrollbar-hidden flex overflow-x-auto border-b border-ink/10 px-2 sm:px-6">
             {TABS.filter((tab) => !(appointmentType === "group" && tab.id === "professional")).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => goToTab(tab.id)}
-                className={`px-4 py-3 text-base font-medium ${
+                className={`shrink-0 whitespace-nowrap px-3 py-3 text-sm font-medium sm:px-4 sm:text-base ${
                   step === tab.id
                     ? "border-b-2 border-coral text-coral-dark"
                     : "text-ink/40"
@@ -814,7 +814,7 @@ export default function BookingModal({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 sm:py-6">
           {step === "type" && (
             <div className="grid gap-4 sm:grid-cols-2">
               <button
@@ -1646,31 +1646,31 @@ export default function BookingModal({
               )}
 
               <dl className="divide-y divide-ink/5 rounded-2xl border border-ink/10 text-sm">
-                <div className="flex justify-between gap-4 px-4 py-2.5">
-                  <dt className="text-ink/50">Services</dt>
+                <div className="flex justify-between gap-3 px-3 py-2.5 sm:gap-4 sm:px-4">
+                  <dt className="shrink-0 text-ink/50">Services</dt>
                   <dd className="text-right font-medium text-ink">{serviceNames}</dd>
                 </div>
-                <div className="flex justify-between gap-4 px-4 py-2.5">
-                  <dt className="text-ink/50">Branch</dt>
+                <div className="flex justify-between gap-3 px-3 py-2.5 sm:gap-4 sm:px-4">
+                  <dt className="shrink-0 text-ink/50">Branch</dt>
                   <dd className="text-right font-medium text-ink">{branch.name}</dd>
                 </div>
-                <div className="flex justify-between gap-4 px-4 py-2.5">
-                  <dt className="text-ink/50">Therapist</dt>
+                <div className="flex justify-between gap-3 px-3 py-2.5 sm:gap-4 sm:px-4">
+                  <dt className="shrink-0 text-ink/50">Therapist</dt>
                   <dd className="text-right font-medium capitalize text-ink">{professionalLabel}</dd>
                 </div>
-                <div className="flex justify-between gap-4 px-4 py-2.5">
-                  <dt className="text-ink/50">Date &amp; time</dt>
+                <div className="flex justify-between gap-3 px-3 py-2.5 sm:gap-4 sm:px-4">
+                  <dt className="shrink-0 text-ink/50">Date &amp; time</dt>
                   <dd className="text-right font-medium text-ink">
                     {selectedDate ? formatDate(selectedDate) : ""}
                     {selectedTime && <>, {selectedTime} – {endTime(selectedTime, `${totalDuration} mins`)}</>}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-4 px-4 py-2.5">
-                  <dt className="text-ink/50">Total</dt>
+                <div className="flex justify-between gap-3 px-3 py-2.5 sm:gap-4 sm:px-4">
+                  <dt className="shrink-0 text-ink/50">Total</dt>
                   <dd className="text-right font-semibold text-ink">₱{total.toLocaleString()}.00</dd>
                 </div>
-                <div className="flex justify-between gap-4 px-4 py-2.5">
-                  <dt className="text-ink/50">Payment</dt>
+                <div className="flex justify-between gap-3 px-3 py-2.5 sm:gap-4 sm:px-4">
+                  <dt className="shrink-0 text-ink/50">Payment</dt>
                   <dd className="text-right font-medium text-ink">
                     {savedBooking?.payNow
                       ? "GCash — Payment Submitted (waiting for verification)"
@@ -1678,8 +1678,8 @@ export default function BookingModal({
                   </dd>
                 </div>
                 {savedBooking?.code && (
-                  <div className="flex justify-between gap-4 px-4 py-2.5">
-                    <dt className="text-ink/50">Reference</dt>
+                  <div className="flex justify-between gap-3 px-3 py-2.5 sm:gap-4 sm:px-4">
+                    <dt className="shrink-0 text-ink/50">Reference</dt>
                     <dd className="text-right font-mono font-medium text-ink">{savedBooking.code}</dd>
                   </div>
                 )}
@@ -1696,7 +1696,7 @@ export default function BookingModal({
         </div>
 
         {showSelectedPanel && (step === "services" || step === "professional" || step === "time") && selectedServices.length > 0 && (
-          <div className="border-t border-ink/10 bg-white px-6 py-4">
+          <div className="border-t border-ink/10 bg-white px-4 py-3 sm:px-6 sm:py-4">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-base font-semibold text-ink">Selected Services</p>
               <button
@@ -1706,7 +1706,7 @@ export default function BookingModal({
                 Unselect All
               </button>
             </div>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="max-h-40 space-y-2 overflow-y-auto sm:max-h-64">
               {selectedServices.map((s) => (
                 <div key={s.id ?? s.name} className="flex items-center justify-between rounded-lg bg-blush px-3 py-2">
                   <div>
@@ -1728,7 +1728,7 @@ export default function BookingModal({
           </div>
         )}
 
-        <div className="flex items-center justify-between border-t border-ink/10 px-6 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink/10 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 sm:py-4">
           <div className="text-sm text-ink/60">
             {(step === "services" || step === "professional" || step === "time") && selectedServices.length > 0 ? (
               <button
@@ -1816,17 +1816,17 @@ export default function BookingModal({
           )}
 
           {step === "success" && (
-            <div className="ml-auto flex items-center gap-2">
+            <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
               <Link
                 href="/my-glow#my-bookings"
                 onClick={close}
-                className="rounded-full border border-ink/15 px-5 py-2.5 text-sm font-semibold text-ink/70 hover:border-coral hover:text-coral-dark"
+                className="flex-1 rounded-full border border-ink/15 px-5 py-2.5 text-center text-sm font-semibold text-ink/70 hover:border-coral hover:text-coral-dark sm:flex-none"
               >
                 View my bookings
               </Link>
               <button
                 onClick={close}
-                className="rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark"
+                className="flex-1 rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark sm:flex-none"
               >
                 Done
               </button>
