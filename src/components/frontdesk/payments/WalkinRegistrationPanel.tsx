@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { ChevronRight, UserPlus2 } from "lucide-react";
+import { Check, ChevronRight, UserPlus2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { toDateKey } from "@/lib/supabase/queries/staffShifts";
@@ -11,6 +11,8 @@ import { createWalkinAppointment, linkWalkinClient, searchClientAccounts } from 
 import { getUnavailableStatusIds } from "@/lib/supabase/queries/staffAttendance";
 import ClientAccountSearch, { ClientAvatar, ClientFoundDialog } from "@/components/frontdesk/payments/ClientAccountSearch";
 import { findPossibleDuplicates, phoneHint, providerLabel, type ClientMatch } from "@/lib/walkinLinking";
+import { toAppointmentServiceRows } from "@/lib/bookedServices";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 type BranchService = {
   id: string;
@@ -52,7 +54,8 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
   const [loading, setLoading] = useState(true);
   const [department, setDepartment] = useState("");
   const [category, setCategory] = useState("");
-  const [serviceId, setServiceId] = useState("");
+  // Several services from the same category, all with one therapist.
+  const [serviceIds, setServiceIds] = useState<string[]>([]);
   const [therapistId, setTherapistId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,8 +111,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
       const cats = Array.from(new Set(svcRows.filter((s) => s.department === firstDept).map((s) => s.category)));
       const firstCat = cats[0] ?? "";
       setCategory(firstCat);
-      const firstSvc = svcRows.find((s) => s.department === firstDept && s.category === firstCat);
-      setServiceId(firstSvc?.id ?? "");
+      setServiceIds([]);
 
       setLoading(false);
     });
@@ -127,10 +129,20 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
     () => services.filter((s) => s.department === department && s.category === category),
     [services, department, category]
   );
-  const selectedService = services.find((s) => s.id === serviceId);
+  // In the order they're listed, so the first one becomes the main service.
+  const selectedServices = useMemo(
+    () => filteredServices.filter((s) => serviceIds.includes(s.id)),
+    [filteredServices, serviceIds]
+  );
+  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const totalMinutes = selectedServices.reduce((sum, s) => sum + parseDurationMinutes(s.duration), 0);
+
+  function toggleService(id: string) {
+    setServiceIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
 
   useEffect(() => {
-    if (!profile?.branchId || !selectedService) {
+    if (!profile?.branchId || totalMinutes === 0) {
       setBusyStaffIds(new Set());
       return;
     }
@@ -140,14 +152,14 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
       branchId: profile.branchId,
       scheduledDate: toDateKey(new Date()),
       startTime: nowTimeString(),
-      durationMinutes: parseDurationMinutes(selectedService.duration),
+      durationMinutes: totalMinutes,
     }).then((ids) => {
       if (!cancelled) setBusyStaffIds(ids);
     });
     return () => {
       cancelled = true;
     };
-  }, [profile?.branchId, selectedService?.id, selectedService?.duration]);
+  }, [profile?.branchId, totalMinutes]);
 
   const availableTherapists = useMemo(
     () =>
@@ -166,22 +178,20 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
     const cats = Array.from(new Set(services.filter((s) => s.department === nextDept).map((s) => s.category)));
     const nextCat = cats[0] ?? "";
     setCategory(nextCat);
-    const nextSvc = services.find((s) => s.department === nextDept && s.category === nextCat);
-    setServiceId(nextSvc?.id ?? "");
+    setServiceIds([]);
     setTherapistId(null);
   }
 
   function handleCategoryChange(nextCat: string) {
     setCategory(nextCat);
-    const nextSvc = services.find((s) => s.department === department && s.category === nextCat);
-    setServiceId(nextSvc?.id ?? "");
+    setServiceIds([]);
   }
 
   // A linked client's number comes from their account when left blank.
   const canProceed =
     fullName.trim().length > 0 &&
     (linked !== null || mobileNumber.trim().length >= 7) &&
-    !!serviceId &&
+    selectedServices.length > 0 &&
     !!therapistId;
 
   /** Before registering an unlinked walk-in, look for an account that is
@@ -197,7 +207,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
   }
 
   async function handleProceed(skipDuplicateCheck = false) {
-    if (!profile?.branchId || !selectedService || !therapistId) return;
+    if (!profile?.branchId || selectedServices.length === 0 || !therapistId) return;
     const therapist = staff.find((t) => t.id === therapistId);
     if (!therapist) return;
 
@@ -214,7 +224,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
     }
 
     const supabase = createClient();
-    const durationMinutes = parseDurationMinutes(selectedService.duration);
+    const durationMinutes = totalMinutes;
     const todayKey = toDateKey(new Date());
     const startTime = nowTimeString();
 
@@ -233,20 +243,24 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
     const { id: appointmentId, error: createError } = await createWalkinAppointment(supabase, {
       branchId: profile.branchId,
       professionalId: therapistId,
-      serviceId: selectedService.id,
+      serviceId: selectedServices[0].id,
       scheduledDate: todayKey,
       startTime,
       durationMinutes,
       walkinName: fullName.trim(),
       walkinPhone: mobileNumber.trim(),
-      notes: `${selectedService.name} with ${therapist.full_name} — ₱${selectedService.price.toLocaleString()}.00`,
+      // The bill reads the total from here (see walkinQuotedAmount).
+      notes: `${selectedServices.map((s) => s.name).join(", ")} with ${therapist.full_name} — ₱${totalPrice.toLocaleString()}.00`,
     });
 
     if (createError || !appointmentId) {
       setSaving(false);
-      setError(`${createError ?? "Failed to register walk-in."} (service="${selectedService.name}" id=${selectedService.id})`);
+      setError(createError ?? "Failed to register walk-in.");
       return;
     }
+
+    const { error: svcError } = await supabase.from("appointment_services").insert(toAppointmentServiceRows(appointmentId, selectedServices));
+    if (svcError) logQueryError("Walk-in services list", svcError);
 
     const linkError = linked ? await linkWalkinClient(supabase, appointmentId, linked.id) : null;
     setSaving(false);
@@ -255,6 +269,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
     setFullName("");
     setMobileNumber("");
     setTherapistId(null);
+    setServiceIds([]);
     setLinked(null);
     onRegistered();
   }
@@ -337,33 +352,62 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
           </div>
 
           <div>
-            <label className="text-xs font-medium text-ink/60">Service</label>
-            <div className="relative mt-1">
-              <select
-                value={serviceId}
-                onChange={(e) => setServiceId(e.target.value)}
-                disabled={filteredServices.length === 0}
-                className="w-full appearance-none rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral disabled:bg-ink/5"
-              >
-                {filteredServices.length === 0 ? (
-                  <option value="">No services in this category</option>
-                ) : (
-                  filteredServices.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} — ₱{s.price.toLocaleString()}.00
-                    </option>
-                  ))
-                )}
-              </select>
-              <ChevronRight className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 -rotate-90 text-ink/40" />
-            </div>
+            <label className="flex items-baseline justify-between text-xs font-medium text-ink/60">
+              <span>Services</span>
+              <span className="font-normal text-ink/40">Tap to select one or more</span>
+            </label>
+            {filteredServices.length === 0 ? (
+              <p className="mt-1 rounded-lg border border-ink/15 bg-ink/5 px-3 py-2 text-sm text-ink/50">No services in this category</p>
+            ) : (
+              <div className="mt-1 max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                {filteredServices.map((s) => {
+                  const on = serviceIds.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={on}
+                      onClick={() => toggleService(s.id)}
+                      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition ${
+                        on ? "border-coral bg-blush/60" : "border-ink/15 hover:border-coral/60"
+                      }`}
+                    >
+                      <span
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                          on ? "border-coral bg-coral text-white" : "border-ink/30 bg-white"
+                        }`}
+                      >
+                        {on && <Check className="h-3 w-3" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-ink">{s.name}</span>
+                        {s.duration && <span className="block text-xs text-ink/45">{s.duration}</span>}
+                      </span>
+                      <span className="shrink-0 font-medium text-ink/80">₱{s.price.toLocaleString()}.00</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {selectedServices.length > 0 && (
+              <p className="mt-2 flex justify-between rounded-lg bg-cream px-3 py-2 text-xs text-ink/70">
+                <span>
+                  {selectedServices.length} service{selectedServices.length !== 1 ? "s" : ""} · about {totalMinutes} mins
+                </span>
+                <span className="font-semibold text-ink">Total ₱{totalPrice.toLocaleString()}.00</span>
+              </p>
+            )}
           </div>
 
           <div>
-            <label className="text-xs font-medium text-ink/60">Assigned Therapist</label>
+            <label className="text-xs font-medium text-ink/60">
+              Assigned Therapist
+              {selectedServices.length > 1 && <span className="font-normal text-ink/40"> (does all selected services)</span>}
+            </label>
             {availableTherapists.length === 0 ? (
               <p className="mt-2 text-xs text-red-600">
-                No {department} staff available right now — check Staff Schedule.
+                No {department} staff free{totalMinutes ? ` for ${totalMinutes} mins` : ""} right now — check Staff Schedule.
               </p>
             ) : (
               <div className="mt-2 grid grid-cols-3 gap-2">

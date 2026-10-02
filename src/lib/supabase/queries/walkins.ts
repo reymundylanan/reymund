@@ -3,6 +3,7 @@ import type { SessionStatus } from "@/lib/sessionStatus";
 import { isProfessionalFreeNow } from "@/lib/supabase/queries/availability";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 import type { ClientMatch } from "@/lib/walkinLinking";
+import { parseNotesServiceNames } from "@/lib/bookedServices";
 
 export type { SessionStatus };
 
@@ -230,6 +231,9 @@ export function walkinProfessionalName(row: WalkinRow): string {
 }
 
 export function walkinServiceName(row: WalkinRow): string {
+  // Several services are listed in the notes: "A, B with Staff — ₱…".
+  const names = parseNotesServiceNames(row.notes);
+  if (names.length > 1) return names.join(", ");
   return one(row.service)?.name ?? row.notes ?? "—";
 }
 
