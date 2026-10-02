@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useBooking } from "@/components/booking/BookingContext";
-import { getServiceImage } from "@/lib/serviceImage";
+import { promoImage } from "@/lib/promoImage";
 import {
   rankPromos,
   readDismissedPromos,
@@ -56,6 +56,8 @@ export default function PromoSideAd() {
   const [index, setIndex] = useState(0);
   const [seen, setSeen] = useState<Set<string>>(() => new Set());
   const [paused, setPaused] = useState(false);
+  // Slide direction for the animation: 1 = next, -1 = previous.
+  const [dir, setDir] = useState(1);
   const [chatOverlay, setChatOverlay] = useState(false);
 
   // After a close, the next promo waits for the next page. Once the client
@@ -154,11 +156,15 @@ export default function PromoSideAd() {
   const promo = promos[current] ?? null;
 
   const showing = ready && !chatOverlay && count > 1 && !paused && closedOnPath !== pathname;
+  // A fresh timer per slide, so a manual flip always gets the full time.
   useEffect(() => {
     if (!showing) return;
-    const t = setInterval(() => setIndex((i) => i + 1), ROTATE_MS);
-    return () => clearInterval(t);
-  }, [showing]);
+    const t = setTimeout(() => {
+      setDir(1);
+      setIndex((i) => i + 1);
+    }, ROTATE_MS);
+    return () => clearTimeout(t);
+  }, [showing, index]);
 
   const hidden =
     !ready ||
@@ -176,7 +182,7 @@ export default function PromoSideAd() {
   const href = `/promos/${promo.id}`;
   // Same destination as the promo page's own "Book Now" button.
   const bookHref = promo.category ? `/services?category=${encodeURIComponent(promo.category)}` : "/services";
-  const image = getServiceImage(promo.category ?? promo.department ?? promo.title);
+  const image = promoImage(promo);
   // The chat button sits bottom-right on every client page except My Glow.
   const chatVisible = !pathname.startsWith("/my-glow");
 
@@ -190,32 +196,11 @@ export default function PromoSideAd() {
 
   function go(step: number) {
     setSeen((prev) => new Set(prev).add(promo!.id));
+    setDir(step < 0 ? -1 : 1);
     setIndex((current + step + count) % count);
   }
 
-  const nav =
-    count > 1 ? (
-      <div className="flex items-center justify-between gap-2 px-4 pb-3 text-xs text-ink/50">
-        <button type="button" onClick={() => go(-1)} aria-label="Previous promo" className="rounded-full p-1 hover:bg-blush hover:text-ink">
-          <ChevronLeft className="h-4 w-4" />
-        </button>
-        <span className="flex items-center gap-1.5">
-          {promos.map((p, i) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => go(i - current)}
-              aria-label={`Promo ${i + 1} of ${count}`}
-              aria-current={i === current}
-              className={`h-1.5 rounded-full transition-all ${i === current ? "w-4 bg-coral" : "w-1.5 bg-ink/20 hover:bg-ink/40"}`}
-            />
-          ))}
-        </span>
-        <button type="button" onClick={() => go(1)} aria-label="Next promo" className="rounded-full p-1 hover:bg-blush hover:text-ink">
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-    ) : null;
+  const slide = dir < 0 ? "promo-slide-prev" : "promo-slide-next";
 
   return (
     <aside
@@ -224,85 +209,101 @@ export default function PromoSideAd() {
       onMouseLeave={() => setPaused(false)}
       className={`promo-ad-in fixed z-40 bottom-[calc(env(safe-area-inset-bottom)_+_12px)] left-3 ${
         chatVisible ? "right-[84px]" : "right-3"
-      } sm:left-auto sm:right-6 sm:bottom-24 sm:w-[260px] lg:bottom-auto lg:top-1/2 lg:-translate-y-[60%] lg:w-[280px] xl:w-[320px]`}
+      } sm:left-auto sm:right-6 sm:bottom-24 sm:w-[270px] lg:bottom-auto lg:top-1/2 lg:-translate-y-[60%] lg:w-[290px] xl:w-[310px]`}
     >
-      <div className="promo-ad-border promo-ad-glow rounded-2xl p-[2px] sm:rounded-3xl">
-        <div key={promo.id} className="glowy-msg relative overflow-hidden rounded-[14px] bg-white sm:rounded-[22px]">
-          <button
-            type="button"
-            onClick={close}
-            aria-label="Close promotion"
-            className="absolute right-1.5 top-1.5 z-10 rounded-full bg-white/90 p-1 text-ink/60 shadow-sm hover:text-ink"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-
-          {/* Mobile: compact banner */}
-          <div className="flex items-center gap-3 p-2 pr-8 sm:hidden">
-            <Link href={href} className="flex min-w-0 flex-1 items-center gap-3">
-              <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
-                <Image src={image} alt="" fill sizes="56px" className="object-cover" />
-              </span>
-              <span className="min-w-0 flex-1">
-                {promo.badge && (
-                  <span className="promo-ad-border inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                    {promo.badge}
-                  </span>
-                )}
-                <span className="block truncate text-sm font-semibold text-ink">{promo.title}</span>
-                {promo.description && <span className="block truncate text-xs text-ink/60">{promo.description}</span>}
-              </span>
-            </Link>
-            <Link
-              href={bookHref}
-              className="promo-ad-border shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+      <div className="promo-float">
+        <div className="promo-ad-border promo-ad-glow rounded-2xl p-[2px] sm:rounded-[1.6rem]">
+          <div className="relative overflow-hidden rounded-[14px] bg-white sm:rounded-[1.5rem]">
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Close promotions"
+              className="absolute right-2 top-2 z-20 rounded-full bg-white/90 p-1 text-ink/60 shadow-sm backdrop-blur hover:text-ink"
             >
-              Book Now
-            </Link>
-          </div>
-          {count > 1 && (
-            <div className="flex items-center justify-between px-3 pb-2 text-[11px] text-ink/50 sm:hidden">
-              <button type="button" onClick={() => go(-1)} aria-label="Previous promo" className="p-0.5"><ChevronLeft className="h-4 w-4" /></button>
-              <span>{current + 1} / {count}</span>
-              <button type="button" onClick={() => go(1)} aria-label="Next promo" className="p-0.5"><ChevronRight className="h-4 w-4" /></button>
-            </div>
-          )}
+              <X className="h-3.5 w-3.5" />
+            </button>
 
-          {/* Tablet & desktop: card */}
-          <div className="hidden sm:block">
-            <Link href={href} className="block">
-              <span className="relative block h-28 w-full lg:h-36">
-                <Image src={image} alt="" fill sizes="(min-width: 1280px) 320px, (min-width: 1024px) 280px, 260px" className="object-cover" />
-                {promo.badge && (
-                  <span className="promo-ad-border absolute bottom-2 left-2 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow">
-                    {promo.badge}
-                  </span>
-                )}
-              </span>
-              <span className="block px-4 pt-4">
-                <span className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide text-coral-dark">
-                  <span>GlowSync Promo{promo.branchName && <> · {promo.branchName}</>}</span>
-                  {count > 1 && <span className="shrink-0 text-ink/40">{current + 1} / {count}</span>}
+            {/* Mobile: compact banner */}
+            <div key={`m-${promo.id}`} className={`${slide} flex items-center gap-3 p-2 pr-8 sm:hidden`}>
+              <Link href={href} className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl">
+                  <Image src={image} alt="" fill sizes="56px" className="promo-kenburns object-cover" />
                 </span>
-                <span className="mt-0.5 line-clamp-2 block font-semibold text-ink">{promo.title}</span>
-                {promo.description && <span className="mt-1 line-clamp-2 block text-sm text-ink/60">{promo.description}</span>}
-              </span>
-            </Link>
-            <div className="flex gap-2 p-4 pt-3">
-              <Link
-                href={bookHref}
-                className="promo-ad-border flex-1 rounded-full py-2 text-center text-sm font-semibold text-white shadow-sm hover:opacity-90"
-              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[10px] font-semibold uppercase tracking-wide text-coral-dark">
+                    {promo.badge ?? "GlowSync Promo"}
+                  </span>
+                  <span className="block truncate text-sm font-semibold text-ink">{promo.title}</span>
+                  {count > 1 && <span className="block text-[11px] text-ink/45">{current + 1} of {count} promos</span>}
+                </span>
+              </Link>
+              <Link href={bookHref} className="promo-btn shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white shadow-sm">
                 Book Now
               </Link>
-              <Link
-                href={href}
-                className="flex-1 rounded-full border border-ink/15 py-2 text-center text-sm font-semibold text-ink/70 hover:border-ink/30 hover:text-ink"
-              >
-                View Promo
-              </Link>
             </div>
-            {nav}
+
+            {/* Tablet & desktop: card */}
+            <div className="hidden sm:block">
+              <div key={promo.id} className={slide}>
+                <Link href={href} className="block">
+                  <span className="relative block h-36 w-full overflow-hidden lg:h-40">
+                    <Image
+                      src={image}
+                      alt=""
+                      fill
+                      sizes="(min-width: 1280px) 310px, (min-width: 1024px) 290px, 270px"
+                      className="promo-kenburns object-cover"
+                    />
+                    <span className="absolute inset-0 bg-gradient-to-t from-[#2b1a10]/70 via-[#2b1a10]/10 to-transparent" />
+                    <span className="absolute left-3 top-3 max-w-[75%] truncate rounded-full bg-white/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-coral-dark backdrop-blur">
+                      {promo.branchName ?? "GlowSync Promo"}
+                    </span>
+                    {promo.badge && (
+                      <span className="promo-btn absolute bottom-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white shadow">
+                        {promo.badge}
+                      </span>
+                    )}
+                  </span>
+                  <span className="block px-4 pt-3.5">
+                    <span className="line-clamp-2 block text-base font-semibold leading-snug tracking-tight text-ink">{promo.title}</span>
+                    {promo.description && <span className="mt-1 line-clamp-2 block text-sm text-ink/60">{promo.description}</span>}
+                  </span>
+                </Link>
+                <div className="flex gap-2 px-4 pb-3 pt-3">
+                  <Link href={bookHref} className="promo-btn flex-1 rounded-full py-2 text-center text-sm font-semibold text-white shadow-sm">
+                    Book Now
+                  </Link>
+                  <Link
+                    href={href}
+                    className="flex-1 rounded-full border border-champagne py-2 text-center text-sm font-semibold text-ink/70 transition hover:border-coral hover:text-ink"
+                  >
+                    View Promo
+                  </Link>
+                </div>
+              </div>
+
+              {count > 1 && (
+                <div className="flex items-center gap-2 border-t border-champagne/50 px-3 py-2 text-xs text-ink/50">
+                  <button type="button" onClick={() => go(-1)} aria-label="Previous promo" className="rounded-full p-1 transition hover:bg-blush hover:text-ink">
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  {/* Fills up until the next promo slides in; pauses on hover. */}
+                  <span className="h-1 flex-1 overflow-hidden rounded-full bg-champagne/40">
+                    <span
+                      key={`${promo.id}-${paused}`}
+                      className="promo-progress block h-full rounded-full bg-gradient-to-r from-champagne to-coral"
+                      style={{ animationDuration: `${ROTATE_MS}ms`, animationPlayState: paused ? "paused" : "running" }}
+                    />
+                  </span>
+                  <span className="min-w-[3.25rem] text-center font-medium tabular-nums">
+                    {current + 1} / {count}
+                  </span>
+                  <button type="button" onClick={() => go(1)} aria-label="Next promo" className="rounded-full p-1 transition hover:bg-blush hover:text-ink">
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

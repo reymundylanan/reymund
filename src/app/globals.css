@@ -193,13 +193,59 @@ body {
 }
 
 /* GlowSync side promo ad */
-.promo-ad-border {
-  background: linear-gradient(135deg, #8b5cf6, #ec4899, #3b82f6, #06b6d4, #f97316, #facc15);
+/* Shimmering gold border and buttons. */
+.promo-ad-border,
+.promo-btn {
+  background: linear-gradient(110deg, #a8843a, #d4af37, #f6e3a1, #d4af37, #a8843a);
+  background-size: 250% 100%;
+  animation: promo-shimmer 4s linear infinite;
+}
+
+.promo-btn:hover {
+  filter: brightness(1.06);
 }
 
 .promo-ad-glow {
-  box-shadow: 0 12px 36px -10px rgba(236, 72, 153, 0.45), 0 6px 18px -8px rgba(139, 92, 246, 0.4);
+  box-shadow: 0 14px 36px -12px rgba(168, 132, 58, 0.55), 0 6px 18px -8px rgba(212, 175, 55, 0.35);
 }
+
+@keyframes promo-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -150% 0; }
+}
+
+/* Gentle floating of the whole card. */
+@keyframes promo-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.promo-float { animation: promo-float 5s ease-in-out infinite; }
+
+/* Each promo slides in (from the right for next, the left for previous). */
+@keyframes promo-slide-next {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes promo-slide-prev {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.promo-slide-next { animation: promo-slide-next 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.promo-slide-prev { animation: promo-slide-prev 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* Slow zoom on the promo photo. */
+@keyframes promo-kenburns {
+  from { transform: scale(1); }
+  to { transform: scale(1.12); }
+}
+.promo-kenburns { animation: promo-kenburns 7s ease-out both; }
+
+/* Countdown to the next promo. */
+@keyframes promo-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+.promo-progress { width: 0%; animation-name: promo-progress; animation-timing-function: linear; animation-fill-mode: forwards; }
 
 @keyframes promo-ad-in-side {
   from { opacity: 0; transform: translateX(16px); }
@@ -222,7 +268,13 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .promo-ad-in {
+  .promo-ad-in,
+  .promo-ad-border,
+  .promo-btn,
+  .promo-float,
+  .promo-slide-next,
+  .promo-slide-prev,
+  .promo-kenburns {
     animation: none;
   }
 }
