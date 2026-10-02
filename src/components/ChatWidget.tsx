@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, FileText, HelpCircle, Send, Star, X, type LucideIcon } from "lucide-react";
 import { useAssistantChat } from "@/lib/hooks/useAssistantChat";
 import GlowMascot from "@/components/GlowMascot";
+import { CHAT_OVERLAY_EVENT } from "@/components/promos/PromoSideAd";
 
 const QUICK_REPLIES = ["Recommend a treatment", "Prices & promos", "Branch hours", "My bookings"];
 const TEASER_KEY = "glowy-teaser-dismissed";
@@ -62,6 +63,11 @@ export default function ChatWidget({ firstName = null }: { firstName?: string | 
     const t = setTimeout(() => setShown((n) => n + 1), shown === 0 ? 700 : 1100);
     return () => clearTimeout(t);
   }, [open, shown, lines.length]);
+
+  // Let the promo pop-up step aside while the greeting card or chat is open.
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(CHAT_OVERLAY_EVENT, { detail: open || teaser }));
+  }, [open, teaser]);
 
   useEffect(() => {
     const el = containerRef.current;

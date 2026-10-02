@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
@@ -31,12 +31,16 @@ function one<T>(v: Rel<T>): T | null {
 }
 
 const APPEAR_DELAY_MS = 2000;
+const ROTATE_MS = 6000;
+/** Fired by ChatWidget while its greeting card or chat window is open. */
+export const CHAT_OVERLAY_EVENT = "glowsync:chat-overlay";
 const HIDDEN_PREFIXES = ["/admin", "/frontdesk", "/auth"];
 
 /** Non-blocking promo ad for signed-in clients: a fixed card on the right
- * (desktop/tablet) or a compact banner at the bottom (mobile). One promo at
- * a time; closing it hides it for the rest of the session, and the next
- * promo appears on the next page the client opens. */
+ * (desktop/tablet) or a compact banner at the bottom (mobile). It rotates
+ * through every promo active today (best match first). Closing it hides it
+ * on this page and marks the promos already shown as seen; unseen ones
+ * appear on the next page the client opens. */
 export default function PromoSideAd() {
   const pathname = usePathname() ?? "/";
   const { user } = useCurrentUser();
@@ -49,6 +53,10 @@ export default function PromoSideAd() {
   );
   const [closedOnPath, setClosedOnPath] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [seen, setSeen] = useState<Set<string>>(() => new Set());
+  const [paused, setPaused] = useState(false);
+  const [chatOverlay, setChatOverlay] = useState(false);
 
   // After a close, the next promo waits for the next page. Once the client
   // navigates, forget which page it was closed on (render-time reset,
@@ -57,6 +65,7 @@ export default function PromoSideAd() {
   if (lastPath !== pathname) {
     setLastPath(pathname);
     setClosedOnPath(null);
+    setIndex(0);
   }
 
   const isClient = user?.role === "customer";
@@ -66,7 +75,8 @@ export default function PromoSideAd() {
     if (!isClient || !userId) return;
     let cancelled = false;
     const supabase = createClient();
-    const today = new Date().toISOString().slice(0, 10);
+    // Today in the spa's time zone (UTC would be a day behind before 8 AM).
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 
     Promise.all([
       supabase
@@ -131,13 +141,28 @@ export default function PromoSideAd() {
     return () => clearTimeout(timer);
   }, []);
 
-  const promo = useMemo(
-    () => (data ? (rankPromos(data.promos, data.history, dismissed)[0] ?? null) : null),
-    [data, dismissed]
-  );
+  // Stay out of the way while the GlowSync AI greeting card or chat is open.
+  useEffect(() => {
+    const onChat = (e: Event) => setChatOverlay(Boolean((e as CustomEvent<boolean>).detail));
+    window.addEventListener(CHAT_OVERLAY_EVENT, onChat);
+    return () => window.removeEventListener(CHAT_OVERLAY_EVENT, onChat);
+  }, []);
+
+  const promos = useMemo(() => (data ? rankPromos(data.promos, data.history, dismissed) : []), [data, dismissed]);
+  const count = promos.length;
+  const current = count ? index % count : 0;
+  const promo = promos[current] ?? null;
+
+  const showing = ready && !chatOverlay && count > 1 && !paused && closedOnPath !== pathname;
+  useEffect(() => {
+    if (!showing) return;
+    const t = setInterval(() => setIndex((i) => i + 1), ROTATE_MS);
+    return () => clearInterval(t);
+  }, [showing]);
 
   const hidden =
     !ready ||
+    chatOverlay ||
     !isClient ||
     !promo ||
     loginOpen ||
@@ -156,21 +181,53 @@ export default function PromoSideAd() {
   const chatVisible = !pathname.startsWith("/my-glow");
 
   function close() {
-    rememberDismissedPromo(promo!.id);
-    setDismissed((prev) => new Set(prev).add(promo!.id));
+    const shown = new Set(seen).add(promo!.id);
+    shown.forEach((id) => rememberDismissedPromo(id));
+    setDismissed((prev) => new Set([...prev, ...shown]));
+    setSeen(new Set());
     setClosedOnPath(pathname);
   }
 
+  function go(step: number) {
+    setSeen((prev) => new Set(prev).add(promo!.id));
+    setIndex((current + step + count) % count);
+  }
+
+  const nav =
+    count > 1 ? (
+      <div className="flex items-center justify-between gap-2 px-4 pb-3 text-xs text-ink/50">
+        <button type="button" onClick={() => go(-1)} aria-label="Previous promo" className="rounded-full p-1 hover:bg-blush hover:text-ink">
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <span className="flex items-center gap-1.5">
+          {promos.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => go(i - current)}
+              aria-label={`Promo ${i + 1} of ${count}`}
+              aria-current={i === current}
+              className={`h-1.5 rounded-full transition-all ${i === current ? "w-4 bg-coral" : "w-1.5 bg-ink/20 hover:bg-ink/40"}`}
+            />
+          ))}
+        </span>
+        <button type="button" onClick={() => go(1)} aria-label="Next promo" className="rounded-full p-1 hover:bg-blush hover:text-ink">
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
+    ) : null;
+
   return (
     <aside
-      key={promo.id}
-      aria-label="GlowSync promotion"
+      aria-label="GlowSync promotions"
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
       className={`promo-ad-in fixed z-40 bottom-[calc(env(safe-area-inset-bottom)_+_12px)] left-3 ${
         chatVisible ? "right-[84px]" : "right-3"
       } sm:left-auto sm:right-6 sm:bottom-24 sm:w-[260px] lg:bottom-auto lg:top-1/2 lg:-translate-y-[60%] lg:w-[280px] xl:w-[320px]`}
     >
       <div className="promo-ad-border promo-ad-glow rounded-2xl p-[2px] sm:rounded-3xl">
-        <div className="relative overflow-hidden rounded-[14px] bg-white sm:rounded-[22px]">
+        <div key={promo.id} className="glowy-msg relative overflow-hidden rounded-[14px] bg-white sm:rounded-[22px]">
           <button
             type="button"
             onClick={close}
@@ -203,6 +260,13 @@ export default function PromoSideAd() {
               Book Now
             </Link>
           </div>
+          {count > 1 && (
+            <div className="flex items-center justify-between px-3 pb-2 text-[11px] text-ink/50 sm:hidden">
+              <button type="button" onClick={() => go(-1)} aria-label="Previous promo" className="p-0.5"><ChevronLeft className="h-4 w-4" /></button>
+              <span>{current + 1} / {count}</span>
+              <button type="button" onClick={() => go(1)} aria-label="Next promo" className="p-0.5"><ChevronRight className="h-4 w-4" /></button>
+            </div>
+          )}
 
           {/* Tablet & desktop: card */}
           <div className="hidden sm:block">
@@ -216,8 +280,9 @@ export default function PromoSideAd() {
                 )}
               </span>
               <span className="block px-4 pt-4">
-                <span className="block text-[11px] font-semibold uppercase tracking-wide text-coral-dark">
-                  GlowSync Promo{promo.branchName && <> · {promo.branchName}</>}
+                <span className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide text-coral-dark">
+                  <span>GlowSync Promo{promo.branchName && <> · {promo.branchName}</>}</span>
+                  {count > 1 && <span className="shrink-0 text-ink/40">{current + 1} / {count}</span>}
                 </span>
                 <span className="mt-0.5 line-clamp-2 block font-semibold text-ink">{promo.title}</span>
                 {promo.description && <span className="mt-1 line-clamp-2 block text-sm text-ink/60">{promo.description}</span>}
@@ -237,6 +302,7 @@ export default function PromoSideAd() {
                 View Promo
               </Link>
             </div>
+            {nav}
           </div>
         </div>
       </div>
