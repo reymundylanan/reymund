@@ -8,8 +8,11 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function StaffLoginForm({
   onSuccess,
+  canProceed = () => true,
 }: {
   onSuccess?: () => void;
+  /** Gate on the Terms checkbox when shown in LoginModal. */
+  canProceed?: () => boolean;
 }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -20,6 +23,7 @@ export default function StaffLoginForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canProceed()) return;
     setError(null);
     setLoading(true);
 
