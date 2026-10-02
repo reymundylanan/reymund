@@ -11,11 +11,12 @@ const PLACEHOLDER_SERVICE = { name: "GlowSync Booking", duration: "", price: 0 }
 
 // Handles deep links from notifications:
 // - ?intent=booking      → open the booking flow (after login if needed)
+// - ?intent=booking&promo=<id> → book that promo package
 // - ?login=1&next=/path  → open Login if signed out, then go to /path
 export default function IntentHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { open: openBooking } = useBooking();
+  const { open: openBooking, openPromo } = useBooking();
   const { open: openLogin } = useLoginModal();
 
   useEffect(() => {
@@ -40,10 +41,12 @@ export default function IntentHandler() {
         return;
       }
 
-      await openBooking(PLACEHOLDER_SERVICE);
+      const promoId = searchParams.get("promo");
+      if (!promoId || (await openPromo(promoId)) !== "opened") await openBooking(PLACEHOLDER_SERVICE);
       if (cancelled) return;
       const params = new URLSearchParams(searchParams.toString());
       params.delete("intent");
+      params.delete("promo");
       const rest = params.toString();
       router.replace(rest ? `?${rest}` : window.location.pathname);
     }

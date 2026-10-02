@@ -10,6 +10,7 @@ import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useBooking } from "@/components/booking/BookingContext";
 import { promoImage } from "@/lib/promoImage";
+import BookPromoButton from "@/components/promos/BookPromoButton";
 import {
   rankPromos,
   readDismissedPromos,
@@ -237,9 +238,12 @@ export default function PromoSideAd() {
                   {count > 1 && <span className="block text-[11px] text-ink/45">{current + 1} of {count} promos</span>}
                 </span>
               </Link>
-              <Link href={bookHref} className="promo-btn shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-white shadow-sm">
-                Book Now
-              </Link>
+              <BookPromoButton
+                promoId={promo.id}
+                fallbackHref={bookHref}
+                label="Book"
+                className="promo-btn inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold text-white shadow-sm [&>svg]:h-3.5 [&>svg]:w-3.5"
+              />
             </div>
 
             {/* Tablet & desktop: card */}
@@ -270,9 +274,11 @@ export default function PromoSideAd() {
                   </span>
                 </Link>
                 <div className="flex gap-2 px-4 pb-3 pt-3">
-                  <Link href={bookHref} className="promo-btn flex-1 rounded-full py-2 text-center text-sm font-semibold text-white shadow-sm">
-                    Book Now
-                  </Link>
+                  <BookPromoButton
+                    promoId={promo.id}
+                    fallbackHref={bookHref}
+                    className="promo-btn inline-flex flex-1 items-center justify-center gap-1.5 rounded-full py-2 text-sm font-semibold text-white shadow-sm"
+                  />
                   <Link
                     href={href}
                     className="flex-1 rounded-full border border-champagne py-2 text-center text-sm font-semibold text-ink/70 transition hover:border-coral hover:text-ink"

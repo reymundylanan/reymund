@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Hourglass, MapPin, Phone, Star, Upload, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clock, Gift, Hourglass, MapPin, Phone, Star, Upload, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -22,7 +22,19 @@ import {
   type BookedSlot,
 } from "@/lib/supabase/queries/availability";
 import { toAppointmentServiceRows } from "@/lib/bookedServices";
-import { logQueryError } from "@/lib/supabase/logQueryError";
+import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
+import {
+  formatMinutes,
+  packageDepartments,
+  packageMinutes,
+  promoLengths,
+  promoNotes,
+  promoOpenOn,
+  promoPriceFor,
+  regularPrice,
+  type PromoLength,
+  type PromoPackage,
+} from "@/lib/promoPackage";
 import { formatGcashNumber, pesoAmount, receiptFileError } from "@/lib/payNow";
 import {
   getGcashSettings,
@@ -87,6 +99,7 @@ function getPackageLabel(category: string): string {
 }
 
 type Step =
+  | "promo"
   | "type"
   | "branch"
   | "services"
@@ -106,6 +119,17 @@ const TABS: { id: Step; label: string }[] = [
   { id: "time", label: "Time" },
   { id: "confirm", label: "Confirm" },
 ];
+
+// Promo package: the services come with the promo, so there's no Services step.
+const PROMO_TABS: { id: Step; label: string }[] = [
+  { id: "promo", label: "Promo" },
+  { id: "branch", label: "Branches" },
+  { id: "professional", label: "Professional" },
+  { id: "time", label: "Time" },
+  { id: "confirm", label: "Confirm" },
+];
+
+const LENGTH_LABEL: Record<PromoLength, string> = { short: "Short", medium: "Medium", long: "Long" };
 
 
 function startOfMonth(date: Date) {
@@ -219,12 +243,22 @@ function isSlotAfterCutoff(time: string) {
 export default function BookingModal({
   service,
   onClose,
+  promoOptions,
 }: {
   service: BookableService;
   onClose: () => void;
+  /** Booking a promo package: the promo at each branch that offers it (first = the one clicked). */
+  promoOptions?: PromoPackage[];
 }) {
-  const [step, setStep] = useState<Step>("type");
-  const [branchId, setBranchId] = useState<string | null>(null);
+  const isPromo = !!promoOptions?.length;
+  const [step, setStep] = useState<Step>(isPromo ? "promo" : "type");
+  // Only one branch offers it: pick that branch straight away.
+  const [branchId, setBranchId] = useState<string | null>(() =>
+    promoOptions?.length === 1 ? branchContacts.find((b) => b.name === promoOptions[0].branchName)?.id ?? null : null
+  );
+  const [promoId, setPromoId] = useState<string | null>(promoOptions?.[0]?.id ?? null);
+  const [promoLength, setPromoLength] = useState<PromoLength | null>(null);
+  const promo = isPromo ? promoOptions!.find((p) => p.id === promoId) ?? promoOptions![0] : null;
   const [appointmentType, setAppointmentType] = useState<AppointmentType>("solo");
   const [, setPayLater] = useState(false);
   const [categoryId, setCategoryId] = useState("");
@@ -537,14 +571,30 @@ export default function BookingModal({
       ? "any professional"
       : staffMembers.find((p) => p.id === professionalId)?.full_name ?? "any professional";
 
-  const subtotal = selectedServices.reduce((sum, s) => sum + s.price, 0);
-  const total = subtotal;
+  // A promo's included services (or the promo itself when none are listed yet).
+  const promoItems: BranchService[] = promo
+    ? promo.services.length
+      ? promo.services.map((s) => ({ id: s.id, name: s.name, category: s.category, department: s.department, duration: s.duration ?? "60 mins", price: s.price }))
+      : [{ name: promo.title, category: promo.category ?? "Promo", department: promo.department ?? "", duration: "60 mins", price: promo.price ?? 0 }]
+    : [];
+  const lineItems = promo ? promoItems : selectedServices;
+  const promoSizes = promo ? promoLengths(promo) : [];
+  const promoPrice = promo ? promoPriceFor(promo, promoSizes.length ? promoLength : null) : null;
+  const promoRegular = promo ? regularPrice(promo) : null;
+  const promoDepts = promo ? packageDepartments(promo) : [];
+  // Several departments: no single professional can do the whole package.
+  const promoNeedsTeam = promoDepts.length > 1;
+  const subtotal = lineItems.reduce((sum, s) => sum + s.price, 0);
+  // A promo is charged at the package price, not the services added up.
+  const total = promo ? promoPrice ?? 0 : subtotal;
   const payNowDisabled = branchHours ? !isOpenNow(branchHours, new Date()) : false;
   // The selected branch's GCash setup (060); Pay Now is off until Admin completes it.
   const branchGcash = gcash && gcashBranch === branchUuid ? gcash : null;
   const payNowOff = !!branchGcash && !branchGcash.payNowEnabled;
-  const totalDuration = selectedServices.reduce((sum, s) => sum + parseDurationMinutes(s.duration), 0);
-  const serviceNames = selectedServices.map((s) => s.name).join(", ");
+  const totalDuration = promo ? packageMinutes(promo) : selectedServices.reduce((sum, s) => sum + parseDurationMinutes(s.duration), 0);
+  const serviceNames = promo
+    ? `${promo.title}${promoSizes.length && promoLength ? ` (${LENGTH_LABEL[promoLength]})` : ""}`
+    : selectedServices.map((s) => s.name).join(", ");
 
   function close() {
     onClose();
@@ -723,9 +773,7 @@ export default function BookingModal({
         .toString()
         .padStart(2, "0")}-${selectedDate.getDate().toString().padStart(2, "0")}`;
 
-      const { data: appt, error } = await supabase
-        .from("appointments")
-        .insert({
+      const row: Record<string, unknown> = {
           booking_code: bookingCode,
           branch_id: branchRow.id,
           client_id: authData.user.id,
@@ -736,10 +784,19 @@ export default function BookingModal({
           duration_minutes: totalDuration,
           // Always Pending: Pay Now bookings wait for the Front Desk to verify the GCash payment.
           status: "pending",
-          notes: `${serviceNames} with ${professionalLabel} — ₱${total.toLocaleString()}.00`,
-        })
-        .select("id")
-        .single();
+          notes: promo
+            ? promoNotes(serviceNames, professionalLabel, total)
+            : `${serviceNames} with ${professionalLabel} — ₱${total.toLocaleString()}.00`,
+      };
+      const insertAppt = (values: Record<string, unknown>) => supabase.from("appointments").insert(values).select("id").single();
+      // A promo booking remembers its promo and the package price (067).
+      let { data: appt, error } = await insertAppt(promo ? { ...row, promotion_id: promo.id, promo_price: total } : row);
+      if (promo && error && isNotMigratedError(error)) ({ data: appt, error } = await insertAppt(row));
+      if (error?.message?.startsWith("PROMO_INVALID")) {
+        setSaveError(error.message.replace(/^PROMO_INVALID:\s*/, "Sorry — ") + ".");
+        setSaving(false);
+        return null;
+      }
 
       if (error || !appt) {
         setSaveError(error?.message ?? "Failed to save booking.");
@@ -749,7 +806,7 @@ export default function BookingModal({
 
       const { error: servicesError } = await supabase
         .from("appointment_services")
-        .insert(toAppointmentServiceRows(appt.id, selectedServices));
+        .insert(toAppointmentServiceRows(appt.id, lineItems));
       // The booking itself is already saved; a missing list only means
       // reviews fall back to the notes text. Never fail the booking over it.
       if (servicesError) logQueryError("BookingModal appointment_services", servicesError);
@@ -772,7 +829,7 @@ export default function BookingModal({
   }
 
   function goToTab(tab: Step) {
-    const order: Step[] = ["branch", "services", "professional", "time", "confirm"];
+    const order: Step[] = promo ? PROMO_TABS.map((t) => t.id) : ["branch", "services", "professional", "time", "confirm"];
     if (order.indexOf(tab) <= order.indexOf(step)) setStep(tab);
   }
 
@@ -798,7 +855,7 @@ export default function BookingModal({
           step !== "checkout" &&
           step !== "success" && (
           <div className="scrollbar-hidden flex overflow-x-auto border-b border-ink/10 px-2 sm:px-6">
-            {TABS.filter((tab) => !(appointmentType === "group" && tab.id === "professional")).map((tab) => (
+            {(promo ? PROMO_TABS : TABS).filter((tab) => !(appointmentType === "group" && tab.id === "professional")).map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => goToTab(tab.id)}
@@ -848,24 +905,113 @@ export default function BookingModal({
             </div>
           )}
 
+          {step === "promo" && promo && (
+            <div className="space-y-4">
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-champagne/50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-coral-dark">
+                  <Gift className="h-3.5 w-3.5" /> Promo Package
+                </span>
+                <p className="mt-3 text-sm text-ink/50">You&apos;re booking</p>
+                <h3 className="text-xl font-semibold leading-snug text-ink">{promo.title}</h3>
+                {promo.description && <p className="mt-1 text-sm text-ink/60">{promo.description}</p>}
+              </div>
+
+              <div className="rounded-2xl border border-champagne bg-cream/60 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">✨ Included Services</p>
+                {promo.services.length ? (
+                  <ul className="mt-2 space-y-1.5">
+                    {promo.services.map((s) => (
+                      <li key={s.id} className="flex items-center justify-between gap-3 text-sm">
+                        <span className="flex items-center gap-2 text-ink">
+                          <Check className="h-4 w-4 shrink-0 text-coral-dark" /> {s.name}
+                        </span>
+                        <span className="shrink-0 text-xs text-ink/50">{s.duration ?? "60 mins"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 flex items-center gap-2 text-sm text-ink">
+                    <Check className="h-4 w-4 text-coral-dark" /> {promo.title}
+                  </p>
+                )}
+                <p className="mt-3 flex items-center gap-1.5 border-t border-champagne/70 pt-3 text-sm text-ink/70">
+                  <Clock className="h-4 w-4 text-coral-dark" /> Estimated duration: <span className="font-semibold text-ink">{formatMinutes(totalDuration)}</span>
+                </p>
+              </div>
+
+              {promoSizes.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold text-ink">Hair length</p>
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    {promoSizes.map((s) => (
+                      <button
+                        key={s.length}
+                        type="button"
+                        aria-pressed={promoLength === s.length}
+                        onClick={() => setPromoLength(s.length)}
+                        className={`rounded-xl border px-3 py-2 text-center text-sm transition ${
+                          promoLength === s.length ? "border-coral bg-blush font-semibold text-coral-dark" : "border-ink/15 text-ink/70 hover:border-coral"
+                        }`}
+                      >
+                        {LENGTH_LABEL[s.length]}
+                        <span className="block text-xs">₱{s.price.toLocaleString()}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl bg-white p-4 ring-1 ring-champagne">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">💰 Promo Price</p>
+                  <p className="text-2xl font-bold text-coral-dark">
+                    {promoPrice != null && (!promoSizes.length || promoLength) ? `₱${promoPrice.toLocaleString()}.00` : promoSizes.length ? "Pick a hair length" : "—"}
+                  </p>
+                  {promoRegular != null && promoPrice != null && promoRegular > promoPrice && (
+                    <p className="text-sm text-ink/50">
+                      Regular price <span className="line-through">₱{promoRegular.toLocaleString()}.00</span>
+                    </p>
+                  )}
+                </div>
+                {promoRegular != null && promoPrice != null && promoRegular > promoPrice && (
+                  <span className="rounded-full bg-[#e8f5e9] px-3 py-1 text-sm font-semibold text-[#2e7d32]">
+                    Save ₱{(promoRegular - promoPrice).toLocaleString()}
+                  </span>
+                )}
+              </div>
+              {promo.validUntil && (
+                <p className="text-xs text-ink/50">
+                  Promo ends {new Date(`${promo.validUntil}T00:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+                </p>
+              )}
+            </div>
+          )}
+
           {step === "branch" && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-ink">Choose a branch</p>
                 <button
-                  onClick={() => setStep("type")}
+                  onClick={() => setStep(promo ? "promo" : "type")}
                   className="text-base font-medium text-ink/50 hover:text-ink"
                 >
                   ← Back
                 </button>
               </div>
-              {(appointmentType === "group"
-                ? branchContacts.filter((b) => b.id === "one-cecilia-center")
-                : branchContacts
+              {(promo
+                ? branchContacts.filter((b) => promoOptions!.some((p) => p.branchName === b.name))
+                : appointmentType === "group"
+                  ? branchContacts.filter((b) => b.id === "one-cecilia-center")
+                  : branchContacts
               ).map((b) => (
                 <button
                   key={b.id}
-                  onClick={() => setBranchId(b.id)}
+                  onClick={() => {
+                    setBranchId(b.id);
+                    // The same promo at this branch (its own services and staff).
+                    const atBranch = promoOptions?.find((p) => p.branchName === b.name);
+                    if (atBranch) setPromoId(atBranch.id);
+                  }}
                   className={`flex w-full items-start justify-between rounded-xl border p-4 text-left ${
                     branchId === b.id ? "border-coral bg-blush" : "border-ink/10"
                   }`}
@@ -1124,7 +1270,7 @@ export default function BookingModal({
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-ink">Choose a professional</p>
                 <button
-                  onClick={() => setStep("services")}
+                  onClick={() => setStep(promo ? "branch" : "services")}
                   className="text-base font-medium text-ink/50 hover:text-ink"
                 >
                   ← Back
@@ -1159,8 +1305,14 @@ export default function BookingModal({
                 <p className="py-6 text-center text-sm text-ink/40">No staff assigned to this branch yet.</p>
               )}
 
-              {!staffLoading && (() => {
-                const selectedDepts = new Set(selectedServices.map((s) => s.department).filter(Boolean));
+              {promo && promoNeedsTeam && (
+                <p className="rounded-xl bg-cream px-4 py-3 text-sm text-ink/70">
+                  This package includes {promoDepts.join(" and ")} services, so our front desk will assign the right specialist for each part.
+                </p>
+              )}
+
+              {!staffLoading && !(promo && promoNeedsTeam) && (() => {
+                const selectedDepts = new Set(lineItems.map((s) => s.department).filter(Boolean));
                 const filteredStaff = selectedDepts.size > 0
                   ? staffMembers.filter((s) => selectedDepts.has(s.department))
                   : staffMembers;
@@ -1281,7 +1433,9 @@ export default function BookingModal({
                     const isStaffOff = cellDate ? isFullDayOff(cellDate, relevantOffDays) : false;
                     const isOutsideTransfer =
                       isTransferGuest && cellDate ? !transferAllowedDates.has(toDateKey(cellDate)) : false;
-                    const isUnavailable = isStaffOff || isOutsideTransfer;
+                    // Promo bookings only within the promo's start / end dates.
+                    const isOutsidePromo = !!promo && !!cellDate && !promoOpenOn(promo, toDateKey(cellDate));
+                    const isUnavailable = isStaffOff || isOutsideTransfer || isOutsidePromo;
                     const isDisabled = !day || isPast || isUnavailable;
                     return (
                       <button
@@ -1314,7 +1468,14 @@ export default function BookingModal({
                     : staffOffDays;
                   const offPeriod = selectedDate ? periodOffForDate(selectedDate, relevantOffDays) : null;
                   const bookedOnDate = selectedDate ? professionalBookings[toDateKey(selectedDate)] : undefined;
+                  // A promo package must finish by closing time (the last slot of the day).
+                  const closeAt = allSlots.length ? to24Hour(allSlots[allSlots.length - 1]) : null;
+                  const closeMinutes = closeAt ? Number(closeAt.slice(0, 2)) * 60 + Number(closeAt.slice(3, 5)) : null;
                   const availableSlots = allSlots.filter((time) => {
+                    if (promo && closeMinutes != null) {
+                      const t = to24Hour(time);
+                      if (Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) + totalDuration > closeMinutes) return false;
+                    }
                     if (offPeriod) {
                       const afterCutoff = isSlotAfterCutoff(time);
                       if (offPeriod === "morning" ? !afterCutoff : afterCutoff) return false;
@@ -1384,6 +1545,32 @@ export default function BookingModal({
                   ← Back
                 </button>
               </div>
+              {promo ? (
+                <dl className="divide-y divide-ink/5 rounded-2xl border border-champagne text-sm">
+                  <div className="flex items-center gap-2 bg-cream/60 px-4 py-2.5 font-semibold text-coral-dark">
+                    <Gift className="h-4 w-4" /> Promo Package
+                  </div>
+                  {[
+                    ["Promo", serviceNames],
+                    ["Included Services", promo.services.length ? promo.services.map((s) => s.name).join(", ") : promo.title],
+                    ["Branch", branch.name],
+                    ["Professional", promoNeedsTeam ? "Assigned by the front desk" : professionalLabel],
+                    ["Date", selectedDate ? formatDate(selectedDate) : "—"],
+                    ["Time", selectedTime ? `${selectedTime} – ${endTime(selectedTime, `${totalDuration} mins`)}` : "—"],
+                    ["Estimated Duration", formatMinutes(totalDuration)],
+                    ...(promoRegular != null && promoRegular > total ? [["Regular Price", `₱${promoRegular.toLocaleString()}.00`], ["You Save", `₱${(promoRegular - total).toLocaleString()}.00`]] : []),
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-3 px-4 py-2.5">
+                      <dt className="shrink-0 text-ink/50">{k}</dt>
+                      <dd className={`text-right font-medium ${k === "You Save" ? "text-[#2e7d32]" : "text-ink"}`}>{v}</dd>
+                    </div>
+                  ))}
+                  <div className="flex justify-between gap-3 px-4 py-3">
+                    <dt className="shrink-0 font-semibold text-ink">Promo Price</dt>
+                    <dd className="text-right text-lg font-bold text-coral-dark">₱{total.toLocaleString()}.00</dd>
+                  </div>
+                </dl>
+              ) : (
               <div className="rounded-xl border border-ink/10 p-4">
                 <p className="text-base font-semibold text-ink">{serviceNames} with {professionalLabel}</p>
                 <p className="mt-1 text-base text-ink/60">
@@ -1394,6 +1581,7 @@ export default function BookingModal({
                 </p>
                 <p className="mt-2 text-lg font-semibold text-gold">₱{subtotal.toLocaleString()}.00</p>
               </div>
+              )}
               {appointmentType === "group" && (
                 <p className="text-sm text-ink/50">
                   Spa Party Packages require full payment to confirm the slot.
@@ -1745,10 +1933,30 @@ export default function BookingModal({
 
           {step === "type" && null}
 
+          {step === "promo" && promo && (
+            <div className="ml-auto flex items-center gap-3">
+              <span className="text-sm font-semibold text-coral-dark">
+                {promoPrice != null && (!promoSizes.length || promoLength) ? `₱${promoPrice.toLocaleString()}.00` : ""}
+              </span>
+              <button
+                disabled={promoSizes.length > 0 && !promoLength}
+                onClick={() => setStep("branch")}
+                className="rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                Continue
+              </button>
+            </div>
+          )}
+
           {step === "branch" && (
             <button
               disabled={!branchId}
-              onClick={() => setStep("services")}
+              onClick={() => {
+                if (!promo) return setStep("services");
+                // The services come with the promo — straight to the professional.
+                if (promoNeedsTeam) setProfessionalId("any");
+                setStep("professional");
+              }}
               className="ml-auto rounded-full bg-coral px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-40"
             >
               Continue

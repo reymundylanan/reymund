@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getServiceImage } from "@/lib/serviceImage";
-import { Pencil, Plus, Tag, Trash2, X } from "lucide-react";
+import { Gift, Pencil, Plus, Search, Tag, Trash2, X } from "lucide-react";
+import { durationMinutes, formatMinutes } from "@/lib/promoPackage";
+import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
+
+/** An existing branch service a promo package can include (067). */
+type IncludableService = { id: string; name: string; category: string; duration: string | null; price: number };
 
 type Promotion = {
   id: string;
@@ -145,6 +150,8 @@ const emptyForm = {
   valid_until: "",
   is_active: true,
   extra_branch_ids: [] as string[],
+  // Names of the existing services this promo includes (matched by name at each branch).
+  included: [] as string[],
   serviceType: "" as "" | "MesoLipo",
   mesolipoRFPrice: "",
   mesolipoExislimPrice: "",
@@ -189,6 +196,8 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
   const [confirmDeleteIsGroup, setConfirmDeleteIsGroup] = useState(false);
   const [filterCategory, setFilterCategory] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [branchServices, setBranchServices] = useState<IncludableService[]>([]);
+  const [includeSearch, setIncludeSearch] = useState("");
 
   async function load() {
     setLoading(true);
@@ -207,6 +216,23 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
     setLoading(false);
   }
 
+  // This branch's active services, for a promo's "Included Services".
+  useEffect(() => {
+    if (!branchId) return;
+    supabase
+      .from("branch_services")
+      .select("id, name, category, duration, price")
+      .eq("branch_id", branchId)
+      .eq("status", "Active")
+      .order("category")
+      .order("name")
+      .then(({ data, error }) => {
+        if (error) logQueryError("promo includable services", error);
+        setBranchServices(((data ?? []) as IncludableService[]).map((s) => ({ ...s, price: Number(s.price) || 0 })));
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchId]);
+
   useEffect(() => {
     if (!branchId) return;
     load();
@@ -221,8 +247,39 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       });
   }, [branchId]);
 
+  /** Saves which existing services a promo includes, on this promo at every
+   * branch it was saved to (each branch's own service with the same name). */
+  async function syncIncluded(title: string, branchIds: string[]) {
+    const { data: promos } = await supabase.from("branch_promotions").select("id, branch_id").eq("title", title).in("branch_id", branchIds);
+    const rows = (promos ?? []) as { id: string; branch_id: string }[];
+    if (rows.length === 0) return;
+    const del = await supabase.from("promotion_services").delete().in("promotion_id", rows.map((r) => r.id));
+    if (del.error) {
+      if (!isNotMigratedError(del.error)) logQueryError("promo included services (clear)", del.error);
+      return;
+    }
+    if (form.included.length === 0) return;
+    const { data: svc } = await supabase.from("branch_services").select("id, name, branch_id").in("branch_id", branchIds).in("name", form.included);
+    const byBranchName = new Map(((svc ?? []) as { id: string; name: string; branch_id: string }[]).map((s) => [`${s.branch_id}|${s.name}`, s.id]));
+    const inserts = rows.flatMap((p) =>
+      form.included.flatMap((name, position) => {
+        const serviceId = byBranchName.get(`${p.branch_id}|${name}`);
+        return serviceId ? [{ promotion_id: p.id, service_id: serviceId, position }] : [];
+      })
+    );
+    if (inserts.length) {
+      const { error } = await supabase.from("promotion_services").insert(inserts);
+      if (error) logQueryError("promo included services (save)", error);
+    }
+  }
+
+  function toggleIncluded(name: string) {
+    setForm((f) => ({ ...f, included: f.included.includes(name) ? f.included.filter((n) => n !== name) : [...f.included, name] }));
+  }
+
   function openAdd() {
     setEditing(null);
+    setIncludeSearch("");
     setForm(emptyForm);
     setSaveError(null);
     setModalOpen(true);
@@ -261,12 +318,31 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       valid_until: p.valid_until ?? "",
       is_active: p.is_active,
       extra_branch_ids: [],
+      included: [],
       serviceType: "" as "" | "MesoLipo",
       mesolipoRFPrice: "",
       mesolipoExislimPrice: "",
     });
+    setIncludeSearch("");
     setSaveError(null);
     setModalOpen(true);
+    // Fill in the services this promo already includes.
+    supabase
+      .from("promotion_services")
+      .select("position, service:branch_services(name)")
+      .eq("promotion_id", p.id)
+      .order("position")
+      .then(({ data, error }) => {
+        if (error) {
+          if (!isNotMigratedError(error)) logQueryError("promo included services (load)", error);
+          return;
+        }
+        type Row = { service: { name: string } | { name: string }[] | null };
+        const names = ((data ?? []) as unknown as Row[])
+          .map((r) => (Array.isArray(r.service) ? r.service[0]?.name : r.service?.name))
+          .filter((n): n is string => !!n);
+        setForm((f) => ({ ...f, included: names }));
+      });
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -391,6 +467,8 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       const { error } = await supabase.from("branch_promotions").insert(inserts);
       if (error) { setSaveError(error.message); setSaving(false); return; }
     }
+
+    await syncIncluded(payload.title, [branchId, ...form.extra_branch_ids]);
 
     setSaving(false);
     setModalOpen(false);
@@ -1203,6 +1281,99 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
                   </div>
                 )
               )}
+
+              {/* Included Services — makes the promo a bookable package */}
+              {form.serviceType !== "MesoLipo" && (() => {
+                const chosen = form.included
+                  .map((n) => branchServices.find((s) => s.name === n))
+                  .filter((s): s is IncludableService => !!s);
+                const regular = chosen.reduce((sum, s) => sum + s.price, 0);
+                const minutes = chosen.reduce((sum, s) => sum + durationMinutes(s.duration), 0);
+                const promoPrice = Number(form.price.replace(/,/g, "")) || 0;
+                const q = includeSearch.trim().toLowerCase();
+                const list = branchServices.filter((s) => !q || s.name.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
+                const categories = Array.from(new Set(list.map((s) => s.category)));
+                return (
+                  <div className="space-y-3 rounded-xl border border-champagne bg-cream/50 p-4">
+                    <div>
+                      <label className="flex items-center gap-1.5 text-xs font-medium uppercase text-ink/50">
+                        <Gift className="h-3.5 w-3.5" /> Included Services <span className="normal-case text-ink/30">(for Book Promo)</span>
+                      </label>
+                      <p className="mt-0.5 text-[11px] text-ink/45">
+                        Clients booking this promo get these services automatically. Uses your existing services — nothing is duplicated.
+                      </p>
+                    </div>
+
+                    {chosen.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {chosen.map((s) => (
+                          <span key={s.id} className="inline-flex items-center gap-1 rounded-full bg-coral px-2.5 py-1 text-xs font-medium text-white">
+                            {s.name}
+                            <button type="button" onClick={() => toggleIncluded(s.name)} aria-label={`Remove ${s.name}`} className="rounded-full hover:bg-white/20">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 rounded-lg border border-ink/15 bg-white px-3 py-2">
+                      <Search className="h-4 w-4 text-ink/40" />
+                      <input
+                        value={includeSearch}
+                        onChange={(e) => setIncludeSearch(e.target.value)}
+                        placeholder="Search services…"
+                        className="w-full text-sm outline-none"
+                      />
+                    </div>
+                    <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-ink/10 bg-white p-2">
+                      {categories.length === 0 && <p className="p-2 text-xs text-ink/40">No services found.</p>}
+                      {categories.map((cat) => (
+                        <div key={cat}>
+                          <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wide text-ink/40">{cat}</p>
+                          {list.filter((s) => s.category === cat).map((s) => (
+                            <label key={s.id} className="flex cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-sm hover:bg-blush/50">
+                              <input
+                                type="checkbox"
+                                checked={form.included.includes(s.name)}
+                                onChange={() => toggleIncluded(s.name)}
+                                className="h-4 w-4 accent-coral"
+                              />
+                              <span className="flex-1 text-ink">{s.name}</span>
+                              <span className="text-xs text-ink/45">
+                                {s.duration ?? "—"}
+                                {s.price > 0 && <> · ₱{s.price.toLocaleString()}</>}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+
+                    {chosen.length > 0 && (
+                      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div className="rounded-lg bg-white p-2">
+                          <p className="text-ink/45">Regular Price</p>
+                          <p className="font-semibold text-ink">₱{regular.toLocaleString()}</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-2">
+                          <p className="text-ink/45">Est. Duration</p>
+                          <p className="font-semibold text-ink">{formatMinutes(minutes)}</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-2">
+                          <p className="text-ink/45">Client Saves</p>
+                          <p className={`font-semibold ${promoPrice && regular > promoPrice ? "text-[#2e7d32]" : "text-ink/40"}`}>
+                            {promoPrice && regular > promoPrice ? `₱${(regular - promoPrice).toLocaleString()}` : "—"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    {form.extra_branch_ids.length > 0 && chosen.length > 0 && (
+                      <p className="text-[11px] text-ink/45">Other branches get their own service with the same name, where they have one.</p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Promo Availability */}
               <div className="rounded-xl border border-ink/10 bg-ink/[0.02] p-4 space-y-3">
