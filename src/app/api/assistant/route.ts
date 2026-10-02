@@ -4,8 +4,8 @@ import { branchContacts } from "@/lib/data";
 import { getUpcomingAppointment, getVisitedBranches } from "@/lib/supabase/queries/myGlow";
 import { getTierProgress } from "@/lib/myGlowTiers";
 import { logQueryError } from "@/lib/supabase/logQueryError";
-
-const GEMINI_MODEL = "gemini-2.5-flash-lite";
+import { GeminiError, geminiGenerate } from "@/lib/ai/gemini";
+import { fallbackReply, priceText, type HairPrices } from "@/lib/assistantFallback";
 
 type LiveService = {
   id: string;
@@ -17,6 +17,7 @@ type LiveService = {
   description: string | null;
   branchId: string;
   branchName: string;
+  hairPrices: HairPrices | null;
 };
 
 type Rel<T> = T | T[] | null;
@@ -32,7 +33,7 @@ function one<T>(v: Rel<T>): T | null {
 async function loadLiveServices(supabase: Awaited<ReturnType<typeof createClient>>): Promise<LiveService[]> {
   const { data, error } = await supabase
     .from("branch_services")
-    .select("id, name, category, department, duration, price, description, branch_id, status, branch:branches(name)")
+    .select("id, name, category, department, duration, price, description, branch_id, status, hair_options, branch:branches(name)")
     .eq("status", "Active")
     .order("category")
     .order("name");
@@ -51,7 +52,13 @@ async function loadLiveServices(supabase: Awaited<ReturnType<typeof createClient
     price: number;
     description: string | null;
     branch_id: string;
+    hair_options: { prices?: Partial<Record<keyof HairPrices, string | number>> } | null;
     branch: Rel<{ name: string }>;
+  };
+
+  const num = (v: string | number | undefined) => {
+    const n = Number(String(v ?? "").replace(/[₱,\s]/g, ""));
+    return Number.isFinite(n) && n > 0 ? n : 0;
   };
 
   return ((data ?? []) as unknown as Row[]).map((row) => ({
@@ -64,7 +71,17 @@ async function loadLiveServices(supabase: Awaited<ReturnType<typeof createClient
     description: row.description,
     branchId: row.branch_id,
     branchName: one(row.branch)?.name ?? "Blush Spa",
+    // Hair services are priced by length (Short / Medium / Long).
+    hairPrices: row.hair_options?.prices
+      ? { short: num(row.hair_options.prices.short), medium: num(row.hair_options.prices.medium), long: num(row.hair_options.prices.long) }
+      : null,
   }));
+}
+
+/** Hair: the lowest length price, so a card never shows ₱0. */
+function lowestPrice(s: LiveService) {
+  const sizes = s.hairPrices ? Object.values(s.hairPrices).filter((v) => v > 0) : [];
+  return sizes.length ? Math.min(...sizes) : s.price;
 }
 
 function buildSystemPrompt(userContext: string, services: LiveService[], preferredBranchName: string | null) {
@@ -94,7 +111,7 @@ function buildSystemPrompt(userContext: string, services: LiveService[], preferr
             catServices
               .map(
                 (s) =>
-                  `    - [id:${s.id}] ${s.name} (${s.duration ?? "duration varies"}) — ₱${s.price.toLocaleString()}${
+                  `    - [id:${s.id}] ${s.name} (${s.duration ?? "duration varies"}) — ${priceText(s)}${
                     s.description ? ` — ${s.description}` : ""
                   }`
               )
@@ -107,7 +124,8 @@ function buildSystemPrompt(userContext: string, services: LiveService[], preferr
 
   return `You are the GlowSync booking assistant for Blush Spa & Aesthetics, a wellness spa in Pagadian City, Philippines.
 Help customers pick services, compare branches, and understand pricing, duration, and the booking flow.
-Be brief and friendly. Only ever mention services, prices, durations, and branches that appear in the live
+Be brief and friendly. Hair services are priced by hair length (Short / Medium / Long) — quote all three when asked.
+Only ever mention services, prices, durations, and branches that appear in the live
 catalog below — it is the complete, current, active list; never invent or assume anything beyond it. If asked
 about a service that isn't listed, say it's not currently offered rather than guessing.
 Never output a link, URL, or web address of any kind, including placeholder or example ones — this app has no
@@ -160,11 +178,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No messages provided." }, { status: 400 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "Assistant is not configured." }, { status: 500 });
-  }
-
   const [upcoming, visitedBranches, services] = await Promise.all([
     getUpcomingAppointment(supabase, auth.user.id),
     getVisitedBranches(supabase, auth.user.id),
@@ -195,43 +208,47 @@ ${
     parts: [{ text: m.content }],
   }));
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: buildSystemPrompt(userContext, services, preferredBranchName) }] },
-        contents,
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "object",
-            properties: {
-              reply: { type: "string" },
-              recommendedServiceIds: { type: "array", items: { type: "string" } },
-            },
-            required: ["reply", "recommendedServiceIds"],
+  let rawText: string | null = null;
+  let aiFailed = false;
+  try {
+    rawText = await geminiGenerate({
+      system_instruction: { parts: [{ text: buildSystemPrompt(userContext, services, preferredBranchName) }] },
+      contents,
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            reply: { type: "string" },
+            recommendedServiceIds: { type: "array", items: { type: "string" } },
           },
+          required: ["reply", "recommendedServiceIds"],
         },
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => null);
-    return NextResponse.json(
-      { error: errBody?.error?.message ?? "Assistant request failed." },
-      { status: 502 }
-    );
+      },
+    });
+  } catch (e) {
+    // Out of quota on every model, timed out, or not configured: answer
+    // from the catalog instead — never show the raw Google error to clients.
+    aiFailed = true;
+    console.error("assistant: Gemini unavailable:", e instanceof GeminiError ? e.message : e);
   }
-
-  const data = await res.json();
-  const rawText: string | undefined = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
   let reply = "Sorry, I couldn't come up with a response. Try rephrasing?";
   let recommendedIds: string[] = [];
-  if (rawText) {
+  if (aiFailed) {
+    const lastUser = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+    const preferred = preferredBranchName ? services.filter((s) => s.branchName === preferredBranchName) : [];
+    const fb = fallbackReply(lastUser, preferred.length ? preferred : services, {
+      firstName: profile.full_name?.split(" ")[0] || "there",
+      upcoming: upcoming
+        ? `${upcoming.serviceName ?? "a service"}${upcoming.professionalName ? ` with ${upcoming.professionalName}` : ""} on ${upcoming.scheduledDate} at ${upcoming.startTime}`
+        : null,
+      hours: `${branchContacts[0]?.hours[0]?.time ?? "8:00 AM - 6:00 PM"}`,
+      branches: branchContacts.map((b) => `${b.name} — ${b.address}`),
+    });
+    reply = fb.reply;
+    recommendedIds = fb.ids;
+  } else if (rawText) {
     try {
       const parsed = JSON.parse(rawText) as { reply?: string; recommendedServiceIds?: string[] };
       reply = parsed.reply ?? reply;
@@ -246,7 +263,14 @@ ${
     .map((id) => servicesById.get(id))
     .filter((s): s is LiveService => !!s)
     .slice(0, 3)
-    .map((s) => ({ id: s.id, name: s.name, price: s.price, description: s.description, category: s.category }));
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      // Hair: the lowest length price, so the card never shows ₱0.
+      price: lowestPrice(s),
+      description: s.description,
+      category: s.category,
+    }));
 
   return NextResponse.json({ reply, recommendations });
 }
