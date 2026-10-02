@@ -11,5 +11,5 @@ export default function ChatWidgetWrapper() {
   // My Glow already has its own inline AssistantPanel — avoid showing two
   // separate chat conversations on the same page.
   if (pathname?.startsWith("/my-glow")) return null;
-  return <ChatWidget />;
+  return <ChatWidget firstName={user.fullName?.trim().split(/\s+/)[0] || null} />;
 }

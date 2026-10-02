@@ -8,7 +8,7 @@ export default async function Reviews() {
   const { highlights, stats } = await getReviewHighlights(await createClient(), 4);
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-20">
+    <section id="reviews" className="mx-auto max-w-7xl scroll-mt-28 px-6 py-20">
       <p className="text-xs font-semibold uppercase tracking-[0.25em] text-coral-dark">Client Love</p>
       <h2 className="mt-2 text-3xl font-semibold text-ink sm:text-4xl">Reviews</h2>
       {stats.count > 0 && (

@@ -130,6 +130,52 @@ body {
   display: none;
 }
 
+/* Glowy, the chat assistant mascot */
+@keyframes glowy-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-3px) rotate(-4deg); }
+  75% { transform: translateY(-3px) rotate(4deg); }
+}
+@keyframes glowy-wave {
+  0%, 60%, 100% { transform: rotate(0deg); }
+  10%, 30%, 50% { transform: rotate(-18deg); }
+  20%, 40% { transform: rotate(8deg); }
+}
+@keyframes glowy-rays {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.8); }
+}
+@keyframes glowy-talk {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.35); }
+}
+@keyframes glowy-pop {
+  from { opacity: 0; transform: scale(0.85) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes glowy-msg {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes glowy-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+.glowy-bob { display: block; animation: glowy-bob 3s ease-in-out infinite; }
+.glowy-wave { transform-box: fill-box; transform-origin: 0% 100%; animation: glowy-wave 2.6s ease-in-out infinite; }
+.glowy-wave-emoji { transform-origin: 70% 80%; animation: glowy-wave 2.6s ease-in-out infinite; }
+.glowy-rays { animation: glowy-rays 1.6s ease-in-out infinite; }
+.glowy-talk { transform-box: fill-box; transform-origin: center; animation: glowy-talk 0.35s ease-in-out infinite; }
+.glowy-pop { animation: glowy-pop 260ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.glowy-msg { animation: glowy-msg 280ms ease-out both; }
+.glowy-dot { animation: glowy-dot 1s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .glowy-bob, .glowy-wave, .glowy-wave-emoji, .glowy-rays, .glowy-talk, .glowy-pop, .glowy-msg, .glowy-dot {
+    animation: none;
+  }
+}
+
 /* Client notification toast */
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(-8px); }
