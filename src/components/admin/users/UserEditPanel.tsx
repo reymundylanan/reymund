@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Camera, KeyRound, ShieldCheck, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import PasswordStrengthMeter, { PasswordMatchHint } from "@/components/auth/PasswordStrengthMeter";
+import { meetsPasswordPolicy } from "@/lib/passwordStrength";
 import AvatarCropModal from "@/components/admin/users/AvatarCropModal";
 import type { StaffUser } from "@/components/admin/users/types";
 
@@ -77,6 +79,7 @@ export default function UserEditPanel({
   const [newPassword, setNewPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
   const [passwordSaved, setPasswordSaved] = useState(false);
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
 
   async function handleUpdateProfile() {
     setSaving(true);
@@ -360,17 +363,29 @@ export default function UserEditPanel({
                 </label>
                 <input
                   type="password"
-                  minLength={8}
+                  autoComplete="new-password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
                 />
-                <p className="mt-1 text-xs text-ink/40">Minimum 8 characters.</p>
+                <PasswordStrengthMeter password={newPassword} />
+                <label className="mt-3 block text-xs font-medium uppercase text-ink/40">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
+                />
+                <PasswordMatchHint password={newPassword} confirm={confirmNewPassword} />
                 <div className="mt-3 flex gap-2">
                   <button
                     onClick={() => {
                       setResettingPassword(false);
                       setNewPassword("");
+                      setConfirmNewPassword("");
                       setCurrentPassword("");
                     }}
                     className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral"
@@ -380,7 +395,10 @@ export default function UserEditPanel({
                   <button
                     onClick={handleResetPassword}
                     disabled={
-                      savingPassword || newPassword.length < 8 || !currentPassword
+                      savingPassword ||
+                      !meetsPasswordPolicy(newPassword) ||
+                      newPassword !== confirmNewPassword ||
+                      !currentPassword
                     }
                     className="flex-1 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark disabled:opacity-50"
                   >

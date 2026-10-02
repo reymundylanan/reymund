@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Eye, EyeOff, KeyRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-
-const MIN_LENGTH = 8;
+import PasswordStrengthMeter, { PasswordMatchHint } from "@/components/auth/PasswordStrengthMeter";
+import { passwordPolicyError } from "@/lib/passwordStrength";
 
 /** Opened from the password-reset email (already signed in by the link). */
 export default function ResetPasswordForm() {
@@ -24,7 +24,8 @@ export default function ResetPasswordForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (password.length < MIN_LENGTH) return setError(`Use at least ${MIN_LENGTH} characters.`);
+    const policy = passwordPolicyError(password);
+    if (policy) return setError(policy);
     if (password !== confirm) return setError("The two passwords don't match.");
     setSaving(true);
     setError(null);
@@ -71,7 +72,7 @@ export default function ResetPasswordForm() {
           <KeyRound className="h-6 w-6" />
         </span>
         <h1 className="mt-3 text-xl font-semibold text-ink">Set a new password</h1>
-        <p className="mt-1 text-sm text-ink/60">At least {MIN_LENGTH} characters.</p>
+        <p className="mt-1 text-sm text-ink/60">Use upper- and lowercase letters and a number.</p>
       </div>
       {(["New password", "Confirm new password"] as const).map((label, i) => (
         <div key={label}>
@@ -99,6 +100,7 @@ export default function ResetPasswordForm() {
               </button>
             )}
           </div>
+          {i === 0 ? <PasswordStrengthMeter password={password} /> : <PasswordMatchHint password={password} confirm={confirm} />}
         </div>
       ))}
       {error && <p className="text-sm text-red-600">{error}</p>}

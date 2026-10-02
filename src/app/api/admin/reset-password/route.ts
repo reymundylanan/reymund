@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { passwordPolicyError } from "@/lib/passwordStrength";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -33,11 +34,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
   }
 
-  if (newPassword.length < 8) {
-    return NextResponse.json(
-      { error: "Password must be at least 8 characters." },
-      { status: 400 }
-    );
+  const policyError = passwordPolicyError(newPassword);
+  if (policyError) {
+    return NextResponse.json({ error: policyError }, { status: 400 });
   }
 
   // Re-authenticate the requesting admin with their own current password

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { Eye, EyeOff, X } from "lucide-react";
+import PasswordStrengthMeter, { PasswordMatchHint } from "@/components/auth/PasswordStrengthMeter";
+import { meetsPasswordPolicy, passwordPolicyError } from "@/lib/passwordStrength";
 import { createClient } from "@/lib/supabase/client";
 
 type Branch = { id: string; name: string };
@@ -17,6 +19,8 @@ export default function CreateUserModal({
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<"admin" | "front_desk">("front_desk");
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState("");
@@ -35,6 +39,9 @@ export default function CreateUserModal({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const policy = passwordPolicyError(password);
+    if (policy) return setError(policy);
+    if (password !== confirmPassword) return setError("The two passwords don't match.");
     setSubmitting(true);
     setError(null);
 
@@ -68,7 +75,7 @@ export default function CreateUserModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6">
+      <div className="scrollbar-hidden max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-ink">Add New User</h2>
           <button onClick={onClose} className="text-ink/40 hover:text-ink">
@@ -131,18 +138,46 @@ export default function CreateUserModal({
               />
             </div>
             <div>
-              <label className="text-xs font-medium uppercase text-ink/40">
+              <label htmlFor="new-user-password" className="text-xs font-medium uppercase text-ink/40">
                 Password
               </label>
-              <input
-                type="password"
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
-              />
-              <p className="mt-1 text-xs text-ink/40">Minimum 8 characters.</p>
+              <div className="relative mt-1">
+                <input
+                  id="new-user-password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-lg border border-ink/15 px-3 py-2 pr-10 text-sm outline-none focus:border-coral"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/40 hover:text-ink"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <PasswordStrengthMeter password={password} />
+            </div>
+            <div>
+              <label htmlFor="new-user-confirm" className="text-xs font-medium uppercase text-ink/40">
+                Confirm Password
+              </label>
+              <div className="relative mt-1">
+                <input
+                  id="new-user-confirm"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full rounded-lg border border-ink/15 px-3 py-2 pr-10 text-sm outline-none focus:border-coral"
+                />
+              </div>
+              <PasswordMatchHint password={password} confirm={confirmPassword} />
             </div>
             <div>
               <label className="text-xs font-medium uppercase text-ink/40">
@@ -190,7 +225,7 @@ export default function CreateUserModal({
               </button>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !meetsPasswordPolicy(password) || password !== confirmPassword}
                 className="flex-1 rounded-full bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark disabled:opacity-50"
               >
                 {submitting ? "Creating..." : "Create Account"}
