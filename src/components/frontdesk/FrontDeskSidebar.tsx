@@ -3,6 +3,7 @@
 import { CalendarClock, LayoutDashboard, UserCog, UserPlus2, Users2, Wallet2 } from "lucide-react";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import PortalSidebar from "@/components/portal/PortalSidebar";
+import { usePortalBadges } from "@/lib/hooks/usePortalBadges";
 
 const navItems = [
   { href: "/frontdesk", label: "Dashboard", icon: LayoutDashboard },
@@ -15,7 +16,8 @@ const navItems = [
 
 export default function FrontDeskSidebar() {
   const { profile } = useStaffProfile();
+  const badges = usePortalBadges("frontdesk");
   // Staff Schedule is for Front Desk and Admin (055).
   const items = navItems.filter((item) => !item.staffSchedule || profile?.role === "front_desk" || profile?.role === "admin");
-  return <PortalSidebar items={items} rootHref="/frontdesk" portalLabel="Front Desk" />;
+  return <PortalSidebar items={items} rootHref="/frontdesk" portalLabel="Front Desk" badges={badges} />;
 }

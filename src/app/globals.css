@@ -130,6 +130,15 @@ body {
   display: none;
 }
 
+/* Sidebar attention dot: a soft pulse a few times, then steady. */
+@keyframes portal-badge-ping {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+.portal-badge-ping { animation: portal-badge-ping 1.6s cubic-bezier(0, 0, 0.2, 1) 4; }
+@media (prefers-reduced-motion: reduce) {
+  .portal-badge-ping { animation: none; display: none; }
+}
+
 /* Glowy, the chat assistant mascot */
 @keyframes glowy-bob {
   0%, 100% { transform: translateY(0) rotate(0deg); }

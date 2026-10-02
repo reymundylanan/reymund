@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ADMIN_BRANCH_EVENT, pickBranch, readAdminBranchCookie } from "@/lib/adminBranch";
 
 export type StaffProfile = {
+  id: string;
   fullName: string;
   role: "admin" | "front_desk";
   branchId: string | null;
@@ -56,6 +57,7 @@ export function useStaffProfile() {
 
         if (!cancelled) {
           setProfile({
+            id: auth.user.id,
             fullName: data.full_name,
             role: data.role,
             branchId,

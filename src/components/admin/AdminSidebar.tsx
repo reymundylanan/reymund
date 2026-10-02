@@ -2,6 +2,7 @@
 
 import { BarChart3, Bell, Building2, CalendarCheck, LayoutDashboard, Star, Users, Wallet } from "lucide-react";
 import PortalSidebar from "@/components/portal/PortalSidebar";
+import { usePortalBadges } from "@/lib/hooks/usePortalBadges";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -15,5 +16,6 @@ const navItems = [
 ];
 
 export default function AdminSidebar() {
-  return <PortalSidebar items={navItems} rootHref="/admin" portalLabel="Admin" />;
+  const badges = usePortalBadges("admin");
+  return <PortalSidebar items={navItems} rootHref="/admin" portalLabel="Admin" badges={badges} />;
 }
