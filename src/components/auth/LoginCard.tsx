@@ -6,7 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 
 /** Google / Facebook login. `canProceed` gates it on the Terms checkbox
  * (in LoginModal). */
-export default function LoginCard({ canProceed = () => true }: { canProceed?: () => boolean }) {
+export default function LoginCard({
+  canProceed = () => true,
+  offers = false,
+}: {
+  canProceed?: () => boolean;
+  offers?: boolean;
+}) {
   const [loadingProvider, setLoadingProvider] = useState<"google" | "facebook" | null>(
     null
   );
@@ -22,7 +28,8 @@ export default function LoginCard({ canProceed = () => true }: { canProceed?: ()
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`,
+        // The callback saves Terms acceptance and the offers choice (066).
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}&consent=1${offers ? "&offers=1" : ""}`,
       },
     });
 

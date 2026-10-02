@@ -40,7 +40,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="px-8 py-8">
-          <StaffLoginForm onSuccess={onClose} canProceed={requireAgreement} />
+          <StaffLoginForm onSuccess={onClose} canProceed={requireAgreement} offers={offers} />
 
           <div className="my-6 flex items-center gap-3 text-xs text-ink/40">
             <span className="h-px flex-1 bg-ink/15" />
@@ -48,7 +48,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
             <span className="h-px flex-1 bg-ink/15" />
           </div>
 
-          <LoginCard canProceed={requireAgreement} />
+          <LoginCard canProceed={requireAgreement} offers={offers} />
 
           <div
             id="login-agreement"

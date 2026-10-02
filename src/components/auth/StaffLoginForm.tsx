@@ -5,14 +5,18 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { recordLoginConsent } from "@/lib/auth/consent";
 
 export default function StaffLoginForm({
   onSuccess,
   canProceed = () => true,
+  offers = false,
 }: {
   onSuccess?: () => void;
   /** Gate on the Terms checkbox when shown in LoginModal. */
   canProceed?: () => boolean;
+  /** "Exclusive offers" opt-in from LoginModal. */
+  offers?: boolean;
 }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -62,6 +66,7 @@ export default function StaffLoginForm({
       return;
     }
 
+    await recordLoginConsent(supabase, offers);
     onSuccess?.();
 
     if (profile.role === "admin") {
