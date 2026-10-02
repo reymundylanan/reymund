@@ -3,7 +3,6 @@
 import { useRef, useState } from "react";
 import { Smartphone, Wallet } from "lucide-react";
 import OnlinePaymentsTable from "@/components/frontdesk/payments/OnlinePaymentsTable";
-import CashPaymentsTable from "@/components/frontdesk/payments/CashPaymentsTable";
 import SidePanels from "@/components/frontdesk/payments/SidePanels";
 
 type Tab = "online" | "cash";
@@ -45,7 +44,7 @@ export default function PaymentsManager() {
           <OnlinePaymentsTable />
         </div>
         <div ref={cashRef}>
-          <CashPaymentsTable />
+          <OnlinePaymentsTable method="cash" />
         </div>
       </div>
       <SidePanels />
