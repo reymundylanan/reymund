@@ -19,7 +19,7 @@ function greetingLines(firstName: string | null) {
   ];
 }
 
-function TypingDots() {
+export function TypingDots() {
   return (
     <div className="flex w-fit items-center gap-1 rounded-2xl bg-blush px-3 py-2.5" aria-label="GlowSync AI is typing">
       <span className="glowy-dot h-1.5 w-1.5 rounded-full bg-coral-dark" />
