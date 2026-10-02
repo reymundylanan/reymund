@@ -11,12 +11,15 @@ export default function StaffLoginForm({
   onSuccess,
   canProceed = () => true,
   offers = false,
+  onForgot,
 }: {
   onSuccess?: () => void;
   /** Gate on the Terms checkbox when shown in LoginModal. */
   canProceed?: () => boolean;
   /** "Exclusive offers" opt-in from LoginModal. */
   offers?: boolean;
+  /** Shows the "Forgot password?" link (in LoginModal). */
+  onForgot?: (username: string) => void;
 }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -92,7 +95,14 @@ export default function StaffLoginForm({
         />
       </div>
       <div>
-        <label className="text-sm font-medium text-ink">Password</label>
+        <div className="flex items-baseline justify-between gap-2">
+          <label className="text-sm font-medium text-ink">Password</label>
+          {onForgot && (
+            <button type="button" onClick={() => onForgot(username)} className="text-xs font-semibold text-coral-dark hover:underline">
+              Forgot password?
+            </button>
+          )}
+        </div>
         <div className="relative mt-1.5">
           <input
             type={showPassword ? "text" : "password"}

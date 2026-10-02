@@ -327,6 +327,9 @@ body {
 .theme-warm ::-webkit-scrollbar-track { background: transparent; }
 .theme-warm ::-webkit-scrollbar-thumb { background: #dcc28a; border-radius: 999px; }
 .theme-warm ::-webkit-scrollbar-thumb:hover { background: #c9a44a; }
+/* ...except where a scrollbar is meant to stay hidden (login window, chat, tabs). */
+.theme-warm .scrollbar-hidden { scrollbar-width: none; -ms-overflow-style: none; }
+.theme-warm .scrollbar-hidden::-webkit-scrollbar { display: none; }
 
 /* Public site + client pages: serif display headings. Admin / Front Desk
    (.portal) keep the clean sans headings. */
