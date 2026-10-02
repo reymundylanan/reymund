@@ -6,10 +6,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { toDateKey } from "@/lib/supabase/queries/staffShifts";
+import { computeServiceTiming } from "@/lib/serviceTiming";
 
 /** Sidebar indicators: how many things need attention per menu item,
  * keyed by the item's href. Task counts (pending bookings, payments to
- * verify, waiting walk-ins) clear when the task is done; "new" counts
+ * verify, waiting walk-ins, overdue services) clear when the task is done; "new" counts
  * (reviews, feedback, reports) clear once they're viewed. */
 export type PortalBadges = Record<string, number>;
 
@@ -17,8 +18,18 @@ const REFRESH_MS = 60_000;
 const REPORTS_SEEN_KEY = "glowsync-reports-seen-at";
 
 // Walk-ins still needing the Front Desk: checked in / waiting / ready, or
-// finished but not yet paid.
+// finished but not yet paid. (In-service ones count only once overdue.)
 const WALKIN_OPEN = ["arrived", "waiting", "ready", "late_arrival", "completed"];
+
+type InServiceRow = { visit_type: string | null; service_started_at: string | null; duration_minutes: number | null };
+
+/** Sessions running past their expected end — the same rule as the
+ * "Overdue" badge on Walk-Ins / Appointments. */
+function countOverdue(rows: InServiceRow[], walkIn: boolean, now = new Date()) {
+  return rows.filter(
+    (r) => (r.visit_type === "walk_in") === walkIn && computeServiceTiming(r.service_started_at, r.duration_minutes ?? 60, now)?.kind === "overdue"
+  ).length;
+}
 
 async function count(q: PromiseLike<{ count: number | null; error: unknown }>) {
   const { count: n, error } = await q;
@@ -56,13 +67,28 @@ async function frontDeskBadges(supabase: SupabaseClient, branchId: string | null
     .eq("scheduled_date", today)
     .neq("status", "cancelled")
     .in("session_status", WALKIN_OPEN);
+  let running = supabase
+    .from("appointments")
+    .select("visit_type, service_started_at, duration_minutes")
+    .eq("scheduled_date", today)
+    .eq("session_status", "in_service");
   if (branchId) {
     appts = appts.eq("branch_id", branchId);
     pay = pay.eq("appointment.branch_id", branchId);
     walk = walk.eq("branch_id", branchId);
+    running = running.eq("branch_id", branchId);
   }
-  const [a, p, w] = await Promise.all([count(appts), count(pay), count(walk)]);
-  return { "/frontdesk/appointments": a, "/frontdesk/payments": p, "/frontdesk/walk-ins": w };
+  const [a, p, w, inService] = await Promise.all([
+    count(appts),
+    count(pay),
+    count(walk),
+    running.then(({ data, error }) => (error ? [] : ((data ?? []) as InServiceRow[]))),
+  ]);
+  return {
+    "/frontdesk/appointments": a + countOverdue(inService, false),
+    "/frontdesk/payments": p,
+    "/frontdesk/walk-ins": w + countOverdue(inService, true),
+  };
 }
 
 async function adminBadges(supabase: SupabaseClient, userId: string, onReports: boolean): Promise<PortalBadges> {
