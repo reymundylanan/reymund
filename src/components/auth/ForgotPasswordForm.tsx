@@ -4,39 +4,35 @@ import { useState } from "react";
 import { ArrowLeft, MailCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-/** Username / password accounts: email a password-reset link to the
- * address on the account. The answer is the same whether or not the
- * account exists, so it can't be used to discover usernames. */
-export default function ForgotPasswordForm({ initial = "", onBack }: { initial?: string; onBack: () => void }) {
-  const [value, setValue] = useState(initial);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Password accounts: email a password-reset link to the account's email.
+ * The answer is the same whether or not the account exists, so it can't
+ * be used to discover which emails are registered. */
+export default function ForgotPasswordForm({ onBack }: { onBack: () => void }) {
+  const [value, setValue] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const entry = value.trim();
-    if (!entry) return;
+    const email = value.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) {
+      setError("Please enter a valid email address.");
+      return;
+    }
     setLoading(true);
     setError(null);
-    const supabase = createClient();
 
-    let email: string | null = entry.includes("@") ? entry : null;
-    if (!email) {
-      const { data } = await supabase.rpc("get_email_for_username", { p_username: entry });
-      email = typeof data === "string" && data ? data : null;
-    }
-
-    if (email) {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        // The link signs them in through the callback, then opens the new-password page.
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/reset-password")}`,
-      });
-      if (resetError && (resetError.status === 429 || /rate limit/i.test(resetError.message))) {
-        setError("Too many reset requests. Please wait a few minutes and try again.");
-        setLoading(false);
-        return;
-      }
+    const { error: resetError } = await createClient().auth.resetPasswordForEmail(email, {
+      // The link signs them in through the callback, then opens the new-password page.
+      redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/reset-password")}`,
+    });
+    if (resetError && (resetError.status === 429 || /rate limit/i.test(resetError.message))) {
+      setError("Too many reset requests. Please wait a few minutes and try again.");
+      setLoading(false);
+      return;
     }
 
     setLoading(false);
@@ -69,15 +65,18 @@ export default function ForgotPasswordForm({ initial = "", onBack }: { initial?:
       </button>
       <div>
         <h2 className="text-lg font-semibold text-ink">Forgot your password?</h2>
-        <p className="mt-1 text-sm text-ink/60">Enter your username or email and we&apos;ll email you a link to set a new password.</p>
+        <p className="mt-1 text-sm text-ink/60">Enter the email on your account and we&apos;ll send you a link to set a new password.</p>
       </div>
       <div>
-        <label htmlFor="forgot-entry" className="text-sm font-medium text-ink">
-          Username or email
+        <label htmlFor="forgot-email" className="text-sm font-medium text-ink">
+          Email
         </label>
         <input
-          id="forgot-entry"
-          type="text"
+          id="forgot-email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          placeholder="you@example.com"
           required
           autoFocus
           value={value}

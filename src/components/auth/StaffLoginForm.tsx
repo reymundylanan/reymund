@@ -19,7 +19,7 @@ export default function StaffLoginForm({
   /** "Exclusive offers" opt-in from LoginModal. */
   offers?: boolean;
   /** Shows the "Forgot password?" link (in LoginModal). */
-  onForgot?: (username: string) => void;
+  onForgot?: () => void;
 }) {
   const router = useRouter();
   const [username, setUsername] = useState("");
@@ -98,7 +98,7 @@ export default function StaffLoginForm({
         <div className="flex items-baseline justify-between gap-2">
           <label className="text-sm font-medium text-ink">Password</label>
           {onForgot && (
-            <button type="button" onClick={() => onForgot(username)} className="text-xs font-semibold text-coral-dark hover:underline">
+            <button type="button" onClick={onForgot} className="text-xs font-semibold text-coral-dark hover:underline">
               Forgot password?
             </button>
           )}

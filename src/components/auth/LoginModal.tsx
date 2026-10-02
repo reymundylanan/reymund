@@ -13,7 +13,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
   // Shown when someone tries to log in before ticking the Terms box.
   const [nudge, setNudge] = useState(false);
   // "Forgot password?" swaps the login options for the reset form.
-  const [forgot, setForgot] = useState<string | null>(null);
+  const [forgot, setForgot] = useState(false);
 
   /** Every login option checks this first: no login until the Terms are accepted. */
   function requireAgreement() {
@@ -43,11 +43,11 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="px-8 py-8">
-          {forgot !== null ? (
-            <ForgotPasswordForm initial={forgot} onBack={() => setForgot(null)} />
+          {forgot ? (
+            <ForgotPasswordForm onBack={() => setForgot(false)} />
           ) : (
             <>
-              <StaffLoginForm onSuccess={onClose} canProceed={requireAgreement} offers={offers} onForgot={(u) => setForgot(u)} />
+              <StaffLoginForm onSuccess={onClose} canProceed={requireAgreement} offers={offers} onForgot={() => setForgot(true)} />
 
               <div className="my-6 flex items-center gap-3 text-xs text-ink/40">
                 <span className="h-px flex-1 bg-ink/15" />
