@@ -21,7 +21,26 @@ type BranchService = {
   category: string;
   price: number;
   duration: string;
+  hair_options?: { prices?: { short?: string; medium?: string; long?: string } } | null;
 };
+
+type HairSize = "short" | "medium" | "long";
+const HAIR_SIZES: HairSize[] = ["short", "medium", "long"];
+const sizeLabel = (s: HairSize) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Short / Medium / Long prices set by Admin for a hair service (only the ones with a price). */
+function hairPrices(s: BranchService): Partial<Record<HairSize, number>> | null {
+  const p = s.hair_options?.prices;
+  if (!p) return null;
+  const out: Partial<Record<HairSize, number>> = {};
+  for (const size of HAIR_SIZES) {
+    const v = Number(String(p[size] ?? "").replace(/[₱,\s]/g, ""));
+    if (Number.isFinite(v) && v > 0) out[size] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+const peso = (n: number) => `₱${n.toLocaleString()}.00`;
 
 type StaffOption = {
   id: string;
@@ -56,6 +75,8 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
   const [category, setCategory] = useState("");
   // Several services from the same category, all with one therapist.
   const [serviceIds, setServiceIds] = useState<string[]>([]);
+  // Hair length per selected hair service; it decides the price.
+  const [hairSize, setHairSize] = useState<Record<string, HairSize>>({});
   const [therapistId, setTherapistId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +96,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
     Promise.all([
       supabase
         .from("branch_services")
-        .select("id, name, category, department, duration, price")
+        .select("id, name, category, department, duration, price, hair_options")
         .eq("branch_id", profile.branchId)
         .eq("status", "Active")
         .order("department")
@@ -134,7 +155,15 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
     () => filteredServices.filter((s) => serviceIds.includes(s.id)),
     [filteredServices, serviceIds]
   );
-  const totalPrice = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const unitPrice = (s: BranchService) => {
+    const sizes = hairPrices(s);
+    if (!sizes) return s.price;
+    const size = hairSize[s.id];
+    return size ? sizes[size] ?? 0 : 0;
+  };
+  const lineName = (s: BranchService) => (hairPrices(s) && hairSize[s.id] ? `${s.name} (${sizeLabel(hairSize[s.id])})` : s.name);
+  const needsSize = selectedServices.filter((s) => hairPrices(s) && !hairSize[s.id]);
+  const totalPrice = selectedServices.reduce((sum, s) => sum + unitPrice(s), 0);
   const totalMinutes = selectedServices.reduce((sum, s) => sum + parseDurationMinutes(s.duration), 0);
 
   function toggleService(id: string) {
@@ -192,6 +221,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
     fullName.trim().length > 0 &&
     (linked !== null || mobileNumber.trim().length >= 7) &&
     selectedServices.length > 0 &&
+    needsSize.length === 0 &&
     !!therapistId;
 
   /** Before registering an unlinked walk-in, look for an account that is
@@ -250,7 +280,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
       walkinName: fullName.trim(),
       walkinPhone: mobileNumber.trim(),
       // The bill reads the total from here (see walkinQuotedAmount).
-      notes: `${selectedServices.map((s) => s.name).join(", ")} with ${therapist.full_name} — ₱${totalPrice.toLocaleString()}.00`,
+      notes: `${selectedServices.map(lineName).join(", ")} with ${therapist.full_name} — ₱${totalPrice.toLocaleString()}.00`,
     });
 
     if (createError || !appointmentId) {
@@ -259,7 +289,10 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
       return;
     }
 
-    const { error: svcError } = await supabase.from("appointment_services").insert(toAppointmentServiceRows(appointmentId, selectedServices));
+    const { error: svcError } = await supabase.from("appointment_services").insert(toAppointmentServiceRows(
+        appointmentId,
+        selectedServices.map((s) => ({ id: hairSize[s.id] ? `${s.id}·${hairSize[s.id]}` : s.id, name: lineName(s) }))
+      ));
     if (svcError) logQueryError("Walk-in services list", svcError);
 
     const linkError = linked ? await linkWalkinClient(supabase, appointmentId, linked.id) : null;
@@ -270,6 +303,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
     setMobileNumber("");
     setTherapistId(null);
     setServiceIds([]);
+    setHairSize({});
     setLinked(null);
     onRegistered();
   }
@@ -362,30 +396,56 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
               <div className="mt-1 max-h-56 space-y-1.5 overflow-y-auto pr-1">
                 {filteredServices.map((s) => {
                   const on = serviceIds.includes(s.id);
+                  const sizes = hairPrices(s);
                   return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      role="checkbox"
-                      aria-checked={on}
-                      onClick={() => toggleService(s.id)}
-                      className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition ${
-                        on ? "border-coral bg-blush/60" : "border-ink/15 hover:border-coral/60"
-                      }`}
-                    >
-                      <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
-                          on ? "border-coral bg-coral text-white" : "border-ink/30 bg-white"
+                    <div key={s.id}>
+                      <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked={on}
+                        onClick={() => toggleService(s.id)}
+                        className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition ${
+                          on ? "border-coral bg-blush/60" : "border-ink/15 hover:border-coral/60"
                         }`}
                       >
-                        {on && <Check className="h-3 w-3" />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-ink">{s.name}</span>
-                        {s.duration && <span className="block text-xs text-ink/45">{s.duration}</span>}
-                      </span>
-                      <span className="shrink-0 font-medium text-ink/80">₱{s.price.toLocaleString()}.00</span>
-                    </button>
+                        <span
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                            on ? "border-coral bg-coral text-white" : "border-ink/30 bg-white"
+                          }`}
+                        >
+                          {on && <Check className="h-3 w-3" />}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-ink">{s.name}</span>
+                          {s.duration && <span className="block text-xs text-ink/45">{s.duration}</span>}
+                        </span>
+                        <span className="shrink-0 font-medium text-ink/80">
+                          {sizes
+                            ? on && hairSize[s.id]
+                              ? peso(sizes[hairSize[s.id]] ?? 0)
+                              : `From ${peso(Math.min(...Object.values(sizes)))}`
+                            : peso(s.price)}
+                        </span>
+                      </button>
+                      {on && sizes && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-7">
+                          <span className="text-xs text-ink/50">Hair length:</span>
+                          {HAIR_SIZES.filter((size) => sizes[size] !== undefined).map((size) => (
+                            <button
+                              key={size}
+                              type="button"
+                              aria-pressed={hairSize[s.id] === size}
+                              onClick={() => setHairSize((h) => ({ ...h, [s.id]: size }))}
+                              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
+                                hairSize[s.id] === size ? "border-coral bg-coral text-white" : "border-ink/15 text-ink/70 hover:border-coral"
+                              }`}
+                            >
+                              {sizeLabel(size)} · {peso(sizes[size]!)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
@@ -397,6 +457,9 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
                 </span>
                 <span className="font-semibold text-ink">Total ₱{totalPrice.toLocaleString()}.00</span>
               </p>
+            )}
+            {needsSize.length > 0 && (
+              <p className="mt-1.5 text-xs text-amber-700">Pick the hair length for {needsSize.map((s) => s.name).join(", ")}.</p>
             )}
           </div>
 
