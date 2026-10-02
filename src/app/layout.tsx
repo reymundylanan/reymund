@@ -60,8 +60,8 @@ export default function RootLayout({
               <IntentHandler />
             </Suspense>
             <PromoSideAd />
+            <ChatWidgetWrapper />
           </BookingProvider>
-          <ChatWidgetWrapper />
           <ClientNotificationToaster />
         </LoginModalProvider>
       </body>
