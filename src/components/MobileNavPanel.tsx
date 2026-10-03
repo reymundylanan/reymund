@@ -81,9 +81,9 @@ export default function MobileNavPanel({
 
               <div
                 id="mobile-nav-panel"
-                className="mobile-nav-slide absolute inset-y-0 right-0 flex w-[min(20rem,86vw)] flex-col rounded-l-[1.75rem] bg-[#FFFDF8] shadow-2xl"
+                className="mobile-nav-slide absolute inset-y-0 right-0 flex w-[min(21rem,88vw)] flex-col rounded-l-[2rem] bg-[#FFFDF8] shadow-2xl"
               >
-                <div className="flex items-center justify-between px-6 pb-3 pt-6">
+                <div className="flex items-center justify-between px-6 pb-5 pt-[max(1.75rem,env(safe-area-inset-top))]">
                   <span className="font-display text-3xl font-semibold text-ink">Menu</span>
                   <button type="button" onClick={() => setOpen(false)} aria-label="Close menu" className="-mr-2 rounded-full p-2 text-ink/70 hover:bg-skin hover:text-ink">
                     <X className="h-7 w-7" strokeWidth={1.75} />
@@ -94,21 +94,22 @@ export default function MobileNavPanel({
                   <Link
                     href={user.role === "customer" ? "/my-glow/profile" : pathname}
                     onClick={() => setOpen(false)}
-                    className="mx-4 mb-2 flex items-center gap-3 rounded-2xl bg-[#F6EEE2] px-4 py-3.5 transition hover:bg-[#F0E4D3]"
+                    className="mx-5 mb-5 flex items-center gap-4 rounded-2xl bg-[#F6EEE2] px-4 py-4 transition hover:bg-[#F0E4D3]"
                   >
                     <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush font-semibold text-coral-dark ring-2 ring-white">
                       {user.avatarUrl ? <Image src={user.avatarUrl} alt="" fill sizes="48px" className="object-cover" /> : user.fullName.charAt(0)}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-semibold text-ink">{user.fullName}</span>
-                      {user.role === "customer" && <span className="block text-xs text-ink/55">View my profile</span>}
+                      {user.role === "customer" && <span className="mt-0.5 block text-xs text-ink/55">View my profile</span>}
                     </span>
                     {user.role === "customer" && <ChevronRight className="h-5 w-5 text-ink/40" />}
                   </Link>
                 )}
 
-                <nav className="flex-1 overflow-y-auto px-4 py-2">
-                  <ul className="space-y-1">
+                <nav className="flex-1 overflow-y-auto px-5 pb-4">
+                  <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-ink/40">Explore</p>
+                  <ul className="space-y-2">
                     {items.map((link) => {
                       const active = isActive(link.href);
                       const Icon = ICONS[link.href] ?? Sparkles;
@@ -118,7 +119,7 @@ export default function MobileNavPanel({
                             href={link.href}
                             onClick={() => setOpen(false)}
                             aria-current={active ? "page" : undefined}
-                            className={`flex items-center gap-3.5 rounded-xl px-3.5 py-3 text-[15px] transition ${
+                            className={`flex items-center gap-4 rounded-2xl px-4 py-3.5 text-[15px] transition ${
                               active ? "bg-[#F1E4D0] font-semibold text-ink" : "font-medium text-ink/80 hover:bg-[#F8F1E7] hover:text-ink"
                             }`}
                           >
@@ -132,7 +133,7 @@ export default function MobileNavPanel({
                   </ul>
                 </nav>
 
-                <div className="mx-4 space-y-2 border-t border-nude/70 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <div className="mx-5 space-y-3 border-t border-nude/70 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5">
                   {(!user || user.role === "customer") && (
                     <button
                       type="button"
@@ -140,7 +141,7 @@ export default function MobileNavPanel({
                         setOpen(false);
                         openBooking(BOOKING_SERVICE);
                       }}
-                      className="flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3 text-sm font-semibold text-white shadow-sm hover:bg-coral-dark"
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3.5 text-sm font-semibold text-white shadow-sm hover:bg-coral-dark"
                     >
                       <CalendarPlus className="h-4 w-4" /> Book Now
                     </button>
@@ -152,7 +153,7 @@ export default function MobileNavPanel({
                         setOpen(false);
                         onLogout();
                       }}
-                      className="flex w-full items-center justify-center gap-2 rounded-full border border-champagne py-3 text-sm font-semibold text-ink/70 hover:border-coral"
+                      className="flex w-full items-center justify-center gap-2 rounded-full border border-champagne py-3.5 text-sm font-semibold text-ink/70 hover:border-coral"
                     >
                       <LogOut className="h-4 w-4" /> Logout
                     </button>
@@ -163,7 +164,7 @@ export default function MobileNavPanel({
                         setOpen(false);
                         onLogin();
                       }}
-                      className="flex w-full items-center justify-center gap-2 rounded-full border border-champagne py-3 text-sm font-semibold text-ink/70 hover:border-coral"
+                      className="flex w-full items-center justify-center gap-2 rounded-full border border-champagne py-3.5 text-sm font-semibold text-ink/70 hover:border-coral"
                     >
                       <LogIn className="h-4 w-4" /> Login
                     </button>
