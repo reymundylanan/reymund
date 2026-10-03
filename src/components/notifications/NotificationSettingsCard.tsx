@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Bell, Mail, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { currentPushSubscription, disablePush, enablePush, pushSupport, type PushSupport } from "@/lib/notifications/pushClient";
 import { logQueryError } from "@/lib/supabase/logQueryError";
+
+const noSubscribe = () => () => {};
 
 /** Phone/browser push, email notices and a Messenger chat link. Shown on
  * My Glow, appointment pages and My Profile (#notifications). */
@@ -17,7 +19,8 @@ export default function NotificationSettingsCard({
   email: string | null;
   messengerUsername: string | null;
 }) {
-  const [support, setSupport] = useState<PushSupport | null>(null);
+  // What this browser supports (null while rendering on the server).
+  const support = useSyncExternalStore<PushSupport | null>(noSubscribe, pushSupport, () => null);
   const [pushOn, setPushOn] = useState(false);
   const [emailOn, setEmailOn] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -25,9 +28,7 @@ export default function NotificationSettingsCard({
 
   useEffect(() => {
     let cancelled = false;
-    const s = pushSupport();
-    setSupport(s);
-    if (s === "supported" && Notification.permission === "granted") {
+    if (pushSupport() === "supported" && Notification.permission === "granted") {
       currentPushSubscription()
         .then((sub) => !cancelled && setPushOn(Boolean(sub)))
         .catch(() => {});

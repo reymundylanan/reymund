@@ -5,7 +5,7 @@ import { safeEqual } from "@/lib/messenger/signature";
 import { buildEmail, buildPushPayload, isGonePushStatus, retryDelayMinutes, type NoticeForDelivery } from "@/lib/notifications/delivery";
 import { getEmailSender, getPushSender } from "@/lib/notifications/senders";
 
-// Called every minute by pg_cron (057 notify_ping_dispatcher) while email or
+// Called every minute by pg_cron (068 notify_ping_dispatcher) while email or
 // push deliveries are due. Uses the same bearer secret as review evaluation.
 
 export const maxDuration = 60;

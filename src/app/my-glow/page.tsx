@@ -24,6 +24,7 @@ import AssistantPanel from "@/components/my-glow/AssistantPanel";
 import RecommendedForYou from "@/components/my-glow/RecommendedForYou";
 import { getRecommendationsForClient } from "@/lib/supabase/queries/recommendations";
 import MessengerConnectCard from "@/components/notifications/MessengerConnectCard";
+import NotificationSettingsCard from "@/components/notifications/NotificationSettingsCard";
 import { getMyMessengerStatus } from "@/lib/supabase/queries/messenger";
 import { getMessengerConfig } from "@/lib/messenger/config";
 
@@ -53,7 +54,7 @@ export default async function MyGlowPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, loyalty_points")
+    .select("full_name, role, loyalty_points, email")
     .eq("id", auth.user.id)
     .single();
 
@@ -132,6 +133,8 @@ export default async function MyGlowPage({
                 vouchers={vouchers}
               />
               <ReviewsPanel myReviews={myReviews} />
+              {/* Email and phone alerts on/off (068). Messenger has its own card above. */}
+              <NotificationSettingsCard userId={auth.user.id} email={profile.email ?? auth.user.email ?? null} messengerUsername={null} />
               {messengerEnabled && <MessengerConnectCard userId={auth.user.id} initialStatus={messengerStatus} />}
             </aside>
           </div>

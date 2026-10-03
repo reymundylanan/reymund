@@ -1,4 +1,4 @@
--- 057_email_push_notifications.sql
+-- 068_email_push_notifications.sql
 -- Requires 049–056. Every bell notice can also go out by email (through
 -- the spa's Gmail) and as a phone/browser push notification, so clients
 -- hear about their bookings without Messenger (which needs Meta Business
