@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMessengerConfig, type MessengerConfig } from "@/lib/messenger/config";
@@ -5,6 +6,10 @@ import { safeEqual, verifySignature } from "@/lib/messenger/signature";
 import { parseMessagingEvent, type MessagingEvent } from "@/lib/messenger/webhookEvents";
 import { sendToGraph } from "@/lib/messenger/graph";
 import { buildButtonMessage, buildTextMessage } from "@/lib/messenger/messages";
+import { answerMessengerUser, pauseBot, STAFF_PAUSE_HOURS } from "@/lib/messenger/chatbot";
+
+// GlowSync AI answers after Meta gets its 200 (see `after` below).
+export const maxDuration = 60;
 
 type WebhookBody = {
   object?: string;
@@ -66,6 +71,12 @@ async function reply(config: MessengerConfig, payload: unknown) {
 async function handleEvent(event: MessagingEvent, supabase: SupabaseClient, config: MessengerConfig) {
   const action = parseMessagingEvent(event);
   if (action.type === "ignore") return;
+
+  // A staff member typed in the Page inbox: let them take over this chat.
+  if (action.type === "staff_replied") {
+    await pauseBot(supabase, action.psid);
+    return;
+  }
 
   const now = new Date().toISOString();
 
@@ -129,6 +140,25 @@ async function handleEvent(event: MessagingEvent, supabase: SupabaseClient, conf
       config,
       buildTextMessage(action.psid, "You won't get GlowSync updates here anymore. Type START anytime to turn them back on.")
     );
+  } else if (action.type === "staff") {
+    await pauseBot(supabase, action.psid);
+    await reply(
+      config,
+      buildTextMessage(
+        action.psid,
+        `Got it 💕 Our team will reply here as soon as they can (8 AM – 6 PM). GlowSync AI will step back for the next ${STAFF_PAUSE_HOURS} hours.`
+      )
+    );
+  } else if (action.type === "inbound") {
+    // Answer with GlowSync AI once Meta has its quick 200.
+    const { psid, text } = action;
+    after(async () => {
+      try {
+        await answerMessengerUser(supabase, config, psid, text);
+      } catch (err) {
+        console.error("Messenger chatbot failed:", err);
+      }
+    });
   } else if (action.type === "start") {
     if (isSubscribed) {
       const { error: startError } = await supabase.from("messenger_subscriptions").update({ opted_out_at: null }).eq("psid", action.psid);
