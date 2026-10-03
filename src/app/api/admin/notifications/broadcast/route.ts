@@ -3,6 +3,10 @@ import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMessengerConfig } from "@/lib/messenger/config";
+import { getEmailSender } from "@/lib/notifications/senders";
+
+// Gmail sends one by one; leave room for a few hundred clients.
+export const maxDuration = 60;
 
 const BRAND_COLOR = "#C9A84A";
 
@@ -82,10 +86,12 @@ export async function POST(request: Request) {
   const wantsEmail = channels.includes("email");
   const wantsMessenger = channels.includes("messenger");
 
+  // The spa Gmail (068) reaches every client; Resend is the fallback.
+  const sendGmail = getEmailSender();
   const apiKey = process.env.RESEND_API_KEY;
-  if (wantsEmail && !apiKey) {
+  if (wantsEmail && !sendGmail && !apiKey) {
     return NextResponse.json(
-      { error: "Email sending isn't set up yet — add RESEND_API_KEY to continue." },
+      { error: "Email sending isn't set up yet — add GMAIL_USER and GMAIL_APP_PASSWORD to continue." },
       { status: 500 }
     );
   }
@@ -179,7 +185,22 @@ export async function POST(request: Request) {
 
   let sentCount = 0;
   let lastError: string | null = null;
-  if (emails.length > 0) {
+  if (emails.length > 0 && sendGmail) {
+    const origin = new URL(request.url).origin;
+    const html = buildEmailHtml(subject, message, `${origin}${linkPath}`, linkTarget === "promo" ? "View Promo" : "Book Now", imageUrl);
+    const text = `${subject}\n\n${message}\n\n${origin}${linkPath}`;
+    // One email per client, so nobody sees the other addresses.
+    for (const to of emails) {
+      try {
+        await sendGmail(to, { subject, text, html });
+        sentCount += 1;
+      } catch (err) {
+        console.error("Gmail broadcast send failed:", to, err);
+        lastError = err instanceof Error ? err.message : String(err);
+      }
+    }
+    await supabase.from("notification_broadcasts").update({ recipient_count: sentCount }).eq("id", broadcast.id);
+  } else if (emails.length > 0 && apiKey) {
     const resend = new Resend(apiKey);
     const from = process.env.RESEND_FROM_EMAIL ?? "GlowSync <onboarding@resend.dev>";
     const origin = new URL(request.url).origin;
