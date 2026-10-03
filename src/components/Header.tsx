@@ -10,6 +10,7 @@ import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import ClientNotificationBell from "@/components/notifications/ClientNotificationBell";
 import { createClient } from "@/lib/supabase/client";
+import MobileNavPanel from "@/components/MobileNavPanel";
 
 const baseNavLinks = [
   { label: "Services", href: "/services" },
@@ -53,16 +54,16 @@ export default function Header() {
       <AnnouncementBar />
 
       <div className="border-b border-nude/70 bg-white/95 backdrop-blur">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2">
+        <nav className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4">
+          <Link href="/" className="flex min-w-0 items-center gap-2">
             <Image
               src="/images/logo/blushnewlogo.jpeg"
               alt="Blush Spa & Aesthetics"
               width={46}
               height={46}
-              className="h-[46px] w-[46px] object-contain"
+              className="h-10 w-10 shrink-0 object-contain sm:h-[46px] sm:w-[46px]"
             />
-            <span className="font-display text-2xl font-semibold text-coral-dark">
+            <span className="truncate font-display text-lg font-semibold text-coral-dark sm:text-2xl">
               Blush Spa & Aesthetics
             </span>
           </Link>
@@ -85,9 +86,9 @@ export default function Header() {
             })}
           </ul>
 
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-4">
             {user ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1 sm:gap-3">
                 {user.role === "customer" && <ClientNotificationBell clientId={user.id} />}
                 {user.role === "customer" ? (
                   <Link
@@ -107,7 +108,7 @@ export default function Header() {
                 <button
                   onClick={handleLogout}
                   aria-label="Logout"
-                  className="rounded-full p-3 text-ink/50 hover:bg-blush hover:text-coral-dark"
+                  className="hidden rounded-full p-3 text-ink/50 hover:bg-blush hover:text-coral-dark md:inline-flex"
                 >
                   <LogOut className="h-6 w-6" />
                 </button>
@@ -115,11 +116,12 @@ export default function Header() {
             ) : (
               <button
                 onClick={open}
-                className="rounded-full bg-coral px-5 py-2 text-lg font-semibold text-white transition hover:bg-coral-dark"
+                className="rounded-full bg-coral px-4 py-1.5 text-base font-semibold text-white transition hover:bg-coral-dark sm:px-5 sm:py-2 sm:text-lg"
               >
                 Login
               </button>
             )}
+            <MobileNavPanel links={navLinks} user={user} onLogin={open} onLogout={handleLogout} />
           </div>
         </nav>
       </div>

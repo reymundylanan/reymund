@@ -130,6 +130,21 @@ body {
   display: none;
 }
 
+/* Phone menu panel: slides in from the right over a fading backdrop. */
+@keyframes mobile-nav-slide {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes mobile-nav-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.mobile-nav-slide { animation: mobile-nav-slide 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.mobile-nav-fade { animation: mobile-nav-fade 200ms ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .mobile-nav-slide, .mobile-nav-fade { animation: none; }
+}
+
 /* Sidebar attention dot: a soft pulse a few times, then steady. */
 @keyframes portal-badge-ping {
   75%, 100% { transform: scale(2); opacity: 0; }
