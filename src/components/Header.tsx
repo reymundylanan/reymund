@@ -124,6 +124,26 @@ export default function Header() {
             <MobileNavPanel links={navLinks} user={user} onLogin={open} onLogout={handleLogout} />
           </div>
         </nav>
+
+        {/* Phones: the main links stay visible in a strip under the header. */}
+        <ul className="scrollbar-hidden flex gap-2 overflow-x-auto border-t border-nude/50 px-4 py-2 md:hidden">
+          {navLinks.map((link) => {
+            const isActive = !link.href.includes("#") && (pathname === link.href || pathname.startsWith(`${link.href}/`));
+            return (
+              <li key={link.label} className="shrink-0">
+                <Link
+                  href={link.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`block rounded-full px-4 py-1.5 text-sm font-medium transition ${
+                    isActive ? "bg-coral text-white shadow-sm" : "bg-[#F6EEE2] text-ink/80 hover:bg-[#F0E4D3] hover:text-ink"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </header>
   );
