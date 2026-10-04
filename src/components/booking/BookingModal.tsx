@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Clock, Gift, Hourglass, MapPin, Phone, Star, Upload, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -23,6 +23,7 @@ import {
 } from "@/lib/supabase/queries/availability";
 import { toAppointmentServiceRows } from "@/lib/bookedServices";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
+import { preselectService } from "@/lib/bookingPreselect";
 import {
   formatMinutes,
   packageDepartments,
@@ -251,11 +252,17 @@ export default function BookingModal({
   promoOptions?: PromoPackage[];
 }) {
   const isPromo = !!promoOptions?.length;
-  const [step, setStep] = useState<Step>(isPromo ? "promo" : "type");
+  // "Book Now" on a service: it's pre-added once the client picks a branch.
+  const preselect = !isPromo && service.preselect ? service : null;
+  const preselectBranch = preselect?.branchId && branchContacts.some((b) => b.id === preselect.branchId) ? preselect.branchId : null;
+  const [step, setStep] = useState<Step>(isPromo ? "promo" : preselect ? (preselectBranch ? "services" : "branch") : "type");
   // Only one branch offers it: pick that branch straight away.
   const [branchId, setBranchId] = useState<string | null>(() =>
-    promoOptions?.length === 1 ? branchContacts.find((b) => b.name === promoOptions[0].branchName)?.id ?? null : null
+    promoOptions?.length === 1 ? branchContacts.find((b) => b.name === promoOptions[0].branchName)?.id ?? null : preselectBranch
   );
+  // Which branch the service was already pre-added for (so removing it sticks).
+  const preselectedFor = useRef<string | null>(null);
+  const [preselectNote, setPreselectNote] = useState<string | null>(null);
   const [promoId, setPromoId] = useState<string | null>(promoOptions?.[0]?.id ?? null);
   const [promoLength, setPromoLength] = useState<PromoLength | null>(null);
   const promo = isPromo ? promoOptions!.find((p) => p.id === promoId) ?? promoOptions![0] : null;
@@ -411,6 +418,24 @@ export default function BookingModal({
       setDbServices(services);
       const cats = Array.from(new Set(services.map((s) => s.category)));
       if (cats.length > 0) setCategoryId(cats[0]);
+
+      // Pre-add the service the client tapped "Book Now" on, once per branch.
+      if (preselect && preselectedFor.current !== branchId) {
+        preselectedFor.current = branchId;
+        const picked = preselectService({ name: preselect.name, category: preselect.category }, services);
+        const branchName = branchContacts.find((b) => b.id === branchId)?.name ?? "this branch";
+        if (picked.kind === "added") {
+          setSelectedServices((prev) => (prev.some((s) => s.id === picked.entry.id) ? prev : [...prev, picked.entry]));
+          setCategoryId(picked.category);
+          setShowSelectedPanel(true);
+          setPreselectNote(`${picked.entry.name} is already in your Selected Services. Add more, or tap Continue.`);
+        } else if (picked.kind === "choose_length") {
+          setCategoryId(picked.category);
+          setPreselectNote(`Choose your hair length for ${picked.service.name} below.`);
+        } else {
+          setPreselectNote(`${preselect.name} isn't offered at ${branchName}. Choose another branch or service.`);
+        }
+      }
       setServicesLoading(false);
     })();
   }, [step, branchId, appointmentType]);
@@ -1090,6 +1115,11 @@ export default function BookingModal({
                   ← Back
                 </button>
               </div>
+              {preselectNote && !servicesLoading && (
+                <p className="mb-4 flex items-start gap-2 rounded-xl bg-cream px-4 py-3 text-sm text-ink/75 ring-1 ring-champagne">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-coral-dark" /> {preselectNote}
+                </p>
+              )}
               {servicesLoading ? (
                 <div className="py-12 text-center text-sm text-ink/40">Loading services...</div>
               ) : dbServices.length === 0 ? (

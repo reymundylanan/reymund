@@ -253,7 +253,7 @@ export default function ServiceCatalog({
                         })}
                       </div>
                       <button
-                        onClick={() => open({ name: svc.name, duration: svc.duration ?? "", price: svc.price ?? 0 })}
+                        onClick={() => open({ name: svc.name, duration: svc.duration ?? "", price: svc.price ?? 0, preselect: true, category: svc.category })}
                         className="shrink-0 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark"
                       >
                         Book Now
@@ -268,7 +268,7 @@ export default function ServiceCatalog({
                         )}
                       </div>
                       <button
-                        onClick={() => open({ name: svc.name, duration: svc.duration ?? "", price: svc.price ?? 0 })}
+                        onClick={() => open({ name: svc.name, duration: svc.duration ?? "", price: svc.price ?? 0, preselect: true, category: svc.category })}
                         className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark"
                       >
                         Book Now

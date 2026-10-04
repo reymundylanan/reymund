@@ -87,7 +87,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
               )}
               <div className="mt-auto flex items-center justify-between border-t border-ink/10 pt-4">
                 <span className="text-2xl font-bold text-gold">₱{(service.price ?? 0).toLocaleString()}</span>
-                <ServiceBookButton service={{ name: service.name, duration: service.duration ?? "", price: service.price ?? 0 }} />
+                <ServiceBookButton service={{ name: service.name, duration: service.duration ?? "", price: service.price ?? 0, category: service.category }} />
               </div>
             </div>
           </div>

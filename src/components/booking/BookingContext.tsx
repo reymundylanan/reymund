@@ -11,6 +11,11 @@ export type BookableService = {
   name: string;
   duration: string;
   price: number;
+  /** Book Now on a specific service: pre-add it to Selected Services. */
+  preselect?: boolean;
+  category?: string | null;
+  /** Booked from a branch page (branchContacts id): skip choosing the branch. */
+  branchId?: string;
 };
 
 type BookingContextValue = {
