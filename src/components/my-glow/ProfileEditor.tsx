@@ -81,7 +81,11 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
 
   async function save() {
     setTouched({ fullName: true, phone: true, gender: true, address: true });
-    if (!valid || !changed) return;
+    if (!changed) return;
+    if (!valid) {
+      setNotice({ kind: "error", text: "Please complete the highlighted fields — mobile number and address are required." });
+      return;
+    }
     setSaving(true);
     setNotice(null);
     const result = await updateMyProfile(createClient(), form);
@@ -339,7 +343,8 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
             </button>
             <button
               type="submit"
-              disabled={saving || !changed || !valid}
+              // Not disabled when a field is incomplete: tapping Save shows which one.
+              disabled={saving || !changed}
               className="flex-1 rounded-full bg-coral py-3 text-sm font-semibold text-white hover:bg-coral-dark disabled:opacity-40 sm:flex-none sm:px-6"
             >
               {saving ? "Saving…" : "Save Changes"}
