@@ -9,8 +9,16 @@ export function getEmailSender() {
   const pass = process.env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "");
   if (!user || !pass) return null;
   const transport = nodemailer.createTransport({ service: "gmail", auth: { user, pass } });
-  return async (to: string, mail: { subject: string; text: string; html: string }) => {
-    await transport.sendMail({ from: `"Blush Spa & Aesthetics" <${user}>`, to, ...mail });
+  return async (to: string, mail: { subject: string; text: string; html: string; unsubscribeUrl?: string }) => {
+    const { unsubscribeUrl, ...content } = mail;
+    await transport.sendMail({
+      from: `"Blush Spa & Aesthetics" <${user}>`,
+      replyTo: user,
+      to,
+      ...content,
+      // Gmail shows an "Unsubscribe" link for this, and trusts senders that offer one.
+      list: { unsubscribe: unsubscribeUrl ? [`mailto:${user}?subject=Unsubscribe`, unsubscribeUrl] : `mailto:${user}?subject=Unsubscribe` },
+    });
   };
 }
 

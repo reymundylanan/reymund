@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getMessengerConfig } from "@/lib/messenger/config";
 import { getEmailSender } from "@/lib/notifications/senders";
+import { SPA_FOOTER } from "@/lib/notifications/delivery";
 
 // Gmail sends one by one; leave room for a few hundred clients.
 export const maxDuration = 60;
@@ -16,7 +17,7 @@ function escapeHtml(text: string) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-function buildEmailHtml(subject: string, message: string, linkUrl: string, buttonLabel: string, imageUrl: string | null) {
+function buildEmailHtml(subject: string, message: string, linkUrl: string, buttonLabel: string, imageUrl: string | null, settingsUrl: string) {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
       <p style="font-size: 22px; font-weight: 700; color: #2b1a16; font-style: italic;">Blush Spa &amp; Aesthetics</p>
@@ -26,6 +27,11 @@ function buildEmailHtml(subject: string, message: string, linkUrl: string, butto
       <a href="${linkUrl}" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background: ${BRAND_COLOR}; color: white; border-radius: 999px; text-decoration: none; font-weight: 600; font-size: 14px;">
         ${buttonLabel}
       </a>
+      <p style="font-size: 11px; color: #8a7b77; margin-top: 32px;">
+        You're getting this because you have a GlowSync account at Blush Spa &amp; Aesthetics.
+        <a href="${escapeHtml(settingsUrl)}" style="color: #8a7b77;">Turn off emails</a>.<br />
+        ${escapeHtml(SPA_FOOTER)}
+      </p>
     </div>
   `;
 }
@@ -118,6 +124,23 @@ export async function POST(request: Request) {
       emails.push(...rows.map((r) => r.email));
       if (rows.length < PAGE_SIZE) break;
     }
+
+    // Clients who turned email off in My Glow (068) don't get broadcasts.
+    const { data: offRows, error: offError } = await createAdminClient()
+      .from("notification_preferences")
+      .select("profile:profiles(email)")
+      .eq("email_enabled", false);
+    if (offError) {
+      console.error("Broadcast email preferences failed:", offError);
+    } else {
+      type OffRow = { profile: { email: string | null } | { email: string | null }[] | null };
+      const off = new Set(
+        ((offRows ?? []) as unknown as OffRow[])
+          .map((r) => (Array.isArray(r.profile) ? r.profile[0]?.email : r.profile?.email)?.toLowerCase())
+          .filter(Boolean)
+      );
+      for (let i = emails.length - 1; i >= 0; i--) if (off.has(emails[i].toLowerCase())) emails.splice(i, 1);
+    }
   }
 
   const subscriberIds: string[] = [];
@@ -187,12 +210,13 @@ export async function POST(request: Request) {
   let lastError: string | null = null;
   if (emails.length > 0 && sendGmail) {
     const origin = new URL(request.url).origin;
-    const html = buildEmailHtml(subject, message, `${origin}${linkPath}`, linkTarget === "promo" ? "View Promo" : "Book Now", imageUrl);
-    const text = `${subject}\n\n${message}\n\n${origin}${linkPath}`;
+    const settingsUrl = `${origin}/my-glow/profile#notifications`;
+    const html = buildEmailHtml(subject, message, `${origin}${linkPath}`, linkTarget === "promo" ? "View Promo" : "Book Now", imageUrl, settingsUrl);
+    const text = `${subject}\n\n${message}\n\n${origin}${linkPath}\n\n—\n${SPA_FOOTER}\nTurn off emails: ${settingsUrl}`;
     // One email per client, so nobody sees the other addresses.
     for (const to of emails) {
       try {
-        await sendGmail(to, { subject, text, html });
+        await sendGmail(to, { subject, text, html, unsubscribeUrl: settingsUrl });
         sentCount += 1;
       } catch (err) {
         console.error("Gmail broadcast send failed:", to, err);
@@ -204,7 +228,7 @@ export async function POST(request: Request) {
     const resend = new Resend(apiKey);
     const from = process.env.RESEND_FROM_EMAIL ?? "GlowSync <onboarding@resend.dev>";
     const origin = new URL(request.url).origin;
-    const html = buildEmailHtml(subject, message, `${origin}${linkPath}`, linkTarget === "promo" ? "View Promo" : "Book Now", imageUrl);
+    const html = buildEmailHtml(subject, message, `${origin}${linkPath}`, linkTarget === "promo" ? "View Promo" : "Book Now", imageUrl, `${origin}/my-glow/profile#notifications`);
 
     const CHUNK_SIZE = 100;
     for (let i = 0; i < emails.length; i += CHUNK_SIZE) {

@@ -14,6 +14,9 @@ export type NoticeForDelivery = {
 const BRAND_COLOR = "#C9A84A";
 const INK = "#2b1a16";
 
+/** Real sender details in every email's footer (spam filters look for them). */
+export const SPA_FOOTER = "Blush Spa & Aesthetics · 3rd Floor, One Cecilia Center, Pagadian City, Zamboanga del Sur";
+
 export function escapeHtml(text: string): string {
   return text
     .replaceAll("&", "&amp;")
@@ -40,7 +43,7 @@ export function buildEmail(notice: NoticeForDelivery, siteUrl: string) {
   const greeting = notice.firstName.trim() ? `Hi ${notice.firstName.trim()},` : "Hi,";
   const settings = absoluteLink(siteUrl, "/my-glow/profile#notifications");
   const subject = `${notice.title} — Blush Spa & Aesthetics`;
-  const text = `${greeting}\n\n${notice.body}\n\n${buttonLabel(notice.kind)}: ${link}\n\nTo stop these emails, go to ${settings}`;
+  const text = `${greeting}\n\n${notice.body}\n\n${buttonLabel(notice.kind)}: ${link}\n\n—\n${SPA_FOOTER}\nTo stop these emails, go to ${settings}`;
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: ${INK};">
       <p style="font-size: 22px; font-weight: 700; font-style: italic; margin: 0 0 16px;">Blush Spa &amp; Aesthetics</p>
@@ -52,11 +55,12 @@ export function buildEmail(notice: NoticeForDelivery, siteUrl: string) {
       </a>
       <p style="font-size: 11px; color: #8a7b77; margin-top: 32px;">
         You're getting this because you have a GlowSync account.
-        <a href="${escapeHtml(settings)}" style="color: #8a7b77;">Turn off email notices</a>.
+        <a href="${escapeHtml(settings)}" style="color: #8a7b77;">Turn off email notices</a>.<br />
+        ${escapeHtml(SPA_FOOTER)}
       </p>
     </div>
   `;
-  return { subject, text, html };
+  return { subject, text, html, unsubscribeUrl: settings };
 }
 
 export function buildPushPayload(notice: NoticeForDelivery, id: string): string {
