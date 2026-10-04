@@ -213,7 +213,10 @@ export default function OnlinePaymentsTable({ branchId, method = "gcash" }: { br
                 return (
                   <tr key={p.id} className="cursor-pointer border-t border-ink/5 hover:bg-blush/30" onClick={() => setSelected(p)}>
                     <td className="whitespace-nowrap py-3 text-ink/60">{stamp(p.createdAt)}</td>
-                    <td className="py-3 font-medium text-ink">{p.clientName}</td>
+                    <td className="py-3 font-medium text-ink">
+                      {p.clientName}
+                      {!branchId && p.branchName && <span className="block text-xs font-normal text-ink/50">{p.branchName}</span>}
+                    </td>
                     <td className="py-3 font-mono text-xs text-ink/60">{isCash ? cashReceiptNo(p.id) : p.referenceNo ?? "—"}</td>
                     <td className="whitespace-nowrap py-3 text-right font-semibold text-ink">{pesoAmount(p.amount)}</td>
                     <td className="py-3 pl-4 text-ink/60">{isCash ? "Cash" : p.paymentType === "pay_now" ? "GCash · Pay Now" : "GCash"}</td>

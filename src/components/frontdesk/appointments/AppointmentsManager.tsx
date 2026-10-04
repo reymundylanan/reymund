@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { getStaffShiftsForDate } from "@/lib/supabase/queries/staffShifts";
@@ -53,6 +53,10 @@ export default function AppointmentsManager() {
   // Dashboard deep link: /frontdesk/appointments?id=… (rows load after
   // mount, so the panel can't render during hydration).
   const [activeId, setActiveId] = useState<string | null>(() => readQueryParam("id"));
+  // Opened from a link (?id=…, e.g. Payments → Open Appointment): jump to that
+  // booking's date, or say which branch it belongs to.
+  const linkHandled = useRef(false);
+  const [linkNotice, setLinkNotice] = useState<string | null>(null);
   const [rescheduleTargetId, setRescheduleTargetId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [calendarDate, setCalendarDate] = useState(() => startOfDay(new Date()));
@@ -115,11 +119,28 @@ export default function AppointmentsManager() {
     if (apptRes.error) console.error("Failed to load appointments:", apptRes.error);
     // Guest bookings made by the Front Desk have no account: show the guest's name and phone.
     type Loaded = AppointmentRow & { walkin_name?: string | null; walkin_phone?: string | null };
-    setRows(
-      ((apptRes.data as unknown as Loaded[]) ?? []).map((r) =>
-        r.client || !r.walkin_name ? r : { ...r, client: { full_name: r.walkin_name, phone: r.walkin_phone ?? null, avatar_url: null } }
-      )
+    const loaded = ((apptRes.data as unknown as Loaded[]) ?? []).map((r) =>
+      r.client || !r.walkin_name ? r : { ...r, client: { full_name: r.walkin_name, phone: r.walkin_phone ?? null, avatar_url: null } }
     );
+    setRows(loaded);
+
+    const linkedId = readQueryParam("id");
+    if (linkedId && !linkHandled.current) {
+      linkHandled.current = true;
+      const found = loaded.find((r) => r.id === linkedId);
+      if (found) {
+        setDateFilter(found.scheduled_date);
+      } else {
+        const { data: other } = await supabase.from("appointments").select("branch:branches(name)").eq("id", linkedId).maybeSingle();
+        const rel = (other as { branch: { name: string } | { name: string }[] | null } | null)?.branch;
+        const name = (Array.isArray(rel) ? rel[0]?.name : rel?.name) ?? null;
+        setLinkNotice(
+          name
+            ? `That booking is at ${name}. Switch to ${name} in the branch picker at the top to see it.`
+            : "That booking couldn't be found — it may have been removed."
+        );
+      }
+    }
     setStaff((staffRes.data as StaffRow[]) ?? []);
     setServices((servicesRes.data as ServiceRow[]) ?? []);
     setOffToday(offRes.map((r) => ({ staff_member_id: r.staff_member_id, source: r.source })));
@@ -317,6 +338,15 @@ export default function AppointmentsManager() {
       {toast && (
         <div className="fixed right-6 top-20 z-40 flex items-center gap-2 rounded-full bg-coral px-4 py-2.5 text-sm font-medium text-white shadow-lg">
           {toast}
+        </div>
+      )}
+
+      {linkNotice && (
+        <div role="status" className="flex items-start justify-between gap-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
+          <span>{linkNotice}</span>
+          <button type="button" onClick={() => setLinkNotice(null)} className="shrink-0 font-semibold hover:underline">
+            Dismiss
+          </button>
         </div>
       )}
 

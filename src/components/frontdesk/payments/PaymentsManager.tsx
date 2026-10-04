@@ -3,12 +3,15 @@
 import { useRef, useState } from "react";
 import { Smartphone, Wallet } from "lucide-react";
 import OnlinePaymentsTable from "@/components/frontdesk/payments/OnlinePaymentsTable";
+import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import SidePanels from "@/components/frontdesk/payments/SidePanels";
 
 type Tab = "online" | "cash";
 
 export default function PaymentsManager() {
   const [tab, setTab] = useState<Tab>("online");
+  const { profile } = useStaffProfile();
+  const branchId = profile?.branchId ?? null;
   const onlineRef = useRef<HTMLDivElement>(null);
   const cashRef = useRef<HTMLDivElement>(null);
 
@@ -41,10 +44,10 @@ export default function PaymentsManager() {
         </div>
 
         <div ref={onlineRef}>
-          <OnlinePaymentsTable />
+          {branchId && <OnlinePaymentsTable key={`online-${branchId}`} branchId={branchId} />}
         </div>
         <div ref={cashRef}>
-          <OnlinePaymentsTable method="cash" />
+          {branchId && <OnlinePaymentsTable key={`cash-${branchId}`} branchId={branchId} method="cash" />}
         </div>
       </div>
       <SidePanels />
