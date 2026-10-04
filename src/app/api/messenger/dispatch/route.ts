@@ -5,7 +5,7 @@ import { getMessengerConfig, missingMessengerEnv, type MessengerConfig } from "@
 import { safeEqual } from "@/lib/messenger/signature";
 import { manilaScheduledAt, skipReason, type OutboxKind } from "@/lib/messenger/dispatchRules";
 import { classifyGraphResponse, retryDelayMinutes, type SendOutcome } from "@/lib/messenger/errors";
-import { buildAppointmentTemplateMessage, buildButtonMessage, confirmedText } from "@/lib/messenger/messages";
+import { appointmentButtonText, appointmentText, buildAppointmentTemplateMessage, buildButtonMessage } from "@/lib/messenger/messages";
 import type { AppointmentTemplateKind } from "@/lib/messenger/templates";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 import { sendToGraph } from "@/lib/messenger/graph";
@@ -188,14 +188,21 @@ async function processRow(row: OutboxRow, supabase: SupabaseClient, config: Mess
         startTime: appt.start_time,
       }
     : null;
-  // A confirmation for a client who messaged the Page in the last 24 hours
-  // goes as a normal message — no approved template needed.
+  // A client who messaged the Page in the last 24 hours gets appointment
+  // messages as normal messages — no approved template needed.
   const inWindow = !!sub.last_inbound_at && Date.now() - Date.parse(sub.last_inbound_at) < 24 * 60 * 60 * 1000;
+  const isAppointmentMessage = row.kind === "reminder" || row.kind === "appointment_update" || row.kind === "review_request";
 
   const payload =
-    messageData && kind === "confirmed" && inWindow
-      ? buildButtonMessage(sub.psid, confirmedText(messageData), "View appointment", `${config.siteUrl}${row.link_path}`, "RESPONSE")
-      : messageData && (row.kind === "reminder" || row.kind === "appointment_update" || row.kind === "review_request")
+    messageData && isAppointmentMessage && kind && inWindow
+      ? buildButtonMessage(
+          sub.psid,
+          appointmentText(kind, messageData),
+          appointmentButtonText(kind),
+          `${config.siteUrl}${row.link_path}`,
+          "RESPONSE"
+        )
+      : messageData && isAppointmentMessage
       ? buildAppointmentTemplateMessage(sub.psid, kind as AppointmentTemplateKind, messageData)
       : buildButtonMessage(
           sub.psid,

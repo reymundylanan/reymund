@@ -35,6 +35,21 @@ export function confirmedText(data: AppointmentMessageData): string {
   return `Hi ${name}! Your ${service} at ${branch} on ${date} at ${time} is confirmed ✨ See you there!`;
 }
 
+/** Any appointment message as normal text: the template's wording with the
+ * details filled in. Used inside the 24-hour window, where Meta allows
+ * normal messages, so it works before (or without) approved templates. */
+export function appointmentText(kind: AppointmentTemplateKind, data: AppointmentMessageData): string {
+  if (kind === "confirmed") return confirmedText(data);
+  const params = appointmentTemplateParams(kind, data);
+  return APPOINTMENT_TEMPLATES[kind].body
+    .replace(/\{\{(\d)\}\}/g, (_, n: string) => params[Number(n) - 1] ?? "")
+    .replace(/\s*Tap below for details\.?$/, "");
+}
+
+export function appointmentButtonText(kind: AppointmentTemplateKind): string {
+  return APPOINTMENT_TEMPLATES[kind].button?.text ?? "View appointment";
+}
+
 export function buildAppointmentTemplateMessage(psid: string, kind: AppointmentTemplateKind, data: AppointmentMessageData) {
   return {
     recipient: { id: psid },

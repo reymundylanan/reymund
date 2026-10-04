@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appointmentTemplateParams, buildAppointmentTemplateMessage, confirmedText } from "./messages";
+import { appointmentButtonText, appointmentTemplateParams, appointmentText, buildAppointmentTemplateMessage, confirmedText } from "./messages";
 import { APPOINTMENT_TEMPLATES, templateCreatePayload } from "./templates";
 
 const data = {
@@ -32,5 +32,20 @@ describe("booking confirmed in Messenger", () => {
   it("reads naturally as a normal message", () => {
     const text = confirmedText(data);
     expect(text).toMatch(/^Hi Oceana! Your Upper Lip at One Cecilia Center on .+ at 9:30 AM is confirmed ✨/);
+  });
+});
+
+
+describe("appointment messages as normal text (24-hour window)", () => {
+  it("fills the template wording", () => {
+    expect(appointmentText("reminder", data)).toMatch(/^Hi Oceana, this is a reminder of your Upper Lip at One Cecilia Center on .+ at 9:30 AM\. See you soon!$/);
+    expect(appointmentText("cancelled", data)).toMatch(/^Hi Oceana, your Upper Lip at One Cecilia Center on .+ has been cancelled\.$/);
+    expect(appointmentText("confirmed", data)).toContain("is confirmed ✨");
+    expect(appointmentText("rescheduled", data)).not.toMatch(/\{\{/);
+  });
+
+  it("labels the button by message", () => {
+    expect(appointmentButtonText("review_request")).toBe("Rate your visit");
+    expect(appointmentButtonText("reminder")).toBe("View appointment");
   });
 });
