@@ -28,6 +28,8 @@ import { buildCustomReport, buildReport, CUSTOM_COLUMNS, type CustomSource } fro
 import { exportReport, type ExportFormat } from "@/lib/reports/export";
 import { REPORT_CATALOG, type Report, type ReportData, type ReportFilters, type ReportType } from "@/lib/reports/model";
 import ReportPreview from "@/components/admin/reports/ReportPreview";
+import ReportAssistantPanel from "@/components/admin/reports/ReportAssistantPanel";
+import GlowMascot from "@/components/GlowMascot";
 
 type Kind = ReportType | "custom";
 type Option = { id: string; name: string };
@@ -97,6 +99,7 @@ export default function ReportGenerator() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [recent, setRecent] = useState<RecentRun[]>([]);
   const [recentReady, setRecentReady] = useState<boolean | null>(null);
   const cache = useRef<{ key: string; data: ReportData } | null>(null);
@@ -254,6 +257,16 @@ export default function ReportGenerator() {
               <p className="text-sm text-ink/60">Generate detailed reports for sales, appointments, clients, staff, services, branches, and reviews.</p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setAssistantOpen(true)}
+            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-coral to-coral-dark py-1.5 pl-1.5 pr-4 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+          >
+            <span className="rounded-full bg-white p-0.5">
+              <GlowMascot size={26} />
+            </span>
+            Ask AI about your reports
+          </button>
         </div>
 
         <div className="mt-5 flex flex-wrap items-end gap-3">
@@ -558,6 +571,21 @@ export default function ReportGenerator() {
           </div>
         )}
       </div>
+      {assistantOpen && (
+        <ReportAssistantPanel
+          filters={filters}
+          scopeLabel={[
+            branches.find((b) => b.id === filters.branchId)?.name ?? "All branches",
+            filters.staffId ? staff.find((p) => p.id === filters.staffId)?.name ?? "One staff member" : "All staff",
+          ].join(" · ")}
+          onClose={() => setAssistantOpen(false)}
+          onOpenReport={(type) => {
+            setAssistantOpen(false);
+            chooseKind(type);
+            generate({ kind: type, filters: { ...filters, status: null, rating: type === "reviews" ? filters.rating : null } });
+          }}
+        />
+      )}
     </div>
   );
 }
