@@ -115,6 +115,11 @@ export default async function MyGlowPage({
               <div id="upcoming">
                 <UpcomingBookingCard appointment={upcoming} />
               </div>
+              {/* How the client hears from us, side by side above their services. */}
+              <div className={`grid items-start gap-6 ${messengerEnabled ? "md:grid-cols-2" : ""}`}>
+                <NotificationSettingsCard userId={auth.user.id} email={profile.email ?? auth.user.email ?? null} messengerUsername={null} />
+                {messengerEnabled && <MessengerConnectCard userId={auth.user.id} initialStatus={messengerStatus} />}
+              </div>
               <MyServicesList appointments={recent} clientId={auth.user.id} initialReviews={visitReviews} openReviewId={reviewId} />
               <RecommendedForYou recommendations={recommendations} />
               <MyBookingsSection userId={auth.user.id} />
@@ -133,9 +138,6 @@ export default async function MyGlowPage({
                 vouchers={vouchers}
               />
               <ReviewsPanel myReviews={myReviews} />
-              {/* Email and phone alerts on/off (068). Messenger has its own card above. */}
-              <NotificationSettingsCard userId={auth.user.id} email={profile.email ?? auth.user.email ?? null} messengerUsername={null} />
-              {messengerEnabled && <MessengerConnectCard userId={auth.user.id} initialStatus={messengerStatus} />}
             </aside>
           </div>
 
