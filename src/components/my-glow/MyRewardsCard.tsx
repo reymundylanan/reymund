@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getTierProgress } from "@/lib/myGlowTiers";
 import { getPointsHistoryPage, type MyRewards, type PointsEntry } from "@/lib/supabase/queries/rewards";
@@ -29,6 +30,7 @@ export default function MyRewardsCard({
   const [hasMore, setHasMore] = useState(initial.hasMore);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const progress = getTierProgress(initial.lifetimeEarned);
 
   async function showMore() {
@@ -62,35 +64,52 @@ export default function MyRewardsCard({
         </p>
       </div>
 
-      <h4 className="mt-6 text-sm font-semibold text-ink">Points History</h4>
-      {history.length === 0 ? (
-        <p className="mt-2 text-sm text-ink/60">No points yet — review a completed visit to earn GlowPoints.</p>
-      ) : (
-        <ul className="mt-2 divide-y divide-rose/40">
-          {history.map((e) => (
-            <li key={e.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-              <div className="min-w-0">
-                <p className="truncate text-ink">{e.label}</p>
-                <p className="text-xs text-ink/50">{formatDate(e.createdAt)}</p>
-              </div>
-              <span className={`shrink-0 font-semibold ${e.points >= 0 ? "text-green-600" : "text-red-600"}`}>
-                {e.points >= 0 ? `+${e.points}` : `−${Math.abs(e.points)}`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {hasMore && (
-        <button
-          type="button"
-          onClick={showMore}
-          disabled={loading}
-          className="mt-2 text-sm font-medium text-coral-dark hover:underline disabled:opacity-60"
-        >
-          {loading ? "Loading…" : "Show more"}
-        </button>
-      )}
-      {loadError && <p className="mt-1 text-xs text-red-600">Couldn&apos;t load more. Please try again.</p>}
+      <button
+        type="button"
+        onClick={() => setHistoryOpen((o) => !o)}
+        aria-expanded={historyOpen}
+        aria-controls="points-history"
+        className="mt-6 flex w-full items-center justify-between gap-3 rounded-xl bg-cream px-3 py-2.5 text-left hover:bg-skin"
+      >
+        <span className="text-sm font-semibold text-ink">
+          Points History
+          {history.length > 0 && <span className="ml-1.5 text-xs font-normal text-ink/50">({history.length}{hasMore ? "+" : ""})</span>}
+        </span>
+        <span className="flex items-center gap-1 text-xs font-semibold text-coral-dark">
+          {historyOpen ? "Hide" : "Show"}
+          <ChevronDown className={`h-4 w-4 transition-transform ${historyOpen ? "rotate-180" : ""}`} />
+        </span>
+      </button>
+      <div id="points-history" hidden={!historyOpen}>
+        {history.length === 0 ? (
+          <p className="mt-2 text-sm text-ink/60">No points yet — review a completed visit to earn GlowPoints.</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-rose/40">
+            {history.map((e) => (
+              <li key={e.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <div className="min-w-0">
+                  <p className="truncate text-ink">{e.label}</p>
+                  <p className="text-xs text-ink/50">{formatDate(e.createdAt)}</p>
+                </div>
+                <span className={`shrink-0 font-semibold ${e.points >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  {e.points >= 0 ? `+${e.points}` : `−${Math.abs(e.points)}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {hasMore && (
+          <button
+            type="button"
+            onClick={showMore}
+            disabled={loading}
+            className="mt-2 text-sm font-medium text-coral-dark hover:underline disabled:opacity-60"
+          >
+            {loading ? "Loading…" : "Show more"}
+          </button>
+        )}
+        {loadError && <p className="mt-1 text-xs text-red-600">Couldn&apos;t load more. Please try again.</p>}
+      </div>
 
       <MyVouchersList vouchers={vouchers} />
 

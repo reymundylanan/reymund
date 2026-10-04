@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Star } from "lucide-react";
+import { ChevronDown, Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { RecentAppointment } from "@/lib/supabase/queries/myGlow";
 import { getVisitReviews, type VisitReview } from "@/lib/supabase/queries/visitReviews";
@@ -77,6 +77,9 @@ function allStatuses(review: VisitReview): ReviewStatus[] {
 
 type ModalState = { id: string; mode: "submit" | "edit" | "view" } | null;
 
+/** Services shown before "Show all". */
+const PREVIEW_COUNT = 3;
+
 export default function MyServicesList({
   appointments,
   clientId,
@@ -91,6 +94,10 @@ export default function MyServicesList({
   const [reviews, setReviews] = useState(initialReviews);
   const [modal, setModal] = useState<ModalState>(null);
   const [handledId, setHandledId] = useState<string | undefined>(undefined);
+  // Collapsed to the header, or open showing the newest few (all on request).
+  // A deep-linked visit further down opens the full list.
+  const [open, setOpen] = useState(true);
+  const [showAll, setShowAll] = useState(() => appointments.findIndex((a) => a.id === openReviewId) >= PREVIEW_COUNT);
   const router = useRouter();
 
   // Deep link (?review=<id>), also on same-page soft navigation: open the
@@ -131,15 +138,30 @@ export default function MyServicesList({
 
   return (
     <div id="services" className="rounded-3xl border border-rose/60 bg-white p-5">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-ink">My Services</h3>
-      </div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="my-services-list"
+        className="flex w-full items-center justify-between gap-3 text-left"
+      >
+        <h3 className="flex items-center gap-2 text-lg font-semibold text-ink">
+          My Services
+          {appointments.length > 0 && (
+            <span className="rounded-full bg-skin px-2 py-0.5 text-xs font-semibold text-coral-dark">{appointments.length}</span>
+          )}
+        </h3>
+        <span className="flex shrink-0 items-center gap-1 rounded-full border border-champagne px-3 py-1 text-xs font-semibold text-ink/70 hover:border-coral">
+          {open ? "Hide" : "Show"}
+          <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </span>
+      </button>
 
-      <div className="mt-4 space-y-3">
+      <div id="my-services-list" className={open ? "mt-4 space-y-3" : "hidden"}>
         {appointments.length === 0 && (
           <p className="py-6 text-center text-sm text-ink/40">No services booked yet.</p>
         )}
-        {appointments.map((a) => {
+        {(showAll ? appointments : appointments.slice(0, PREVIEW_COUNT)).map((a) => {
           const status = displayStatus(a);
           const completed = isCompleted(a);
           const review = reviews[a.id];
@@ -219,6 +241,16 @@ export default function MyServicesList({
             </div>
           );
         })}
+        {appointments.length > PREVIEW_COUNT && (
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-champagne py-2.5 text-sm font-semibold text-coral-dark hover:bg-cream"
+          >
+            {showAll ? "Show less" : `Show all ${appointments.length} services`}
+            <ChevronDown className={`h-4 w-4 transition-transform ${showAll ? "rotate-180" : ""}`} />
+          </button>
+        )}
       </div>
 
       {modal && modalAppointment && (
