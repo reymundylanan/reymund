@@ -3,6 +3,7 @@
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowRight, Building2, Images, ListChecks, Loader2, Send, Sparkles, Star, UserRound, X } from "lucide-react";
 import type { ChatTurn } from "@/lib/reviewAssistant";
+import GlowMascot from "@/components/GlowMascot";
 
 type Message = ChatTurn & { actions?: { label: string; href: string }[]; error?: boolean };
 
@@ -121,10 +122,10 @@ export default function ReviewAssistantPanel({ onClose, onOpenFilters }: { onClo
         aria-label="AI Review Assistant"
         className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-ink/10 bg-white shadow-2xl"
       >
-        <div className="flex items-start justify-between gap-3 border-b border-ink/10 p-5">
+        <div className="flex items-start justify-between gap-3 border-b border-ink/10 bg-gradient-to-r from-cream to-[#fbf1dc] p-5">
           <div className="flex gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blush text-coral-dark">
-              <Sparkles className="h-5 w-5" />
+            <span className="shrink-0 rounded-full bg-white p-0.5 shadow-sm">
+              <GlowMascot size={40} talking={busy} />
             </span>
             <div>
               <h2 className="font-semibold text-ink">AI Review Assistant</h2>

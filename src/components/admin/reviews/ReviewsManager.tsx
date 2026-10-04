@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Sparkles, Star } from "lucide-react";
+import { Star } from "lucide-react";
+import GlowMascot from "@/components/GlowMascot";
 import { createClient } from "@/lib/supabase/client";
 import {
   PAGE_SIZE,
@@ -108,9 +109,12 @@ export default function ReviewsManager({
         <button
           type="button"
           onClick={() => setAssistantOpen(true)}
-          className="flex items-center gap-1.5 rounded-full border border-coral px-4 py-2 text-sm font-semibold text-coral-dark hover:bg-blush"
+          className="flex items-center gap-2 rounded-full bg-gradient-to-r from-coral to-coral-dark py-1.5 pl-1.5 pr-4 text-sm font-semibold text-white shadow-sm hover:opacity-95"
         >
-          <Sparkles className="h-4 w-4" /> AI Review Assistant
+          <span className="rounded-full bg-white p-0.5">
+            <GlowMascot size={26} />
+          </span>
+          AI Review Assistant
         </button>
         <Link href="/admin/reviews/rewards" className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
           Rewards
