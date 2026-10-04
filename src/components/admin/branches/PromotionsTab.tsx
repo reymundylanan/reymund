@@ -180,6 +180,8 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // After a new promo: how many opted-in clients were emailed (071).
+  const [announceNote, setAnnounceNote] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [spaModalOpen, setSpaModalOpen] = useState(false);
   const [editingSpa, setEditingSpa] = useState<Promotion | null>(null);
@@ -270,6 +272,29 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
     if (inserts.length) {
       const { error } = await supabase.from("promotion_services").insert(inserts);
       if (error) logQueryError("promo included services (save)", error);
+    }
+  }
+
+  async function announceNewPromos(ids: string[]) {
+    if (ids.length === 0) return;
+    try {
+      const res = await fetch("/api/admin/promotions/announce", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = (await res.json().catch(() => null)) as { sent?: number; recipients?: number; skipped?: string; error?: string } | null;
+      if (!res.ok) return setAnnounceNote(data?.error ?? "Promo saved, but the email couldn't be sent.");
+      if (data?.skipped === "apply_migration_071") return setAnnounceNote("Promo saved. To email it automatically, apply migration 071 first.");
+      if (data?.skipped === "email_not_configured") return setAnnounceNote("Promo saved. Email isn't set up on this site yet, so no email went out.");
+      if (data?.skipped) return setAnnounceNote("Promo saved. It's not active yet, so no email went out.");
+      setAnnounceNote(
+        data?.recipients
+          ? `📧 Promo emailed to ${data.recipients} client${data.recipients !== 1 ? "s" : ""} who opted in to offers.`
+          : "Promo saved. No clients have opted in to offer emails yet."
+      );
+    } catch {
+      setAnnounceNote("Promo saved, but the email couldn't be sent.");
     }
   }
 
@@ -394,8 +419,9 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
           { ...base, branch_id: bid, title: `${baseName} - with free RF`, price: rfPrice },
           { ...base, branch_id: bid, title: `${baseName} - with free RF & Exislim`, price: exislimPrice },
         ]);
-        const { error } = await supabase.from("branch_promotions").insert(inserts);
+        const { data: added, error } = await supabase.from("branch_promotions").insert(inserts).select("id");
         if (error) { setSaveError(error.message); setSaving(false); return; }
+        void announceNewPromos(((added ?? []) as { id: string }[]).map((r) => r.id));
       }
       setEditingMesolipoExislim(null);
       setSaving(false);
@@ -464,8 +490,9 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       }
     } else {
       const inserts = [payload, ...form.extra_branch_ids.map((bid) => ({ ...payload, branch_id: bid }))];
-      const { error } = await supabase.from("branch_promotions").insert(inserts);
+      const { data: added, error } = await supabase.from("branch_promotions").insert(inserts).select("id");
       if (error) { setSaveError(error.message); setSaving(false); return; }
+      void announceNewPromos(((added ?? []) as { id: string }[]).map((r) => r.id));
     }
 
     await syncIncluded(payload.title, [branchId, ...form.extra_branch_ids]);
@@ -603,6 +630,14 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
 
   return (
     <div className="space-y-4">
+      {announceNote && (
+        <div role="status" className="flex items-start justify-between gap-3 rounded-2xl bg-cream px-4 py-3 text-sm text-ink/80 ring-1 ring-champagne">
+          <span>{announceNote}</span>
+          <button type="button" onClick={() => setAnnounceNote(null)} className="shrink-0 font-semibold text-coral-dark hover:underline">
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xl font-semibold text-ink">Promo Packages</h3>
