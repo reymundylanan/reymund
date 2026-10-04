@@ -25,7 +25,14 @@ export function appointmentTemplateParams(kind: AppointmentTemplateKind, data: A
     formatAppointmentDate(data.scheduledDate),
   ];
   if (kind === "review_request") return common.slice(0, 3);
-  return kind === "reminder" || kind === "rescheduled" ? [...common, formatAppointmentTime(data.startTime)] : common;
+  return kind === "reminder" || kind === "rescheduled" || kind === "confirmed" ? [...common, formatAppointmentTime(data.startTime)] : common;
+}
+
+/** "Booking confirmed" as a normal message, for clients who messaged the
+ * Page in the last 24 hours (no approved template needed). */
+export function confirmedText(data: AppointmentMessageData): string {
+  const [name, service, branch, date, time] = appointmentTemplateParams("confirmed", data);
+  return `Hi ${name}! Your ${service} at ${branch} on ${date} at ${time} is confirmed ✨ See you there!`;
 }
 
 export function buildAppointmentTemplateMessage(psid: string, kind: AppointmentTemplateKind, data: AppointmentMessageData) {

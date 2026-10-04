@@ -2,7 +2,7 @@
 // Page by scripts/messenger-setup.ts. Bodies must not start or end with
 // a parameter and must not contain marketing content (Meta policy).
 
-export type AppointmentTemplateKind = "reminder" | "rescheduled" | "cancelled" | "no_show" | "review_request";
+export type AppointmentTemplateKind = "reminder" | "rescheduled" | "cancelled" | "no_show" | "review_request" | "confirmed";
 
 export const APPOINTMENT_TEMPLATES: Record<
   AppointmentTemplateKind,
@@ -17,6 +17,11 @@ export const APPOINTMENT_TEMPLATES: Record<
     name: "glowsync_appt_rescheduled",
     body: "Hi {{1}}, your {{2}} at {{3}} has been moved to {{4}} at {{5}}. Tap below for details.",
     example: ["Ana", "Signature Facial", "Robinsons", "Fri, Oct 9", "10:00 AM"],
+  },
+  confirmed: {
+    name: "glowsync_appt_confirmed",
+    body: "Hi {{1}}, your {{2}} at {{3}} on {{4}} at {{5}} is confirmed. Tap below for details.",
+    example: ["Ana", "Signature Facial", "One Cecilia Center", "Fri, Oct 9", "9:30 AM"],
   },
   cancelled: {
     name: "glowsync_appt_cancelled",

@@ -5,7 +5,7 @@ import { getMessengerConfig, missingMessengerEnv, type MessengerConfig } from "@
 import { safeEqual } from "@/lib/messenger/signature";
 import { manilaScheduledAt, skipReason, type OutboxKind } from "@/lib/messenger/dispatchRules";
 import { classifyGraphResponse, retryDelayMinutes, type SendOutcome } from "@/lib/messenger/errors";
-import { buildAppointmentTemplateMessage, buildButtonMessage } from "@/lib/messenger/messages";
+import { buildAppointmentTemplateMessage, buildButtonMessage, confirmedText } from "@/lib/messenger/messages";
 import type { AppointmentTemplateKind } from "@/lib/messenger/templates";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 import { sendToGraph } from "@/lib/messenger/graph";
@@ -19,7 +19,7 @@ type OutboxRow = {
   profile_id: string;
   kind: OutboxKind;
   appointment_id: string | null;
-  update_type: "rescheduled" | "cancelled" | "no_show" | null;
+  update_type: "rescheduled" | "cancelled" | "no_show" | "confirmed" | null;
   remind_for: string | null;
   custom_text: string | null;
   link_path: string;
@@ -178,16 +178,25 @@ async function processRow(row: OutboxRow, supabase: SupabaseClient, config: Mess
     return applyOutcome(supabase, row, { kind: "fail", error: "appointment_update without update_type" });
   }
 
+  const messageData = appt
+    ? {
+        appointmentId: appt.id,
+        firstName: (one(appt.client)?.full_name ?? "").split(" ")[0],
+        serviceName: bookedServiceName ?? one(appt.service)?.name ?? appt.notes ?? "",
+        branchName: one(appt.branch)?.name ?? "",
+        scheduledDate: appt.scheduled_date,
+        startTime: appt.start_time,
+      }
+    : null;
+  // A confirmation for a client who messaged the Page in the last 24 hours
+  // goes as a normal message — no approved template needed.
+  const inWindow = !!sub.last_inbound_at && Date.now() - Date.parse(sub.last_inbound_at) < 24 * 60 * 60 * 1000;
+
   const payload =
-    appt && (row.kind === "reminder" || row.kind === "appointment_update" || row.kind === "review_request")
-      ? buildAppointmentTemplateMessage(sub.psid, kind as AppointmentTemplateKind, {
-          appointmentId: appt.id,
-          firstName: (one(appt.client)?.full_name ?? "").split(" ")[0],
-          serviceName: bookedServiceName ?? one(appt.service)?.name ?? appt.notes ?? "",
-          branchName: one(appt.branch)?.name ?? "",
-          scheduledDate: appt.scheduled_date,
-          startTime: appt.start_time,
-        })
+    messageData && kind === "confirmed" && inWindow
+      ? buildButtonMessage(sub.psid, confirmedText(messageData), "View appointment", `${config.siteUrl}${row.link_path}`, "RESPONSE")
+      : messageData && (row.kind === "reminder" || row.kind === "appointment_update" || row.kind === "review_request")
+      ? buildAppointmentTemplateMessage(sub.psid, kind as AppointmentTemplateKind, messageData)
       : buildButtonMessage(
           sub.psid,
           row.custom_text ?? "",
