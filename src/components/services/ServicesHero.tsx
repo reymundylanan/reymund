@@ -1,12 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { CalendarHeart, Sparkles } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchServiceCategories } from "@/lib/data";
 
 export default function ServicesHero() {
   const { open } = useBooking();
+  // The category the client is browsing below (set by the catalog).
+  const category = useSearchParams().get("category");
   return (
     <section className="relative isolate flex min-h-[30rem] items-center overflow-hidden px-6 py-24 text-white">
       <Image src="/images/services/services.png" alt="" fill priority className="-z-20 object-cover object-[center_30%]" />
@@ -29,10 +32,14 @@ export default function ServicesHero() {
           <div className="mt-8 flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() => open(branchServiceCategories[0].services[0])}
+              onClick={() =>
+                category
+                  ? open({ name: "", duration: "", price: 0, preselect: true, category })
+                  : open(branchServiceCategories[0].services[0])
+              }
               className="inline-flex items-center gap-2 rounded-full bg-coral px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-black/20 transition hover:bg-coral-dark"
             >
-              <CalendarHeart className="h-4 w-4" /> Book a Treatment
+              <CalendarHeart className="h-4 w-4" /> {category ? `Book ${category}` : "Book a Treatment"}
             </button>
             <a
               href="#catalog"

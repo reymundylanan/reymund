@@ -71,7 +71,15 @@ export default function ServiceCatalog({
 }) {
   const { open } = useBooking();
   const searchParams = useSearchParams();
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(() => searchParams.get("category"));
+  const [selectedCategory, setSelectedCategoryState] = useState<string | null>(() => searchParams.get("category"));
+  function setSelectedCategory(name: string | null) {
+    setSelectedCategoryState(name);
+    const params = new URLSearchParams(window.location.search);
+    if (name) params.set("category", name);
+    else params.delete("category");
+    const qs = params.toString();
+    window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`);
+  }
   const [query, setQuery] = useState("");
 
   const categories = useMemo(() => {

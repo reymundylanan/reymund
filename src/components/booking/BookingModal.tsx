@@ -424,7 +424,16 @@ export default function BookingModal({
         preselectedFor.current = branchId;
         const picked = preselectService({ name: preselect.name, category: preselect.category }, services);
         const branchName = branchContacts.find((b) => b.id === branchId)?.name ?? "this branch";
-        if (picked.kind === "added") {
+        const wantedCategory = preselect.category ?? "";
+        if (!preselect.name.trim()) {
+          // "Book a Treatment" while browsing a category: open on that tab.
+          if (wantedCategory && cats.includes(wantedCategory)) {
+            setCategoryId(wantedCategory);
+            setPreselectNote(`Showing ${wantedCategory}. Select the services you want.`);
+          } else if (wantedCategory) {
+            setPreselectNote(`${wantedCategory} isn't offered at ${branchName}. Choose another branch or category.`);
+          }
+        } else if (picked.kind === "added") {
           setSelectedServices((prev) => (prev.some((s) => s.id === picked.entry.id) ? prev : [...prev, picked.entry]));
           setCategoryId(picked.category);
           setShowSelectedPanel(true);
