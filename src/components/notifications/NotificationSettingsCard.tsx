@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Bell, Mail, MessageCircle } from "lucide-react";
+import { Mail, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { currentPushSubscription, disablePush, enablePush, pushSupport, type PushSupport } from "@/lib/notifications/pushClient";
 import { logQueryError } from "@/lib/supabase/logQueryError";
+import ChannelHeader from "@/components/notifications/ChannelHeader";
 
 const noSubscribe = () => () => {};
 
@@ -77,13 +78,15 @@ export default function NotificationSettingsCard({
   }
 
   return (
-    <div id="notifications" className="scroll-mt-24 rounded-3xl border border-rose/60 bg-white p-5">
-      <h3 className="flex items-center gap-2 text-lg font-semibold text-ink">
-        <Bell className="h-5 w-5 text-coral-dark" /> Notifications
-      </h3>
-      <p className="mt-1 text-sm text-ink/60">Get booking confirmations, reminders and changes.</p>
+    <div id="notifications" className="flex h-full scroll-mt-24 flex-col rounded-3xl border border-rose/60 bg-white p-4">
+      <ChannelHeader
+        variant="email"
+        title="Notifications"
+        subtitle="Booking confirmations, reminders and changes."
+        status={emailOn || pushOn ? { label: "On", tone: "on" } : { label: "Off", tone: "off" }}
+      />
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-4 space-y-4 px-1">
         <div>
           <p className="text-sm font-semibold text-ink">Phone notifications</p>
           {support === "supported" && (

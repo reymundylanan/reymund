@@ -116,7 +116,7 @@ export default async function MyGlowPage({
                 <UpcomingBookingCard appointment={upcoming} />
               </div>
               {/* How the client hears from us, side by side above their services. */}
-              <div className={`grid items-start gap-6 ${messengerEnabled ? "md:grid-cols-2" : ""}`}>
+              <div className={`grid items-stretch gap-6 ${messengerEnabled ? "md:grid-cols-2" : ""}`}>
                 <NotificationSettingsCard userId={auth.user.id} email={profile.email ?? auth.user.email ?? null} messengerUsername={null} />
                 {messengerEnabled && <MessengerConnectCard userId={auth.user.id} initialStatus={messengerStatus} />}
               </div>
