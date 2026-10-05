@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { branchContacts } from "@/lib/data";
 import { GeminiError, geminiGenerate } from "@/lib/ai/gemini";
 import { fallbackReply, priceText, type HairPrices } from "@/lib/assistantFallback";
+import { knowledgeText, type SpaKnowledge } from "@/lib/ai/spaKnowledge";
 
 // GlowSync AI: the spa assistant shared by the website chat
 // (/api/assistant) and the Facebook Page chatbot (Messenger webhook).
@@ -84,10 +85,17 @@ export function lowestPrice(s: LiveService) {
   return sizes.length ? Math.min(...sizes) : s.price;
 }
 
-function buildSystemPrompt(userContext: string, services: LiveService[], preferredBranchName: string | null, channel: AssistantChannel) {
-  const branches = branchContacts
-    .map((b) => `- ${b.name} (${b.area}): ${b.address}; open ${b.hours[0]?.time ?? "8:00 AM - 6:00 PM"} daily; phone ${b.phone}`)
-    .join("\n");
+function buildSystemPrompt(
+  userContext: string,
+  services: LiveService[],
+  preferredBranchName: string | null,
+  channel: AssistantChannel,
+  knowledge: SpaKnowledge | null
+) {
+  // Live hours, promos and rules; the site's defaults if they couldn't load.
+  const branches = knowledge
+    ? knowledgeText(knowledge)
+    : branchContacts.map((b) => `- ${b.name} (${b.area}): ${b.address}; open ${b.hours[0]?.time ?? "8:00 AM - 6:00 PM"} daily; phone ${b.phone}`).join("\n");
 
   const byBranch = new Map<string, LiveService[]>();
   for (const s of services) {
@@ -146,8 +154,11 @@ ${preferredBranchName ? `\nThis customer's selected branch is ${preferredBranchN
 
 ${userContext}
 
-Branches:
+ABOUT THE SPA:
 ${branches}
+When asked about opening hours, whether a branch is open now, promos, payments, late arrivals, refunds,
+GlowPoints or vouchers, answer from ABOUT THE SPA. If something isn't covered there, say you're not sure
+and suggest contacting the branch by phone.
 
 Live active services catalog (each line's [id:...] is that service's real ID — when you recommend a service, include its id in recommendedServiceIds so it can be shown as a proper card; only use ids that appear below):
 ${catalog || "(no active services found)"}
@@ -166,6 +177,8 @@ export type AskInput = {
   firstName: string;
   upcoming: string | null;
   channel: AssistantChannel;
+  /** Live hours, promos and spa rules (see spaKnowledge). */
+  knowledge?: SpaKnowledge | null;
 };
 
 /** GlowSync AI's answer (Gemini with model fallback), or a catalog answer
@@ -181,7 +194,7 @@ export async function askSpaAssistant(input: AskInput): Promise<{ reply: string;
   let aiFailed = false;
   try {
     rawText = await geminiGenerate({
-      system_instruction: { parts: [{ text: buildSystemPrompt(input.userContext, services, preferredBranchName, input.channel) }] },
+      system_instruction: { parts: [{ text: buildSystemPrompt(input.userContext, services, preferredBranchName, input.channel, input.knowledge ?? null) }] },
       contents,
       generationConfig: {
         responseMimeType: "application/json",
@@ -208,8 +221,10 @@ export async function askSpaAssistant(input: AskInput): Promise<{ reply: string;
     const fb = fallbackReply(lastUser, preferred.length ? preferred : services, {
       firstName: input.firstName || "there",
       upcoming: input.upcoming,
-      hours: `${branchContacts[0]?.hours[0]?.time ?? "8:00 AM - 6:00 PM"}`,
-      branches: branchContacts.map((b) => `${b.name} — ${b.address}`),
+      hours: input.knowledge
+        ? input.knowledge.branches.map((b) => `${b.hours ?? "(hours not set)"} at ${b.name}`).join(" and ")
+        : `${branchContacts[0]?.hours[0]?.time ?? "8:00 AM - 6:00 PM"}`,
+      branches: (input.knowledge?.branches ?? branchContacts).map((b) => `${b.name} — ${b.address}`),
     });
     reply = fb.reply;
     recommendedIds = fb.ids;

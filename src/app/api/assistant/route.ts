@@ -4,6 +4,7 @@ import { getUpcomingAppointment, getVisitedBranches } from "@/lib/supabase/queri
 import { getTierProgress } from "@/lib/myGlowTiers";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 import { askSpaAssistant, loadLiveServices, lowestPrice, type ChatTurn } from "@/lib/ai/spaAssistant";
+import { loadSpaKnowledge } from "@/lib/ai/spaKnowledge";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -53,7 +54,9 @@ export async function POST(request: Request) {
 Their loyalty status: ${balance} GlowPoints, ${tier.tier} tier.
 ${upcomingText ? `Their next booking is ${upcomingText}.` : "They have no upcoming bookings."}`;
 
+  const knowledge = await loadSpaKnowledge(supabase).catch(() => null);
   const { reply, recommendations } = await askSpaAssistant({
+    knowledge,
     messages,
     services,
     userContext,

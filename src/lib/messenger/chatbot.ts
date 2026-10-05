@@ -4,6 +4,7 @@ import { sendToGraph } from "./graph";
 import { buildButtonMessage, buildTextMessage } from "./messages";
 import { askSpaAssistant, loadLiveServices, lowestPrice, type ChatTurn, type LiveService } from "@/lib/ai/spaAssistant";
 import { priceText } from "@/lib/assistantFallback";
+import { loadSpaKnowledge } from "@/lib/ai/spaKnowledge";
 import { getUpcomingAppointment, getVisitedBranches } from "@/lib/supabase/queries/myGlow";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 
@@ -101,9 +102,10 @@ export async function answerMessengerUser(supabase: SupabaseClient, config: Mess
 
   await send(config, { recipient: { id: psid }, sender_action: "typing_on" });
 
-  const services = await loadLiveServices(supabase);
+  const [services, knowledge] = await Promise.all([loadLiveServices(supabase), loadSpaKnowledge(supabase).catch(() => null)]);
   const history = trimHistory([...(state?.history ?? []), { role: "user", content: text.slice(0, 1000) }]);
   const { reply, recommendations } = await askSpaAssistant({
+    knowledge,
     messages: history,
     services,
     userContext: who.userContext,
