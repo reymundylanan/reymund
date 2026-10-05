@@ -1,16 +1,14 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { Mail, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { currentPushSubscription, disablePush, enablePush, pushSupport, type PushSupport } from "@/lib/notifications/pushClient";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 import ChannelHeader from "@/components/notifications/ChannelHeader";
 
-const noSubscribe = () => () => {};
-
-/** Phone/browser push, email notices and a Messenger chat link. Shown on
- * My Glow, appointment pages and My Profile (#notifications). */
+/** Email notices on/off (sent through the spa's Gmail) and an optional
+ * Messenger chat link. Shown on My Glow, appointment pages and My Profile
+ * (#notifications). */
 export default function NotificationSettingsCard({
   userId,
   email,
@@ -20,20 +18,11 @@ export default function NotificationSettingsCard({
   email: string | null;
   messengerUsername: string | null;
 }) {
-  // What this browser supports (null while rendering on the server).
-  const support = useSyncExternalStore<PushSupport | null>(noSubscribe, pushSupport, () => null);
-  const [pushOn, setPushOn] = useState(false);
   const [emailOn, setEmailOn] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    if (pushSupport() === "supported" && Notification.permission === "granted") {
-      currentPushSubscription()
-        .then((sub) => !cancelled && setPushOn(Boolean(sub)))
-        .catch(() => {});
-    }
     createClient()
       .from("notification_preferences")
       .select("email_enabled")
@@ -48,22 +37,6 @@ export default function NotificationSettingsCard({
     };
   }, [userId]);
 
-  async function togglePush() {
-    setBusy(true);
-    setError(null);
-    try {
-      const supabase = createClient();
-      const err = pushOn ? await disablePush(supabase) : await enablePush(supabase);
-      if (err) setError(err);
-      else setPushOn(!pushOn);
-    } catch (e) {
-      console.error("push toggle failed:", e);
-      setError("Couldn't change phone notifications on this device. Please try again.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function toggleEmail(next: boolean) {
     setEmailOn(next);
     setError(null);
@@ -77,49 +50,19 @@ export default function NotificationSettingsCard({
     }
   }
 
+  const on = emailOn && !!email;
+
   return (
     <div id="notifications" className="flex h-full scroll-mt-24 flex-col rounded-3xl border border-rose/60 bg-white p-4">
       <ChannelHeader
         variant="email"
-        title="Notifications"
-        subtitle="Booking confirmations, reminders and changes."
-        status={emailOn || pushOn ? { label: "On", tone: "on" } : { label: "Off", tone: "off" }}
+        title="Email Updates"
+        subtitle="Booking confirmations, reminders and changes in your Gmail."
+        status={on ? { label: "On", tone: "on" } : { label: "Off", tone: "off" }}
       />
 
       <div className="mt-4 space-y-4 px-1">
-        <div>
-          <p className="text-sm font-semibold text-ink">Phone notifications</p>
-          {support === "supported" && (
-            <>
-              <p className="text-xs text-ink/50">
-                {pushOn ? "On for this device ✓" : "Pop-up alerts on this phone or computer, even when the site is closed."}
-              </p>
-              <button
-                type="button"
-                onClick={togglePush}
-                disabled={busy}
-                className={
-                  pushOn
-                    ? "mt-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70 hover:border-ink/30 disabled:opacity-50"
-                    : "mt-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark disabled:opacity-50"
-                }
-              >
-                {busy ? "Please wait…" : pushOn ? "Turn off" : "Turn on"}
-              </button>
-            </>
-          )}
-          {support === "needs_home_screen" && (
-            <p className="text-xs text-ink/50">
-              On iPhone: tap the Share button <span aria-hidden>⎋</span>, choose <strong>Add to Home Screen</strong>, open
-              GlowSync from your home screen, then come back here to turn notifications on.
-            </p>
-          )}
-          {support === "unsupported" && (
-            <p className="text-xs text-ink/50">This browser doesn&apos;t support notifications. Try Chrome, Edge or Safari.</p>
-          )}
-        </div>
-
-        <label className="flex items-start gap-3">
+        <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-cream/70 p-3">
           <input
             type="checkbox"
             checked={emailOn}
@@ -129,13 +72,18 @@ export default function NotificationSettingsCard({
           />
           <span>
             <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-              <Mail className="h-4 w-4 text-ink/40" /> Email updates
+              <Mail className="h-4 w-4 text-coral-dark" /> Send me email updates
             </span>
-            <span className="block break-all text-xs text-ink/50">
+            <span className="block break-all text-xs text-ink/55">
               {email ? `Sent to ${email}` : "No email on your account."}
             </span>
           </span>
         </label>
+
+        <p className="text-xs leading-relaxed text-ink/55">
+          You&apos;ll get an email when your booking is confirmed, rescheduled or cancelled, a reminder the day before, and a
+          request to rate your visit afterwards.
+        </p>
 
         {messengerUsername && (
           <a
