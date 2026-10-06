@@ -1,3 +1,5 @@
+"use client";
+
 const stats = [
   { value: "2+", label: "Prime Branches" },
   { value: "50+", label: "Staff Professionals" },
@@ -9,6 +11,16 @@ export default function Leadership() {
     <section className="bg-blush px-6 py-20">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_1.2fr]">
         <div className="relative h-[420px] overflow-hidden rounded-3xl bg-gradient-to-br from-coral to-ink/40">
+          {/* Her photo: public/images/about/liberose.jpg (gold background until it is added). */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/about/liberose.jpg"
+            alt="Ms. Liberose T. Amir"
+            className="absolute inset-0 h-full w-full object-cover object-top"
+            onError={(e) => {
+              e.currentTarget.style.display = "none";
+            }}
+          />
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-5 text-white">
             <p className="font-semibold">Ms. Liberose T. Amir,</p>
             <p className="text-sm text-white/80">
