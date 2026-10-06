@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, ChevronLeft, Clock, Search, Star } from "lucide-react";
 import type { ServiceReviewSummary } from "@/lib/supabase/queries/serviceReviews";
 import { useBooking } from "@/components/booking/BookingContext";
 import SectionHeading from "@/components/SectionHeading";
+import GlowGuide from "@/components/services/GlowGuide";
+import { categoryFacts, serviceFacts, type GuideFacts, type GuidePromo, type GuideService } from "@/lib/glowGuide";
 
 export type DbService = {
   id: string;
@@ -29,6 +31,25 @@ export type DbService = {
   non_surgical_type?: string | null;
   doctor_type?: string | null;
 };
+
+function toGuideService(s: DbService): GuideService {
+  const p = s.hair_options?.prices;
+  const num = (v: string | undefined) => {
+    const n = Number(String(v ?? "").replace(/[₱,s]/g, ""));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  return {
+    id: s.id,
+    name: s.name,
+    category: s.category,
+    duration: s.duration,
+    price: s.price ?? 0,
+    price_41: s.price_41,
+    description: s.description,
+    benefits: s.benefits ?? null,
+    hairPrices: p ? { short: num(p.short), medium: num(p.medium), long: num(p.long) } : null,
+  };
+}
 
 function getServiceType(svc: DbService): string | null {
   if (svc.hair_options?.type) {
@@ -65,11 +86,15 @@ const FALLBACK = { image: "/images/hero/clinic.jpeg", description: "Explore our 
 export default function ServiceCatalog({
   services,
   ratings = {},
+  promos = [],
 }: {
   services: DbService[];
   ratings?: Record<string, ServiceReviewSummary>;
+  promos?: GuidePromo[];
 }) {
   const { open } = useBooking();
+  const router = useRouter();
+  const sectionRef = useRef<HTMLElement>(null);
   const searchParams = useSearchParams();
   const [selectedCategory, setSelectedCategoryState] = useState<string | null>(() => searchParams.get("category"));
   function setSelectedCategory(name: string | null) {
@@ -110,21 +135,77 @@ export default function ServiceCatalog({
     );
   }, [services, selectedCategory, query]);
 
+  const grouped = useMemo(
+    () =>
+      Array.from(
+        filteredServices.reduce((map, svc) => {
+          const type = getServiceType(svc) ?? "General";
+          if (!map.has(type)) map.set(type, []);
+          map.get(type)!.push(svc);
+          return map;
+        }, new Map<string, DbService[]>())
+      ),
+    [filteredServices]
+  );
+
+  // What the GlowSync guide says about each card, in on-screen order.
+  const guideItems = useMemo<GuideFacts[]>(() => {
+    const rating = (r?: ServiceReviewSummary) => (r ? { average: r.average, count: r.count } : null);
+    if (!selectedCategory) {
+      return categories.map((c) =>
+        categoryFacts(
+          c.name,
+          services.filter((s) => s.category === c.name).map(toGuideService),
+          promos,
+          c.average !== null ? { average: c.average, count: c.reviews } : null,
+          (CATEGORY_META[c.name] ?? FALLBACK).description
+        )
+      );
+    }
+    const siblings = services.filter((s) => s.category === selectedCategory).map(toGuideService);
+    const blurb = (CATEGORY_META[selectedCategory] ?? FALLBACK).description;
+    return grouped.flatMap(([, group]) => group.map((s) => serviceFacts(toGuideService(s), siblings, promos, rating(ratings[s.id]), blurb)));
+  }, [selectedCategory, categories, services, promos, ratings, grouped]);
+
+  function guideBook(item: GuideFacts) {
+    if (item.kind === "category") {
+      open({ name: "", duration: "", price: 0, category: item.category });
+      return;
+    }
+    const svc = services.find((s) => s.id === item.id);
+    if (svc) open({ name: svc.name, duration: svc.duration ?? "", price: svc.price ?? 0, preselect: true, category: svc.category });
+  }
+
+  function guideDetails(item: GuideFacts) {
+    if (item.kind === "category") {
+      setSelectedCategory(item.category);
+      setQuery("");
+    } else {
+      router.push(`/services/${item.id}`);
+    }
+  }
+
+  const guide = guideItems.length > 0 && (
+    <GlowGuide containerRef={sectionRef} items={guideItems} onBook={guideBook} onDetails={guideDetails} />
+  );
+
   // Category grid view
   if (!selectedCategory) {
     return (
-      <section id="catalog" className="mx-auto max-w-7xl scroll-mt-28 px-6 py-16">
+      <section ref={sectionRef} id="catalog" className="relative mx-auto max-w-7xl scroll-mt-28 px-6 py-16">
         <SectionHeading
           eyebrow="Our Menu"
           title="Explore our services"
           subtitle="Choose a category to see every treatment, price and duration — then book in a few taps."
         />
+        {guide}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {categories.map(({ name, count, reviews, average }) => {
             const meta = CATEGORY_META[name] ?? FALLBACK;
             return (
               <button
                 key={name}
+                data-guide-id={`category:${name}`}
                 onClick={() => { setSelectedCategory(name); setQuery(""); }}
                 className="group relative flex h-72 flex-col justify-end overflow-hidden rounded-3xl border-2 border-coral text-left shadow-sm ring-1 ring-champagne/60 ring-offset-2 ring-offset-cream transition duration-300 hover:-translate-y-1 hover:border-coral-dark hover:shadow-xl hover:shadow-[#a8843a]/15"
               >
@@ -165,7 +246,7 @@ export default function ServiceCatalog({
 
   // Services list view
   return (
-    <section id="catalog" className="mx-auto max-w-7xl scroll-mt-28 px-6 py-16">
+    <section ref={sectionRef} id="catalog" className="relative mx-auto max-w-7xl scroll-mt-28 px-6 py-16">
       <button
         onClick={() => setSelectedCategory(null)}
         className="mb-6 flex items-center gap-2 text-base font-semibold text-ink/70 hover:text-coral-dark"
@@ -191,21 +272,16 @@ export default function ServiceCatalog({
         </div>
       </div>
 
+      {guide}
+
       {filteredServices.length > 0 ? (
         <div className="space-y-10">
-          {Array.from(
-            filteredServices.reduce((map, svc) => {
-              const type = getServiceType(svc) ?? "General";
-              if (!map.has(type)) map.set(type, []);
-              map.get(type)!.push(svc);
-              return map;
-            }, new Map<string, typeof filteredServices>())
-          ).map(([type, group]) => (
+          {grouped.map(([type, group]) => (
             <div key={type}>
               <h4 className="mb-4 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.2em] text-coral-dark">{type}<span className="h-px flex-1 bg-nude" aria-hidden /></h4>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {group.map((svc) => (
-            <div key={svc.id} className="flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#a8843a]/10">
+            <div key={svc.id} data-guide-id={svc.id} className="flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#a8843a]/10">
               <div className="flex flex-1 flex-col gap-3 p-5">
                 <div>
                   <h3 className="text-xl font-semibold tracking-tight text-ink">

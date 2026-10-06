@@ -5,6 +5,7 @@ import ServiceCatalog, { type DbService } from "@/components/services/ServiceCat
 import MottoBanner from "@/components/services/MottoBanner";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceReviewSummaries } from "@/lib/supabase/queries/serviceReviews";
+import { getActivePromotions } from "@/lib/supabase/queries/publicContent";
 
 async function fetchServices(): Promise<DbService[]> {
   const supabase = await createClient();
@@ -35,14 +36,23 @@ export const dynamic = "force-dynamic";
 export default async function ServicesPage() {
   const services = await fetchServices();
   // Rating + a recent review quote per service (same service name at any branch).
-  const ratings = await getServiceReviewSummaries(await createClient(), services.map((s) => ({ id: s.id, name: s.name })));
+  const supabase = await createClient();
+  const [ratings, promos] = await Promise.all([
+    getServiceReviewSummaries(supabase, services.map((s) => ({ id: s.id, name: s.name }))),
+    // Active promos, so the GlowSync guide can mention them on the right cards.
+    getActivePromotions(supabase, 30),
+  ]);
 
   return (
     <>
       <Header />
       <main className="flex-1">
         <ServicesHero />
-        <ServiceCatalog services={services} ratings={ratings} />
+        <ServiceCatalog
+          services={services}
+          ratings={ratings}
+          promos={promos.map((p) => ({ id: p.id, title: p.title, price: p.price, validUntil: p.validUntil, category: p.category }))}
+        />
         <MottoBanner />
       </main>
       <Footer />
