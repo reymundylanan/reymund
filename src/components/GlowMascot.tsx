@@ -1,15 +1,22 @@
 /** GlowSync AI's mascot: a little gold robot with a dark visor face,
  * happy eyes, blush cheeks, headphones and a gold flame tuft. `full` adds
- * the body with a "G" and a waving hand. Animations live in globals.css
- * (.glowy-*) and switch off for reduced motion. */
+ * the body with a "G" and a waving hand. `pose` changes the arms and face
+ * (pointing, thinking, love, relaxed, flying); `blink` adds idle blinking.
+ * Animations live in globals.css (.glowy-*) and switch off for reduced motion. */
+export type MascotPose = "wave" | "point" | "think" | "love" | "relax" | "fly";
+
 export default function GlowMascot({
   size = 40,
   full = false,
   talking = false,
+  pose = "wave",
+  blink = false,
 }: {
   size?: number;
   full?: boolean;
   talking?: boolean;
+  pose?: MascotPose;
+  blink?: boolean;
 }) {
   return (
     <svg
@@ -46,13 +53,34 @@ export default function GlowMascot({
             G
           </text>
           {/* Left arm */}
-          <ellipse cx="36" cy="96" rx="5" ry="8" fill="url(#glowy-gold)" transform="rotate(20 36 96)" />
-          {/* Waving right arm */}
-          <g className="glowy-wave">
-            <path d="M80 92q12-4 16-18" fill="none" stroke="url(#glowy-gold)" strokeWidth="8" strokeLinecap="round" />
-            <circle cx="97" cy="70" r="7.5" fill="url(#glowy-shell)" stroke="#c9a24a" strokeWidth="2" />
-            <path d="M93 64v-5M97 63v-6M101 64v-5" stroke="#c9a24a" strokeWidth="2.4" strokeLinecap="round" />
-          </g>
+          {pose === "fly" ? (
+            <path d="M40 92q-12 0-18-8" fill="none" stroke="url(#glowy-gold)" strokeWidth="8" strokeLinecap="round" />
+          ) : (
+            <ellipse cx="36" cy="96" rx="5" ry="8" fill="url(#glowy-gold)" transform="rotate(20 36 96)" />
+          )}
+          {/* Right arm */}
+          {pose === "point" ? (
+            <g className="glowy-point">
+              <path d="M80 93q12 0 22-5" fill="none" stroke="url(#glowy-gold)" strokeWidth="8" strokeLinecap="round" />
+              <circle cx="106" cy="86" r="6.5" fill="url(#glowy-shell)" stroke="#c9a24a" strokeWidth="2" />
+              <path d="M111 84l8-3" stroke="#c9a24a" strokeWidth="3.4" strokeLinecap="round" />
+            </g>
+          ) : pose === "think" ? (
+            <g>
+              <path d="M80 94q8-2 2-14" fill="none" stroke="url(#glowy-gold)" strokeWidth="8" strokeLinecap="round" />
+              <circle cx="78" cy="77" r="6.5" fill="url(#glowy-shell)" stroke="#c9a24a" strokeWidth="2" />
+            </g>
+          ) : pose === "fly" ? (
+            <path d="M80 92q12 0 18-8" fill="none" stroke="url(#glowy-gold)" strokeWidth="8" strokeLinecap="round" />
+          ) : pose === "relax" ? (
+            <ellipse cx="84" cy="96" rx="5" ry="8" fill="url(#glowy-gold)" transform="rotate(-20 84 96)" />
+          ) : (
+            <g className="glowy-wave">
+              <path d="M80 92q12-4 16-18" fill="none" stroke="url(#glowy-gold)" strokeWidth="8" strokeLinecap="round" />
+              <circle cx="97" cy="70" r="7.5" fill="url(#glowy-shell)" stroke="#c9a24a" strokeWidth="2" />
+              <path d="M93 64v-5M97 63v-6M101 64v-5" stroke="#c9a24a" strokeWidth="2.4" strokeLinecap="round" />
+            </g>
+          )}
         </g>
       )}
 
@@ -70,8 +98,21 @@ export default function GlowMascot({
       <ellipse cx="60" cy="55" rx="25" ry="20" fill="url(#glowy-visor)" />
       <ellipse cx="50" cy="42" rx="7" ry="2.5" fill="#ffffff" opacity="0.18" />
 
-      {/* Happy eyes */}
-      <path d="M45 55q5-8 10 0M65 55q5-8 10 0" fill="none" stroke="#ffffff" strokeWidth="3.6" strokeLinecap="round" />
+      {/* Eyes */}
+      {pose === "love" ? (
+        <path d="M50 58l-5-5a3 3 0 0 1 5-3a3 3 0 0 1 5 3zM70 58l-5-5a3 3 0 0 1 5-3a3 3 0 0 1 5 3z" fill="#ff7aa2" stroke="#ff7aa2" strokeWidth="1.5" strokeLinejoin="round" />
+      ) : pose === "relax" ? (
+        <path d="M45 53q5 5 10 0M65 53q5 5 10 0" fill="none" stroke="#ffffff" strokeWidth="3.6" strokeLinecap="round" />
+      ) : pose === "think" ? (
+        <g fill="#ffffff">
+          <ellipse cx="52" cy="50" rx="3.4" ry="4.4" />
+          <ellipse cx="72" cy="50" rx="3.4" ry="4.4" />
+        </g>
+      ) : (
+        <g className={blink ? "glowy-blink" : undefined}>
+          <path d="M45 55q5-8 10 0M65 55q5-8 10 0" fill="none" stroke="#ffffff" strokeWidth="3.6" strokeLinecap="round" />
+        </g>
+      )}
 
       {/* Cheeks */}
       <ellipse cx="44" cy="63" rx="4.2" ry="2.6" fill="#f29a9a" />

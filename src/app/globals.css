@@ -211,11 +211,17 @@ body {
 .guide-moving { display: block; animation: guide-moving 0.45s ease-in-out infinite; }
 .guide-react { animation: guide-react 1.8s ease-out both; }
 .guide-celebrate { display: block; animation: guide-celebrate 650ms ease-in-out both; }
+@keyframes guide-sparkle { 0% { opacity: 0; transform: scale(0.4) translateY(6px); } 40% { opacity: 1; transform: scale(1.2) translateY(-6px); } 100% { opacity: 0; transform: scale(0.9) translateY(-16px); } }
+.guide-sparkle { animation: guide-sparkle 700ms ease-out both; }
+@keyframes glowy-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+.glowy-blink { transform-box: fill-box; transform-origin: center; animation: glowy-blink 4.2s ease-in-out infinite; }
+@keyframes glowy-point { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(3px); } }
+.glowy-point { animation: glowy-point 0.9s ease-in-out infinite; }
 [data-guide-active="true"] { animation: guide-glow 2.2s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .guide-fly { transition: none; }
-  .guide-arrow, .guide-moving, .guide-celebrate { animation: none; }
+  .guide-arrow, .guide-moving, .guide-celebrate, .guide-sparkle, .glowy-blink, .glowy-point { animation: none; }
   .guide-react { animation: none; transform: translateX(-50%); }
   [data-guide-active="true"] { animation: none; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.6); }
 }

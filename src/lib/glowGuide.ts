@@ -24,6 +24,10 @@ export type GuideFacts = {
   title: string;
   category: string;
   reaction: string;
+  /** Short catchy headline for the bubble, e.g. "Want a fresh new look?" */
+  hook: string;
+  /** How the mascot reacts: relaxed for massage, pointing otherwise. */
+  mood: "point" | "relax";
   intro: string;
   why: string;
   meta: string[];
@@ -47,6 +51,29 @@ const REACTIONS: [RegExp, string][] = [
 
 export function reactionFor(text: string): string {
   return REACTIONS.find(([re]) => re.test(text))?.[1] ?? "✨";
+}
+
+// The bubble's headline per kind of treatment.
+const HOOKS: [RegExp, string][] = [
+  [/hair|rebond|color|keratin|brazilian/i, "Want a fresh new look?"],
+  [/nail|mani|pedi/i, "Pamper your hands & feet?"],
+  [/brow|lash/i, "Frame your face beautifully?"],
+  [/massage|body|wellness|spa/i, "Need time to unwind?"],
+  [/wax/i, "Smooth and confident?"],
+  [/laser/i, "Clearer, smoother skin?"],
+  [/slim|lipo|hifu|contour/i, "Ready to contour?"],
+  [/drip|iv|cocktail/i, "Glow from within?"],
+  [/doctor|botox|filler|thread|prp/i, "Expert results you can trust?"],
+  [/premium|signature/i, "Treat yourself to luxury?"],
+  [/facial|skin|glow|acne/i, "Ready to glow?"],
+];
+
+export function hookFor(text: string): string {
+  return HOOKS.find(([re]) => re.test(text))?.[1] ?? "Looking for something special?";
+}
+
+export function moodFor(text: string): "point" | "relax" {
+  return /massage|wellness|relax/i.test(text) ? "relax" : "point";
 }
 
 const norm = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/[^a-z0-9ñ]+/g, " ").trim();
@@ -109,6 +136,8 @@ export function serviceFacts(s: GuideService, siblings: GuideService[], promos: 
     title: s.name,
     category: s.category,
     reaction: reactionFor(`${s.category} ${s.name}`),
+    hook: hookFor(`${s.name} ${s.category}`),
+    mood: moodFor(`${s.name} ${s.category}`),
     intro: `Let me introduce ${s.name}! ${about}`.trim(),
     why,
     meta,
@@ -134,6 +163,8 @@ export function categoryFacts(category: string, services: GuideService[], promos
     title: category,
     category,
     reaction: reactionFor(category),
+    hook: hookFor(category),
+    mood: moodFor(category),
     intro: `Let me introduce ${category}! ${firstSentence(blurb)}`.trim(),
     why: `${n} treatment${n !== 1 ? "s" : ""} to choose from${range ? `, from ${range}` : ""}.`,
     meta: [`${n} treatment${n !== 1 ? "s" : ""}`, range, rating ? `★ ${rating.average.toFixed(1)}` : ""].filter(Boolean),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryFacts, firstSentence, priceLabel, promoFor, reactionFor, serviceFacts, type GuideService } from "./glowGuide";
+import { categoryFacts, firstSentence, hookFor, moodFor, priceLabel, promoFor, reactionFor, serviceFacts, type GuideService } from "./glowGuide";
 
 const svc = (o: Partial<GuideService>): GuideService => ({
   id: "s1",
@@ -50,5 +50,10 @@ describe("GlowSync guide", () => {
     expect(reactionFor("Nail Care")).toBe("💅");
     expect(firstSentence("One. Two.")).toBe("One.");
     expect(firstSentence("")).toBe("");
+    expect(hookFor("Hair Coloring Hair Services")).toBe("Want a fresh new look?");
+    expect(hookFor("Deep Glow Facial Facial Services")).toBe("Ready to glow?");
+    expect(hookFor("Something")).toBe("Looking for something special?");
+    expect(moodFor("Swedish Massage Body & Wellness")).toBe("relax");
+    expect(moodFor("Nail Care")).toBe("point");
   });
 });
