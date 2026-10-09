@@ -127,6 +127,9 @@ export default function GlowGuide({
 
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<Mode>("intro");
+  // After "Ask me" the guide stays on this service (hovering other cards is
+  // ignored) until the visitor clicks another service card.
+  const [locked, setLocked] = useState(false);
   const [menuOpens, setMenuOpens] = useState(0);
   const [answer, setAnswer] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
@@ -167,6 +170,7 @@ export default function GlowGuide({
     setIndex(0);
     setMode("intro");
     setAnswer(null);
+    setLocked(false);
   }
 
   const item = items[Math.min(index, items.length - 1)] ?? null;
@@ -267,7 +271,7 @@ export default function GlowGuide({
 
   // The tour: next card every few seconds (desktop: only cards on screen).
   useEffect(() => {
-    if (minimized || !inView || greeting || bookingOpen || mode !== "intro" || items.length < 2) return;
+    if (minimized || !inView || greeting || bookingOpen || mode !== "intro" || locked || items.length < 2) return;
     const t = window.setInterval(() => {
       if (document.hidden || hovering.current || Date.now() < pausedUntil.current) return;
       for (let step = 1; step <= items.length; step++) {
@@ -281,7 +285,7 @@ export default function GlowGuide({
       }
     }, STEP_MS);
     return () => window.clearInterval(t);
-  }, [minimized, inView, greeting, bookingOpen, mode, items, wide, cardEl, index, travel]);
+  }, [minimized, inView, greeting, bookingOpen, mode, locked, items, wide, cardEl, index, travel]);
 
   useEffect(() => {
     if (minimized || !inView || greeting) return;
@@ -341,8 +345,20 @@ export default function GlowGuide({
       const card = target.closest<HTMLElement>("[data-guide-id]");
       if (!card) return;
       hovering.current = true;
+      if (locked) return;
       const i = items.findIndex((it) => it.id === card.dataset.guideId);
       if (i >= 0 && items[i].id !== item?.id) goTo(i);
+    };
+    const click = (e: MouseEvent) => {
+      if (!locked) return;
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-guide-ui]")) return;
+      const card = target.closest<HTMLElement>("[data-guide-id]");
+      if (!card) return;
+      const i = items.findIndex((it) => it.id === card.dataset.guideId);
+      if (i < 0) return;
+      setLocked(false);
+      if (items[i].id !== item?.id) goTo(i);
     };
     const out = (e: PointerEvent) => {
       const from = (e.target as HTMLElement).closest("[data-guide-id], [data-guide-ui]");
@@ -354,14 +370,17 @@ export default function GlowGuide({
     };
     c.addEventListener("pointerover", over);
     c.addEventListener("pointerout", out);
+    c.addEventListener("click", click);
     return () => {
       c.removeEventListener("pointerover", over);
       c.removeEventListener("pointerout", out);
+      c.removeEventListener("click", click);
     };
-  }, [containerRef, wide, minimized, items, item, goTo]);
+  }, [containerRef, wide, minimized, items, item, goTo, locked]);
 
   function openMenu() {
     setGreeting(false);
+    setLocked(true);
     if (mode === "intro") {
       setMode("menu");
       setMenuOpens((n) => n + 1);
@@ -560,7 +579,10 @@ export default function GlowGuide({
               <Gift className="h-3.5 w-3.5" /> View Promotion
             </Link>
           )}
-          {mode === "intro" && (
+          {locked && mode !== "ask" && (
+            <p className="w-full text-center text-[11px] font-semibold text-ink/45">Click another service to move on</p>
+          )}
+          {mode === "intro" && !locked && (
             <button type="button" onClick={openMenu} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition min-w-[60%] flex-1 bg-gradient-to-r from-[#f5effd] to-[#fdf0f7] px-3 text-[#7b3fc4] ring-1 ring-[#e3d6f7] hover:ring-[#c9b0f0]">
               <MessageCircleQuestion className="h-3.5 w-3.5" /> Ask me
             </button>
