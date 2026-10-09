@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { knowledgeText, openNow, parseHours, type SpaKnowledge } from "./spaKnowledge";
+import { knowledgeText, openNow, parseHours, staffText, type SpaKnowledge } from "./spaKnowledge";
 
 const k: SpaKnowledge = {
   branches: [
@@ -43,5 +43,18 @@ describe("spaKnowledge", () => {
     expect(text).toContain("Glow Facial [20% OFF] — ₱1,200 at Robinsons Pagadian (until October 31)");
     expect(text).toContain("10 minutes after their start time");
     expect(text).toContain("non-refundable");
+  });
+});
+
+describe("staffText", () => {
+  it("groups professionals by branch and department", () => {
+    const text = staffText([
+      { name: "Ana", department: "Clinic", branch: "One Cecilia Center" },
+      { name: "Bea", department: "Clinic", branch: "One Cecilia Center" },
+      { name: "Carla", department: "Hair", branch: "One Cecilia Center" },
+      { name: "Dina", department: "Nails", branch: "Robinsons Pagadian" },
+    ]);
+    expect(text).toBe("- One Cecilia Center — Clinic: Ana, Bea · Hair: Carla\n- Robinsons Pagadian — Nails: Dina");
+    expect(staffText([])).toContain("any professional");
   });
 });

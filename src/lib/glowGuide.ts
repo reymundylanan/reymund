@@ -18,6 +18,8 @@ export type GuidePromo = { id: string; title: string; price: number | null; vali
 
 export type GuideRating = { average: number; count: number } | null;
 
+export type GuideMood = "point" | "relax" | "cheek" | "hands" | "excited";
+
 export type GuideFacts = {
   id: string;
   kind: "category" | "service";
@@ -26,8 +28,8 @@ export type GuideFacts = {
   reaction: string;
   /** Short catchy headline for the bubble, e.g. "Want a fresh new look?" */
   hook: string;
-  /** How the mascot reacts: relaxed for massage, pointing otherwise. */
-  mood: "point" | "relax";
+  /** The mascot's gesture for this kind of treatment. */
+  mood: GuideMood;
   intro: string;
   why: string;
   meta: string[];
@@ -72,8 +74,17 @@ export function hookFor(text: string): string {
   return HOOKS.find(([re]) => re.test(text))?.[1] ?? "Looking for something special?";
 }
 
-export function moodFor(text: string): "point" | "relax" {
-  return /massage|wellness|relax/i.test(text) ? "relax" : "point";
+// Facials: touches its cheek. Hair and makeovers: excited. Nails: shows its
+// hands. Massage: relaxed. Everything else: points at the card.
+const MOODS: [RegExp, GuideMood][] = [
+  [/massage|wellness|relax|ear candling/i, "relax"],
+  [/nail|mani|pedi|hand spa|foot spa/i, "hands"],
+  [/hair|rebond|color|keratin|brazilian smoothing|make-?up|lashes|brows/i, "excited"],
+  [/facial|skin|glow|peel|acne|melasma/i, "cheek"],
+];
+
+export function moodFor(text: string): GuideMood {
+  return MOODS.find(([re]) => re.test(text))?.[1] ?? "point";
 }
 
 const norm = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/[^a-z0-9ñ]+/g, " ").trim();

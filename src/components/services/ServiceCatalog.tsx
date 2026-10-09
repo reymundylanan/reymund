@@ -281,7 +281,18 @@ export default function ServiceCatalog({
               <h4 className="mb-4 flex items-center gap-3 text-sm font-semibold uppercase tracking-[0.2em] text-coral-dark">{type}<span className="h-px flex-1 bg-nude" aria-hidden /></h4>
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {group.map((svc) => (
-            <div key={svc.id} data-guide-id={svc.id} className="flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#a8843a]/10">
+            <div key={svc.id} data-guide-id={svc.id} className="group flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#a8843a]/10">
+              {/* No per-service photos yet, so each card shows its category's photo. */}
+              <div className="relative h-32 overflow-hidden">
+                <Image
+                  src={(CATEGORY_META[svc.category] ?? FALLBACK).image}
+                  alt=""
+                  fill
+                  className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-white/70 via-transparent to-transparent" />
+              </div>
               <div className="flex flex-1 flex-col gap-3 p-5">
                 <div>
                   <h3 className="text-xl font-semibold tracking-tight text-ink">

@@ -54,6 +54,9 @@ describe("GlowSync guide", () => {
     expect(hookFor("Deep Glow Facial Facial Services")).toBe("Ready to glow?");
     expect(hookFor("Something")).toBe("Looking for something special?");
     expect(moodFor("Swedish Massage Body & Wellness")).toBe("relax");
-    expect(moodFor("Nail Care")).toBe("point");
+    expect(moodFor("Nail Care")).toBe("hands");
+    expect(moodFor("Deep Glow Facial Facial Services")).toBe("cheek");
+    expect(moodFor("Hair Color Hair Services")).toBe("excited");
+    expect(moodFor("Tummy Slimming Services")).toBe("point");
   });
 });

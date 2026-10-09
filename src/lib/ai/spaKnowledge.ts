@@ -5,14 +5,19 @@ import { logQueryError } from "@/lib/supabase/logQueryError";
 
 // What GlowSync AI knows about the spa itself — branch hours (as Admin set
 // them), contact details, today's promos and the booking / payment / reward
-// rules — shared by the website chat and the Facebook Page chatbot.
+// rules, and which professionals work in each department — shared by the
+// website chat and the Facebook Page chatbot.
 
 export type BranchInfo = { name: string; address: string; phone: string; hours: string | null };
+
+export type StaffInfo = { name: string; department: string; branch: string };
 
 export type SpaKnowledge = {
   branches: BranchInfo[];
   gracePeriodMinutes: number;
   promos: ActivePromotion[];
+  /** Professionals by branch and department (Clinic / Hair / Nails). */
+  staff?: StaffInfo[];
 };
 
 /** "8:00 AM - 7:00 PM" → minutes since midnight, or null if unreadable. */
@@ -33,12 +38,22 @@ export function openNow(hours: string | null, now = new Date()): boolean | null 
 }
 
 export async function loadSpaKnowledge(supabase: SupabaseClient): Promise<SpaKnowledge> {
-  const [branchRes, settingsRes, promos] = await Promise.all([
+  const [branchRes, settingsRes, promos, staffRes] = await Promise.all([
     supabase.from("branches").select("name, hours"),
     supabase.from("spa_settings").select("grace_period_minutes").eq("id", true).maybeSingle(),
     getActivePromotions(supabase, 12).catch(() => [] as ActivePromotion[]),
+    supabase.from("staff_members").select("full_name, department, branch:branches(name)").order("full_name"),
   ]);
   if (branchRes.error) logQueryError("spa knowledge branches", branchRes.error);
+  if (staffRes.error) logQueryError("spa knowledge staff", staffRes.error);
+  type StaffRow = { full_name: string; department: string; branch: { name: string } | { name: string }[] | null };
+  const staff = ((staffRes.data ?? []) as unknown as StaffRow[])
+    .map((s) => ({
+      name: s.full_name,
+      department: s.department,
+      branch: (Array.isArray(s.branch) ? s.branch[0]?.name : s.branch?.name) ?? "",
+    }))
+    .filter((s) => s.name && s.branch);
   const dbHours = new Map(((branchRes.data ?? []) as { name: string; hours: string | null }[]).map((b) => [b.name, b.hours]));
 
   return {
@@ -51,6 +66,7 @@ export async function loadSpaKnowledge(supabase: SupabaseClient): Promise<SpaKno
     })),
     gracePeriodMinutes: (settingsRes.data as { grace_period_minutes: number } | null)?.grace_period_minutes ?? 10,
     promos,
+    staff,
   };
 }
 
@@ -61,6 +77,20 @@ function promoLine(p: ActivePromotion): string {
     : "";
   const badge = p.badge ? ` [${p.badge}]` : "";
   return `- ${p.title}${badge}${price} at ${p.branchName}${until}${p.description ? `: ${p.description.replace(/\s+/g, " ").slice(0, 160)}` : ""}`;
+}
+
+/** "- One Cecilia Center — Clinic: Ana, Bea · Hair: Carla" per branch. */
+export function staffText(staff: StaffInfo[]): string {
+  if (!staff.length) return "- (staff list not available — suggest choosing \"any professional\" when booking)";
+  const byBranch = new Map<string, Map<string, string[]>>();
+  for (const s of staff) {
+    const depts = byBranch.get(s.branch) ?? new Map<string, string[]>();
+    depts.set(s.department, [...(depts.get(s.department) ?? []), s.name]);
+    byBranch.set(s.branch, depts);
+  }
+  return Array.from(byBranch.entries())
+    .map(([branch, depts]) => `- ${branch} — ${Array.from(depts.entries()).map(([d, names]) => `${d}: ${names.join(", ")}`).join(" · ")}`)
+    .join("\n");
 }
 
 /** The knowledge block for the assistant's instructions. */
@@ -82,6 +112,7 @@ export function knowledgeText(k: SpaKnowledge, now = new Date()): string {
     })
     .join("\n");
   const promos = k.promos.length ? k.promos.map(promoLine).join("\n") : "- No promotions are running right now.";
+  const staff = staffText(k.staff ?? []);
 
   return `Right now it is ${today} (Philippine time).
 
@@ -92,6 +123,9 @@ Facebook: facebook.com/blushspaxaesthetics · Instagram: @blushspaxaesthetics_on
 ACTIVE PROMOTIONS:
 ${promos}
 
+OUR PROFESSIONALS (a service's [department] in the catalog shows who can perform it):
+${staff}
+
 HOW THINGS WORK (answer from these facts only):
 - Booking: sign in with Google or Facebook, tap Book Now, then choose branch → services → professional (or "any") → date and time → confirm. Booking from a service or promo pre-selects it.
 - Payment: "Pay Now" = pay by GCash and upload the receipt (the Front Desk verifies it, then confirms the booking); "Pay Later" = pay at the branch (cash or GCash) on the day. New bookings stay Pending until the Front Desk confirms; clients are notified in the app, by email, and on Messenger if connected.
@@ -101,5 +135,7 @@ HOW THINGS WORK (answer from these facts only):
 - GlowPoints: genuine reviews of completed visits earn GlowPoints, which can be redeemed for vouchers in My Glow → My Rewards; the Front Desk applies vouchers at payment. Unused vouchers expire and the points are returned.
 - Promo packages bundle several services at one promo price, booked with "Book Promo".
 - Notifications: clients can turn email and phone alerts on or off in My Glow, and connect Messenger there for reminders.
-- Hair services are priced by hair length (Short / Medium / Long).`;
+- Hair services are priced by hair length (Short / Medium / Long).
+- Available times: you cannot see the live schedule. Tell the client to tap Book Now — after they choose the branch,
+  service and professional (or "any"), it shows only the times that are still open. Never guess times or say someone is free.`;
 }

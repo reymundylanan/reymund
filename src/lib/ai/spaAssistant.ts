@@ -140,7 +140,7 @@ function buildSystemPrompt(
             catServices
               .map(
                 (s) =>
-                  `    - [id:${s.id}] ${s.name} (${s.duration ?? "duration varies"}) — ${priceText(s)}${
+                  `    - [id:${s.id}] ${s.name} [${s.department}] (${s.duration ?? "duration varies"}) — ${priceText(s)}${
                     s.description ? ` — ${oneLine(s.description)}` : ""
                   }${s.benefits ? ` — Benefits: ${oneLine(s.benefits)}` : ""}`
               )

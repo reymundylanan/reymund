@@ -17,6 +17,10 @@ import type { GuideFacts } from "@/lib/glowGuide";
 const STEP_MS = 8000; // time on each card
 const HOVER_RESUME_MS = 6000; // auto-tour resumes this long after the mouse leaves
 const GREETING_MS = 4500; // "Hi! I'm GlowSync AI" before the tour starts
+const ARRIVE_MS = 450; // the arrow reaches the card first; the mascot follows
+const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
+
+const sameName = (a?: string | null, b?: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 const MINIMIZED_KEY = "glowguide-minimized";
 
 type Mode = "intro" | "menu" | "ask" | "answer";
@@ -160,24 +164,32 @@ export default function GlowGuide({
   useEffect(() => {
     if (!item || minimized) return;
     const el = cardEl(item.id);
-    el?.setAttribute("data-guide-active", "true");
-    return () => el?.removeAttribute("data-guide-active");
-  }, [item, cardEl, minimized]);
+    const t = window.setTimeout(() => el?.setAttribute("data-guide-active", "true"), wide ? ARRIVE_MS : 0);
+    return () => {
+      window.clearTimeout(t);
+      el?.removeAttribute("data-guide-active");
+    };
+  }, [item, cardEl, minimized, wide]);
+
+  // Arrow first, then the mascot travels to the card.
+  const travel = useCallback(
+    (next: number) => {
+      if (next === index) return;
+      setMoving(true);
+      window.setTimeout(() => setMoving(false), MOVE_MS);
+      setIndex(next);
+    },
+    [index]
+  );
 
   const goTo = useCallback(
     (next: number) => {
-      setIndex((cur) => {
-        if (cur !== next) {
-          setMoving(true);
-          window.setTimeout(() => setMoving(false), 900);
-        }
-        return next;
-      });
+      travel(next);
       setMode("intro");
       setAnswer(null);
       setGreeting(false);
     },
-    []
+    [travel]
   );
 
   // The tour: next card every few seconds (desktop: only cards on screen).
@@ -185,27 +197,18 @@ export default function GlowGuide({
     if (minimized || !inView || greeting || bookingOpen || mode !== "intro" || items.length < 2) return;
     const t = window.setInterval(() => {
       if (document.hidden || hovering.current || Date.now() < pausedUntil.current) return;
-      setIndex((cur) => {
-        for (let step = 1; step <= items.length; step++) {
-          const i = (cur + step) % items.length;
-          if (!wide) return i;
-          const el = cardEl(items[i].id);
-          if (!el) continue;
-          const r = el.getBoundingClientRect();
-          const visible = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 90);
-          if (visible >= r.height * 0.6) {
-            if (i !== cur) {
-              setMoving(true);
-              window.setTimeout(() => setMoving(false), 900);
-            }
-            return i;
-          }
-        }
-        return cur;
-      });
+      for (let step = 1; step <= items.length; step++) {
+        const i = (index + step) % items.length;
+        if (!wide) return travel(i);
+        const el = cardEl(items[i].id);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        const visible = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 90);
+        if (visible >= r.height * 0.6) return travel(i);
+      }
     }, STEP_MS);
     return () => window.clearInterval(t);
-  }, [minimized, inView, greeting, bookingOpen, mode, items, wide, cardEl]);
+  }, [minimized, inView, greeting, bookingOpen, mode, items, wide, cardEl, index, travel]);
 
   // Hovering a card (desktop) makes the guide jump to it and pauses the tour.
   useEffect(() => {
@@ -277,6 +280,11 @@ export default function GlowGuide({
       });
       const data = await res.json().catch(() => null);
       setAnswer(res.ok && data?.reply ? data.reply : data?.error ?? "I couldn't answer that right now — please try again.");
+      const recs: { name?: string; category?: string }[] = res.ok && Array.isArray(data?.recommendations) ? data.recommendations : [];
+      const target = recs
+        .map((r) => items.findIndex((it) => (it.kind === "service" ? sameName(it.title, r.name) && it.category === r.category : it.category === r.category)))
+        .find((i) => i >= 0);
+      if (target !== undefined) travel(target);
     } catch {
       setAnswer("Network error — please try again.");
     } finally {
@@ -317,7 +325,7 @@ export default function GlowGuide({
           {item.meta.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {item.meta.map((m) => (
-                <span key={m} className="rounded-full bg-cream px-2 py-0.5 text-[11px] font-medium text-ink/70 ring-1 ring-champagne/60">
+                <span key={m} className="rounded-full bg-[#f5effd] px-2 py-0.5 text-[11px] font-semibold text-[#5b2d86] ring-1 ring-[#e3d6f7]">
                   {m}
                 </span>
               ))}
@@ -355,20 +363,36 @@ export default function GlowGuide({
           }}
           className="space-y-2"
         >
-          <p className="text-sm text-ink/75">Ask me about {item.title}:</p>
-          <div className="flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3 py-1.5 focus-within:border-coral">
+          <p className="text-sm text-ink">
+            <span className="font-semibold">Of course! ✨</span> What would you like to know about {item.title}?
+          </p>
+          <div className="flex items-center gap-2 rounded-2xl border border-[#d9b968] bg-[#fffaf3] py-1.5 pl-3.5 pr-1.5 shadow-inner shadow-[#d9b968]/10 transition duration-200 focus-within:border-[#c9a24a] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#d9b968]/25">
             <input
               autoFocus
               value={question}
               onChange={(e) => setQuestion(e.target.value.slice(0, 300))}
-              placeholder="e.g. Is this good for dry skin?"
+              placeholder="Ask me about this service..."
               aria-label={`Ask about ${item.title}`}
-              className="w-full text-xs outline-none placeholder:text-ink/40"
+              disabled={asking}
+              className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink/40"
             />
-            <button type="submit" disabled={asking || !question.trim()} aria-label="Ask" className="text-coral-dark disabled:opacity-40">
-              {asking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            <button
+              type="submit"
+              disabled={asking || !question.trim()}
+              aria-label="Send question"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#f3d98b] to-[#c9a24a] text-white shadow-sm transition hover:brightness-105 disabled:opacity-40"
+            >
+              {asking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             </button>
           </div>
+          {asking && (
+            <p className="flex items-center gap-1 text-xs text-ink/55">
+              GlowSync AI is thinking
+              <span className="glowy-dot inline-block">.</span>
+              <span className="glowy-dot inline-block [animation-delay:150ms]">.</span>
+              <span className="glowy-dot inline-block [animation-delay:300ms]">.</span>
+            </p>
+          )}
         </form>
       )}
 
@@ -390,7 +414,7 @@ export default function GlowGuide({
             <ChevronLeft className="h-3.5 w-3.5" /> Back
           </button>
         )}
-        <button type="button" onClick={() => onDetails(item)} className="rounded-full border border-champagne px-3 py-1 text-xs font-semibold text-ink/75 hover:border-coral">
+        <button type="button" onClick={() => onDetails(item)} className="rounded-full border border-[#d9b968] bg-white px-3 py-1 text-xs font-semibold text-ink/75 hover:bg-[#fffaf3]">
           {item.kind === "category" ? "See treatments" : "View Details"}
         </button>
         {item.promo && mode === "intro" && (
@@ -425,9 +449,10 @@ export default function GlowGuide({
             ? "point"
             : item.mood;
 
-  const mascot = (size: number) => (
-    <span className={`relative block drop-shadow-[0_8px_14px_rgba(168,132,58,0.35)] ${celebrate ? "guide-celebrate" : moving ? "guide-moving" : "glowy-bob"}`}>
-      <GlowMascot size={size} full pose={pose} blink={!moving && !celebrate} talking={asking || greeting} />
+  const mascot = (size: number, flip = false) => (
+    <span className="relative block">
+    <span className={`relative block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] ${celebrate ? "guide-celebrate" : moving ? "guide-moving" : "glowy-bob"}`}>
+      <GlowMascot size={size} full pose={pose} flip={flip} alive={!moving && !celebrate} blink={!moving && !celebrate} talking={asking || greeting} />
       {!moving && !greeting && (
         <span key={`${item.id}-${celebrate}`} aria-hidden className="guide-react pointer-events-none absolute -top-2 left-1/2 text-xl">
           {celebrate ? "💖" : asking ? "💭" : item.reaction}
@@ -440,6 +465,8 @@ export default function GlowGuide({
           <span className="guide-sparkle absolute -top-4 left-1/3 text-sm [animation-delay:240ms]">✨</span>
         </span>
       )}
+    </span>
+      <span aria-hidden className="guide-ground pointer-events-none absolute -bottom-1 left-1/2 h-2.5 w-[55%] -translate-x-1/2 rounded-full bg-[#7a5a1e]/25 blur-[3px]" />
     </span>
   );
 
@@ -459,7 +486,7 @@ export default function GlowGuide({
   // ── Phones and tablets: a guide bar above the cards ──
   if (!wide) {
     return (
-      <div className="mb-6 flex items-start gap-3 rounded-3xl bg-gradient-to-br from-[#fff0f6] via-white to-[#f3ecff] p-4 shadow-sm ring-2 ring-[#f3a6c8]/70">
+      <div className="mb-6 flex items-start gap-3 rounded-3xl border border-[#d9b968] bg-gradient-to-br from-white via-[#fffaf3] to-[#fdf2f7] p-4 shadow-[0_14px_34px_-18px_rgba(168,132,58,0.55)]">
         <button type="button" onClick={openMenu} aria-label="Ask GlowSync AI" className="shrink-0">
           {mascot(64)}
         </button>
@@ -468,50 +495,55 @@ export default function GlowGuide({
     );
   }
 
-  // ── Desktop: the arrow and mascot fly to the active card ──
+  // ── Desktop: the arrow reaches the card, then the mascot follows ──
   if (!layout) return null;
   const { card, containerWidth } = layout;
   const BUBBLE_W = 300;
-  const MASCOT = 84;
+  const MASCOT = 88;
   const side: "right" | "left" = card.left + card.width + 24 + BUBBLE_W <= containerWidth ? "right" : "left";
   const arrowX = card.left + card.width / 2 - 14;
   const arrowY = card.top - 34;
-  // The mascot peeks over the card's top-left corner and points at it.
-  const mascotX = card.left - 22;
-  const mascotY = card.top - MASCOT + 6;
   const bubbleX = side === "right" ? card.left + card.width + 18 : card.left - BUBBLE_W - 18;
-  const bubbleY = Math.max(card.top + 6, 0);
+  const bubbleY = Math.max(card.top + 52, 0);
+  // The mascot stands on the bubble's corner nearest the card and points at it,
+  // so it never sits on top of other cards.
+  const mascotX = side === "right" ? bubbleX - 10 : bubbleX + BUBBLE_W - MASCOT + 10;
+  const mascotY = bubbleY - MASCOT + 14;
+  const follow = { transitionDelay: `${ARRIVE_MS}ms` };
 
   return (
     <>
       <span aria-hidden className="guide-fly pointer-events-none absolute left-0 top-0 z-20" style={{ transform: `translate(${arrowX}px, ${arrowY}px)` }}>
-        <span className="guide-arrow flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-b from-[#f3d98b] to-coral text-white shadow-md">
+        <span className="guide-arrow flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-b from-[#f3d98b] to-[#c9a24a] text-white shadow-md ring-2 ring-white">
           <ArrowDown className="h-4 w-4" strokeWidth={3} />
         </span>
       </span>
+
+      <div
+        className={`guide-fly absolute left-0 top-0 z-30 ${moving ? "pointer-events-none opacity-0" : "opacity-100"}`}
+        style={{ transform: `translate(${bubbleX}px, ${bubbleY}px)`, width: BUBBLE_W, ...follow }}
+      >
+        <div
+          key={`${item.id}-${mode}-${greeting}`}
+          className="glowy-pop relative rounded-[26px] border border-[#d9b968] bg-gradient-to-br from-white via-[#fffaf3] to-[#fdf2f7] p-4 pt-5 shadow-[0_18px_40px_-18px_rgba(168,132,58,0.55),0_0_0_4px_rgba(217,185,104,0.12)]"
+        >
+          <span
+            aria-hidden
+            className={`absolute top-12 h-4 w-4 rotate-45 bg-white ${side === "right" ? "-left-[9px] border-b border-l" : "-right-[9px] border-r border-t"} border-[#d9b968]`}
+          />
+          {bubble}
+        </div>
+      </div>
 
       <button
         type="button"
         onClick={openMenu}
         aria-label="Ask GlowSync AI about this service"
-        className="guide-fly absolute left-0 top-0 z-30 rounded-full focus-visible:outline-2 focus-visible:outline-coral"
-        style={{ transform: `translate(${mascotX}px, ${mascotY}px)` }}
+        className="guide-fly absolute left-0 top-0 z-40 rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a]"
+        style={{ transform: `translate(${mascotX}px, ${mascotY}px)`, ...follow }}
       >
-        {mascot(MASCOT)}
+        {mascot(MASCOT, side === "right")}
       </button>
-
-      <div
-        className={`guide-fly absolute left-0 top-0 z-30 transition-opacity ${moving ? "pointer-events-none opacity-0" : "opacity-100"}`}
-        style={{ transform: `translate(${bubbleX}px, ${bubbleY}px)`, width: BUBBLE_W }}
-      >
-        <div key={`${item.id}-${mode}-${greeting}`} className="glowy-pop relative rounded-3xl bg-white p-4 shadow-xl shadow-[#b83c78]/10 ring-2 ring-[#f3a6c8]">
-          <span
-            aria-hidden
-            className={`absolute top-8 h-4 w-4 rotate-45 bg-white ${side === "right" ? "-left-[9px] border-b-2 border-l-2" : "-right-[9px] border-r-2 border-t-2"} border-[#f3a6c8]`}
-          />
-          {bubble}
-        </div>
-      </div>
     </>
   );
 }
