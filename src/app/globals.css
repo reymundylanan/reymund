@@ -228,11 +228,19 @@ body {
 .glowy-twinkle { transform-box: fill-box; transform-origin: center; animation: glowy-twinkle 1.4s ease-in-out infinite; }
 @keyframes guide-ground { 0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 1; } 50% { transform: translateX(-50%) scaleX(0.82); opacity: 0.7; } }
 .guide-ground { animation: guide-ground 3s ease-in-out infinite; }
+/* Teacher gesture: the wand arm sweeps toward the card and back */
+@keyframes glowy-teach { 0%, 100% { transform: rotate(0deg); } 30% { transform: rotate(-14deg); } 55% { transform: rotate(6deg); } 75% { transform: rotate(-6deg); } }
+.glowy-teach { animation: glowy-teach 2.4s ease-in-out infinite; }
+@keyframes glowy-cape { 0%, 100% { transform: skewX(0deg) scaleY(1); } 50% { transform: skewX(-4deg) scaleY(1.03); } }
+.glowy-cape { animation: glowy-cape 2.6s ease-in-out infinite; }
+@keyframes glowy-cheer { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.glowy-cheer { animation: glowy-cheer 0.6s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
   .guide-fly { transition: none; }
   .guide-arrow, .guide-moving, .guide-celebrate, .guide-sparkle, .glowy-blink, .glowy-point,
-  .glowy-head, .glowy-look, .glowy-breathe, .glowy-twinkle, .guide-ground { animation: none; }
+  .glowy-head, .glowy-look, .glowy-breathe, .glowy-twinkle, .guide-ground,
+  .glowy-teach, .glowy-cape, .glowy-cheer { animation: none; }
   .guide-react { animation: none; transform: translateX(-50%); }
   [data-guide-active="true"] { animation: none; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.6); }
 }

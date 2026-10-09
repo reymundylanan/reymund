@@ -445,8 +445,8 @@ export default function GlowGuide({
         ? "think"
         : greeting || mode === "menu"
           ? "wave"
-          : mode === "answer"
-            ? "point"
+          : mode === "answer" || item.mood === "point"
+            ? "present"
             : item.mood;
 
   const mascot = (size: number, flip = false) => (
@@ -488,7 +488,7 @@ export default function GlowGuide({
     return (
       <div className="mb-6 flex items-start gap-3 rounded-3xl border border-[#d9b968] bg-gradient-to-br from-white via-[#fffaf3] to-[#fdf2f7] p-4 shadow-[0_14px_34px_-18px_rgba(168,132,58,0.55)]">
         <button type="button" onClick={openMenu} aria-label="Ask GlowSync AI" className="shrink-0">
-          {mascot(64)}
+          {mascot(112)}
         </button>
         <div className="min-w-0 flex-1">{bubble}</div>
       </div>
@@ -498,17 +498,20 @@ export default function GlowGuide({
   // ── Desktop: the arrow reaches the card, then the mascot follows ──
   if (!layout) return null;
   const { card, containerWidth } = layout;
-  const BUBBLE_W = 300;
-  const MASCOT = 88;
-  const side: "right" | "left" = card.left + card.width + 24 + BUBBLE_W <= containerWidth ? "right" : "left";
+  const BUBBLE_W = 290;
+  const MASCOT = 184; // height; the full body is 120 × 152
+  const MASCOT_W = Math.round((MASCOT * 120) / 152);
+  const OVERLAP = 26; // the star wand reaches just over the card's edge
+  // The mascot stands right beside the card like a teacher, wand on the card;
+  // its speech bubble sits on its other side.
+  const side: "right" | "left" = card.left + card.width - OVERLAP + MASCOT_W + BUBBLE_W <= containerWidth ? "right" : "left";
   const arrowX = card.left + card.width / 2 - 14;
   const arrowY = card.top - 34;
-  const bubbleX = side === "right" ? card.left + card.width + 18 : card.left - BUBBLE_W - 18;
-  const bubbleY = Math.max(card.top + 52, 0);
-  // The mascot stands on the bubble's corner nearest the card and points at it,
-  // so it never sits on top of other cards.
-  const mascotX = side === "right" ? bubbleX - 10 : bubbleX + BUBBLE_W - MASCOT + 10;
-  const mascotY = bubbleY - MASCOT + 14;
+  const mascotX = side === "right" ? card.left + card.width - OVERLAP : card.left - MASCOT_W + OVERLAP;
+  // Level with the middle of the card, clear of the Book Now buttons at the bottom.
+  const mascotY = card.top + Math.max((card.height - MASCOT) / 2 - 24, 0);
+  const bubbleX = side === "right" ? mascotX + MASCOT_W - 6 : Math.max(mascotX - BUBBLE_W + 6, 0);
+  const bubbleY = Math.max(card.top, 0);
   const follow = { transitionDelay: `${ARRIVE_MS}ms` };
 
   return (
@@ -529,7 +532,7 @@ export default function GlowGuide({
         >
           <span
             aria-hidden
-            className={`absolute top-12 h-4 w-4 rotate-45 bg-white ${side === "right" ? "-left-[9px] border-b border-l" : "-right-[9px] border-r border-t"} border-[#d9b968]`}
+            className={`absolute top-24 h-4 w-4 rotate-45 bg-white ${side === "right" ? "-left-[9px] border-b border-l" : "-right-[9px] border-r border-t"} border-[#d9b968]`}
           />
           {bubble}
         </div>
