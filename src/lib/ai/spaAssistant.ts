@@ -15,6 +15,8 @@ export type LiveService = {
   duration: string | null;
   price: number;
   description: string | null;
+  /** Why to choose it — what GlowSync AI uses to promote the service. */
+  benefits?: string | null;
   branchId: string;
   branchName: string;
   hairPrices: HairPrices | null;
@@ -34,7 +36,7 @@ function one<T>(v: Rel<T>): T | null {
 export async function loadLiveServices(supabase: SupabaseClient): Promise<LiveService[]> {
   const { data, error } = await supabase
     .from("branch_services")
-    .select("id, name, category, department, duration, price, description, branch_id, status, hair_options, branch:branches(name)")
+    .select("id, name, category, department, duration, price, description, benefits, branch_id, status, hair_options, branch:branches(name)")
     .eq("status", "Active")
     .order("category")
     .order("name");
@@ -52,6 +54,7 @@ export async function loadLiveServices(supabase: SupabaseClient): Promise<LiveSe
     duration: string | null;
     price: number;
     description: string | null;
+    benefits: string | null;
     branch_id: string;
     hair_options: { prices?: Partial<Record<keyof HairPrices, string | number>> } | null;
     branch: Rel<{ name: string }>;
@@ -70,6 +73,7 @@ export async function loadLiveServices(supabase: SupabaseClient): Promise<LiveSe
     duration: row.duration,
     price: row.price,
     description: row.description,
+    benefits: row.benefits,
     branchId: row.branch_id,
     branchName: one(row.branch)?.name ?? "Blush Spa",
     // Hair services are priced by length (Short / Medium / Long).
@@ -84,6 +88,23 @@ export function lowestPrice(s: LiveService) {
   const sizes = s.hairPrices ? Object.values(s.hairPrices).filter((v) => v > 0) : [];
   return sizes.length ? Math.min(...sizes) : s.price;
 }
+
+const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
+
+// How GlowSync AI promotes services: a warm beauty consultant, honest about results.
+const SALES_RULES = `HOW TO PROMOTE OUR SERVICES — you are a warm, enthusiastic beauty consultant, not a price list:
+- When a customer mentions a concern or goal (dull or uneven skin, dark spots, melasma, acne or scars, fine lines,
+  sagging, dark underarms, unwanted hair, stubborn fat, hair fall, a special event…), recommend the 1–2 services whose
+  description or Benefits match it best, and explain in simple words what it does and how they will look and feel after.
+- When asked about a specific service, sell it: what it is, its top 2–3 benefits, who it is perfect for, then the price
+  (and duration if listed). Mention an active promo when one matches.
+- Make it personal and appealing ("Perfect if you want that fresh, glowing look before an event ✨"), then end with a
+  short friendly invitation to book.
+- If the customer is unsure what they need, ask ONE short question about their skin, hair or body goal.
+- Be honest: only use benefits written in the catalog or general, well-known facts about that kind of treatment. Never
+  promise guaranteed or permanent results, and never say a treatment "removes" or "cures" something unless its Benefits
+  say so — use words like "helps", "visibly", "for a younger-looking…", and "results vary".
+- Doctor's Procedures, fillers, botox ("-tox") and injections are done by our licensed doctor after a consultation — say so.`;
 
 function buildSystemPrompt(
   userContext: string,
@@ -120,8 +141,8 @@ function buildSystemPrompt(
               .map(
                 (s) =>
                   `    - [id:${s.id}] ${s.name} (${s.duration ?? "duration varies"}) — ${priceText(s)}${
-                    s.description ? ` — ${s.description}` : ""
-                  }`
+                    s.description ? ` — ${oneLine(s.description)}` : ""
+                  }${s.benefits ? ` — Benefits: ${oneLine(s.benefits)}` : ""}`
               )
               .join("\n")
         )
@@ -141,13 +162,14 @@ refund or anything you can't answer, tell them to type STAFF and our team will r
 describe or invent where those buttons lead.`;
 
   return `You are GlowSync AI, the booking assistant for Blush Spa & Aesthetics, a wellness spa in Pagadian City, Philippines.
-Help customers pick services, compare branches, and understand pricing, duration, and the booking flow.
-Be brief and friendly. Hair services are priced by hair length (Short / Medium / Long) — quote all three when asked.
+Help customers pick services, compare branches, and understand pricing, duration, and the booking flow — and
+make them excited about the treatments that fit them. Be brief and friendly. Hair services are priced by hair length (Short / Medium / Long) — quote all three when asked.
 Only ever mention services, prices, durations, and branches that appear in the live
 catalog below — it is the complete, current, active list; never invent or assume anything beyond it. If asked
 about a service that isn't listed, say it's not currently offered rather than guessing.
 Never output a link, URL, or web address of any kind, including placeholder or example ones.
 ${channelRules}
+${SALES_RULES}
 Only state facts about the customer that appear in the context below — never guess or assume anything about their
 bookings, points, or tier that isn't given to you explicitly. You cannot book on the customer's behalf.
 ${preferredBranchName ? `\nThis customer's selected branch is ${preferredBranchName}. Only recommend services available at ${preferredBranchName} unless they explicitly ask about a different branch.` : ""}
