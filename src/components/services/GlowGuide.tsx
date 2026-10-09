@@ -17,7 +17,6 @@ import type { GuideFacts } from "@/lib/glowGuide";
 
 const STEP_MS = 8000; // time on each card
 const HOVER_RESUME_MS = 6000; // auto-tour resumes this long after the mouse leaves
-const HOVER_INTENT_MS = 500; // the mouse must rest on a card this long before the guide switches to it
 const GREETING_MS = 4500; // "Hi! I'm GlowSync AI" before the tour starts
 const ARRIVE_MS = 450; // the arrow reaches the card first; the mascot follows
 const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
@@ -128,9 +127,9 @@ export default function GlowGuide({
 
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<Mode>("intro");
-  // Focus lock: once the visitor interacts (clicks a card, opens questions,
-  // asks something) the guide stays on that service until they choose
-  // "See other services". Hovering other cards doesn't take it away.
+  // Focus lock: once the visitor clicks "Ask me" (or the mascot) the guide
+  // stays on that service while answering, until they choose "See other
+  // services". Otherwise it follows the mouse from card to card.
   const [locked, setLocked] = useState(false);
   const [menuOpens, setMenuOpens] = useState(0);
   const [answer, setAnswer] = useState<string | null>(null);
@@ -164,7 +163,6 @@ export default function GlowGuide({
   useEffect(() => () => moodTimers.current.forEach((id) => window.clearTimeout(id)), []);
   const hovering = useRef(false);
   const focusedRef = useRef(false);
-  const pendingHover = useRef<{ id: string; timer: number } | null>(null);
 
   const itemsKey = items.map((i) => i.id).join("|");
   const [lastKey, setLastKey] = useState(itemsKey);
@@ -338,70 +336,39 @@ export default function GlowGuide({
     };
   }, [wide, minimized, inView]);
 
-  // Hovering a card (desktop) previews it after a short rest — unless the
-  // visitor is focused on a service. Clicking a card focuses it on purpose.
+  // Hovering a card (desktop) makes the guide jump to it and pauses the tour —
+  // unless the visitor is asking about a service. Moving onto the mascot or
+  // its bubble keeps the current service.
   useEffect(() => {
     const c = containerRef.current;
     if (!c || !wide || minimized) return;
-    const cancelPending = () => {
-      if (pendingHover.current) window.clearTimeout(pendingHover.current.timer);
-      pendingHover.current = null;
-    };
     const over = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
       const target = e.target as HTMLElement;
       if (target.closest("[data-guide-ui]")) {
-        // On the mascot or its bubble: keep the current service.
         hovering.current = true;
-        cancelPending();
         return;
       }
       const card = target.closest<HTMLElement>("[data-guide-id]");
       if (!card) return;
       hovering.current = true;
-      const id = card.dataset.guideId ?? "";
-      if (focusedRef.current || id === item?.id) return cancelPending();
-      if (pendingHover.current?.id === id) return;
-      cancelPending();
-      pendingHover.current = {
-        id,
-        timer: window.setTimeout(() => {
-          pendingHover.current = null;
-          const i = items.findIndex((it) => it.id === id);
-          if (i >= 0 && !focusedRef.current) goTo(i);
-        }, HOVER_INTENT_MS),
-      };
+      if (focusedRef.current) return;
+      const i = items.findIndex((it) => it.id === card.dataset.guideId);
+      if (i >= 0 && items[i].id !== item?.id) goTo(i);
     };
     const out = (e: PointerEvent) => {
       const from = (e.target as HTMLElement).closest("[data-guide-id], [data-guide-ui]");
       const to = (e.relatedTarget as HTMLElement | null)?.closest?.("[data-guide-id], [data-guide-ui]");
       if (from && !to) {
         hovering.current = false;
-        cancelPending();
         pausedUntil.current = Date.now() + HOVER_RESUME_MS;
-      }
-    };
-    const click = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest("[data-guide-ui]")) return;
-      const card = target.closest<HTMLElement>("[data-guide-id]");
-      if (!card) return;
-      // A deliberate click focuses that service (its own buttons still work as usual).
-      cancelPending();
-      const i = items.findIndex((it) => it.id === card.dataset.guideId);
-      if (i >= 0) {
-        if (items[i].id !== item?.id) goTo(i);
-        setLocked(true);
       }
     };
     c.addEventListener("pointerover", over);
     c.addEventListener("pointerout", out);
-    c.addEventListener("click", click);
     return () => {
-      cancelPending();
       c.removeEventListener("pointerover", over);
       c.removeEventListener("pointerout", out);
-      c.removeEventListener("click", click);
     };
   }, [containerRef, wide, minimized, items, item, goTo]);
 
