@@ -17,6 +17,7 @@ import type { GuideFacts } from "@/lib/glowGuide";
 
 const STEP_MS = 8000; // time on each card
 const HOVER_RESUME_MS = 6000; // auto-tour resumes this long after the mouse leaves
+const HOVER_INTENT_MS = 500; // the mouse must rest on a card this long before the guide switches to it
 const GREETING_MS = 4500; // "Hi! I'm GlowSync AI" before the tour starts
 const ARRIVE_MS = 450; // the arrow reaches the card first; the mascot follows
 const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
@@ -127,6 +128,11 @@ export default function GlowGuide({
 
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<Mode>("intro");
+  // Focus lock: once the visitor interacts (clicks a card, opens questions,
+  // asks something) the guide stays on that service until they choose
+  // "See other services". Hovering other cards doesn't take it away.
+  const [locked, setLocked] = useState(false);
+  const [menuOpens, setMenuOpens] = useState(0);
   const [answer, setAnswer] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
@@ -157,6 +163,8 @@ export default function GlowGuide({
   }, []);
   useEffect(() => () => moodTimers.current.forEach((id) => window.clearTimeout(id)), []);
   const hovering = useRef(false);
+  const focusedRef = useRef(false);
+  const pendingHover = useRef<{ id: string; timer: number } | null>(null);
 
   const itemsKey = items.map((i) => i.id).join("|");
   const [lastKey, setLastKey] = useState(itemsKey);
@@ -166,6 +174,7 @@ export default function GlowGuide({
     setIndex(0);
     setMode("intro");
     setAnswer(null);
+    setLocked(false);
   }
 
   const item = items[Math.min(index, items.length - 1)] ?? null;
@@ -266,7 +275,7 @@ export default function GlowGuide({
 
   // The tour: next card every few seconds (desktop: only cards on screen).
   useEffect(() => {
-    if (minimized || !inView || greeting || bookingOpen || mode !== "intro" || items.length < 2) return;
+    if (minimized || !inView || greeting || bookingOpen || mode !== "intro" || locked || items.length < 2) return;
     const t = window.setInterval(() => {
       if (document.hidden || hovering.current || Date.now() < pausedUntil.current) return;
       for (let step = 1; step <= items.length; step++) {
@@ -280,7 +289,12 @@ export default function GlowGuide({
       }
     }, STEP_MS);
     return () => window.clearInterval(t);
-  }, [minimized, inView, greeting, bookingOpen, mode, items, wide, cardEl, index, travel]);
+  }, [minimized, inView, greeting, bookingOpen, mode, locked, items, wide, cardEl, index, travel]);
+
+  const focused = locked || mode !== "intro";
+  useEffect(() => {
+    focusedRef.current = focused;
+  }, [focused]);
 
   useEffect(() => {
     if (minimized || !inView || greeting) return;
@@ -324,37 +338,89 @@ export default function GlowGuide({
     };
   }, [wide, minimized, inView]);
 
-  // Hovering a card (desktop) makes the guide jump to it and pauses the tour.
+  // Hovering a card (desktop) previews it after a short rest — unless the
+  // visitor is focused on a service. Clicking a card focuses it on purpose.
   useEffect(() => {
     const c = containerRef.current;
     if (!c || !wide || minimized) return;
+    const cancelPending = () => {
+      if (pendingHover.current) window.clearTimeout(pendingHover.current.timer);
+      pendingHover.current = null;
+    };
     const over = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
-      const card = (e.target as HTMLElement).closest<HTMLElement>("[data-guide-id]");
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-guide-ui]")) {
+        // On the mascot or its bubble: keep the current service.
+        hovering.current = true;
+        cancelPending();
+        return;
+      }
+      const card = target.closest<HTMLElement>("[data-guide-id]");
       if (!card) return;
       hovering.current = true;
-      const i = items.findIndex((it) => it.id === card.dataset.guideId);
-      if (i >= 0 && items[i].id !== item?.id) goTo(i);
+      const id = card.dataset.guideId ?? "";
+      if (focusedRef.current || id === item?.id) return cancelPending();
+      if (pendingHover.current?.id === id) return;
+      cancelPending();
+      pendingHover.current = {
+        id,
+        timer: window.setTimeout(() => {
+          pendingHover.current = null;
+          const i = items.findIndex((it) => it.id === id);
+          if (i >= 0 && !focusedRef.current) goTo(i);
+        }, HOVER_INTENT_MS),
+      };
     };
     const out = (e: PointerEvent) => {
-      const from = (e.target as HTMLElement).closest("[data-guide-id]");
-      const to = (e.relatedTarget as HTMLElement | null)?.closest?.("[data-guide-id]");
-      if (from && from !== to) {
+      const from = (e.target as HTMLElement).closest("[data-guide-id], [data-guide-ui]");
+      const to = (e.relatedTarget as HTMLElement | null)?.closest?.("[data-guide-id], [data-guide-ui]");
+      if (from && !to) {
         hovering.current = false;
+        cancelPending();
         pausedUntil.current = Date.now() + HOVER_RESUME_MS;
+      }
+    };
+    const click = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest("[data-guide-ui]")) return;
+      const card = target.closest<HTMLElement>("[data-guide-id]");
+      if (!card) return;
+      // A deliberate click focuses that service (its own buttons still work as usual).
+      cancelPending();
+      const i = items.findIndex((it) => it.id === card.dataset.guideId);
+      if (i >= 0) {
+        if (items[i].id !== item?.id) goTo(i);
+        setLocked(true);
       }
     };
     c.addEventListener("pointerover", over);
     c.addEventListener("pointerout", out);
+    c.addEventListener("click", click);
     return () => {
+      cancelPending();
       c.removeEventListener("pointerover", over);
       c.removeEventListener("pointerout", out);
+      c.removeEventListener("click", click);
     };
   }, [containerRef, wide, minimized, items, item, goTo]);
 
   function openMenu() {
     setGreeting(false);
-    setMode(mode === "intro" ? "menu" : "intro");
+    setLocked(true);
+    if (mode === "intro") {
+      setMode("menu");
+      setMenuOpens((n) => n + 1);
+    }
+  }
+
+  /** Leave the focused service and let the guide tour again. */
+  function release() {
+    setLocked(false);
+    setMode("intro");
+    setAnswer(null);
+    setQuestion("");
+    pausedUntil.current = Date.now() + 1500;
   }
 
   function minimize(v: boolean) {
@@ -374,6 +440,7 @@ export default function GlowGuide({
 
   function quick(key: QuickKey) {
     if (!item) return;
+    setLocked(true);
     setAnswer(key === "about" ? `${item.intro} ${item.why}` : item.answers[key]);
     setMode("answer");
   }
@@ -381,6 +448,7 @@ export default function GlowGuide({
   async function ask() {
     const q = question.trim();
     if (!q || !item || asking) return;
+    setLocked(true);
     if (!user) {
       setAnswer("Log in first and I can answer anything about our services ✨");
       setMode("answer");
@@ -457,7 +525,9 @@ export default function GlowGuide({
 
       {mode === "menu" && (
         <>
-          <p className="text-sm font-semibold text-ink">Hi! What would you like to know? ✨</p>
+          <p className="text-sm font-semibold text-ink">
+            {menuOpens <= 1 ? "Hi! What would you like to know? ✨" : `Anything else about ${item.title}? ✨`}
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {QUICK.map((q) => (
               <button key={q.key} type="button" onClick={() => quick(q.key)} className="rounded-full border border-champagne bg-white px-2.5 py-1 text-xs font-medium text-ink/75 hover:border-coral hover:bg-blush">
@@ -541,8 +611,13 @@ export default function GlowGuide({
         <button type="button" onClick={book} className="flex items-center gap-1 rounded-full bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-3.5 py-1.5 text-xs font-extrabold text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] transition hover:-translate-y-0.5 hover:brightness-105">
           <CalendarPlus className="h-3.5 w-3.5" /> Book Now
         </button>
-        {mode === "intro" && (
-          <button type="button" onClick={() => setMode("menu")} className="ml-auto flex items-center gap-1 rounded-full px-2 py-1 text-xs font-extrabold text-[#7b3fc4] transition hover:bg-[#f5effd]">
+        {focused && items.length > 1 && (
+          <button type="button" onClick={release} className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-extrabold text-[#a97c1c] transition hover:bg-[#fff6e6]">
+            See other services →
+          </button>
+        )}
+        {mode === "intro" && !locked && (
+          <button type="button" onClick={openMenu} className="ml-auto flex items-center gap-1 rounded-full px-2 py-1 text-xs font-extrabold text-[#7b3fc4] transition hover:bg-[#f5effd]">
             <MessageCircleQuestion className="h-3.5 w-3.5" /> Ask me
           </button>
         )}
@@ -627,7 +702,7 @@ export default function GlowGuide({
   // ── Phones and tablets: a guide bar above the cards ──
   if (!wide) {
     return (
-      <div className={`guide-bubble guide-bubble-still mb-6 ${GUIDE_FONTS}`}>
+      <div data-guide-ui className={`guide-bubble guide-bubble-still mb-6 ${GUIDE_FONTS}`}>
         <div className="guide-bubble-inner flex items-start gap-3 p-4">
           <button type="button" onClick={openMenu} aria-label="Ask GlowSync AI" className="shrink-0">
             {mascot(112)}
@@ -670,7 +745,7 @@ export default function GlowGuide({
         className={`guide-fly absolute left-0 top-0 z-30 ${moving ? "pointer-events-none opacity-0" : "opacity-100"}`}
         style={{ transform: `translate(${bubbleX}px, ${bubbleY}px)`, width: BUBBLE_W, ...follow }}
       >
-        <div key={`${item.id}-${mode}-${greeting}`} className={`guide-bubble glowy-pop ${GUIDE_FONTS}`}>
+        <div key={`${item.id}-${mode}-${greeting}`} data-guide-ui className={`guide-bubble glowy-pop ${GUIDE_FONTS}`}>
           <div className="guide-bubble-inner p-4 pt-4" style={side === "right" ? { paddingLeft: TUCK + 12 } : { paddingRight: TUCK + 12 }}>
             {bubble}
           </div>
@@ -680,6 +755,7 @@ export default function GlowGuide({
       <button
         type="button"
         ref={mascotRef}
+        data-guide-ui
         onClick={openMenu}
         onPointerEnter={() => emote([{ face: "giggle", emote: "♥", ms: 1400 }])}
         aria-label="Ask GlowSync AI about this service"
