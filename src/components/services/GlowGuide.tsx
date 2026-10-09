@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { ArrowDown, CalendarPlus, ChevronLeft, Gift, Loader2, MessageCircleQuestion, Send, X } from "lucide-react";
 import Link from "next/link";
-import GlowMascot, { type MascotPose } from "@/components/GlowMascot";
+import GlowMascot, { type MascotFace, type MascotPose } from "@/components/GlowMascot";
 import { useBooking } from "@/components/booking/BookingContext";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
@@ -98,8 +98,26 @@ export default function GlowGuide({
   const [layout, setLayout] = useState<Layout>(null);
   const [moving, setMoving] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
+  const [mood, setMood] = useState<{ face?: MascotFace; emote?: string } | null>(null);
+  const [landing, setLanding] = useState(false);
+  const [look, setLook] = useState<{ x: number; y: number } | undefined>(undefined);
+  const mascotRef = useRef<HTMLButtonElement>(null);
+  const moodTimers = useRef<number[]>([]);
   const [greeting, setGreeting] = useState(true);
   const pausedUntil = useRef(0);
+
+  /** Plays a short sequence of expressions, e.g. surprised "!" then excited. */
+  const emote = useCallback((steps: { face?: MascotFace; emote?: string; ms: number }[]) => {
+    moodTimers.current.forEach((id) => window.clearTimeout(id));
+    moodTimers.current = [];
+    let at = 0;
+    for (const s of steps) {
+      moodTimers.current.push(window.setTimeout(() => setMood({ face: s.face, emote: s.emote }), at));
+      at += s.ms;
+    }
+    moodTimers.current.push(window.setTimeout(() => setMood(null), at));
+  }, []);
+  useEffect(() => () => moodTimers.current.forEach((id) => window.clearTimeout(id)), []);
   const hovering = useRef(false);
 
   const itemsKey = items.map((i) => i.id).join("|");
@@ -176,10 +194,26 @@ export default function GlowGuide({
     (next: number) => {
       if (next === index) return;
       setMoving(true);
-      window.setTimeout(() => setMoving(false), MOVE_MS);
+      window.setTimeout(() => {
+        setMoving(false);
+        setLanding(true);
+        window.setTimeout(() => setLanding(false), 520);
+      }, MOVE_MS);
       setIndex(next);
+      const reaction = items[next]?.reaction;
+      moodTimers.current.forEach((id) => window.clearTimeout(id));
+      moodTimers.current = [
+        window.setTimeout(
+          () =>
+            emote([
+              { face: "surprised", emote: "!", ms: 650 },
+              { face: "excited", emote: reaction, ms: 1600 },
+            ]),
+          MOVE_MS
+        ),
+      ];
     },
-    [index]
+    [index, items, emote]
   );
 
   const goTo = useCallback(
@@ -209,6 +243,48 @@ export default function GlowGuide({
     }, STEP_MS);
     return () => window.clearInterval(t);
   }, [minimized, inView, greeting, bookingOpen, mode, items, wide, cardEl, index, travel]);
+
+  useEffect(() => {
+    if (minimized || !inView || greeting) return;
+    const moments: { face?: MascotFace; emote?: string; ms: number }[][] = [
+      [{ face: "wink", emote: "✨", ms: 1100 }],
+      [{ face: "giggle", emote: "♪", ms: 1500 }],
+      [{ face: "excited", emote: "♥", ms: 1300 }],
+      [{ face: "happy", emote: "✨", ms: 1200 }],
+      [{ face: "think", emote: "?", ms: 900 }, { face: "giggle", emote: "💡", ms: 1000 }],
+    ];
+    const t = window.setInterval(() => {
+      if (document.hidden || moving || asking || celebrate || mode === "ask") return;
+      if (Math.random() < 0.55) emote(moments[Math.floor(Math.random() * moments.length)]);
+    }, 5200);
+    return () => window.clearInterval(t);
+  }, [minimized, inView, greeting, moving, asking, celebrate, mode, emote]);
+
+  // Its eyes follow the mouse (desktop).
+  useEffect(() => {
+    if (!wide || minimized || !inView) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let frame = 0;
+    const onMove = (e: PointerEvent) => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const el = mascotRef.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const dx = (e.clientX - (r.left + r.width / 2)) / 260;
+        const dy = (e.clientY - (r.top + r.height * 0.3)) / 260;
+        const clamp = (v: number) => Math.max(-1, Math.min(1, v));
+        const next = { x: Math.round(clamp(dx) * 10) / 10, y: Math.round(clamp(dy) * 10) / 10 };
+        setLook((cur) => (cur && cur.x === next.x && cur.y === next.y ? cur : next));
+      });
+    };
+    window.addEventListener("pointermove", onMove);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      cancelAnimationFrame(frame);
+    };
+  }, [wide, minimized, inView]);
 
   // Hovering a card (desktop) makes the guide jump to it and pauses the tour.
   useEffect(() => {
@@ -250,6 +326,7 @@ export default function GlowGuide({
 
   function book() {
     if (!item) return;
+    emote([{ face: "love", emote: "💖", ms: 900 }]);
     setCelebrate(true);
     window.setTimeout(() => {
       setCelebrate(false);
@@ -285,6 +362,7 @@ export default function GlowGuide({
         .map((r) => items.findIndex((it) => (it.kind === "service" ? sameName(it.title, r.name) && it.category === r.category : it.category === r.category)))
         .find((i) => i >= 0);
       if (target !== undefined) travel(target);
+      else if (res.ok) emote([{ face: "giggle", emote: "💡", ms: 1600 }]);
     } catch {
       setAnswer("Network error — please try again.");
     } finally {
@@ -449,13 +527,38 @@ export default function GlowGuide({
             ? "present"
             : item.mood;
 
+  const face: MascotFace | undefined = celebrate ? "love" : asking ? "think" : moving ? "excited" : mood?.face;
+  const bubbleEmote = asking ? "…" : greeting ? "👋" : moving ? undefined : mood?.emote;
+
   const mascot = (size: number, flip = false) => (
     <span className="relative block">
-    <span className={`relative block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] ${celebrate ? "guide-celebrate" : moving ? "guide-moving" : "glowy-bob"}`}>
-      <GlowMascot size={size} full pose={pose} flip={flip} alive={!moving && !celebrate} blink={!moving && !celebrate} talking={asking || greeting} />
-      {!moving && !greeting && (
-        <span key={`${item.id}-${celebrate}`} aria-hidden className="guide-react pointer-events-none absolute -top-2 left-1/2 text-xl">
-          {celebrate ? "💖" : asking ? "💭" : item.reaction}
+    <span className={`relative block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] ${celebrate ? "guide-celebrate" : moving ? "guide-moving" : landing ? "guide-land" : "glowy-bob"}`}>
+      <GlowMascot
+        size={size}
+        full
+        pose={pose}
+        face={face}
+        look={look}
+        flip={flip}
+        alive={!moving && !celebrate}
+        blink={!moving && !celebrate}
+        talking={asking || greeting}
+      />
+      {bubbleEmote && (
+        <span
+          key={bubbleEmote + (mood?.face ?? "")}
+          aria-hidden
+          className={`guide-emote pointer-events-none absolute -top-3 ${flip ? "left-1" : "right-1"} flex h-8 min-w-8 items-center justify-center rounded-full border border-[#d9b968] bg-white px-1.5 text-base font-black leading-none text-[#c9a24a] shadow-md`}
+        >
+          {bubbleEmote === "…" ? (
+            <span className="flex gap-0.5">
+              <span className="glowy-dot h-1.5 w-1.5 rounded-full bg-[#c9a24a]" />
+              <span className="glowy-dot h-1.5 w-1.5 rounded-full bg-[#c9a24a] [animation-delay:150ms]" />
+              <span className="glowy-dot h-1.5 w-1.5 rounded-full bg-[#c9a24a] [animation-delay:300ms]" />
+            </span>
+          ) : (
+            bubbleEmote
+          )}
         </span>
       )}
       {celebrate && (
@@ -498,19 +601,20 @@ export default function GlowGuide({
   // ── Desktop: the arrow reaches the card, then the mascot follows ──
   if (!layout) return null;
   const { card, containerWidth } = layout;
-  const BUBBLE_W = 290;
-  const MASCOT = 184; // height; the full body is 120 × 152
+  const MASCOT = 208; // height; the full body is 120 × 152
   const MASCOT_W = Math.round((MASCOT * 120) / 152);
-  const OVERLAP = 26; // the star wand reaches just over the card's edge
-  // The mascot stands right beside the card like a teacher, wand on the card;
-  // its speech bubble sits on its other side.
-  const side: "right" | "left" = card.left + card.width - OVERLAP + MASCOT_W + BUBBLE_W <= containerWidth ? "right" : "left";
+  const OVERLAP = 14; // only the star wand reaches over the card's edge
+  const TUCK = Math.round(MASCOT_W * 0.5); // how much of the mascot stands on the bubble
+  const BUBBLE_W = 290 + TUCK; // room for the mascot inside the bubble's edge
+  // The mascot stands right beside the card like a teacher, wand on the card,
+  // standing on the edge of its own speech bubble — one compact unit.
+  const side: "right" | "left" = card.left + card.width - OVERLAP + MASCOT_W - TUCK + BUBBLE_W <= containerWidth ? "right" : "left";
   const arrowX = card.left + card.width / 2 - 14;
   const arrowY = card.top - 34;
   const mascotX = side === "right" ? card.left + card.width - OVERLAP : card.left - MASCOT_W + OVERLAP;
   // Level with the middle of the card, clear of the Book Now buttons at the bottom.
   const mascotY = card.top + Math.max((card.height - MASCOT) / 2 - 24, 0);
-  const bubbleX = side === "right" ? mascotX + MASCOT_W - 6 : Math.max(mascotX - BUBBLE_W + 6, 0);
+  const bubbleX = side === "right" ? mascotX + MASCOT_W - TUCK : Math.max(mascotX + TUCK - BUBBLE_W, 0);
   const bubbleY = Math.max(card.top, 0);
   const follow = { transitionDelay: `${ARRIVE_MS}ms` };
 
@@ -529,18 +633,17 @@ export default function GlowGuide({
         <div
           key={`${item.id}-${mode}-${greeting}`}
           className="glowy-pop relative rounded-[26px] border border-[#d9b968] bg-gradient-to-br from-white via-[#fffaf3] to-[#fdf2f7] p-4 pt-5 shadow-[0_18px_40px_-18px_rgba(168,132,58,0.55),0_0_0_4px_rgba(217,185,104,0.12)]"
+          style={side === "right" ? { paddingLeft: TUCK + 12 } : { paddingRight: TUCK + 12 }}
         >
-          <span
-            aria-hidden
-            className={`absolute top-24 h-4 w-4 rotate-45 bg-white ${side === "right" ? "-left-[9px] border-b border-l" : "-right-[9px] border-r border-t"} border-[#d9b968]`}
-          />
           {bubble}
         </div>
       </div>
 
       <button
         type="button"
+        ref={mascotRef}
         onClick={openMenu}
+        onPointerEnter={() => emote([{ face: "giggle", emote: "♥", ms: 1400 }])}
         aria-label="Ask GlowSync AI about this service"
         className="guide-fly absolute left-0 top-0 z-40 rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a]"
         style={{ transform: `translate(${mascotX}px, ${mascotY}px)`, ...follow }}
