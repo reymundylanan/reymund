@@ -561,33 +561,39 @@ export default function GlowGuide({
       )}
 
       {!greeting && (
-      <div className="guide-rise flex flex-wrap items-center gap-1.5 pt-1">
-        {mode !== "intro" && (
-          <button type="button" onClick={() => setMode(mode === "answer" ? "menu" : "intro")} className="flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-semibold text-ink/60 hover:bg-blush">
-            <ChevronLeft className="h-3.5 w-3.5" /> Back
+      <div className="guide-rise space-y-2 pt-1">
+        {/* Main actions: two equal buttons side by side. */}
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => onDetails(item)} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition border-[1.5px] border-[#d9b968] bg-white px-3 text-ink/80 hover:-translate-y-0.5 hover:shadow-[0_6px_14px_-8px_rgba(169,124,28,0.7)]">
+            {item.kind === "category" ? "See treatments" : "View Details"}
           </button>
-        )}
-        <button type="button" onClick={() => onDetails(item)} className="rounded-full border-[1.5px] border-[#d9b968] bg-white px-3.5 py-1.5 text-xs font-extrabold text-ink/80 transition hover:-translate-y-0.5 hover:shadow-[0_6px_14px_-8px_rgba(169,124,28,0.7)]">
-          {item.kind === "category" ? "See treatments" : "View Details"}
-        </button>
-        {item.promo && mode === "intro" && (
-          <Link href="/#promotions" className="rounded-full border border-[#f3a6c8] bg-[#fff0f6] px-3 py-1 text-xs font-semibold text-[#b83c78] hover:bg-[#ffe3ef]">
-            View Promotion
-          </Link>
-        )}
-        <button type="button" onClick={book} className="flex items-center gap-1 rounded-full bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-3.5 py-1.5 text-xs font-extrabold text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] transition hover:-translate-y-0.5 hover:brightness-105">
-          <CalendarPlus className="h-3.5 w-3.5" /> Book Now
-        </button>
-        {focused && items.length > 1 && (
-          <button type="button" onClick={release} className="flex items-center gap-1 rounded-full px-2 py-1 text-xs font-extrabold text-[#a97c1c] transition hover:bg-[#fff6e6]">
-            See other services →
+          <button type="button" onClick={book} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-3 text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] hover:-translate-y-0.5 hover:brightness-105">
+            <CalendarPlus className="h-3.5 w-3.5" /> Book Now
           </button>
-        )}
-        {mode === "intro" && !locked && (
-          <button type="button" onClick={openMenu} className="ml-auto flex items-center gap-1 rounded-full px-2 py-1 text-xs font-extrabold text-[#7b3fc4] transition hover:bg-[#f5effd]">
-            <MessageCircleQuestion className="h-3.5 w-3.5" /> Ask me
-          </button>
-        )}
+        </div>
+        {/* Secondary actions: centred underneath. */}
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          {mode !== "intro" && (
+            <button type="button" onClick={() => setMode(mode === "answer" ? "menu" : "intro")} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition px-3 text-ink/60 hover:bg-[#fff6e6]">
+              <ChevronLeft className="h-3.5 w-3.5" /> Back
+            </button>
+          )}
+          {item.promo && mode === "intro" && (
+            <Link href="/#promotions" className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition border border-[#f3a6c8] bg-[#fff0f6] px-3 text-[#b83c78] hover:bg-[#ffe3ef]">
+              <Gift className="h-3.5 w-3.5" /> View Promotion
+            </Link>
+          )}
+          {mode === "intro" && !locked && (
+            <button type="button" onClick={openMenu} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition min-w-[60%] flex-1 bg-gradient-to-r from-[#f5effd] to-[#fdf0f7] px-3 text-[#7b3fc4] ring-1 ring-[#e3d6f7] hover:ring-[#c9b0f0]">
+              <MessageCircleQuestion className="h-3.5 w-3.5" /> Ask me
+            </button>
+          )}
+          {focused && items.length > 1 && (
+            <button type="button" onClick={release} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition px-3 text-[#a97c1c] hover:bg-[#fff6e6]">
+              See other services →
+            </button>
+          )}
+        </div>
       </div>
       )}
     </div>
