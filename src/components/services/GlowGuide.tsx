@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
-import { ArrowDown, CalendarPlus, ChevronLeft, Gift, Loader2, MessageCircleQuestion, Send, X } from "lucide-react";
+import { ArrowDown, CalendarPlus, ChevronLeft, Gift, Loader2, MessageCircleQuestion, Send } from "lucide-react";
 import Link from "next/link";
+import { Fredoka, Nunito } from "next/font/google";
 import GlowMascot, { type MascotFace, type MascotPose } from "@/components/GlowMascot";
 import { useBooking } from "@/components/booking/BookingContext";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
@@ -22,6 +23,43 @@ const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
 
 const sameName = (a?: string | null, b?: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 const MINIMIZED_KEY = "glowguide-minimized";
+
+// Rounded, friendly faces for the speech bubble (scoped to the guide).
+const guideDisplay = Fredoka({ subsets: ["latin"], variable: "--font-guide-display" });
+const guideBody = Nunito({ subsets: ["latin"], variable: "--font-guide-body" });
+const GUIDE_FONTS = `${guideDisplay.variable} ${guideBody.variable}`;
+
+/** Types its text out like the mascot is speaking. Remount (key) to replay. */
+function TypeText({ text, onDone }: { text: string; onDone?: () => void }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      const id = window.setTimeout(() => {
+        setShown(text.length);
+        onDone?.();
+      }, 0);
+      return () => window.clearTimeout(id);
+    }
+    const id = window.setInterval(() => {
+      setShown((n) => {
+        if (n + 1 >= text.length) {
+          window.clearInterval(id);
+          onDone?.();
+        }
+        return Math.min(n + 1, text.length);
+      });
+    }, 22);
+    return () => window.clearInterval(id);
+  }, [text, onDone]);
+  return (
+    <>
+      <span>{text.slice(0, shown)}</span>
+      {shown < text.length && <span aria-hidden className="guide-caret" />}
+      {/* Screen readers get the whole line at once. */}
+      <span className="sr-only">{text}</span>
+    </>
+  );
+}
 
 type Mode = "intro" | "menu" | "ask" | "answer";
 type QuickKey = "about" | "price" | "duration" | "benefits" | "promotions" | "compare";
@@ -377,40 +415,40 @@ export default function GlowGuide({
   // ── The speech bubble (same content in both layouts) ──
   const bubble = (
     <div className="space-y-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-coral-dark">
-          {greeting ? "GlowSync AI" : mode === "intro" ? `GlowSync AI · ${item.kind === "category" ? "Category" : "Treatment"}` : item.title}
-        </p>
-        <button type="button" onClick={() => minimize(true)} aria-label="Hide the GlowSync guide" className="-mr-1 -mt-1 rounded-full p-0.5 text-ink/35 hover:bg-blush hover:text-ink">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+      <p className="guide-rise flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">
+        <span aria-hidden className="guide-live-dot" />
+        {greeting ? "GlowSync AI" : mode === "intro" ? `GlowSync AI · ${item.kind === "category" ? "Category" : "Treatment"}` : item.title}
+      </p>
 
       {greeting && mode === "intro" && (
-        <p className="text-sm leading-relaxed text-ink">
-          <span className="block text-base font-bold text-[#5b2d86]">Hi! I&apos;m GlowSync AI ✨</span>
-          Looking for the perfect service? I&apos;m here to help you find what you need!
-        </p>
+        <div className="guide-rise space-y-1">
+          <p className="guide-display guide-title text-[19px] leading-tight">Hi! I&apos;m GlowSync AI ✨</p>
+          <p className="text-[14.5px] font-semibold leading-relaxed text-ink/85">
+            <TypeText key="greet" text="Looking for the perfect service? I'm here to help you find what you need!" />
+          </p>
+        </div>
       )}
 
       {!greeting && mode === "intro" && (
         <>
-          <p className="text-base font-bold leading-snug text-[#5b2d86]">✨ {item.hook}</p>
-          <p className="text-sm leading-relaxed text-ink">{item.intro}</p>
-          <p className="text-sm text-ink/70">
-            <span className="font-semibold text-ink">Why choose this?</span> {item.why}
+          <p className="guide-rise guide-display guide-title text-[19px] leading-tight">✨ {item.hook}</p>
+          <p className="guide-rise text-[14.5px] font-semibold leading-relaxed text-ink/85">
+            <TypeText key={item.id} text={item.intro} />
+          </p>
+          <p className="guide-rise rounded-2xl bg-[#fff6e6] px-3 py-2 text-[13px] leading-snug text-ink/75 ring-1 ring-[#f1dfb6]">
+            <span className="guide-display font-semibold text-[#a97c1c]">Why choose this?</span> {item.why}
           </p>
           {item.meta.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="guide-rise flex flex-wrap gap-1.5">
               {item.meta.map((m) => (
-                <span key={m} className="rounded-full bg-[#f5effd] px-2 py-0.5 text-[11px] font-semibold text-[#5b2d86] ring-1 ring-[#e3d6f7]">
+                <span key={m} className="rounded-full bg-gradient-to-r from-[#f7f0ff] to-[#fdf0f7] px-2.5 py-0.5 text-[11.5px] font-bold text-[#5b2d86] ring-1 ring-[#e6d8f8]">
                   {m}
                 </span>
               ))}
             </div>
           )}
           {item.promo && (
-            <p className="flex items-start gap-1.5 rounded-xl bg-[#fbf1dc] px-2.5 py-1.5 text-xs font-medium text-coral-dark">
+            <p className="guide-rise flex items-start gap-1.5 rounded-xl bg-gradient-to-r from-[#fff0f7] to-[#fbf1dc] px-2.5 py-1.5 text-xs font-bold text-[#b83c78]">
               <Gift className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {item.answers.promotions.replace(/^🎁\s*/, "")}
             </p>
           )}
@@ -486,13 +524,13 @@ export default function GlowGuide({
       )}
 
       {!greeting && (
-      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+      <div className="guide-rise flex flex-wrap items-center gap-1.5 pt-1">
         {mode !== "intro" && (
           <button type="button" onClick={() => setMode(mode === "answer" ? "menu" : "intro")} className="flex items-center gap-0.5 rounded-full px-2 py-1 text-xs font-semibold text-ink/60 hover:bg-blush">
             <ChevronLeft className="h-3.5 w-3.5" /> Back
           </button>
         )}
-        <button type="button" onClick={() => onDetails(item)} className="rounded-full border border-[#d9b968] bg-white px-3 py-1 text-xs font-semibold text-ink/75 hover:bg-[#fffaf3]">
+        <button type="button" onClick={() => onDetails(item)} className="rounded-full border-[1.5px] border-[#d9b968] bg-white px-3.5 py-1.5 text-xs font-extrabold text-ink/80 transition hover:-translate-y-0.5 hover:shadow-[0_6px_14px_-8px_rgba(169,124,28,0.7)]">
           {item.kind === "category" ? "See treatments" : "View Details"}
         </button>
         {item.promo && mode === "intro" && (
@@ -500,11 +538,11 @@ export default function GlowGuide({
             View Promotion
           </Link>
         )}
-        <button type="button" onClick={book} className="flex items-center gap-1 rounded-full bg-coral px-3 py-1 text-xs font-semibold text-white shadow-sm hover:bg-coral-dark">
+        <button type="button" onClick={book} className="flex items-center gap-1 rounded-full bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-3.5 py-1.5 text-xs font-extrabold text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] transition hover:-translate-y-0.5 hover:brightness-105">
           <CalendarPlus className="h-3.5 w-3.5" /> Book Now
         </button>
         {mode === "intro" && (
-          <button type="button" onClick={() => setMode("menu")} className="ml-auto flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold text-coral-dark hover:bg-blush">
+          <button type="button" onClick={() => setMode("menu")} className="ml-auto flex items-center gap-1 rounded-full px-2 py-1 text-xs font-extrabold text-[#7b3fc4] transition hover:bg-[#f5effd]">
             <MessageCircleQuestion className="h-3.5 w-3.5" /> Ask me
           </button>
         )}
@@ -589,11 +627,13 @@ export default function GlowGuide({
   // ── Phones and tablets: a guide bar above the cards ──
   if (!wide) {
     return (
-      <div className="mb-6 flex items-start gap-3 rounded-3xl border border-[#d9b968] bg-gradient-to-br from-white via-[#fffaf3] to-[#fdf2f7] p-4 shadow-[0_14px_34px_-18px_rgba(168,132,58,0.55)]">
-        <button type="button" onClick={openMenu} aria-label="Ask GlowSync AI" className="shrink-0">
-          {mascot(112)}
-        </button>
-        <div className="min-w-0 flex-1">{bubble}</div>
+      <div className={`guide-bubble guide-bubble-still mb-6 ${GUIDE_FONTS}`}>
+        <div className="guide-bubble-inner flex items-start gap-3 p-4">
+          <button type="button" onClick={openMenu} aria-label="Ask GlowSync AI" className="shrink-0">
+            {mascot(112)}
+          </button>
+          <div key={`${item.id}-${mode}-${greeting}`} className="min-w-0 flex-1">{bubble}</div>
+        </div>
       </div>
     );
   }
@@ -630,12 +670,10 @@ export default function GlowGuide({
         className={`guide-fly absolute left-0 top-0 z-30 ${moving ? "pointer-events-none opacity-0" : "opacity-100"}`}
         style={{ transform: `translate(${bubbleX}px, ${bubbleY}px)`, width: BUBBLE_W, ...follow }}
       >
-        <div
-          key={`${item.id}-${mode}-${greeting}`}
-          className="glowy-pop relative rounded-[26px] border border-[#d9b968] bg-gradient-to-br from-white via-[#fffaf3] to-[#fdf2f7] p-4 pt-5 shadow-[0_18px_40px_-18px_rgba(168,132,58,0.55),0_0_0_4px_rgba(217,185,104,0.12)]"
-          style={side === "right" ? { paddingLeft: TUCK + 12 } : { paddingRight: TUCK + 12 }}
-        >
-          {bubble}
+        <div key={`${item.id}-${mode}-${greeting}`} className={`guide-bubble glowy-pop ${GUIDE_FONTS}`}>
+          <div className="guide-bubble-inner p-4 pt-4" style={side === "right" ? { paddingLeft: TUCK + 12 } : { paddingRight: TUCK + 12 }}>
+            {bubble}
+          </div>
         </div>
       </div>
 

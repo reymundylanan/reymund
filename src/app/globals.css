@@ -252,6 +252,36 @@ body {
   [data-guide-active="true"] { animation: none; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.6); }
 }
 
+/* GlowSync guide speech bubble: shimmering gold border, typed text, staggered entrance */
+@property --guide-spin { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.guide-bubble {
+  padding: 2px; border-radius: 26px;
+  background: conic-gradient(from var(--guide-spin), #f6dc8e, #d4a537, #ffb3d9, #c49bff, #f6dc8e);
+  box-shadow: 0 22px 44px -24px rgba(169, 124, 28, 0.55), 0 0 0 6px rgba(212, 165, 55, 0.08);
+  font-family: var(--font-guide-body), system-ui, sans-serif;
+  animation: guide-spin 6s linear infinite, guide-float 4.5s ease-in-out infinite;
+}
+.guide-bubble-still { animation: guide-spin 6s linear infinite; }
+.guide-bubble-inner { border-radius: 24px; background: linear-gradient(160deg, #ffffff 0%, #fffdf9 55%, #fff1f7 100%); }
+@keyframes guide-spin { to { --guide-spin: 360deg; } }
+@keyframes guide-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -4px; } }
+.guide-display { font-family: var(--font-guide-display), system-ui, sans-serif; }
+.guide-title { font-weight: 600; background: linear-gradient(90deg, #5b2d86, #8a4fd8 55%, #d24f9c); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.guide-live-dot { width: 7px; height: 7px; border-radius: 999px; background: linear-gradient(135deg, #ff8bc8, #8a4fd8); box-shadow: 0 0 0 3px rgba(255, 139, 200, 0.25); animation: guide-dot 1.6s ease-in-out infinite; }
+@keyframes guide-dot { 50% { transform: scale(0.65); opacity: 0.6; } }
+.guide-caret { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -2px; background: #d4a537; animation: guide-caret 0.8s steps(1) infinite; }
+@keyframes guide-caret { 50% { opacity: 0; } }
+.guide-rise { animation: guide-rise 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+.guide-rise:nth-child(2) { animation-delay: 0.05s; }
+.guide-rise:nth-child(3) { animation-delay: 0.1s; }
+.guide-rise:nth-child(4) { animation-delay: 0.16s; }
+.guide-rise:nth-child(5) { animation-delay: 0.22s; }
+.guide-rise:nth-child(n + 6) { animation-delay: 0.28s; }
+@keyframes guide-rise { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) {
+  .guide-bubble, .guide-bubble-still, .guide-live-dot, .guide-caret, .guide-rise { animation: none; }
+}
+
 /* Client notification toast */
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(-8px); }
