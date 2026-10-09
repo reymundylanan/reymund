@@ -127,10 +127,6 @@ export default function GlowGuide({
 
   const [index, setIndex] = useState(0);
   const [mode, setMode] = useState<Mode>("intro");
-  // Focus lock: once the visitor clicks "Ask me" (or the mascot) the guide
-  // stays on that service while answering, until they choose "See other
-  // services". Otherwise it follows the mouse from card to card.
-  const [locked, setLocked] = useState(false);
   const [menuOpens, setMenuOpens] = useState(0);
   const [answer, setAnswer] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
@@ -162,7 +158,6 @@ export default function GlowGuide({
   }, []);
   useEffect(() => () => moodTimers.current.forEach((id) => window.clearTimeout(id)), []);
   const hovering = useRef(false);
-  const focusedRef = useRef(false);
 
   const itemsKey = items.map((i) => i.id).join("|");
   const [lastKey, setLastKey] = useState(itemsKey);
@@ -172,7 +167,6 @@ export default function GlowGuide({
     setIndex(0);
     setMode("intro");
     setAnswer(null);
-    setLocked(false);
   }
 
   const item = items[Math.min(index, items.length - 1)] ?? null;
@@ -273,7 +267,7 @@ export default function GlowGuide({
 
   // The tour: next card every few seconds (desktop: only cards on screen).
   useEffect(() => {
-    if (minimized || !inView || greeting || bookingOpen || mode !== "intro" || locked || items.length < 2) return;
+    if (minimized || !inView || greeting || bookingOpen || mode !== "intro" || items.length < 2) return;
     const t = window.setInterval(() => {
       if (document.hidden || hovering.current || Date.now() < pausedUntil.current) return;
       for (let step = 1; step <= items.length; step++) {
@@ -287,12 +281,7 @@ export default function GlowGuide({
       }
     }, STEP_MS);
     return () => window.clearInterval(t);
-  }, [minimized, inView, greeting, bookingOpen, mode, locked, items, wide, cardEl, index, travel]);
-
-  const focused = locked || mode !== "intro";
-  useEffect(() => {
-    focusedRef.current = focused;
-  }, [focused]);
+  }, [minimized, inView, greeting, bookingOpen, mode, items, wide, cardEl, index, travel]);
 
   useEffect(() => {
     if (minimized || !inView || greeting) return;
@@ -336,9 +325,9 @@ export default function GlowGuide({
     };
   }, [wide, minimized, inView]);
 
-  // Hovering a card (desktop) makes the guide jump to it and pauses the tour —
-  // unless the visitor is asking about a service. Moving onto the mascot or
-  // its bubble keeps the current service.
+  // Hovering a card (desktop) makes the guide jump to it and pauses the tour.
+  // While the pointer is on the mascot or its speech bubble / question box the
+  // guide stays put; it follows the mouse again as soon as the pointer leaves.
   useEffect(() => {
     const c = containerRef.current;
     if (!c || !wide || minimized) return;
@@ -352,7 +341,6 @@ export default function GlowGuide({
       const card = target.closest<HTMLElement>("[data-guide-id]");
       if (!card) return;
       hovering.current = true;
-      if (focusedRef.current) return;
       const i = items.findIndex((it) => it.id === card.dataset.guideId);
       if (i >= 0 && items[i].id !== item?.id) goTo(i);
     };
@@ -374,21 +362,12 @@ export default function GlowGuide({
 
   function openMenu() {
     setGreeting(false);
-    setLocked(true);
     if (mode === "intro") {
       setMode("menu");
       setMenuOpens((n) => n + 1);
     }
   }
 
-  /** Leave the focused service and let the guide tour again. */
-  function release() {
-    setLocked(false);
-    setMode("intro");
-    setAnswer(null);
-    setQuestion("");
-    pausedUntil.current = Date.now() + 1500;
-  }
 
   function minimize(v: boolean) {
     saveMinimized(v);
@@ -407,7 +386,6 @@ export default function GlowGuide({
 
   function quick(key: QuickKey) {
     if (!item) return;
-    setLocked(true);
     setAnswer(key === "about" ? `${item.intro} ${item.why}` : item.answers[key]);
     setMode("answer");
   }
@@ -415,7 +393,6 @@ export default function GlowGuide({
   async function ask() {
     const q = question.trim();
     if (!q || !item || asking) return;
-    setLocked(true);
     if (!user) {
       setAnswer("Log in first and I can answer anything about our services ✨");
       setMode("answer");
@@ -583,14 +560,9 @@ export default function GlowGuide({
               <Gift className="h-3.5 w-3.5" /> View Promotion
             </Link>
           )}
-          {mode === "intro" && !locked && (
+          {mode === "intro" && (
             <button type="button" onClick={openMenu} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition min-w-[60%] flex-1 bg-gradient-to-r from-[#f5effd] to-[#fdf0f7] px-3 text-[#7b3fc4] ring-1 ring-[#e3d6f7] hover:ring-[#c9b0f0]">
               <MessageCircleQuestion className="h-3.5 w-3.5" /> Ask me
-            </button>
-          )}
-          {focused && items.length > 1 && (
-            <button type="button" onClick={release} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition px-3 text-[#a97c1c] hover:bg-[#fff6e6]">
-              See other services →
             </button>
           )}
         </div>
