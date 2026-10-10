@@ -6,9 +6,15 @@ export type ServiceRecommendation = {
   id: string;
   name: string;
   price: number;
+  /** e.g. "₱1,200" or "Short ₱1,000 · Medium ₱1,500 · Long ₱2,000". */
+  priceLabel?: string;
+  duration?: string | null;
   description: string | null;
   category: string;
 };
+
+// Never leave the client staring at a typing indicator: give up after this long.
+const REPLY_TIMEOUT_MS = 35_000;
 
 export type ChatMessage = {
   role: "user" | "assistant";
@@ -33,27 +39,34 @@ export function useAssistantChat(greeting: string) {
     setInput("");
     setSending(true);
 
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), REPLY_TIMEOUT_MS);
     try {
       const res = await fetch("/api/assistant", {
+        signal: abort.signal,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Only role/content go to the model — recommendation cards are UI-only.
         // The page they're on, so GlowSync AI can explain what it's for.
         body: JSON.stringify({ messages: next.map(({ role, content }) => ({ role, content })), page: window.location.pathname }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ error: "GlowSync AI is busy right now — please try again in a moment." }));
       setMessages((list) => [
         ...list,
         res.ok
           ? { role: "assistant", content: data.reply, recommendations: data.recommendations ?? [] }
           : { role: "assistant", content: data.error ?? "Something went wrong." },
       ]);
-    } catch {
+    } catch (e) {
       setMessages((list) => [
         ...list,
-        { role: "assistant", content: "Network error — try again." },
+        {
+          role: "assistant",
+          content: e instanceof DOMException && e.name === "AbortError" ? "That took too long — please ask me again." : "Network error — try again.",
+        },
       ]);
     } finally {
+      clearTimeout(timer);
       setSending(false);
       // Scroll only the chat's own message list, not the whole page —
       // scrollIntoView() would walk up every scrollable ancestor,

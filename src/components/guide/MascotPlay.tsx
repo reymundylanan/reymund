@@ -252,11 +252,18 @@ export function MascotFigure({
 export function PlayfulMascot({
   size,
   pose = "present",
+  face,
+  emote,
+  talking = false,
   label = "GlowSync AI",
   className = "",
 }: {
   size: number;
   pose?: MascotPose;
+  /** Forced expression (e.g. thinking while the AI answers). */
+  face?: MascotFace;
+  emote?: string;
+  talking?: boolean;
   label?: string;
   className?: string;
 }) {
@@ -272,7 +279,7 @@ export function PlayfulMascot({
       onPointerEnter={play.hover}
       className={`block rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a] ${className}`}
     >
-      <MascotFigure play={play} size={size} pose={pose} />
+      <MascotFigure play={play} size={size} pose={pose} face={face} emote={emote} talking={talking} />
     </button>
   );
 }

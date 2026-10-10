@@ -5,6 +5,7 @@ import { getTierProgress } from "@/lib/myGlowTiers";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 import { askSpaAssistant, loadLiveServices, lowestPrice, type ChatTurn } from "@/lib/ai/spaAssistant";
 import { pageContextLine } from "@/lib/pageHelp";
+import { priceText } from "@/lib/assistantFallback";
 import { loadSpaKnowledge } from "@/lib/ai/spaKnowledge";
 
 export async function POST(request: Request) {
@@ -75,6 +76,9 @@ ${typeof page === "string" && page.startsWith("/") ? pageContextLine(page.slice(
       name: s.name,
       // Hair: the lowest length price, so the card never shows ₱0.
       price: lowestPrice(s),
+      // The real price as shown on the menu (hair: Short / Medium / Long).
+      priceLabel: priceText(s),
+      duration: s.duration,
       description: s.description,
       category: s.category,
     })),
