@@ -29,6 +29,38 @@ const guideDisplay = Fredoka({ subsets: ["latin"], variable: "--font-guide-displ
 const guideBody = Nunito({ subsets: ["latin"], variable: "--font-guide-body" });
 const GUIDE_FONTS = `${guideDisplay.variable} ${guideBody.variable}`;
 
+type BurstKind = "hearts" | "stars" | "party";
+type Particle = { id: number; kind: BurstKind; char: string; color: string; dx: number; dy: number; rot: number; delay: number };
+
+const BURST_CHARS: Record<BurstKind, string[]> = {
+  hearts: ["❤️", "💖", "💕", "💗"],
+  stars: ["✨", "⭐", "🌟", "✨"],
+  party: ["🎉", "🎊", "", "", "", ""], // blanks become confetti pieces
+};
+const CONFETTI = ["#f6c84a", "#ff8bc8", "#b98af0", "#7ed3c4", "#ffb36b"];
+let particleSeq = 0;
+
+/** A burst of hearts, sparkles or party confetti flying out of the mascot. */
+function makeBurst(kind: BurstKind): Particle[] {
+  const n = kind === "party" ? 22 : 9;
+  return Array.from({ length: n }, (_, i) => {
+    const a = (i / n) * Math.PI * 2 + Math.random() * 0.5;
+    const r = (kind === "party" ? 70 : 55) + Math.random() * 40;
+    const chars = BURST_CHARS[kind];
+    return {
+      id: ++particleSeq,
+      kind,
+      char: chars[i % chars.length],
+      color: CONFETTI[i % CONFETTI.length],
+      dx: Math.cos(a) * r,
+      // Hearts and sparkles float up; confetti flies out and falls.
+      dy: kind === "party" ? Math.sin(a) * r * 0.7 + 40 : Math.sin(a) * r * 0.6 - 45,
+      rot: (Math.random() - 0.5) * 540,
+      delay: Math.random() * 120,
+    };
+  });
+}
+
 /** Types its text out like the mascot is speaking. Remount (key) to replay. */
 function TypeText({ text, onDone }: { text: string; onDone?: () => void }) {
   const [shown, setShown] = useState(0);
@@ -144,6 +176,12 @@ export default function GlowGuide({
   const [landing, setLanding] = useState(false);
   const [look, setLook] = useState<{ x: number; y: number } | undefined>(undefined);
   const mascotRef = useRef<HTMLButtonElement>(null);
+  // Play: tap to tuck the body into the head, tap fast to spin, rub to pet.
+  const [tucked, setTucked] = useState(false);
+  const [twirl, setTwirl] = useState(false);
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const taps = useRef<number[]>([]);
+  const rub = useRef({ x: 0, dir: 0, flips: 0, since: 0, cooldown: 0 });
   const moodTimers = useRef<number[]>([]);
   const [greeting, setGreeting] = useState(true);
   const pausedUntil = useRef(0);
@@ -160,6 +198,13 @@ export default function GlowGuide({
     moodTimers.current.push(window.setTimeout(() => setMood(null), at));
   }, []);
   useEffect(() => () => moodTimers.current.forEach((id) => window.clearTimeout(id)), []);
+
+  const burst = useCallback((kind: BurstKind) => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const fresh = makeBurst(kind);
+    setParticles((p) => [...p, ...fresh]);
+    window.setTimeout(() => setParticles((p) => p.filter((x) => !fresh.includes(x))), 1700);
+  }, []);
   const hovering = useRef(false);
 
   const itemsKey = items.map((i) => i.id).join("|");
@@ -244,19 +289,19 @@ export default function GlowGuide({
       }, MOVE_MS);
       setIndex(next);
       const reaction = items[next]?.reaction;
+      const hasPromo = !!items[next]?.promo;
       moodTimers.current.forEach((id) => window.clearTimeout(id));
       moodTimers.current = [
-        window.setTimeout(
-          () =>
-            emote([
-              { face: "surprised", emote: "!", ms: 650 },
-              { face: "excited", emote: reaction, ms: 1600 },
-            ]),
-          MOVE_MS
-        ),
+        window.setTimeout(() => {
+          emote([
+            { face: "surprised", emote: "!", ms: 650 },
+            { face: "excited", emote: hasPromo ? "🎉" : reaction, ms: 1600 },
+          ]);
+          if (hasPromo) burst("party");
+        }, MOVE_MS),
       ];
     },
-    [index, items, emote]
+    [index, items, emote, burst]
   );
 
   const goTo = useCallback(
@@ -377,6 +422,46 @@ export default function GlowGuide({
       c.removeEventListener("click", click);
     };
   }, [containerRef, wide, minimized, items, item, goTo, locked]);
+
+  /** Tap: the body tucks into the head and springs back with hearts.
+   *  Three quick taps: a twirl with sparkles. Either way, its questions open. */
+  function tapMascot() {
+    const now = Date.now();
+    taps.current = [...taps.current.filter((x) => now - x < 1200), now];
+    if (taps.current.length >= 3) {
+      taps.current = [];
+      setTwirl(true);
+      window.setTimeout(() => setTwirl(false), 750);
+      burst("stars");
+      emote([{ face: "giggle", emote: "✨", ms: 1500 }]);
+    } else {
+      setTucked(true);
+      window.setTimeout(() => {
+        setTucked(false);
+        burst("hearts");
+        emote([{ face: "love", emote: "💖", ms: 1300 }]);
+      }, 380);
+    }
+    openMenu();
+  }
+
+  /** Rubbing back and forth over it (petting) gives heart eyes and hearts. */
+  function rubMascot(e: React.PointerEvent) {
+    if (e.pointerType !== "mouse") return;
+    const r = rub.current, now = Date.now();
+    const dx = e.clientX - r.x;
+    r.x = e.clientX;
+    if (Math.abs(dx) < 3) return;
+    const dir = Math.sign(dx);
+    if (now - r.since > 1200) { r.flips = 0; r.since = now; }
+    if (dir !== r.dir) { r.flips += 1; r.dir = dir; }
+    if (r.flips >= 5 && now > r.cooldown) {
+      r.flips = 0;
+      r.cooldown = now + 2500;
+      burst("hearts");
+      emote([{ face: "love", emote: "♥", ms: 1600 }]);
+    }
+  }
 
   function openMenu() {
     setGreeting(false);
@@ -612,7 +697,7 @@ export default function GlowGuide({
 
   const mascot = (size: number, flip = false) => (
     <span className="relative block">
-    <span className={`relative block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] ${celebrate ? "guide-celebrate" : moving ? "guide-moving" : landing ? "guide-land" : "glowy-bob"}`}>
+    <span className={`relative block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] ${twirl ? "guide-twirl" : celebrate ? "guide-celebrate" : moving ? "guide-moving" : landing ? "guide-land" : "glowy-bob"}`}>
       <GlowMascot
         size={size}
         full
@@ -623,6 +708,7 @@ export default function GlowGuide({
         alive={!moving && !celebrate}
         blink={!moving && !celebrate}
         talking={asking || greeting}
+        tucked={tucked}
       />
       {bubbleEmote && (
         <span
@@ -650,6 +736,19 @@ export default function GlowGuide({
       )}
     </span>
       <span aria-hidden className="guide-ground pointer-events-none absolute -bottom-1 left-1/2 h-2.5 w-[55%] -translate-x-1/2 rounded-full bg-[#7a5a1e]/25 blur-[3px]" />
+      {particles.length > 0 && (
+        <span aria-hidden className="pointer-events-none absolute left-1/2 top-[38%] z-10">
+          {particles.map((p) => (
+            <span
+              key={p.id}
+              className="guide-particle absolute"
+              style={{ "--dx": `${p.dx}px`, "--dy": `${p.dy}px`, "--rot": `${p.rot}deg`, animationDelay: `${p.delay}ms` } as React.CSSProperties}
+            >
+              {p.char || <span className="block h-2.5 w-1.5 rounded-sm" style={{ background: p.color }} />}
+            </span>
+          ))}
+        </span>
+      )}
     </span>
   );
 
@@ -671,7 +770,7 @@ export default function GlowGuide({
     return (
       <div data-guide-ui className={`guide-bubble guide-bubble-still mb-6 ${GUIDE_FONTS}`}>
         <div className="guide-bubble-inner flex items-start gap-3 p-4">
-          <button type="button" onClick={openMenu} aria-label="Ask GlowSync AI" className="shrink-0">
+          <button type="button" onClick={tapMascot} aria-label="Ask GlowSync AI" className="shrink-0">
             {mascot(112)}
           </button>
           <div key={`${item.id}-${mode}-${greeting}`} className="min-w-0 flex-1">{bubble}</div>
@@ -723,7 +822,8 @@ export default function GlowGuide({
         type="button"
         ref={mascotRef}
         data-guide-ui
-        onClick={openMenu}
+        onClick={tapMascot}
+        onPointerMove={rubMascot}
         onPointerEnter={() => emote([{ face: "giggle", emote: "♥", ms: 1400 }])}
         aria-label="Ask GlowSync AI about this service"
         className="guide-fly absolute left-0 top-0 z-40 rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a]"

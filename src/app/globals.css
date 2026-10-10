@@ -257,6 +257,23 @@ body {
   [data-guide-active="true"] { animation: none; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.6); }
 }
 
+/* Hidden promo card: a small tab that slides in from the edge */
+@keyframes promo-tab-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+.promo-tab-in { animation: promo-tab-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+@media (prefers-reduced-motion: reduce) { .promo-tab-in { animation: none; } }
+
+/* GlowSync mascot play: hearts / sparkles / party confetti, and a twirl */
+.guide-particle { left: 0; top: 0; font-size: 18px; line-height: 1; transform: translate(-50%, -50%) scale(0.3); opacity: 0; animation: guide-particle 1.4s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+@keyframes guide-particle {
+  0% { transform: translate(-50%, -50%) scale(0.3) rotate(0deg); opacity: 0; }
+  12% { opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1) rotate(var(--rot)); opacity: 0; }
+}
+@keyframes guide-twirl { 0% { transform: rotate(0) scale(1); } 40% { transform: rotate(200deg) scale(1.12); } 100% { transform: rotate(360deg) scale(1); } }
+.guide-twirl { display: block; animation: guide-twirl 0.75s cubic-bezier(0.4, 0, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) { .guide-particle { display: none; } .guide-twirl { animation: none; } }
+
 /* GlowSync guide speech bubble: shimmering gold border, typed text, staggered entrance */
 @property --guide-spin { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
 .guide-bubble {

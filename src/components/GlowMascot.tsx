@@ -8,7 +8,8 @@
  * (and a default face); `face` overrides the expression; `look` (-1…1) turns
  * the eyes toward something (e.g. the mouse); `flip` mirrors the arms (to
  * gesture left); `blink` adds idle blinking; `alive` adds head tilts, looking
- * around, breathing and flapping wings. Animations live in globals.css
+ * around, breathing and flapping wings; `tucked` pulls the body up into the
+ * head (only the head shows) and lets it spring back out. Animations live in globals.css
  * (.glowy-*) and switch off for reduced motion. */
 export type MascotPose = "wave" | "point" | "present" | "think" | "love" | "relax" | "fly" | "cheek" | "hands" | "excited";
 export type MascotFace = "happy" | "excited" | "love" | "surprised" | "wink" | "giggle" | "think" | "sleepy";
@@ -336,6 +337,7 @@ export default function GlowMascot({
   blink = false,
   flip = false,
   alive = false,
+  tucked = false,
 }: {
   size?: number;
   full?: boolean;
@@ -346,7 +348,18 @@ export default function GlowMascot({
   blink?: boolean;
   flip?: boolean;
   alive?: boolean;
+  tucked?: boolean;
 }) {
+  // Tucking shrinks everything below the head up into it, then springs back.
+  const tuck = {
+    transformOrigin: "60px 84px",
+    transformBox: "view-box" as const,
+    transform: tucked ? "translateY(-12px) scale(0.15)" : "none",
+    opacity: tucked ? 0 : 1,
+    transition: tucked
+      ? "transform 200ms cubic-bezier(0.6, 0, 0.9, 0.4), opacity 160ms ease-in 60ms"
+      : "transform 520ms cubic-bezier(0.3, 1.6, 0.5, 1), opacity 120ms ease-out",
+  };
   const box = full ? FULL_BOX : HEAD_BOX;
   // `size` is the height; the width follows the drawing's shape.
   const width = Math.round((size * box.w) / box.h);
@@ -410,7 +423,7 @@ export default function GlowMascot({
       </defs>
 
       {full && (
-        <g>
+        <g style={tuck}>
           {/* Little wings behind the body: a gentle flap, faster while flying */}
           {[-1, 1].map((side) => (
             <Wing key={side} side={side as -1 | 1} flap={pose === "fly" ? "glowy-flap-fast" : alive ? "glowy-flap" : undefined} />
@@ -494,8 +507,10 @@ export default function GlowMascot({
       </g>
 
       {full && (
-        <g transform={flip ? "translate(120 0) scale(-1 1)" : undefined}>
-          <Arms pose={pose} />
+        <g style={tuck}>
+          <g transform={flip ? "translate(120 0) scale(-1 1)" : undefined}>
+            <Arms pose={pose} />
+          </g>
         </g>
       )}
     </svg>

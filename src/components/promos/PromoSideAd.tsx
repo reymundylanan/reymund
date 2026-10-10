@@ -4,20 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Gift } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useBooking } from "@/components/booking/BookingContext";
 import { promoImage } from "@/lib/promoImage";
 import BookPromoButton from "@/components/promos/BookPromoButton";
-import {
-  rankPromos,
-  readDismissedPromos,
-  rememberDismissedPromo,
-  type ClientHistory,
-  type PromoCandidate,
-} from "@/lib/promoPicker";
+import { rankPromos, readDismissedPromos, type ClientHistory, type PromoCandidate } from "@/lib/promoPicker";
 
 type AdPromo = PromoCandidate & {
   description: string | null;
@@ -36,12 +30,29 @@ const ROTATE_MS = 6000;
 /** Fired by ChatWidget while its greeting card or chat window is open. */
 export const CHAT_OVERLAY_EVENT = "glowsync:chat-overlay";
 const HIDDEN_PREFIXES = ["/admin", "/frontdesk", "/auth"];
+const COLLAPSED_KEY = "glowsync-promos-hidden";
+
+function readCollapsed(): boolean {
+  try {
+    return sessionStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveCollapsed(v: boolean) {
+  try {
+    sessionStorage.setItem(COLLAPSED_KEY, v ? "1" : "0");
+  } catch {
+    // Storage blocked — it just won't be remembered across pages.
+  }
+}
 
 /** Non-blocking promo ad for signed-in clients: a fixed card on the right
  * (desktop/tablet) or a compact banner at the bottom (mobile). It rotates
- * through every promo active today (best match first). Closing it hides it
- * on this page and marks the promos already shown as seen; unseen ones
- * appear on the next page the client opens. */
+ * through every promo active today (best match first). Hiding it tucks it
+ * into a small "Promos" tab on the edge of the screen; tapping the tab brings
+ * it back. It stays hidden across pages until reopened (this browser tab). */
 export default function PromoSideAd() {
   const pathname = usePathname() ?? "/";
   const { user } = useCurrentUser();
@@ -49,25 +60,20 @@ export default function PromoSideAd() {
   const { isOpen: bookingOpen } = useBooking();
 
   const [data, setData] = useState<{ promos: AdPromo[]; history: ClientHistory } | null>(null);
-  const [dismissed, setDismissed] = useState<Set<string>>(() =>
-    typeof window === "undefined" ? new Set() : readDismissedPromos()
-  );
-  const [closedOnPath, setClosedOnPath] = useState<string | null>(null);
+  const [dismissed] = useState<Set<string>>(() => (typeof window === "undefined" ? new Set() : readDismissedPromos()));
+  const [collapsed, setCollapsed] = useState(() => (typeof window === "undefined" ? false : readCollapsed()));
   const [ready, setReady] = useState(false);
   const [index, setIndex] = useState(0);
-  const [seen, setSeen] = useState<Set<string>>(() => new Set());
   const [paused, setPaused] = useState(false);
   // Slide direction for the animation: 1 = next, -1 = previous.
   const [dir, setDir] = useState(1);
   const [chatOverlay, setChatOverlay] = useState(false);
 
-  // After a close, the next promo waits for the next page. Once the client
-  // navigates, forget which page it was closed on (render-time reset,
+  // A new page starts from the best-matching promo (render-time reset,
   // the React-recommended alternative to a setState-in-effect).
   const [lastPath, setLastPath] = useState(pathname);
   if (lastPath !== pathname) {
     setLastPath(pathname);
-    setClosedOnPath(null);
     setIndex(0);
   }
 
@@ -156,7 +162,7 @@ export default function PromoSideAd() {
   const current = count ? index % count : 0;
   const promo = promos[current] ?? null;
 
-  const showing = ready && !chatOverlay && count > 1 && !paused && closedOnPath !== pathname;
+  const showing = ready && !chatOverlay && count > 1 && !paused && !collapsed;
   // A fresh timer per slide, so a manual flip always gets the full time.
   useEffect(() => {
     if (!showing) return;
@@ -174,7 +180,6 @@ export default function PromoSideAd() {
     !promo ||
     loginOpen ||
     bookingOpen ||
-    closedOnPath === pathname ||
     HIDDEN_PREFIXES.some((p) => pathname.startsWith(p)) ||
     pathname === `/promos/${promo.id}`;
 
@@ -187,21 +192,34 @@ export default function PromoSideAd() {
   // The chat button sits bottom-right on every client page except My Glow.
   const chatVisible = !pathname.startsWith("/my-glow");
 
-  function close() {
-    const shown = new Set(seen).add(promo!.id);
-    shown.forEach((id) => rememberDismissedPromo(id));
-    setDismissed((prev) => new Set([...prev, ...shown]));
-    setSeen(new Set());
-    setClosedOnPath(pathname);
+  function hide(v: boolean) {
+    setCollapsed(v);
+    saveCollapsed(v);
   }
 
   function go(step: number) {
-    setSeen((prev) => new Set(prev).add(promo!.id));
     setDir(step < 0 ? -1 : 1);
     setIndex((current + step + count) % count);
   }
 
   const slide = dir < 0 ? "promo-slide-prev" : "promo-slide-next";
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => hide(false)}
+        aria-label={`Show promotions (${count})`}
+        className={`promo-tab-in fixed z-40 flex items-center gap-1.5 bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] font-semibold text-white shadow-lg shadow-[#a8843a]/30 transition hover:brightness-105
+          bottom-[calc(env(safe-area-inset-bottom)_+_14px)] left-3 rounded-full px-3.5 py-2 text-xs
+          sm:bottom-auto sm:left-auto sm:right-0 sm:top-1/2 sm:-translate-y-1/2 sm:flex-col sm:rounded-l-2xl sm:rounded-r-none sm:px-2 sm:py-3.5`}
+      >
+        <Gift className="h-4 w-4" />
+        <span className="sm:[writing-mode:vertical-rl] sm:rotate-180 sm:tracking-wide">Promos</span>
+        <span className="rounded-full bg-white/25 px-1.5 text-[10px] font-bold tabular-nums">{count}</span>
+      </button>
+    );
+  }
 
   return (
     <aside
@@ -217,11 +235,12 @@ export default function PromoSideAd() {
           <div className="relative overflow-hidden rounded-[14px] bg-white sm:rounded-[1.5rem]">
             <button
               type="button"
-              onClick={close}
-              aria-label="Close promotions"
-              className="absolute right-2 top-2 z-20 rounded-full bg-white/90 p-1 text-ink/60 shadow-sm backdrop-blur hover:text-ink"
+              onClick={() => hide(true)}
+              aria-label="Hide promotions (you can open them again from the Promos tab)"
+              title="Hide — open again from the Promos tab"
+              className="absolute right-2 top-2 z-20 flex items-center gap-0.5 rounded-full bg-white/90 py-1 pl-2 pr-1.5 text-[11px] font-semibold text-ink/60 shadow-sm backdrop-blur transition hover:text-ink"
             >
-              <X className="h-3.5 w-3.5" />
+              Hide <ChevronRight className="h-3.5 w-3.5" />
             </button>
 
             {/* Mobile: compact banner */}
