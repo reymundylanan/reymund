@@ -17,6 +17,8 @@ export type MascotFace = "happy" | "excited" | "love" | "surprised" | "wink" | "
 // Full body: 120 × 152 units. Head only: the top part.
 const FULL_BOX = { x: 0, y: -10, w: 120, h: 152 };
 const HEAD_BOX = { x: 6, y: -9, w: 108, h: 100 };
+// Head with little wings behind the headphones.
+const HEAD_WINGS_BOX = { x: -10, y: -9, w: 140, h: 100 };
 
 const SHOULDER_L = { x: 45, y: 95 };
 const SHOULDER_R = { x: 75, y: 95 };
@@ -39,11 +41,14 @@ const FACE_FOR_POSE: Record<MascotPose, MascotFace> = {
 const WING = "M47 91C41 79 29 70 17 72C14 79 18 84 23 85C17 88 18 94 25 94C21 99 26 103 33 100C36 104 43 103 47 98Z";
 const WING_FEATHERS = "M44 92Q33 82 21 78M44 94Q32 89 24 89M45 96Q36 96 29 98";
 
-function Wing({ side, flap }: { side: -1 | 1; flap: string | undefined }) {
-  const ox = side < 0 ? 47 : 73;
+function Wing({ side, flap, dx = 0, dy = 0 }: { side: -1 | 1; flap: string | undefined; dx?: number; dy?: number }) {
+  // dx moves the left wing (the right one mirrors it); dy moves both.
+  const ox = side < 0 ? 47 + dx : 73 - dx;
+  const oy = 94 + dy;
+  const place = side < 0 ? `translate(${dx} ${dy})` : `translate(${-dx} ${dy}) translate(120 0) scale(-1 1)`;
   return (
-    <g className={flap ? `${flap}-${side < 0 ? "l" : "r"}` : undefined} style={{ transformOrigin: `${ox}px 94px`, transformBox: "view-box" }}>
-      <g transform={side > 0 ? "translate(120 0) scale(-1 1)" : undefined}>
+    <g className={flap ? `${flap}-${side < 0 ? "l" : "r"}` : undefined} style={{ transformOrigin: `${ox}px ${oy}px`, transformBox: "view-box" }}>
+      <g transform={place}>
         <path d={WING} fill="url(#glowy-wing)" stroke="url(#glowy-gold)" strokeWidth="1.6" strokeLinejoin="round" />
         <path d={WING_FEATHERS} fill="none" stroke="#ffffff" strokeOpacity="0.75" strokeWidth="1.3" strokeLinecap="round" />
         <path d="M40 84Q31 78 22 77" fill="none" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="2" strokeLinecap="round" />
@@ -338,6 +343,7 @@ export default function GlowMascot({
   flip = false,
   alive = false,
   tucked = false,
+  wings = false,
 }: {
   size?: number;
   full?: boolean;
@@ -349,6 +355,8 @@ export default function GlowMascot({
   flip?: boolean;
   alive?: boolean;
   tucked?: boolean;
+  /** Head only: show the little wings behind it. */
+  wings?: boolean;
 }) {
   // Tucking shrinks everything below the head up into it, then springs back.
   const tuck = {
@@ -360,7 +368,7 @@ export default function GlowMascot({
       ? "transform 200ms cubic-bezier(0.6, 0, 0.9, 0.4), opacity 160ms ease-in 60ms"
       : "transform 520ms cubic-bezier(0.3, 1.6, 0.5, 1), opacity 120ms ease-out",
   };
-  const box = full ? FULL_BOX : HEAD_BOX;
+  const box = full ? FULL_BOX : wings ? HEAD_WINGS_BOX : HEAD_BOX;
   // `size` is the height; the width follows the drawing's shape.
   const width = Math.round((size * box.w) / box.h);
   return (
@@ -455,6 +463,15 @@ export default function GlowMascot({
             <circle cx="44.5" cy="95" r="3.4" fill="url(#glowy-ear)" stroke="#8f6c22" strokeWidth="0.5" />
             <circle cx="75.5" cy="95" r="3.4" fill="url(#glowy-ear)" stroke="#8f6c22" strokeWidth="0.5" />
           </g>
+        </g>
+      )}
+
+      {!full && wings && (
+        <g aria-hidden>
+          {/* Wings tucked behind the headphones, flapping gently */}
+          {[-1, 1].map((side) => (
+            <Wing key={side} side={side as -1 | 1} dx={-22} dy={-38} flap={alive ? "glowy-flap" : undefined} />
+          ))}
         </g>
       )}
 

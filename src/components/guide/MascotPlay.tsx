@@ -213,7 +213,7 @@ export function MascotFigure({
   return (
     <span className="relative block">
       <span className={`relative block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] ${play.twirl ? "guide-twirl" : motion ?? "glowy-bob"}`}>
-        <GlowMascot size={size} full={!head} pose={pose} face={shownFace} look={play.look} flip={flip} alive={!still} blink={!still} talking={talking} tucked={play.tucked} />
+        <GlowMascot size={size} full={!head} wings={head} pose={pose} face={shownFace} look={play.look} flip={flip} alive={!still} blink={!still} talking={talking} tucked={play.tucked} />
         {shownEmote && (
           <span
             key={shownEmote + (shownFace ?? "")}
