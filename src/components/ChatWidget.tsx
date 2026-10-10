@@ -30,6 +30,7 @@ import { GUIDE_FONTS, useMascotSize } from "@/components/guide/guideKit";
 import { MascotFigure, useMascotPlay } from "@/components/guide/MascotPlay";
 import { buildBriefing, buildBubbles, type BriefingData, type Bubble, type Reminder } from "@/lib/welcomeBriefing";
 import { loadWelcomeBriefing, spaToday } from "@/lib/supabase/queries/welcomeBriefing";
+import { CHAT_PANEL_EVENT, GUIDE_ACTIVE_EVENT, OPEN_CHAT_EVENT, announce } from "@/lib/glowEvents";
 
 const PAGE_HELP_Q = "What can I do on this page?";
 // Bubbles play once per sign-in (session), can be turned off (device), never
@@ -233,6 +234,11 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
   // "Welcome back" reminders from the client's account (null while loading).
   const [reminders, setReminders] = useState<Reminder[] | null>(null);
   const [briefing, setBriefing] = useState<BriefingData | null>(null);
+  // On the Services page the guide on the cards *is* GlowSync AI: while it's on
+  // screen this character steps aside (and flies back when it isn't).
+  const [guideActive, setGuideActive] = useState(false);
+  // The service the client is asking about (from the guide's "Ask a question").
+  const [topic, setTopic] = useState<string | null>(null);
   const who = userId ?? "guest";
   // Bubble state: which one is showing, whether they're on, and whether they already played this sign-in.
   const [bubbleIdx, setBubbleIdx] = useState(0);
@@ -288,7 +294,28 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
     const promo = promos.find((p) => !seenPromos.includes(p.id)) ?? null;
     return buildBubbles({ firstName, reminders, pointsGained: gained, promo: promo && { id: promo.id, title: promo.title } });
   }, [userId, reminders, briefing, promos, lastPoints, seenPromos, firstName]);
-  const bubble = !open && !bubblesOff && !alreadyShown ? bubbles[bubbleIdx] ?? null : null;
+  const bubble = !open && !guideActive && !bubblesOff && !alreadyShown ? bubbles[bubbleIdx] ?? null : null;
+
+  useEffect(() => {
+    const onGuide = (e: Event) => setGuideActive(Boolean((e as CustomEvent<boolean>).detail));
+    const onOpenChat = (e: Event) => {
+      e.preventDefault(); // tells the guide the chat handled it
+      const t = (e as CustomEvent<{ topic?: string }>).detail?.topic;
+      setTopic(t ?? null);
+      setOpen(true);
+    };
+    window.addEventListener(GUIDE_ACTIVE_EVENT, onGuide);
+    window.addEventListener(OPEN_CHAT_EVENT, onOpenChat);
+    return () => {
+      window.removeEventListener(GUIDE_ACTIVE_EVENT, onGuide);
+      window.removeEventListener(OPEN_CHAT_EVENT, onOpenChat);
+    };
+  }, []);
+
+  // Tell the guide when the chat opens or closes.
+  useEffect(() => {
+    announce(CHAT_PANEL_EVENT, open);
+  }, [open]);
 
   // Remember today's points so only new ones are celebrated next time.
   useEffect(() => {
@@ -488,17 +515,28 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
             </label>
           )}
 
+          {topic && (
+            <div className="flex items-center justify-between gap-2 border-t border-[#efdcc6] bg-[#f7f0ff] px-4 py-1.5 text-[12px] font-semibold text-[#5b2d86]">
+              <span className="min-w-0 truncate">✨ Asking about {topic}</span>
+              <button type="button" onClick={() => setTopic(null)} aria-label="Stop asking about this service" className="shrink-0 rounded-full p-0.5 hover:bg-white">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              send();
+              const q = input.trim();
+              if (!q) return;
+              send(topic ? `About "${topic}": ${q}` : q);
             }}
             className="flex items-center gap-2 border-t border-[#efdcc6] bg-white p-3"
           >
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask GlowSync AI anything…"
+              placeholder={topic ? `Ask about ${topic}…` : "Ask GlowSync AI anything…"}
               aria-label="Message GlowSync AI"
               className="flex-1 rounded-full border border-[#e3cfa6] bg-[#fffaf3] px-4 py-2.5 text-sm outline-none transition focus:border-[#c9a24a] focus:bg-white focus:ring-4 focus:ring-[#d9b968]/20"
             />
@@ -515,7 +553,7 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
       )}
 
       {/* Default view: just the small GlowSync character, with a thought bubble now and then. */}
-      <div className={`flex items-end gap-1 ${open ? "hidden" : ""}`}>
+      <div key={guideActive ? "away" : "here"} className={`flex items-end gap-1 ${open || guideActive ? "hidden" : "glowy-fly-in"}`}>
         {bubble && <ThoughtBubble b={bubble} onOpen={finishBubbles} lift={Math.round(mascotSize * 0.48)} />}
         <FloatingCharacter size={mascotSize} talking={!!bubble} onOpen={toggle} />
       </div>

@@ -10,6 +10,7 @@ import { useBooking } from "@/components/booking/BookingContext";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import type { GuideFacts } from "@/lib/glowGuide";
+import { CHAT_PANEL_EVENT, GUIDE_ACTIVE_EVENT, announce, requestChat } from "@/lib/glowEvents";
 
 /** GlowSync Guide: an arrow tours the service cards and the GlowSync
  * mascot flies to each one to introduce it. Hovering a card makes the guide
@@ -94,6 +95,8 @@ export default function GlowGuide({
   // After "Ask me" the guide stays on this service (hovering other cards is
   // ignored) until the visitor clicks another service card.
   const [locked, setLocked] = useState(false);
+  // The full chat is open (the same AI is busy chatting): hold still.
+  const [chatOpen, setChatOpen] = useState(false);
   const [menuOpens, setMenuOpens] = useState(0);
   const [answer, setAnswer] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
@@ -132,6 +135,42 @@ export default function GlowGuide({
   }
 
   const item = items[Math.min(index, items.length - 1)] ?? null;
+
+  // One GlowSync AI: while the guide is on screen the floating chat character
+  // steps aside, and while the chat is open the guide holds still.
+  // "On stage" = the cards fill a good part of the screen (not just a sliver).
+  const [onStage, setOnStage] = useState(false);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let frame = 0;
+    const check = () => {
+      frame = 0;
+      const r = el.getBoundingClientRect();
+      const visible = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
+      setOnStage(visible >= window.innerHeight * 0.45);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(check);
+    };
+    frame = requestAnimationFrame(check);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [containerRef]);
+  useEffect(() => {
+    announce(GUIDE_ACTIVE_EVENT, onStage && !minimized);
+  }, [onStage, minimized]);
+  useEffect(() => () => announce(GUIDE_ACTIVE_EVENT, false), []);
+  useEffect(() => {
+    const onPanel = (e: Event) => setChatOpen(Boolean((e as CustomEvent<boolean>).detail));
+    window.addEventListener(CHAT_PANEL_EVENT, onPanel);
+    return () => window.removeEventListener(CHAT_PANEL_EVENT, onPanel);
+  }, []);
 
   // Only tour while the catalog is on screen.
   useEffect(() => {
@@ -227,7 +266,7 @@ export default function GlowGuide({
 
   // The tour: next card every few seconds (desktop: only cards on screen).
   useEffect(() => {
-    if (minimized || !inView || greeting || bookingOpen || mode !== "intro" || locked || items.length < 2) return;
+    if (minimized || !inView || greeting || bookingOpen || mode !== "intro" || locked || chatOpen || items.length < 2) return;
     const t = window.setInterval(() => {
       if (document.hidden || hovering.current || Date.now() < pausedUntil.current) return;
       for (let step = 1; step <= items.length; step++) {
@@ -241,7 +280,7 @@ export default function GlowGuide({
       }
     }, STEP_MS);
     return () => window.clearInterval(t);
-  }, [minimized, inView, greeting, bookingOpen, mode, locked, items, wide, cardEl, index, travel]);
+  }, [minimized, inView, greeting, bookingOpen, mode, locked, chatOpen, items, wide, cardEl, index, travel]);
 
 
 
@@ -261,7 +300,7 @@ export default function GlowGuide({
       const card = target.closest<HTMLElement>("[data-guide-id]");
       if (!card) return;
       hovering.current = true;
-      if (locked) return;
+      if (locked || chatOpen) return;
       const i = items.findIndex((it) => it.id === card.dataset.guideId);
       if (i >= 0 && items[i].id !== item?.id) goTo(i);
     };
@@ -292,7 +331,7 @@ export default function GlowGuide({
       c.removeEventListener("pointerout", out);
       c.removeEventListener("click", click);
     };
-  }, [containerRef, wide, minimized, items, item, goTo, locked]);
+  }, [containerRef, wide, minimized, items, item, goTo, locked, chatOpen]);
 
   /** Tap: the body tucks into the head and springs back with hearts.
    *  Three quick taps: a twirl with sparkles. Either way, its questions open. */
@@ -420,7 +459,15 @@ export default function GlowGuide({
                 {q.label}
               </button>
             ))}
-            <button type="button" onClick={() => setMode("ask")} className="rounded-full border border-coral/50 bg-blush/60 px-2.5 py-1 text-xs font-semibold text-coral-dark hover:bg-blush">
+            <button
+              type="button"
+              onClick={() => {
+                // Signed-in clients: the full chat opens about this service. Otherwise ask right here.
+                if (requestChat(item.title)) setMode("intro");
+                else setMode("ask");
+              }}
+              className="rounded-full border border-coral/50 bg-blush/60 px-2.5 py-1 text-xs font-semibold text-coral-dark hover:bg-blush"
+            >
               💬 Ask a question
             </button>
           </div>
