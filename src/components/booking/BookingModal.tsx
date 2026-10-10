@@ -10,6 +10,7 @@ import {
   type BranchService,
 } from "@/lib/data";
 import type { BookableService } from "@/components/booking/BookingContext";
+import StaffProfileDetails from "@/components/booking/StaffProfileDetails";
 import { createClient } from "@/lib/supabase/client";
 import { useServiceTimingClock } from "@/lib/serviceTiming";
 import { isSlotPast } from "@/lib/slotTime";
@@ -2092,8 +2093,11 @@ export default function BookingModal({
       </div>
 
       {profileMember && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-xs rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4" onClick={() => setProfileMember(null)}>
+          <div
+            className="flex max-h-[calc(100vh-3rem)] w-full max-w-md flex-col rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-semibold text-ink">Staff Profile</h3>
               <button onClick={() => setProfileMember(null)} className="text-ink/40 hover:text-ink">
@@ -2136,14 +2140,29 @@ export default function BookingModal({
                 </div>
               )}
             </div>
+            <div className="-mx-1 mt-4 min-h-0 flex-1 overflow-y-auto px-1">
+              <StaffProfileDetails
+                staffId={profileMember.id}
+                fullName={profileMember.full_name}
+                department={profileMember.department}
+                branchName={branchContacts.find((b) => b.id === branchId)?.name ?? null}
+                categories={Array.from(
+                  dbServices
+                    .filter((s) => s.department === profileMember.department)
+                    .reduce((m, s) => m.set(s.category, (m.get(s.category) ?? 0) + 1), new Map<string, number>())
+                )
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([c]) => c)}
+              />
+            </div>
             <button
               onClick={() => {
                 setProfessionalId(profileMember.id);
                 setProfileMember(null);
               }}
-              className="mt-5 w-full rounded-full bg-coral py-2.5 text-sm font-semibold text-white hover:bg-coral-dark"
+              className="mt-4 w-full shrink-0 rounded-full bg-coral py-2.5 text-sm font-semibold text-white hover:bg-coral-dark"
             >
-              Select this professional
+              Select {profileMember.full_name}
             </button>
           </div>
         </div>
