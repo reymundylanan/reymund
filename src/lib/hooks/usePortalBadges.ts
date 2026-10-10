@@ -109,7 +109,7 @@ async function adminBadges(supabase: SupabaseClient, userId: string, onReports: 
         ),
   ]);
   return {
-    "/admin/bookings": bookings,
+    "/admin/multi-branch": bookings,
     "/admin/payments": payments,
     "/admin/reviews": reviews,
     "/admin/notifications": feedback,

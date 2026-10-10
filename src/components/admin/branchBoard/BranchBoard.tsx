@@ -617,7 +617,7 @@ function DropDialog({
               </span>
               {booked !== null && booked > 0 && (
                 <span className="mt-1.5 block rounded-lg bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">
-                  {booked} upcoming booking{booked === 1 ? "" : "s"} at {fromName} {booked === 1 ? "is" : "are"} still with them — check Bookings Management afterwards.
+                  {booked} upcoming booking{booked === 1 ? "" : "s"} at {fromName} {booked === 1 ? "is" : "are"} still with them — check them in Multi-Branch afterwards.
                 </span>
               )}
             </span>

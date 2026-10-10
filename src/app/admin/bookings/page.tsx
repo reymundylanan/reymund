@@ -1,5 +1,6 @@
-import BookingsManager from "@/components/admin/bookings/BookingsManager";
+import { redirect } from "next/navigation";
 
+// Bookings Management was folded into Multi-Branch (bookings on the board).
 export default function AdminBookingsPage() {
-  return <BookingsManager />;
+  redirect("/admin/multi-branch");
 }

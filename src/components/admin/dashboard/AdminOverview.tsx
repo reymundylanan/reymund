@@ -67,7 +67,7 @@ function Kpis({ k }: { k: Data["kpis"] }) {
       icon: CalendarDays,
       value: String(k.appointments.total),
       note: `${k.appointments.upcoming} Upcoming • ${k.appointments.completed} Completed • ${k.appointments.cancelled} Cancelled`,
-      href: "/admin/bookings",
+      href: "/admin/multi-branch",
     },
     {
       label: "Revenue (This Month)",
@@ -277,7 +277,7 @@ function TopStaff({ list }: { list: Data["topStaff"] }) {
 
 function RecentActivity({ list }: { list: Data["activity"] }) {
   return (
-    <Card title="Recent Activity" icon={CalendarDays} href="/admin/bookings">
+    <Card title="Recent Activity" icon={CalendarDays} href="/admin/multi-branch">
       {list.length === 0 ? (
         <Empty>No recent activity.</Empty>
       ) : (
@@ -300,7 +300,7 @@ function RecentActivity({ list }: { list: Data["activity"] }) {
 function Notifications({ n }: { n: Data["notifications"] }) {
   const items = [
     { show: n.pendingGcash > 0, text: `${n.pendingGcash} GCash ${n.pendingGcash === 1 ? "payment needs" : "payments need"} verification`, href: "/admin/payments", tone: "bg-amber-400" },
-    { show: n.pendingBookings > 0, text: `${n.pendingBookings} ${n.pendingBookings === 1 ? "booking is" : "bookings are"} waiting for confirmation`, href: "/admin/bookings", tone: "bg-coral" },
+    { show: n.pendingBookings > 0, text: `${n.pendingBookings} ${n.pendingBookings === 1 ? "booking is" : "bookings are"} waiting for confirmation`, href: "/admin/multi-branch", tone: "bg-coral" },
     { show: n.flaggedReviews > 0, text: `${n.flaggedReviews} flagged ${n.flaggedReviews === 1 ? "review" : "reviews"} to check`, href: "/admin/reviews?status=flagged", tone: "bg-red-400" },
     { show: n.newReviews > 0, text: `${n.newReviews} new ${n.newReviews === 1 ? "review" : "reviews"}`, href: "/admin/reviews?status=new", tone: "bg-champagne" },
     { show: n.staffNotCheckedIn > 0, text: `${n.staffNotCheckedIn} staff ${n.staffNotCheckedIn === 1 ? "member has" : "members have"} not checked in`, href: "/admin/users", tone: "bg-nude" },
@@ -339,7 +339,7 @@ const STATE_BADGE: Record<string, { label: string; style: string }> = {
 
 function TodayAppointments({ list }: { list: Data["todayAppointments"] }) {
   return (
-    <Card title="Today's Appointments" icon={CalendarDays} href="/admin/bookings">
+    <Card title="Today's Appointments" icon={CalendarDays} href="/admin/multi-branch">
       {list.length === 0 ? (
         <Empty>No appointments today.</Empty>
       ) : (

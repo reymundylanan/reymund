@@ -302,7 +302,7 @@ export default function MultiBranchManager() {
       {/* Title row */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Multi-Branch Kanban Management</h1>
+          <h1 className="text-2xl font-semibold text-ink">Multi-Branch</h1>
           <p className="text-sm text-ink/50">
             Manage branch operations, transfer staff, reassign services, and resolve appointment conflicts through one visual board.
           </p>

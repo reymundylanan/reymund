@@ -174,8 +174,8 @@ export default function ReviewDetailPanel({
                   {detail.appointment.branchName && <> · {detail.appointment.branchName}</>}
                 </p>
                 {detail.appointment.bookingCode && <p className="text-xs text-ink/40">Ref: {detail.appointment.bookingCode}</p>}
-                <Link href="/admin/bookings" className="mt-1 inline-block text-xs font-medium text-coral-dark hover:underline">
-                  Open Bookings Management →
+                <Link href="/admin/multi-branch" className="mt-1 inline-block text-xs font-medium text-coral-dark hover:underline">
+                  Open Multi-Branch →
                 </Link>
               </div>
             )}
