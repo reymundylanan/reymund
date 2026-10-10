@@ -1,35 +1,26 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isNotMigratedError, logQueryError } from "./logQueryError";
+import { isNetworkError, logQueryError } from "./logQueryError";
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("logQueryError", () => {
-  it("treats missing tables/views/columns as not migrated", () => {
-    expect(isNotMigratedError({ code: "PGRST205" })).toBe(true);
-    expect(isNotMigratedError({ code: "42703" })).toBe(true);
-    expect(isNotMigratedError({ code: "PGRST200" })).toBe(true);
-    expect(isNotMigratedError({ code: "23505" })).toBe(false);
-    expect(isNotMigratedError(null)).toBe(false);
+  it("recognises a dropped connection", () => {
+    expect(isNetworkError({ message: "TypeError: fetch failed" })).toBe(true);
+    expect(isNetworkError({ message: "permission denied for table x", code: "42501" })).toBe(false);
   });
 
-  it("warns once per label for a missing table, never console.error", () => {
+  it("warns once for an outage instead of an error per query", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    logQueryError("testLabelA", { code: "PGRST205", message: "Could not find the table" });
-    logQueryError("testLabelA", { code: "PGRST205", message: "Could not find the table" });
+    logQueryError("a", { message: "TypeError: fetch failed" });
+    logQueryError("b", { message: "TypeError: fetch failed" });
+    expect(error).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(error).not.toHaveBeenCalled();
   });
 
-  it("logs real errors as readable text instead of {}", () => {
+  it("still reports real query errors", () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    logQueryError("testLabelB", { code: "42501", message: "permission denied" });
-    expect(error).toHaveBeenCalledWith("testLabelB failed: permission denied [42501]");
-  });
-
-  it("does nothing without an error", () => {
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    logQueryError("testLabelC", null);
-    expect(error).not.toHaveBeenCalled();
+    logQueryError("c", { message: "permission denied", code: "42501" });
+    expect(error).toHaveBeenCalledWith("c failed: permission denied [42501]");
   });
 });
