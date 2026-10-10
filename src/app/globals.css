@@ -231,8 +231,13 @@ body {
 /* Teacher gesture: the wand arm sweeps toward the card and back */
 @keyframes glowy-teach { 0%, 100% { transform: rotate(0deg); } 30% { transform: rotate(-14deg); } 55% { transform: rotate(6deg); } 75% { transform: rotate(-6deg); } }
 .glowy-teach { animation: glowy-teach 2.4s ease-in-out infinite; }
-@keyframes glowy-cape { 0%, 100% { transform: skewX(0deg) scaleY(1); } 50% { transform: skewX(-4deg) scaleY(1.03); } }
-.glowy-cape { animation: glowy-cape 2.6s ease-in-out infinite; }
+/* Little wings: a gentle flap, faster while flying between cards */
+@keyframes glowy-flap-l { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-16deg); } }
+@keyframes glowy-flap-r { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(16deg); } }
+.glowy-flap-l { animation: glowy-flap-l 1.6s ease-in-out infinite; }
+.glowy-flap-r { animation: glowy-flap-r 1.6s ease-in-out infinite; }
+.glowy-flap-fast-l { animation: glowy-flap-l 0.28s ease-in-out infinite; }
+.glowy-flap-fast-r { animation: glowy-flap-r 0.28s ease-in-out infinite; }
 @keyframes glowy-cheer { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 .glowy-cheer { animation: glowy-cheer 0.6s ease-in-out infinite; }
 /* Game-companion life: bouncy landing, emote pop, heart pulse */
@@ -247,7 +252,7 @@ body {
   .guide-fly { transition: none; }
   .guide-arrow, .guide-moving, .guide-celebrate, .guide-sparkle, .glowy-blink, .glowy-point,
   .glowy-head, .glowy-look, .glowy-breathe, .glowy-twinkle, .guide-ground,
-  .glowy-teach, .glowy-cape, .glowy-cheer, .guide-land, .guide-emote, .glowy-pulse { animation: none; }
+  .glowy-teach, .glowy-flap-l, .glowy-flap-r, .glowy-flap-fast-l, .glowy-flap-fast-r, .glowy-cheer, .guide-land, .guide-emote, .glowy-pulse { animation: none; }
   .guide-react { animation: none; transform: translateX(-50%); }
   [data-guide-active="true"] { animation: none; box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.6); }
 }

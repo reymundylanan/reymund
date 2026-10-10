@@ -1,14 +1,14 @@
 /** GlowSync AI's mascot — a chibi robot: big pearly-white round helmet, black
  * glossy visor face with sparkly oval eyes and pink cheeks, layered gold
  * headphones, a gold leaf sprout, a small white body with an embossed gold
- * "G", gold joints, a pink-lavender cape and little arms and legs. Shaded
+ * "G", gold joints, little pink-lavender wings and little arms and legs. Shaded
  * with soft light, rim light and reflections for a 3D game-companion look.
  *
  * `full` draws the whole body (otherwise just the head). `pose` sets the arms
  * (and a default face); `face` overrides the expression; `look` (-1…1) turns
  * the eyes toward something (e.g. the mouse); `flip` mirrors the arms (to
  * gesture left); `blink` adds idle blinking; `alive` adds head tilts, looking
- * around, breathing and a fluttering cape. Animations live in globals.css
+ * around, breathing and flapping wings. Animations live in globals.css
  * (.glowy-*) and switch off for reduced motion. */
 export type MascotPose = "wave" | "point" | "present" | "think" | "love" | "relax" | "fly" | "cheek" | "hands" | "excited";
 export type MascotFace = "happy" | "excited" | "love" | "surprised" | "wink" | "giggle" | "think" | "sleepy";
@@ -32,6 +32,24 @@ const FACE_FOR_POSE: Record<MascotPose, MascotFace> = {
   hands: "excited",
   excited: "excited",
 };
+
+// ── Wings ───────────────────────────────────────────────────────────────
+
+const WING = "M47 91C41 79 29 70 17 72C14 79 18 84 23 85C17 88 18 94 25 94C21 99 26 103 33 100C36 104 43 103 47 98Z";
+const WING_FEATHERS = "M44 92Q33 82 21 78M44 94Q32 89 24 89M45 96Q36 96 29 98";
+
+function Wing({ side, flap }: { side: -1 | 1; flap: string | undefined }) {
+  const ox = side < 0 ? 47 : 73;
+  return (
+    <g className={flap ? `${flap}-${side < 0 ? "l" : "r"}` : undefined} style={{ transformOrigin: `${ox}px 94px`, transformBox: "view-box" }}>
+      <g transform={side > 0 ? "translate(120 0) scale(-1 1)" : undefined}>
+        <path d={WING} fill="url(#glowy-wing)" stroke="url(#glowy-gold)" strokeWidth="1.6" strokeLinejoin="round" />
+        <path d={WING_FEATHERS} fill="none" stroke="#ffffff" strokeOpacity="0.75" strokeWidth="1.3" strokeLinecap="round" />
+        <path d="M40 84Q31 78 22 77" fill="none" stroke="#ffffff" strokeOpacity="0.9" strokeWidth="2" strokeLinecap="round" />
+      </g>
+    </g>
+  );
+}
 
 // ── Arms ────────────────────────────────────────────────────────────────
 
@@ -379,10 +397,10 @@ export default function GlowMascot({
           <stop offset="60%" stopColor="#ff86a9" stopOpacity="0.8" />
           <stop offset="100%" stopColor="#ff86a9" stopOpacity="0" />
         </radialGradient>
-        <linearGradient id="glowy-cape" x1="0" y1="0" x2="0.3" y2="1">
-          <stop offset="0%" stopColor="#f2b6e6" />
-          <stop offset="50%" stopColor="#d184dc" />
-          <stop offset="100%" stopColor="#9d5cc2" />
+        <linearGradient id="glowy-wing" x1="0.2" y1="0" x2="0.6" y2="1">
+          <stop offset="0%" stopColor="#ffe3f4" />
+          <stop offset="45%" stopColor="#f3a9de" />
+          <stop offset="100%" stopColor="#b98af0" />
         </linearGradient>
         <linearGradient id="glowy-leg" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="#ffffff" />
@@ -393,14 +411,10 @@ export default function GlowMascot({
 
       {full && (
         <g>
-          {/* Cape with folds */}
-          <g className={alive ? "glowy-cape" : undefined} style={{ transformOrigin: "60px 90px", transformBox: "view-box" }}>
-            <path d="M42 89q-13 18 -17 37q8 6 14 1q6 6 12 0q8 6 16 0q6 6 12 0q6 5 14 -1q-4 -19 -17 -37z" fill="url(#glowy-cape)" />
-            <path d="M50 92q-6 16 -11 35q6 4 12 0q-1 -18 -1 -35z" fill="#8f4fb3" opacity="0.22" />
-            <path d="M70 92q6 16 11 35q-6 4 -12 0q1 -18 1 -35z" fill="#8f4fb3" opacity="0.22" />
-            <path d="M43 92q-8 15 -13 31" fill="none" stroke="#fde3f6" strokeWidth="1.6" opacity="0.75" strokeLinecap="round" />
-            <path d="M26 125q8 6 14 1q6 6 12 0q8 6 16 0q6 6 12 0q6 5 14 -1" fill="none" stroke="#7d3fa3" strokeOpacity="0.35" strokeWidth="1" />
-          </g>
+          {/* Little wings behind the body: a gentle flap, faster while flying */}
+          {[-1, 1].map((side) => (
+            <Wing key={side} side={side as -1 | 1} flap={pose === "fly" ? "glowy-flap-fast" : alive ? "glowy-flap" : undefined} />
+          ))}
 
           {/* Legs with gold ankle bands and feet */}
           {[52.5, 67.5].map((x) => (
