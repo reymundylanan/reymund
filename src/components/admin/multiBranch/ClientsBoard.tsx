@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeftRight, ArrowRight, Bell, CalendarClock, Crown, FolderOpen, GripVertical, Home, Search, UserRound, Wallet } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Bell, CalendarClock, ChevronDown, ChevronRight, Crown, FolderOpen, GripVertical, Home, Search, Wallet } from "lucide-react";
 import { formatDay, formatTime, isBranchActive, toMinutes, toTime, type ClientCard, type Context } from "@/lib/multiBranch/engine";
 import type { ClientBooking } from "@/lib/multiBranch/clientTransfer";
 import type { Channels } from "@/lib/multiBranch/channels";
 import { Avatar, Badge, Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
-import { Empty, Section } from "./BoardColumn";
+import { Empty } from "./BoardColumn";
 import { Panel, Side, type Done } from "./TransferPreview";
 
 const NONE = "none";
@@ -27,6 +27,7 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
   const [q, setQ] = useState("");
   const [type, setType] = useState<"all" | "account" | "walkin" | "upcoming">("all");
   const [preview, setPreview] = useState<{ key: string; toBranchId: string | null } | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let alive = true;
@@ -59,6 +60,7 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
     const map = new Map<string, ClientCard[]>(ctx.branches.map((b) => [b.id, []]));
     map.set(NONE, []);
     for (const c of shown) map.get(c.branchId && map.has(c.branchId) ? c.branchId : NONE)!.push(c);
+    for (const list of map.values()) list.sort((a, b) => (b.upcoming > 0 ? 1 : 0) - (a.upcoming > 0 ? 1 : 0) || a.name.localeCompare(b.name));
     return map;
   }, [shown, ctx.branches]);
 
@@ -116,68 +118,133 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
               if (id === NONE && list.length === 0) return null;
               const b = ctx.branches.find((x) => x.id === id);
               const h = id === NONE ? null : hint(id);
+              const isCollapsed = collapsed.has(id);
+              const walkIns = list.filter((c) => !c.clientId).length;
+              const upcoming = list.filter((c) => c.upcoming > 0).length;
+              const toggle = () =>
+                setCollapsed((s) => {
+                  const n = new Set(s);
+                  if (n.has(id)) n.delete(id);
+                  else n.add(id);
+                  return n;
+                });
               return (
                 <section
                   key={id}
                   ref={id === NONE ? undefined : columnRef(id)}
                   aria-label={b?.name ?? "No branch yet"}
-                  className={`flex w-[18.5rem] shrink-0 snap-start flex-col rounded-2xl border-2 p-3 transition sm:w-[19.5rem] ${
-                    h ? `${TONE[h.tone].ring} ${TONE[h.tone].soft} shadow-lg` : id === NONE ? "border-dashed border-ink/15 bg-white/50" : "border-transparent bg-white shadow-sm"
-                  }`}
+                  className={`flex h-[min(44rem,calc(100dvh-11rem))] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border-2 transition ${
+                    isCollapsed ? "w-[4.5rem]" : "w-[18.5rem] sm:w-[20rem]"
+                  } ${h ? `${TONE[h.tone].ring} ${TONE[h.tone].soft} shadow-lg` : id === NONE ? "border-dashed border-ink/15 bg-white/50" : "border-transparent bg-white shadow-sm"}`}
                 >
-                  <header className="flex items-center gap-2 px-1">
-                    <span className="grid h-7 w-7 place-items-center rounded-lg bg-rose text-coral-dark">
-                      {id === NONE ? <Home className="h-4 w-4" /> : <UserRound className="h-4 w-4" />}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <h2 className="truncate font-semibold text-ink">{b?.name ?? "No branch yet"}</h2>
-                      <p className="text-xs text-ink/50">
-                        {list.length} client{list.length === 1 ? "" : "s"} · {list.filter((c) => !c.clientId).length} walk-in
-                      </p>
-                    </div>
-                  </header>
-                  {over === id && h && <p className={`mt-3 rounded-lg px-2 py-1.5 text-xs font-semibold ${TONE[h.tone].badge}`}>{h.text}</p>}
-                  <Section title="Clients">
-                    {list.map((c) => (
-                      <li
-                        key={c.key}
-                        {...cardProps({ kind: "client", id: c.key })}
-                        className={`group relative flex cursor-grab select-none items-start gap-2.5 rounded-xl border border-ink/10 bg-white p-2.5 transition active:cursor-grabbing ${
-                          dragging?.id === c.key ? "opacity-30" : "hover:border-coral/50 hover:shadow-sm"
-                        }`}
+                  <header className={`shrink-0 border-b border-ink/5 ${isCollapsed ? "px-2 py-3" : "p-3"}`}>
+                    <div className={`flex gap-2 ${isCollapsed ? "flex-col items-center" : "items-center"}`}>
+                      <button
+                        onClick={toggle}
+                        aria-expanded={!isCollapsed}
+                        aria-label={isCollapsed ? `Expand ${b?.name ?? "No branch yet"}` : `Collapse ${b?.name ?? "No branch yet"}`}
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-rose text-coral-dark transition hover:bg-champagne"
                       >
-                        <span data-grip className="-my-2 -ml-1 touch-none py-2 pl-1 text-ink/25 group-hover:text-ink/45" aria-hidden>
-                          <GripVertical className="h-4 w-4" />
-                        </span>
-                        <Avatar name={c.name} url={c.avatarUrl} />
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-1 truncate text-sm font-medium text-ink">
-                            {c.name} {c.vip && <Crown className="h-3.5 w-3.5 shrink-0 text-coral-dark" aria-label="VIP" />}
-                          </span>
-                          <span className="block truncate text-xs text-ink/50">{c.phone ?? "No phone"}</span>
-                          <span className="mt-1 flex flex-wrap gap-1">
-                            <Badge tone={c.clientId ? "blue" : "gray"}>{c.clientId ? "Account" : "Walk-in"}</Badge>
-                            <Badge tone={c.branchSource === "home" ? "green" : "gray"}>{SOURCE[c.branchSource]}</Badge>
-                            {c.upcoming > 0 && <Badge tone="amber">{c.upcoming} upcoming</Badge>}
-                          </span>
-                          <span className="mt-1 block text-[11px] text-ink/50">
-                            {c.visits} visit{c.visits === 1 ? "" : "s"} · {peso(c.spend)}
-                            {c.clientId ? ` · ${c.points} pts` : ""}
-                            {c.lastVisit ? ` · last ${formatDay(c.lastVisit, ctx.today)}` : ""}
-                          </span>
-                        </span>
-                        <button
-                          onClick={() => setPreview({ key: c.key, toBranchId: null })}
-                          aria-label={`Transfer ${c.name}`}
-                          title="Transfer client"
-                          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink/40 hover:bg-blush hover:text-coral-dark"
+                        {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </button>
+                      {isCollapsed ? (
+                        <>
+                          <span className="rounded-full bg-ink/5 px-2 py-0.5 text-xs font-bold text-ink/70">{list.length}</span>
+                          <p className="mt-1 text-xs font-semibold text-ink [writing-mode:vertical-rl]">{b?.name ?? "No branch yet"}</p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="min-w-0 flex-1">
+                            <h2 className="truncate font-semibold text-ink">{b?.name ?? "No branch yet"}</h2>
+                            <p className="text-xs text-ink/45">{id === NONE ? "No home branch or visit yet" : "Home branch or where they visit"}</p>
+                          </div>
+                          <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-sm font-bold text-ink/70">{list.length}</span>
+                        </>
+                      )}
+                    </div>
+                    {!isCollapsed && (
+                      <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-center">
+                        <MiniStat label="Accounts" value={list.length - walkIns} tone="blue" />
+                        <MiniStat label="Walk-ins" value={walkIns} tone="gray" />
+                        <MiniStat label="Upcoming" value={upcoming} tone="amber" />
+                      </div>
+                    )}
+                    {!isCollapsed && over === id && h && <p className={`mt-2 rounded-lg px-2 py-1.5 text-xs font-semibold ${TONE[h.tone].badge}`}>{h.text}</p>}
+                  </header>
+
+                  {!isCollapsed && (
+                    <ul className="min-h-0 flex-1 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin] space-y-2 overflow-y-auto overscroll-contain p-2.5">
+                      {list.map((c) => (
+                        <li
+                          key={c.key}
+                          {...cardProps({ kind: "client", id: c.key })}
+                          className={`group relative cursor-grab select-none rounded-xl border bg-white p-2.5 transition active:cursor-grabbing ${
+                            dragging?.id === c.key ? "opacity-30" : "hover:-translate-y-0.5 hover:border-coral/50 hover:shadow-md"
+                          } ${c.upcoming > 0 ? "border-amber-200" : "border-ink/10"}`}
                         >
-                          <ArrowLeftRight className="h-4 w-4" />
-                        </button>
-                      </li>
-                    ))}
-                    {list.length === 0 && <Empty>No clients here</Empty>}
-                  </Section>
+                          <div className="flex items-center gap-2.5">
+                            <span data-grip className="-my-2 -ml-1 touch-none py-2 pl-0.5 text-ink/20 group-hover:text-ink/45" aria-hidden>
+                              <GripVertical className="h-4 w-4" />
+                            </span>
+                            <span className="relative shrink-0">
+                              {c.avatarUrl ? (
+                                <Avatar name={c.name} url={c.avatarUrl} size={40} />
+                              ) : (
+                                <span
+                                  className={`grid h-10 w-10 place-items-center rounded-full text-sm font-bold ${
+                                    c.clientId ? "bg-blue-100 text-blue-700" : "bg-champagne text-coral-dark"
+                                  }`}
+                                >
+                                  {initials(c.name)}
+                                </span>
+                              )}
+                              {c.vip && (
+                                <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-white shadow" title="VIP">
+                                  <Crown className="h-3 w-3 text-coral-dark" />
+                                </span>
+                              )}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold text-ink">{c.name}</span>
+                              <span className="flex items-center gap-1.5 text-xs text-ink/50">
+                                <span className={`rounded px-1 text-[10px] font-bold uppercase tracking-wide ${c.clientId ? "bg-blue-50 text-blue-700" : "bg-ink/5 text-ink/55"}`}>
+                                  {c.clientId ? "Account" : "Walk-in"}
+                                </span>
+                                <span className="truncate">{c.phone ?? "No phone"}</span>
+                              </span>
+                            </span>
+                            <button
+                              onClick={() => setPreview({ key: c.key, toBranchId: null })}
+                              aria-label={`Transfer ${c.name}`}
+                              title="Transfer client"
+                              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-ink/35 transition hover:bg-blush hover:text-coral-dark"
+                            >
+                              <ArrowLeftRight className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <div className="mt-2 grid grid-cols-3 divide-x divide-ink/5 rounded-lg bg-cream/70 py-1.5 text-center">
+                            <Fact label="Visits" value={String(c.visits)} />
+                            <Fact label="Spent" value={peso(c.spend)} />
+                            <Fact label={c.clientId ? "Points" : "Last"} value={c.clientId ? String(c.points) : c.lastVisit ? shortDay(c.lastVisit) : "—"} />
+                          </div>
+
+                          <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px]">
+                            <span className="flex items-center gap-1 truncate text-ink/45">
+                              {c.branchSource === "home" ? <Home className="h-3 w-3 shrink-0" /> : <CalendarClock className="h-3 w-3 shrink-0" />}
+                              {SOURCE[c.branchSource]}
+                              {c.clientId && c.lastVisit ? ` · last ${shortDay(c.lastVisit)}` : ""}
+                            </span>
+                            {c.upcoming > 0 && <Badge tone="amber">{c.upcoming} upcoming</Badge>}
+                          </div>
+                        </li>
+                      ))}
+                      {list.length === 0 && <Empty>{q || type !== "all" ? "No clients match" : "No clients here"}</Empty>}
+                    </ul>
+                  )}
+                  {!isCollapsed && list.length > 4 && (
+                    <p className="shrink-0 border-t border-ink/5 px-3 py-1.5 text-center text-[11px] text-ink/40">{list.length} clients · scroll for more</p>
+                  )}
                 </section>
               );
             })}
@@ -208,6 +275,34 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
           <p className="text-xs text-ink/50">Drop on a branch</p>
         </div>
       )}
+    </div>
+  );
+}
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "?";
+}
+
+function shortDay(dateKey: string) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function MiniStat({ label, value, tone }: { label: string; value: number; tone: Tone }) {
+  return (
+    <div className={`rounded-lg py-1 ${TONE[tone].soft}`}>
+      <p className={`text-sm font-bold ${tone === "gray" ? "text-ink" : TONE[tone].badge.split(" ")[1]}`}>{value}</p>
+      <p className="text-[10px] font-medium uppercase tracking-wide text-ink/45">{label}</p>
+    </div>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 px-1">
+      <p className="truncate text-xs font-bold text-ink">{value}</p>
+      <p className="text-[10px] uppercase tracking-wide text-ink/40">{label}</p>
     </div>
   );
 }
