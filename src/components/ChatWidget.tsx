@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -26,11 +26,11 @@ import { pageHelpMessage } from "@/lib/pageHelp";
 import { promoImage } from "@/lib/promoImage";
 import { createClient } from "@/lib/supabase/client";
 import { getActivePromotions, type ActivePromotion } from "@/lib/supabase/queries/publicContent";
-import { GUIDE_FONTS, mascotWidth, useMascotSize } from "@/components/guide/guideKit";
+import { GUIDE_FONTS } from "@/components/guide/guideKit";
 import { MascotFigure, useMascotPlay } from "@/components/guide/MascotPlay";
 import { buildBriefing, buildBubbles, type BriefingData, type Bubble, type Reminder } from "@/lib/welcomeBriefing";
 import { loadWelcomeBriefing, spaToday } from "@/lib/supabase/queries/welcomeBriefing";
-import { CHAT_HERE_EVENT, CHAT_PANEL_EVENT, FLIGHT_MS, GUIDE_ACTIVE_EVENT, OPEN_CHAT_EVENT, announce, type GuideActiveDetail, type ScreenRect } from "@/lib/glowEvents";
+import { CHAT_PANEL_EVENT, OPEN_CHAT_EVENT, announce } from "@/lib/glowEvents";
 
 const PAGE_HELP_Q = "What can I do on this page?";
 // Bubbles play once per sign-in (session), can be turned off (device), never
@@ -170,56 +170,18 @@ function FloatingCharacter({
       }}
       className={`relative block rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a] ${offset ? "cursor-grabbing" : "cursor-grab"}`}
     >
-      <span aria-hidden className="pointer-events-none absolute inset-x-2 bottom-2 top-6 rounded-full bg-[radial-gradient(circle,rgba(255,214,140,0.45),transparent_70%)]" />
+      <span aria-hidden className="pointer-events-none absolute -inset-2 rounded-full bg-[radial-gradient(circle,rgba(255,214,140,0.5),transparent_70%)]" />
       <MascotFigure
         play={play}
         size={size}
-        pose={offset ? "fly" : talking ? "wave" : "present"}
+        pose="wave"
         face={offset ? "surprised" : undefined}
         emote={offset ? "!" : undefined}
         motion={offset ? "guide-moving" : undefined}
         talking={talking}
+        head
       />
     </button>
-  );
-}
-
-type Flight = { id: number; from: ScreenRect; to: ScreenRect };
-
-/** The character flying between its corner and the Services guide, along an arc. */
-function Flyer({ flight, size, onDone }: { flight: Flight; size: number; onDone: () => void }) {
-  const [go, setGo] = useState(false);
-  useEffect(() => {
-    let r2 = 0;
-    const r1 = requestAnimationFrame(() => {
-      r2 = requestAnimationFrame(() => setGo(true));
-    });
-    const t = window.setTimeout(onDone, FLIGHT_MS + 80);
-    return () => {
-      cancelAnimationFrame(r1);
-      cancelAnimationFrame(r2);
-      window.clearTimeout(t);
-    };
-  }, [onDone]);
-  const p = go ? flight.to : flight.from;
-  const scale = go ? flight.to.h / size : flight.from.h / size;
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none fixed left-0 top-0 z-[59]"
-      style={{ transform: `translateX(${p.x}px)`, transition: `transform ${FLIGHT_MS}ms cubic-bezier(0.45, 0, 0.25, 1)` }}
-    >
-      {/* A different easing up/down than left/right draws a gentle arc. */}
-      <div style={{ transform: `translateY(${p.y}px)`, transition: `transform ${FLIGHT_MS}ms cubic-bezier(0.3, -0.45, 0.45, 1)` }}>
-        <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", transition: `transform ${FLIGHT_MS}ms ease-in-out` }}>
-          <span className="guide-moving relative block drop-shadow-[0_14px_16px_rgba(120,90,30,0.3)]">
-            <GlowMascot size={size} full pose="fly" face="excited" />
-            <span className="guide-sparkle absolute -left-3 top-1/2 text-lg">✨</span>
-            <span className="guide-sparkle absolute -left-6 top-1/3 text-sm [animation-delay:150ms]">✨</span>
-          </span>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -326,26 +288,22 @@ function PromoStrip({ promos }: { promos: ActivePromotion[] | null }) {
 export default function ChatWidget({ userId = null, firstName = null }: { userId?: string | null; firstName?: string | null }) {
   const pathname = usePathname() ?? "/";
   const { open: openBooking } = useBooking();
-  const mascotSize = useMascotSize();
+  // The floating head: not too big.
+  const [headSize, setHeadSize] = useState(84);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    const update = () => setHeadSize(mq.matches ? 84 : 68);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
   const [open, setOpen] = useState(false);
   const [promos, setPromos] = useState<ActivePromotion[] | null>(null);
   const [booking, setBooking] = useState(false); // a moment of joy after choosing Book
   // "Welcome back" reminders from the client's account (null while loading).
   const [reminders, setReminders] = useState<Reminder[] | null>(null);
   const [briefing, setBriefing] = useState<BriefingData | null>(null);
-  // On the Services page the guide on the cards *is* GlowSync AI: while it's on
-  // screen this character steps aside (and flies back when it isn't).
-  const [guideActive, setGuideActive] = useState(false);
-  // Which stages currently have the AI (Services guide, Meet the Team…).
-  const stages = useRef(new Map<string, boolean>());
-  const [flight, setFlight] = useState<Flight | null>(null);
   const [dragging, setDragging] = useState(false);
-  const endFlight = useCallback(() => setFlight(null), []);
-  // Where the character sits in its corner (matches the wrapper's bottom/right spacing).
-  const cornerRect = useCallback((): ScreenRect => {
-    const w = mascotWidth(mascotSize), h = mascotSize, gap = window.innerWidth >= 640 ? 16 : 12;
-    return { x: window.innerWidth - gap - w, y: window.innerHeight - gap - h, w, h };
-  }, [mascotSize]);
   // The service the client is asking about (from the guide's "Ask a question").
   const [topic, setTopic] = useState<string | null>(null);
   const who = userId ?? "guest";
@@ -403,37 +361,18 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
     const promo = promos.find((p) => !seenPromos.includes(p.id)) ?? null;
     return buildBubbles({ firstName, reminders, pointsGained: gained, promo: promo && { id: promo.id, title: promo.title } });
   }, [userId, reminders, briefing, promos, lastPoints, seenPromos, firstName]);
-  const bubble = !open && !guideActive && !flight && !dragging && !bubblesOff && !alreadyShown ? bubbles[bubbleIdx] ?? null : null;
+  const bubble = !open && !dragging && !bubblesOff && !alreadyShown ? bubbles[bubbleIdx] ?? null : null;
 
   useEffect(() => {
-    const onGuide = (e: Event) => {
-      const d = (e as CustomEvent<GuideActiveDetail>).detail;
-      const was = [...stages.current.values()].some(Boolean);
-      stages.current.set(d.source, d.active);
-      const now = [...stages.current.values()].some(Boolean);
-      // Fly between the corner and the stage (when its position is known and motion is welcome).
-      if (was !== now && d.rect && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        const corner = cornerRect();
-        setFlight({ id: Date.now(), from: now ? corner : d.rect, to: now ? d.rect : corner });
-      }
-      setGuideActive(now);
-    };
-    const onHere = (e: Event) => e.preventDefault();
-    window.addEventListener(CHAT_HERE_EVENT, onHere);
     const onOpenChat = (e: Event) => {
       e.preventDefault(); // tells the guide the chat handled it
       const t = (e as CustomEvent<{ topic?: string }>).detail?.topic;
       setTopic(t ?? null);
       setOpen(true);
     };
-    window.addEventListener(GUIDE_ACTIVE_EVENT, onGuide);
     window.addEventListener(OPEN_CHAT_EVENT, onOpenChat);
-    return () => {
-      window.removeEventListener(GUIDE_ACTIVE_EVENT, onGuide);
-      window.removeEventListener(OPEN_CHAT_EVENT, onOpenChat);
-      window.removeEventListener(CHAT_HERE_EVENT, onHere);
-    };
-  }, [cornerRect]);
+    return () => window.removeEventListener(OPEN_CHAT_EVENT, onOpenChat);
+  }, []);
 
   // Tell the guide when the chat opens or closes.
   useEffect(() => {
@@ -528,7 +467,7 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
         <div
           role="dialog"
           aria-label="GlowSync AI beauty concierge"
-          className="glowy-pop fixed inset-0 z-[61] flex origin-bottom-right flex-col overflow-hidden bg-[#fffaf5] sm:static sm:h-[min(38rem,calc(100dvh-2rem))] sm:w-[24rem] sm:rounded-[28px] sm:shadow-2xl sm:ring-1 sm:ring-[#e8d3a8]"
+          className="glowy-pop fixed inset-x-2 top-2 bottom-[5.5rem] z-[61] flex origin-bottom-right flex-col overflow-hidden rounded-[24px] bg-[#fffaf5] shadow-2xl ring-1 ring-[#e8d3a8] sm:static sm:mb-2 sm:h-[min(38rem,calc(100dvh-8.5rem))] sm:w-[24rem] sm:rounded-[28px]"
           style={{ fontFamily: "var(--font-guide-body), system-ui, sans-serif" }}
         >
           {/* Header */}
@@ -676,10 +615,9 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
       )}
 
       {/* Default view: just the small GlowSync character, with a thought bubble now and then. */}
-      {flight && !open && <Flyer key={flight.id} flight={flight} size={mascotSize} onDone={endFlight} />}
-      <div className={`flex items-end gap-1 ${open ? "hidden" : guideActive || flight ? "invisible" : ""}`}>
-        {bubble && <ThoughtBubble b={bubble} onOpen={finishBubbles} lift={Math.round(mascotSize * 0.48)} />}
-        <FloatingCharacter size={mascotSize} talking={!!bubble} onOpen={toggle} onDragging={setDragging} />
+      <div className="flex items-end gap-1">
+        {bubble && <ThoughtBubble b={bubble} onOpen={finishBubbles} lift={Math.round(headSize * 0.2)} />}
+        <FloatingCharacter size={headSize} talking={!!bubble || open} onOpen={toggle} onDragging={setDragging} />
       </div>
     </div>
   );

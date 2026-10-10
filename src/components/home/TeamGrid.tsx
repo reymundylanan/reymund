@@ -6,8 +6,6 @@ import Link from "next/link";
 import { CalendarPlus, Star } from "lucide-react";
 import { GUIDE_FONTS, MASCOT_DESKTOP, TypeText, useMascotSize } from "@/components/guide/guideKit";
 import { PlayfulMascot } from "@/components/guide/MascotPlay";
-import { useStage } from "@/components/guide/useStage";
-import { chatCharacterHere } from "@/lib/glowEvents";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchContacts } from "@/lib/data";
 import { staffFacts } from "@/lib/staffGuide";
@@ -25,10 +23,6 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number; arrow: number; width: number } | null>(null);
   const [reply, setReply] = useState(0); // bumps to replay the mascot's hello
-  // Signed-in clients: the floating GlowSync character flies over to introduce
-  // the person (and back when closed), so it's one AI, not two.
-  const [chatHere, setChatHere] = useState(false);
-  const mascotRef = useRef<HTMLDivElement>(null);
 
   const active = staff.find((s) => s.id === activeId) ?? null;
 
@@ -72,10 +66,7 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
     };
   }, [activeId]);
 
-  useStage("team", !!activeId && !!pos && chatHere, mascotRef, { where: activeId });
-
   function choose(id: string) {
-    setChatHere(chatCharacterHere());
     setActiveId((cur) => (cur === id ? null : id));
     setReply((n) => n + 1);
   }
@@ -137,7 +128,7 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
           <span aria-hidden className="absolute -top-1.5 h-4 w-4 rotate-45 rounded-sm bg-[#f6dc8e]" style={{ left: pos.arrow - 8 }} />
           <div key={`${active.id}-${reply}`} className="guide-bubble glowy-pop">
             <div className="guide-bubble-inner flex gap-3 p-4">
-              <div ref={mascotRef} className={`relative shrink-0 self-end ${chatHere ? "guide-after-flight" : ""}`}>
+              <div className="relative shrink-0 self-end">
                 <PlayfulMascot size={mascotSize} pose="present" label="Play with GlowSync AI" />
               </div>
               <div className="min-w-0 flex-1 space-y-2">

@@ -189,6 +189,7 @@ export function MascotFigure({
   still = false,
   talking = false,
   extra,
+  head = false,
 }: {
   play: MascotPlay;
   size: number;
@@ -204,13 +205,15 @@ export function MascotFigure({
   still?: boolean;
   talking?: boolean;
   extra?: React.ReactNode;
+  /** Just the head (the floating chat character). */
+  head?: boolean;
 }) {
   const shownFace = face ?? play.mood?.face;
   const shownEmote = emote ?? play.mood?.emote;
   return (
     <span className="relative block">
       <span className={`relative block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] ${play.twirl ? "guide-twirl" : motion ?? "glowy-bob"}`}>
-        <GlowMascot size={size} full pose={pose} face={shownFace} look={play.look} flip={flip} alive={!still} blink={!still} talking={talking} tucked={play.tucked} />
+        <GlowMascot size={size} full={!head} pose={pose} face={shownFace} look={play.look} flip={flip} alive={!still} blink={!still} talking={talking} tucked={play.tucked} />
         {shownEmote && (
           <span
             key={shownEmote + (shownFace ?? "")}

@@ -8,7 +8,6 @@ import { GUIDE_FONTS, TypeText, useMascotSize } from "@/components/guide/guideKi
 import { PlayfulMascot } from "@/components/guide/MascotPlay";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { pageHelpFor } from "@/lib/pageHelp";
-import { GUIDE_ACTIVE_EVENT, type GuideActiveDetail } from "@/lib/glowEvents";
 
 /** For visitors who aren't signed in (the AI chat is for clients): a small
  * GlowSync AI button that explains what the current page is for and what
@@ -17,21 +16,6 @@ export default function PageHelpButton() {
   const pathname = usePathname() ?? "/";
   const { open: openLogin } = useLoginModal();
   const [open, setOpen] = useState(false);
-  // One GlowSync AI on screen: while it's presenting (Services guide, Meet the
-  // Team…), this corner button steps aside.
-  const [onStage, setOnStage] = useState(false);
-  const stages = useRef(new Map<string, boolean>());
-  useEffect(() => {
-    const onGuide = (e: Event) => {
-      const d = (e as CustomEvent<GuideActiveDetail>).detail;
-      stages.current.set(d.source, d.active);
-      const now = [...stages.current.values()].some(Boolean);
-      setOnStage(now);
-      if (now) setOpen(false);
-    };
-    window.addEventListener(GUIDE_ACTIVE_EVENT, onGuide);
-    return () => window.removeEventListener(GUIDE_ACTIVE_EVENT, onGuide);
-  }, []);
   const boxRef = useRef<HTMLDivElement>(null);
   const help = pageHelpFor(pathname);
   const mascotSize = useMascotSize();
@@ -52,7 +36,7 @@ export default function PageHelpButton() {
   }, [open]);
 
   return (
-    <div ref={boxRef} className={`fixed bottom-6 right-6 z-[60] flex flex-col items-end transition-all duration-300 ${onStage ? "pointer-events-none translate-y-4 opacity-0" : ""} ${GUIDE_FONTS}`}>
+    <div ref={boxRef} className={`fixed bottom-6 right-6 z-[60] flex flex-col items-end ${GUIDE_FONTS}`}>
       {open && (
         <div role="dialog" aria-label={`Help with the ${help.page} page`} className="glowy-pop mb-3 flex origin-bottom-right items-end gap-1">
           <span className="hidden shrink-0 sm:block">
