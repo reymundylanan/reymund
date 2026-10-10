@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Re
 import { ArrowDown, CalendarPlus, ChevronLeft, Gift, Loader2, MessageCircleQuestion, Send } from "lucide-react";
 import Link from "next/link";
 import { GUIDE_FONTS, MASCOT_DESKTOP, MASCOT_PHONE, mascotWidth, TypeText } from "@/components/guide/guideKit";
+import { MascotFigure, useMascotPlay } from "@/components/guide/MascotPlay";
 import GlowMascot, { type MascotFace, type MascotPose } from "@/components/GlowMascot";
 import { useBooking } from "@/components/booking/BookingContext";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
@@ -23,38 +24,6 @@ const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
 
 const sameName = (a?: string | null, b?: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 const MINIMIZED_KEY = "glowguide-minimized";
-
-type BurstKind = "hearts" | "stars" | "party";
-type Particle = { id: number; kind: BurstKind; char: string; color: string; dx: number; dy: number; rot: number; delay: number };
-
-const BURST_CHARS: Record<BurstKind, string[]> = {
-  hearts: ["❤️", "💖", "💕", "💗"],
-  stars: ["✨", "⭐", "🌟", "✨"],
-  party: ["🎉", "🎊", "", "", "", ""], // blanks become confetti pieces
-};
-const CONFETTI = ["#f6c84a", "#ff8bc8", "#b98af0", "#7ed3c4", "#ffb36b"];
-let particleSeq = 0;
-
-/** A burst of hearts, sparkles or party confetti flying out of the mascot. */
-function makeBurst(kind: BurstKind): Particle[] {
-  const n = kind === "party" ? 22 : 9;
-  return Array.from({ length: n }, (_, i) => {
-    const a = (i / n) * Math.PI * 2 + Math.random() * 0.5;
-    const r = (kind === "party" ? 70 : 55) + Math.random() * 40;
-    const chars = BURST_CHARS[kind];
-    return {
-      id: ++particleSeq,
-      kind,
-      char: chars[i % chars.length],
-      color: CONFETTI[i % CONFETTI.length],
-      dx: Math.cos(a) * r,
-      // Hearts and sparkles float up; confetti flies out and falls.
-      dy: kind === "party" ? Math.sin(a) * r * 0.7 + 40 : Math.sin(a) * r * 0.6 - 45,
-      rot: (Math.random() - 0.5) * 540,
-      delay: Math.random() * 120,
-    };
-  });
-}
 
 type Mode = "intro" | "menu" | "ask" | "answer";
 type QuickKey = "about" | "price" | "duration" | "benefits" | "promotions" | "compare";
@@ -135,39 +104,20 @@ export default function GlowGuide({
   const [layout, setLayout] = useState<Layout>(null);
   const [moving, setMoving] = useState(false);
   const [celebrate, setCelebrate] = useState(false);
-  const [mood, setMood] = useState<{ face?: MascotFace; emote?: string } | null>(null);
   const [landing, setLanding] = useState(false);
-  const [look, setLook] = useState<{ x: number; y: number } | undefined>(undefined);
   const mascotRef = useRef<HTMLButtonElement>(null);
-  // Play: tap to tuck the body into the head, tap fast to spin, rub to pet.
-  const [tucked, setTucked] = useState(false);
-  const [twirl, setTwirl] = useState(false);
-  const [particles, setParticles] = useState<Particle[]>([]);
-  const taps = useRef<number[]>([]);
-  const rub = useRef({ x: 0, dir: 0, flips: 0, since: 0, cooldown: 0 });
-  const moodTimers = useRef<number[]>([]);
   const [greeting, setGreeting] = useState(true);
   const pausedUntil = useRef(0);
+  const arrival = useRef(0);
 
-  /** Plays a short sequence of expressions, e.g. surprised "!" then excited. */
-  const emote = useCallback((steps: { face?: MascotFace; emote?: string; ms: number }[]) => {
-    moodTimers.current.forEach((id) => window.clearTimeout(id));
-    moodTimers.current = [];
-    let at = 0;
-    for (const s of steps) {
-      moodTimers.current.push(window.setTimeout(() => setMood({ face: s.face, emote: s.emote }), at));
-      at += s.ms;
-    }
-    moodTimers.current.push(window.setTimeout(() => setMood(null), at));
-  }, []);
-  useEffect(() => () => moodTimers.current.forEach((id) => window.clearTimeout(id)), []);
+  // Tap, rub, idle moments, eyes that follow the mouse — shared with every mascot.
+  const play = useMascotPlay({
+    targetRef: mascotRef,
+    idle: !minimized && inView && !greeting && !moving && !asking && !celebrate && mode !== "ask",
+    track: wide && !minimized && inView,
+  });
+  const { emote, burst } = play;
 
-  const burst = useCallback((kind: BurstKind) => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const fresh = makeBurst(kind);
-    setParticles((p) => [...p, ...fresh]);
-    window.setTimeout(() => setParticles((p) => p.filter((x) => !fresh.includes(x))), 1700);
-  }, []);
   const hovering = useRef(false);
 
   const itemsKey = items.map((i) => i.id).join("|");
@@ -253,16 +203,14 @@ export default function GlowGuide({
       setIndex(next);
       const reaction = items[next]?.reaction;
       const hasPromo = !!items[next]?.promo;
-      moodTimers.current.forEach((id) => window.clearTimeout(id));
-      moodTimers.current = [
-        window.setTimeout(() => {
-          emote([
-            { face: "surprised", emote: "!", ms: 650 },
-            { face: "excited", emote: hasPromo ? "🎉" : reaction, ms: 1600 },
-          ]);
-          if (hasPromo) burst("party");
-        }, MOVE_MS),
-      ];
+      window.clearTimeout(arrival.current);
+      arrival.current = window.setTimeout(() => {
+        emote([
+          { face: "surprised", emote: "!", ms: 650 },
+          { face: "excited", emote: hasPromo ? "🎉" : reaction, ms: 1600 },
+        ]);
+        if (hasPromo) burst("party");
+      }, MOVE_MS);
     },
     [index, items, emote, burst]
   );
@@ -295,47 +243,7 @@ export default function GlowGuide({
     return () => window.clearInterval(t);
   }, [minimized, inView, greeting, bookingOpen, mode, locked, items, wide, cardEl, index, travel]);
 
-  useEffect(() => {
-    if (minimized || !inView || greeting) return;
-    const moments: { face?: MascotFace; emote?: string; ms: number }[][] = [
-      [{ face: "wink", emote: "✨", ms: 1100 }],
-      [{ face: "giggle", emote: "♪", ms: 1500 }],
-      [{ face: "excited", emote: "♥", ms: 1300 }],
-      [{ face: "happy", emote: "✨", ms: 1200 }],
-      [{ face: "think", emote: "?", ms: 900 }, { face: "giggle", emote: "💡", ms: 1000 }],
-    ];
-    const t = window.setInterval(() => {
-      if (document.hidden || moving || asking || celebrate || mode === "ask") return;
-      if (Math.random() < 0.55) emote(moments[Math.floor(Math.random() * moments.length)]);
-    }, 5200);
-    return () => window.clearInterval(t);
-  }, [minimized, inView, greeting, moving, asking, celebrate, mode, emote]);
 
-  // Its eyes follow the mouse (desktop).
-  useEffect(() => {
-    if (!wide || minimized || !inView) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    let frame = 0;
-    const onMove = (e: PointerEvent) => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        const el = mascotRef.current;
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        const dx = (e.clientX - (r.left + r.width / 2)) / 260;
-        const dy = (e.clientY - (r.top + r.height * 0.3)) / 260;
-        const clamp = (v: number) => Math.max(-1, Math.min(1, v));
-        const next = { x: Math.round(clamp(dx) * 10) / 10, y: Math.round(clamp(dy) * 10) / 10 };
-        setLook((cur) => (cur && cur.x === next.x && cur.y === next.y ? cur : next));
-      });
-    };
-    window.addEventListener("pointermove", onMove);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      cancelAnimationFrame(frame);
-    };
-  }, [wide, minimized, inView]);
 
   // Hovering a card (desktop) makes the guide jump to it and pauses the tour.
   // While the pointer is on the mascot or its speech bubble / question box the
@@ -389,41 +297,8 @@ export default function GlowGuide({
   /** Tap: the body tucks into the head and springs back with hearts.
    *  Three quick taps: a twirl with sparkles. Either way, its questions open. */
   function tapMascot() {
-    const now = Date.now();
-    taps.current = [...taps.current.filter((x) => now - x < 1200), now];
-    if (taps.current.length >= 3) {
-      taps.current = [];
-      setTwirl(true);
-      window.setTimeout(() => setTwirl(false), 750);
-      burst("stars");
-      emote([{ face: "giggle", emote: "✨", ms: 1500 }]);
-    } else {
-      setTucked(true);
-      window.setTimeout(() => {
-        setTucked(false);
-        burst("hearts");
-        emote([{ face: "love", emote: "💖", ms: 1300 }]);
-      }, 380);
-    }
+    play.tap();
     openMenu();
-  }
-
-  /** Rubbing back and forth over it (petting) gives heart eyes and hearts. */
-  function rubMascot(e: React.PointerEvent) {
-    if (e.pointerType !== "mouse") return;
-    const r = rub.current, now = Date.now();
-    const dx = e.clientX - r.x;
-    r.x = e.clientX;
-    if (Math.abs(dx) < 3) return;
-    const dir = Math.sign(dx);
-    if (now - r.since > 1200) { r.flips = 0; r.since = now; }
-    if (dir !== r.dir) { r.flips += 1; r.dir = dir; }
-    if (r.flips >= 5 && now > r.cooldown) {
-      r.flips = 0;
-      r.cooldown = now + 2500;
-      burst("hearts");
-      emote([{ face: "love", emote: "♥", ms: 1600 }]);
-    }
   }
 
   function openMenu() {
@@ -655,64 +530,30 @@ export default function GlowGuide({
             ? "present"
             : item.mood;
 
-  const face: MascotFace | undefined = celebrate ? "love" : asking ? "think" : moving ? "excited" : mood?.face;
-  const bubbleEmote = asking ? "…" : greeting ? "👋" : moving ? undefined : mood?.emote;
+  const face: MascotFace | undefined = celebrate ? "love" : asking ? "think" : moving ? "excited" : undefined;
+  const bubbleEmote = asking ? "…" : greeting ? "👋" : moving ? "" : undefined;
 
   const mascot = (size: number, flip = false) => (
-    <span className="relative block">
-    <span className={`relative block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] ${twirl ? "guide-twirl" : celebrate ? "guide-celebrate" : moving ? "guide-moving" : landing ? "guide-land" : "glowy-bob"}`}>
-      <GlowMascot
-        size={size}
-        full
-        pose={pose}
-        face={face}
-        look={look}
-        flip={flip}
-        alive={!moving && !celebrate}
-        blink={!moving && !celebrate}
-        talking={asking || greeting}
-        tucked={tucked}
-      />
-      {bubbleEmote && (
-        <span
-          key={bubbleEmote + (mood?.face ?? "")}
-          aria-hidden
-          className={`guide-emote pointer-events-none absolute -top-3 ${flip ? "left-1" : "right-1"} flex h-8 min-w-8 items-center justify-center rounded-full border border-[#d9b968] bg-white px-1.5 text-base font-black leading-none text-[#c9a24a] shadow-md`}
-        >
-          {bubbleEmote === "…" ? (
-            <span className="flex gap-0.5">
-              <span className="glowy-dot h-1.5 w-1.5 rounded-full bg-[#c9a24a]" />
-              <span className="glowy-dot h-1.5 w-1.5 rounded-full bg-[#c9a24a] [animation-delay:150ms]" />
-              <span className="glowy-dot h-1.5 w-1.5 rounded-full bg-[#c9a24a] [animation-delay:300ms]" />
-            </span>
-          ) : (
-            bubbleEmote
-          )}
-        </span>
-      )}
-      {celebrate && (
-        <span aria-hidden className="pointer-events-none absolute inset-0">
-          <span className="guide-sparkle absolute -left-2 top-2 text-sm">✨</span>
-          <span className="guide-sparkle absolute -right-1 top-6 text-sm [animation-delay:120ms]">💕</span>
-          <span className="guide-sparkle absolute -top-4 left-1/3 text-sm [animation-delay:240ms]">✨</span>
-        </span>
-      )}
-    </span>
-      <span aria-hidden className="guide-ground pointer-events-none absolute -bottom-1 left-1/2 h-2.5 w-[55%] -translate-x-1/2 rounded-full bg-[#7a5a1e]/25 blur-[3px]" />
-      {particles.length > 0 && (
-        <span aria-hidden className="pointer-events-none absolute left-1/2 top-[38%] z-10">
-          {particles.map((p) => (
-            <span
-              key={p.id}
-              className="guide-particle absolute"
-              style={{ "--dx": `${p.dx}px`, "--dy": `${p.dy}px`, "--rot": `${p.rot}deg`, animationDelay: `${p.delay}ms` } as React.CSSProperties}
-            >
-              {p.char || <span className="block h-2.5 w-1.5 rounded-sm" style={{ background: p.color }} />}
-            </span>
-          ))}
-        </span>
-      )}
-    </span>
+    <MascotFigure
+      play={play}
+      size={size}
+      pose={pose}
+      face={face}
+      emote={bubbleEmote}
+      flip={flip}
+      motion={celebrate ? "guide-celebrate" : moving ? "guide-moving" : landing ? "guide-land" : undefined}
+      still={moving || celebrate}
+      talking={asking || greeting}
+      extra={
+        celebrate && (
+          <span aria-hidden className="pointer-events-none absolute inset-0">
+            <span className="guide-sparkle absolute -left-2 top-2 text-sm">✨</span>
+            <span className="guide-sparkle absolute -right-1 top-6 text-sm [animation-delay:120ms]">💕</span>
+            <span className="guide-sparkle absolute -top-4 left-1/3 text-sm [animation-delay:240ms]">✨</span>
+          </span>
+        )
+      }
+    />
   );
 
   // ── Minimized: a small button to bring the guide back ──
@@ -786,8 +627,8 @@ export default function GlowGuide({
         ref={mascotRef}
         data-guide-ui
         onClick={tapMascot}
-        onPointerMove={rubMascot}
-        onPointerEnter={() => emote([{ face: "giggle", emote: "♥", ms: 1400 }])}
+        onPointerMove={play.rub}
+        onPointerEnter={play.hover}
         aria-label="Ask GlowSync AI about this service"
         className="guide-fly absolute left-0 top-0 z-40 rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a]"
         style={{ transform: `translate(${mascotX}px, ${mascotY}px)`, ...follow }}

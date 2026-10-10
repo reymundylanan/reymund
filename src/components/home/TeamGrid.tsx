@@ -4,8 +4,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import Image from "next/image";
 import Link from "next/link";
 import { CalendarPlus, Star } from "lucide-react";
-import GlowMascot from "@/components/GlowMascot";
 import { GUIDE_FONTS, MASCOT_DESKTOP, TypeText, useMascotSize } from "@/components/guide/guideKit";
+import { PlayfulMascot } from "@/components/guide/MascotPlay";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchContacts } from "@/lib/data";
 import { staffFacts } from "@/lib/staffGuide";
@@ -129,12 +129,7 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
           <div key={`${active.id}-${reply}`} className="guide-bubble glowy-pop">
             <div className="guide-bubble-inner flex gap-3 p-4">
               <div className="relative shrink-0 self-end">
-                <span className="glowy-bob block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)]">
-                  <GlowMascot size={mascotSize} full pose="present" face="excited" alive blink />
-                </span>
-                <span aria-hidden className="guide-emote absolute -top-2 right-0 flex h-8 min-w-8 items-center justify-center rounded-full border border-[#d9b968] bg-white px-1.5 text-base leading-none shadow-md">
-                  ✨
-                </span>
+                <PlayfulMascot size={mascotSize} pose="present" label="Play with GlowSync AI" />
               </div>
               <div className="min-w-0 flex-1 space-y-2">
                 <p className="guide-rise flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">

@@ -8,6 +8,7 @@ import GlowMascot from "@/components/GlowMascot";
 import { CHAT_OVERLAY_EVENT } from "@/components/promos/PromoSideAd";
 import { pageHelpFor, pageHelpMessage } from "@/lib/pageHelp";
 import { useMascotSize } from "@/components/guide/guideKit";
+import { PlayfulMascot } from "@/components/guide/MascotPlay";
 
 const QUICK_REPLIES = ["What can I do on this page?", "Recommend a treatment", "Prices & promos", "Branch hours", "My bookings"];
 const PAGE_HELP_Q = "What can I do on this page?";
@@ -214,9 +215,7 @@ export default function ChatWidget({ firstName = null }: { firstName?: string | 
 
           <div className="flex items-center gap-3">
             <div className="relative shrink-0 rounded-[2rem] bg-gradient-to-br from-cream to-champagne/50 px-2 pt-2">
-              <span className="glowy-bob block">
-                <GlowMascot size={mascotSize} full alive blink />
-              </span>
+              <PlayfulMascot size={mascotSize} pose="wave" label="Play with GlowSync AI" />
               <Rays className="-right-3 -top-1 h-8 w-8 -scale-x-100" />
             </div>
             <div className="mr-6 min-w-0 flex-1 rounded-2xl bg-cream/70 px-4 py-3">

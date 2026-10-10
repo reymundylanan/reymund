@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LogIn } from "lucide-react";
 import GlowMascot from "@/components/GlowMascot";
 import { GUIDE_FONTS, TypeText, useMascotSize } from "@/components/guide/guideKit";
+import { PlayfulMascot } from "@/components/guide/MascotPlay";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { pageHelpFor } from "@/lib/pageHelp";
 
@@ -38,8 +39,8 @@ export default function PageHelpButton() {
     <div ref={boxRef} className={`fixed bottom-6 right-6 z-[60] flex flex-col items-end ${GUIDE_FONTS}`}>
       {open && (
         <div role="dialog" aria-label={`Help with the ${help.page} page`} className="glowy-pop mb-3 flex origin-bottom-right items-end gap-1">
-          <span className="glowy-bob hidden shrink-0 drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] sm:block">
-            <GlowMascot size={mascotSize} full pose="present" face="happy" alive blink />
+          <span className="hidden shrink-0 sm:block">
+            <PlayfulMascot size={mascotSize} pose="present" label="Play with GlowSync AI" />
           </span>
           <div className="guide-bubble w-[min(22rem,calc(100vw-3rem))]">
           <div className="guide-bubble-inner space-y-2.5 p-4">
