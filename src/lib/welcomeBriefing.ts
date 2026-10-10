@@ -89,3 +89,65 @@ export function buildBriefing(d: BriefingData, today: string): Reminder[] {
 
   return out;
 }
+
+// ── Thought bubbles beside the floating GlowSync character ──────────────
+
+export type Bubble = { key: string; emoji: string; text: string; href?: string; ms: number; important?: boolean };
+
+const BUBBLE_KINDS: ReminderKind[] = ["pending", "today", "booking", "notifications", "review", "voucher"];
+
+function shortText(r: Reminder): string {
+  switch (r.kind) {
+    case "pending":
+      return "Your appointment is waiting for confirmation!";
+    case "today":
+      // "Facial — today at 3:30 PM at One Cecilia Center. Please arrive…" → "today at 3:30 PM at One Cecilia Center"
+      return `Your appointment is ${r.detail.split(" — ")[1]?.replace(/\.\s.*$/, "") ?? "coming up"}!`;
+    case "booking":
+      return `Coming up: ${r.detail.replace(/\.$/, "")}`;
+    case "notifications":
+      return `You have ${r.title.replace(/^(\d+) new/, "$1 new")}!`;
+    case "review":
+      return `${r.title} and earn GlowPoints!`;
+    case "voucher":
+      return `You have ${r.title}!`;
+    default:
+      return r.title;
+  }
+}
+
+/** The bubbles to show after a client signs in, one at a time: a personal
+ * welcome, then real updates by importance, newly earned points and one new promo. */
+export function buildBubbles({
+  firstName,
+  reminders,
+  pointsGained,
+  promo,
+}: {
+  firstName: string | null;
+  reminders: Reminder[];
+  pointsGained: number;
+  promo: { id: string; title: string } | null;
+}): Bubble[] {
+  const updates = reminders.filter((r) => BUBBLE_KINDS.includes(r.kind));
+  const n = updates.length + (pointsGained > 0 ? 1 : 0);
+  const out: Bubble[] = [
+    {
+      key: "greeting",
+      emoji: "👋",
+      text: `Hi${firstName ? `, ${firstName}` : ""}! Welcome back! ${n > 0 ? `You have ${n} update${n === 1 ? "" : "s"} for you.` : "Everything's up to date ✨"}`,
+      ms: 5000,
+    },
+  ];
+  for (const r of updates) {
+    const important = r.kind === "pending" || r.kind === "today";
+    out.push({ key: r.kind, emoji: r.emoji, text: shortText(r), href: r.href, ms: important ? 9000 : 6500, important });
+  }
+  if (pointsGained > 0) {
+    out.push({ key: "points", emoji: "🎁", text: `You've earned ${pointsGained.toLocaleString()} new GlowPoints!`, href: "/my-glow", ms: 6500 });
+  }
+  if (promo) {
+    out.push({ key: `promo:${promo.id}`, emoji: "💖", text: `There's a new beauty offer you might like: ${promo.title}`, href: `/promos/${promo.id}`, ms: 6500 });
+  }
+  return out;
+}

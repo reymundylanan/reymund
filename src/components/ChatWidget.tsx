@@ -1,21 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import {
   CalendarDays,
   ChevronRight,
   CalendarPlus,
   Clock,
-  FileText,
   Gift,
   HelpCircle,
   MapPin,
   Send,
   Sparkles,
-  Star,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -24,17 +22,37 @@ import GlowMascot, { type MascotFace, type MascotPose } from "@/components/GlowM
 import { CHAT_OVERLAY_EVENT } from "@/components/promos/PromoSideAd";
 import BookPromoButton from "@/components/promos/BookPromoButton";
 import { useBooking } from "@/components/booking/BookingContext";
-import { pageHelpFor, pageHelpMessage } from "@/lib/pageHelp";
+import { pageHelpMessage } from "@/lib/pageHelp";
 import { promoImage } from "@/lib/promoImage";
 import { createClient } from "@/lib/supabase/client";
 import { getActivePromotions, type ActivePromotion } from "@/lib/supabase/queries/publicContent";
-import { GUIDE_FONTS, useMascotSize } from "@/components/guide/guideKit";
-import { PlayfulMascot } from "@/components/guide/MascotPlay";
-import { buildBriefing, type Reminder } from "@/lib/welcomeBriefing";
+import { GUIDE_FONTS, MASCOT_PHONE, useMascotSize } from "@/components/guide/guideKit";
+import { MascotFigure, PlayfulMascot, useMascotPlay } from "@/components/guide/MascotPlay";
+import { buildBriefing, buildBubbles, type BriefingData, type Bubble, type Reminder } from "@/lib/welcomeBriefing";
 import { loadWelcomeBriefing, spaToday } from "@/lib/supabase/queries/welcomeBriefing";
 
 const PAGE_HELP_Q = "What can I do on this page?";
-const TEASER_KEY = "glowy-teaser-dismissed";
+// Bubbles play once per sign-in (session), can be turned off (device), never
+// repeat a promo already shown, and only celebrate points earned since last time.
+const BUBBLES_SHOWN_KEY = "glowy-bubbles-shown";
+const BUBBLES_OFF_KEY = "glowy-bubbles-off";
+const SEEN_PROMOS_KEY = "glowy-seen-promos";
+const LAST_POINTS_KEY = "glowy-last-points";
+
+function readStore(store: "session" | "local", key: string): string | null {
+  try {
+    return (store === "session" ? sessionStorage : localStorage).getItem(key);
+  } catch {
+    return null;
+  }
+}
+function writeStore(store: "session" | "local", key: string, value: string) {
+  try {
+    (store === "session" ? sessionStorage : localStorage).setItem(key, value);
+  } catch {
+    // Storage blocked — the bubbles simply may repeat.
+  }
+}
 
 function greeting(firstName: string | null) {
   return `Hi${firstName ? ` ${firstName}` : " there"}! 👋 I'm GlowSync AI, your beauty concierge ✨ I can find the right treatment for you, show today's promos and branch info, and help you book.`;
@@ -50,12 +68,58 @@ export function TypingDots() {
   );
 }
 
-/** Gold "shine" rays around the mascot. */
-function Rays({ className = "" }: { className?: string }) {
+/** A thought bubble beside the floating character: one short, real update. */
+function ThoughtBubble({ b, onOpen }: { b: Bubble; onOpen: () => void }) {
+  const body = (
+    <>
+      <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff6e6] text-lg ring-1 ring-[#f1dfb6]">
+        {b.emoji}
+      </span>
+      <span className="min-w-0 flex-1 text-[13px] font-bold leading-snug text-ink">{b.text}</span>
+      {b.href && (
+        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#ff9fc8] to-[#e7679f] text-white shadow-sm">
+          <ChevronRight className="h-4 w-4" />
+        </span>
+      )}
+    </>
+  );
+  const cls = `glowy-pop relative mb-16 flex w-[min(17rem,calc(100vw-9rem))] origin-bottom-right items-center gap-2.5 rounded-[22px] bg-white px-3 py-2.5 text-left shadow-[0_18px_36px_-18px_rgba(168,132,58,0.7)] ring-2 ${b.important ? "ring-[#e8c766]" : "ring-[#f0dfc0]"} transition hover:-translate-y-0.5`;
   return (
-    <svg viewBox="0 0 40 40" aria-hidden className={`glowy-rays pointer-events-none absolute ${className}`}>
-      <path d="M6 22l7-3M10 8l6 6M24 4l-1 8" stroke="#d4af37" strokeWidth="3.2" strokeLinecap="round" />
-    </svg>
+    <div role="status" aria-live="polite" key={b.key} className="relative">
+      {b.href ? (
+        <Link href={b.href} onClick={onOpen} className={cls}>
+          {body}
+        </Link>
+      ) : (
+        <div className={cls}>{body}</div>
+      )}
+      {/* Thought-bubble dots toward the character */}
+      <span aria-hidden className="absolute bottom-12 right-1 h-3 w-3 rounded-full bg-white ring-2 ring-[#f0dfc0]" />
+      <span aria-hidden className="absolute bottom-9 -right-2 h-2 w-2 rounded-full bg-white ring-2 ring-[#f0dfc0]" />
+    </div>
+  );
+}
+
+/** The small floating GlowSync character (default view). Tap to open the assistant. */
+function FloatingCharacter({ size, talking, onOpen }: { size: number; talking: boolean; onOpen: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const play = useMascotPlay({ targetRef: ref });
+  return (
+    <button
+      ref={ref}
+      type="button"
+      aria-label="Open GlowSync AI"
+      onClick={() => {
+        play.tap();
+        onOpen();
+      }}
+      onPointerMove={play.rub}
+      onPointerEnter={play.hover}
+      className="relative block rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a]"
+    >
+      <span aria-hidden className="pointer-events-none absolute inset-x-2 bottom-2 top-6 rounded-full bg-[radial-gradient(circle,rgba(255,214,140,0.45),transparent_70%)]" />
+      <MascotFigure play={play} size={size} pose={talking ? "wave" : "present"} talking={talking} />
+    </button>
   );
 }
 
@@ -160,46 +224,54 @@ function PromoStrip({ promos }: { promos: ActivePromotion[] | null }) {
 }
 
 export default function ChatWidget({ userId = null, firstName = null }: { userId?: string | null; firstName?: string | null }) {
-  const router = useRouter();
   const pathname = usePathname() ?? "/";
   const { open: openBooking } = useBooking();
   const mascotSize = useMascotSize();
   const [open, setOpen] = useState(false);
-  const [teaser, setTeaser] = useState(false);
   const [promos, setPromos] = useState<ActivePromotion[] | null>(null);
   const [booking, setBooking] = useState(false); // a moment of joy after choosing Book
   // "Welcome back" reminders from the client's account (null while loading).
   const [reminders, setReminders] = useState<Reminder[] | null>(null);
-  const teaserKey = `${TEASER_KEY}:${userId ?? "guest"}`;
-  const { messages, input, setInput, sending, send, answerLocally, containerRef } = useAssistantChat(greeting(firstName));
-
-  // The welcome card pops out of the chat head shortly after the page loads —
-  // once per sign-in for each client.
-  useEffect(() => {
-    let dismissed = false;
+  const [briefing, setBriefing] = useState<BriefingData | null>(null);
+  const who = userId ?? "guest";
+  // Bubble state: which one is showing, whether they're on, and whether they already played this sign-in.
+  const [bubbleIdx, setBubbleIdx] = useState(0);
+  const [bubblesOff, setBubblesOff] = useState(() => typeof window !== "undefined" && readStore("local", `${BUBBLES_OFF_KEY}:${who}`) === "1");
+  const [alreadyShown] = useState(() => typeof window !== "undefined" && readStore("session", `${BUBBLES_SHOWN_KEY}:${who}`) === "1");
+  const [lastPoints] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = readStore("local", `${LAST_POINTS_KEY}:${who}`);
+    return v === null ? null : Number(v);
+  });
+  const [seenPromos] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
     try {
-      dismissed = sessionStorage.getItem(teaserKey) === "1";
-    } catch {}
-    if (dismissed) return;
-    const t = setTimeout(() => setTeaser(true), 1500);
-    return () => clearTimeout(t);
-  }, [teaserKey]);
+      return JSON.parse(readStore("local", `${SEEN_PROMOS_KEY}:${who}`) ?? "[]");
+    } catch {
+      return [];
+    }
+  });
+  const { messages, input, setInput, sending, send, answerLocally, containerRef } = useAssistantChat(greeting(firstName));
 
   // What needs their attention: bookings, notifications, reviews, vouchers, points.
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     loadWelcomeBriefing(createClient(), userId)
-      .then((data) => !cancelled && setReminders(buildBriefing(data, spaToday())))
+      .then((data) => {
+        if (cancelled) return;
+        setBriefing(data);
+        setReminders(buildBriefing(data, spaToday()));
+      })
       .catch(() => !cancelled && setReminders([]));
     return () => {
       cancelled = true;
     };
   }, [userId]);
 
-  // Today's promos load the first time the chat opens.
+  // Today's promos: for a "new offer" bubble, and the chat's promo strip.
   useEffect(() => {
-    if (!open || promos !== null) return;
+    if ((!open && !userId) || promos !== null) return;
     let cancelled = false;
     getActivePromotions(createClient(), 8)
       .then((list) => !cancelled && setPromos(list))
@@ -207,27 +279,58 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
     return () => {
       cancelled = true;
     };
-  }, [open, promos]);
+  }, [open, userId, promos]);
+
+  // The bubbles: a welcome, then real updates, earned points and one new promo.
+  const bubbles = useMemo(() => {
+    if (!userId || !reminders || !briefing || promos === null) return [];
+    const gained = lastPoints === null ? 0 : Math.max(0, briefing.points - lastPoints);
+    const promo = promos.find((p) => !seenPromos.includes(p.id)) ?? null;
+    return buildBubbles({ firstName, reminders, pointsGained: gained, promo: promo && { id: promo.id, title: promo.title } });
+  }, [userId, reminders, briefing, promos, lastPoints, seenPromos, firstName]);
+  const bubble = !open && !bubblesOff && !alreadyShown ? bubbles[bubbleIdx] ?? null : null;
+
+  // Remember today's points so only new ones are celebrated next time.
+  useEffect(() => {
+    if (briefing) writeStore("local", `${LAST_POINTS_KEY}:${who}`, String(briefing.points));
+  }, [briefing, who]);
+
+  // Each bubble shows for a few seconds, then the next one; a shown promo is never repeated.
+  useEffect(() => {
+    if (!bubble) return;
+    if (bubble.key.startsWith("promo:")) {
+      writeStore("local", `${SEEN_PROMOS_KEY}:${who}`, JSON.stringify([...seenPromos, bubble.key.slice(6)].slice(-50)));
+    }
+    const t = window.setTimeout(() => {
+      setBubbleIdx((i) => i + 1);
+      if (bubbleIdx + 1 >= bubbles.length) writeStore("session", `${BUBBLES_SHOWN_KEY}:${who}`, "1");
+    }, bubble.ms);
+    return () => window.clearTimeout(t);
+  }, [bubble, bubbleIdx, bubbles.length, seenPromos, who]);
+
+  /** Stop the bubbles for this sign-in (e.g. once the client opens the assistant). */
+  function finishBubbles() {
+    setBubbleIdx(bubbles.length);
+    writeStore("session", `${BUBBLES_SHOWN_KEY}:${who}`, "1");
+  }
+
+  function setBubbles(on: boolean) {
+    setBubblesOff(!on);
+    writeStore("local", `${BUBBLES_OFF_KEY}:${who}`, on ? "0" : "1");
+  }
 
   // Let the promo pop-up step aside while the greeting card or chat is open.
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent(CHAT_OVERLAY_EVENT, { detail: open || teaser }));
-  }, [open, teaser]);
+    window.dispatchEvent(new CustomEvent(CHAT_OVERLAY_EVENT, { detail: open || !!bubble }));
+  }, [open, bubble]);
 
   useEffect(() => {
     const el = containerRef.current;
     if (el && messages.length > 1) el.scrollTop = el.scrollHeight;
   }, [messages.length, sending, containerRef]);
 
-  function dismissTeaser() {
-    setTeaser(false);
-    try {
-      sessionStorage.setItem(teaserKey, "1");
-    } catch {}
-  }
-
   function toggle() {
-    dismissTeaser();
+    finishBubbles();
     setOpen((o) => !o);
   }
 
@@ -261,14 +364,6 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
     { label: "Help with this page", icon: HelpCircle, run: explainPage },
   ];
 
-  // Greeting-card shortcuts (chat closed).
-  const teaserActions: { label: string; icon: LucideIcon; run: () => void }[] = [
-    { label: "Book Appointment", icon: CalendarDays, run: () => router.push("/services") },
-    { label: "Check Reviews", icon: Star, run: () => router.push("/#reviews") },
-    { label: "View Services", icon: FileText, run: () => router.push("/services") },
-    { label: "Ask GlowSync AI", icon: HelpCircle, run: () => setOpen(true) },
-  ];
-
   const conversation = messages.slice(1); // message 0 is the greeting, shown in the welcome card
   const lastReply = [...conversation].reverse().find((m) => m.role === "assistant");
   const recommending = !sending && !!lastReply?.recommendations?.length;
@@ -279,7 +374,7 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
   const status = booking ? "Booking it for you 💖" : sending ? "Thinking…" : recommending ? "Here's what I recommend" : "Your beauty concierge · Online";
 
   return (
-    <div className={`fixed bottom-6 right-6 z-[60] flex flex-col items-end ${GUIDE_FONTS}`}>
+    <div className={`fixed bottom-3 right-3 z-[60] flex flex-col items-end sm:bottom-4 sm:right-4 ${GUIDE_FONTS}`}>
       {open && (
         <div
           role="dialog"
@@ -382,6 +477,18 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
             )}
           </div>
 
+          {userId && (
+            <label className="flex cursor-pointer items-center justify-between gap-2 border-t border-[#efdcc6] bg-[#fffaf3] px-4 py-2 text-[11.5px] font-semibold text-ink/60">
+              <span>💬 Show updates as bubbles beside me</span>
+              <input
+                type="checkbox"
+                checked={!bubblesOff}
+                onChange={(e) => setBubbles(e.target.checked)}
+                className="h-4 w-4 accent-[#c9a24a]"
+              />
+            </label>
+          )}
+
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -408,122 +515,10 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
         </div>
       )}
 
-      {/* Greeting card from the chat head. */}
-      {teaser && !open && (
-        <div className="glowy-pop relative mb-4 mr-6 w-[calc(100vw-3rem)] max-w-[30rem] origin-bottom-right rounded-[2rem] bg-white p-4 shadow-2xl ring-1 ring-champagne/50">
-          <button
-            onClick={dismissTeaser}
-            aria-label="Dismiss"
-            className="absolute right-3 top-3 rounded-full p-1 text-ink/50 hover:bg-blush hover:text-ink"
-          >
-            <X className="h-5 w-5" />
-          </button>
-
-          <div className="flex items-center gap-3">
-            <div className="relative shrink-0 rounded-[2rem] bg-gradient-to-br from-cream to-champagne/50 px-2 pt-2">
-              <PlayfulMascot
-                size={mascotSize}
-                pose={reminders?.some((r) => r.kind === "today" || r.kind === "pending") ? "present" : "excited"}
-                emote={reminders?.find((r) => r.kind === "today")?.emoji ?? (reminders ? "💖" : undefined)}
-                label="Play with GlowSync AI"
-              />
-              <Rays className="-right-3 -top-1 h-8 w-8 -scale-x-100" />
-            </div>
-            <div className="mr-6 min-w-0 flex-1 rounded-2xl bg-cream/70 px-4 py-3">
-              <p className="guide-display text-xl font-bold text-ink">
-                {userId ? "Welcome back" : "Hi"}
-                {firstName ? `, ${firstName}` : userId ? "" : " there"}! <span className="glowy-wave-emoji inline-block">{userId ? "💖" : "👋"}</span>
-              </p>
-              <p className="mt-1 text-sm leading-snug text-ink/80">
-                {userId ? (
-                  reminders === null ? (
-                    "Let me check what's new for you…"
-                  ) : reminders.some((r) => r.kind !== "book" && r.kind !== "points") ? (
-                    "Here's what's happening with your glow ✨"
-                  ) : (
-                    "All caught up! ✨ What can I help you with today?"
-                  )
-                ) : (
-                  <>
-                    I&apos;m GlowSync AI! ✨<br />
-                    What can I help you with today?
-                  </>
-                )}
-              </p>
-            </div>
-          </div>
-
-          {userId && (
-            <div className="mt-3 space-y-2" aria-live="polite">
-              {reminders === null
-                ? [0, 1].map((i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-[#f6ead8]" />)
-                : reminders.slice(0, 4).map((r) => <ReminderRow key={r.kind} r={r} onGo={dismissTeaser} />)}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              dismissTeaser();
-              explainPage();
-            }}
-            className="mt-3 flex w-full items-center gap-2 rounded-2xl bg-gradient-to-r from-[#f7f0ff] to-[#fdf0f7] px-3 py-2.5 text-left text-sm font-semibold text-[#5b2d86] ring-1 ring-[#e3d6f7] transition hover:-translate-y-0.5 hover:shadow-md"
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c49bff] to-[#8a4fd8] text-white">
-              <Sparkles className="h-4 w-4" />
-            </span>
-            <span className="min-w-0">
-              New here? What can I do on {pageHelpFor(pathname).page === "this page" ? "this page" : `the ${pageHelpFor(pathname).page} page`}?
-            </span>
-          </button>
-
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {teaserActions.map(({ label, icon: Icon, run }) => (
-              <button
-                key={label}
-                onClick={() => {
-                  dismissTeaser();
-                  run();
-                }}
-                className="flex items-center gap-2 rounded-full bg-gradient-to-r from-cream to-champagne/30 px-2.5 py-2 text-left text-sm font-medium text-ink transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-coral text-white">
-                  <Icon className="h-4 w-4" />
-                </span>
-                {label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tail pointing at the chat head. */}
-          <svg viewBox="0 0 24 16" aria-hidden className="absolute -bottom-3.5 right-2 h-4 w-6">
-            <path d="M0 0h24L22 16z" fill="#ffffff" />
-          </svg>
-        </div>
-      )}
-
-      {/* The launcher: GlowSync AI itself. Hidden on phones while the chat fills the screen. */}
-      <div className={`relative ${open ? "hidden sm:block" : ""}`}>
-        {!open && (
-          <>
-            <Rays className="-left-6 -top-3 h-9 w-9" />
-            <Rays className="-right-6 -top-3 h-9 w-9 -scale-x-100" />
-          </>
-        )}
-        <button
-          onClick={toggle}
-          aria-label={open ? "Close GlowSync AI" : "Chat with GlowSync AI"}
-          className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#fff6dc] via-white to-[#f8e2ef] shadow-xl shadow-[#a8843a]/30 ring-[3px] ring-[#d9b968] transition hover:scale-105"
-        >
-          {teaser && !open && <span className="absolute inset-0 animate-ping rounded-full bg-[#d9b968]/40 motion-reduce:hidden" />}
-          {open ? (
-            <X className="h-7 w-7 text-[#a97c1c]" />
-          ) : (
-            <span className="glowy-bob">
-              <GlowMascot size={54} blink />
-            </span>
-          )}
-        </button>
+      {/* Default view: just the small GlowSync character, with a thought bubble now and then. */}
+      <div className={`flex items-end gap-1 ${open ? "hidden sm:flex" : ""}`}>
+        {bubble && <ThoughtBubble b={bubble} onOpen={finishBubbles} />}
+        <FloatingCharacter size={mascotSize === MASCOT_PHONE ? 88 : MASCOT_PHONE} talking={!!bubble} onOpen={toggle} />
       </div>
     </div>
   );

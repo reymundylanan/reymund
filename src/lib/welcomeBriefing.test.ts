@@ -46,3 +46,42 @@ describe("welcome briefing", () => {
     expect(r.find((x) => x.kind === "points")?.title).toBe("1,250 GlowPoints · Gold");
   });
 });
+
+import { buildBubbles } from "./welcomeBriefing";
+
+describe("character bubbles", () => {
+  it("welcomes by name, then shows real updates by importance", () => {
+    const reminders = buildBriefing(
+      {
+        ...empty,
+        upcoming: { id: "a1", date: "2026-10-15", time: "14:00", status: "pending", serviceName: "Vitamin C", branchName: null },
+        unreadNotifications: 2,
+        points: 100,
+        tier: "Bronze",
+      },
+      "2026-10-10"
+    );
+    const b = buildBubbles({ firstName: "Arnel", reminders, pointsGained: 20, promo: { id: "p1", title: "Glow Week" } });
+    expect(b.map((x) => x.key)).toEqual(["greeting", "pending", "notifications", "points", "promo:p1"]);
+    expect(b[0].text).toBe("Hi, Arnel! Welcome back! You have 3 updates for you.");
+    expect(b[1].text).toBe("Your appointment is waiting for confirmation!");
+    expect(b[1].important).toBe(true);
+    expect(b[2].text).toBe("You have 2 new notifications!");
+    expect(b[3].text).toBe("You've earned 20 new GlowPoints!");
+    expect(b[4].href).toBe("/promos/p1");
+  });
+
+  it("just says hello when there's nothing new", () => {
+    const b = buildBubbles({ firstName: null, reminders: buildBriefing(empty, "2026-10-10"), pointsGained: 0, promo: null });
+    expect(b).toHaveLength(1);
+    expect(b[0].text).toBe("Hi! Welcome back! Everything's up to date ✨");
+  });
+
+  it("says today's time", () => {
+    const reminders = buildBriefing(
+      { ...empty, upcoming: { id: "a", date: "2026-10-10", time: "15:30", status: "confirmed", serviceName: "Facial", branchName: "One Cecilia Center" } },
+      "2026-10-10"
+    );
+    expect(buildBubbles({ firstName: "A", reminders, pointsGained: 0, promo: null })[1].text).toBe("Your appointment is today at 3:30 PM at One Cecilia Center!");
+  });
+});
