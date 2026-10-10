@@ -1508,7 +1508,9 @@ export default function BookingModal({
                 </div>
               </div>
 
-              <div className="space-y-2 overflow-y-auto">
+              {/* The times scroll on their own (as tall as the calendar), so the calendar stays put. */}
+              <div className="relative">
+              <div className="max-h-72 space-y-2 overflow-y-auto overscroll-contain pr-1 sm:absolute sm:inset-0 sm:max-h-none">
                 {(() => {
                   const allSlots = BRANCH_TIME_SLOTS[branchId ?? ""] ?? timeSlots;
                   const isTransferGuest = !!professionalId && transferGuestIds.has(professionalId);
@@ -1578,6 +1580,7 @@ export default function BookingModal({
                     );
                   });
                 })()}
+              </div>
               </div>
             </div>
             </div>
