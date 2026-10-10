@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Bell, Building2, CalendarCheck, LayoutDashboard, Star, Users, Wallet } from "lucide-react";
+import { BarChart3, Bell, Building2, CalendarCheck, LayoutDashboard, SquareKanban, Star, Users, Wallet } from "lucide-react";
 import PortalSidebar from "@/components/portal/PortalSidebar";
 import { usePortalBadges } from "@/lib/hooks/usePortalBadges";
 
@@ -10,6 +10,7 @@ const navItems = [
   { href: "/admin/bookings", label: "Bookings Management", icon: CalendarCheck },
   { href: "/admin/payments", label: "Payments & Financials", icon: Wallet },
   { href: "/admin/branches", label: "Branches & Services", icon: Building2 },
+  { href: "/admin/branch-board", label: "Branch Board", icon: SquareKanban },
   { href: "/admin/notifications", label: "Notifications", icon: Bell },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },

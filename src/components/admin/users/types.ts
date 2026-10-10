@@ -4,6 +4,7 @@ export type StaffUser = {
   username: string | null;
   email: string;
   role: "admin" | "front_desk" | "specialist";
+  branchId?: string | null;
   branchName: string | null;
   avatarUrl?: string | null;
   createdAt: string;

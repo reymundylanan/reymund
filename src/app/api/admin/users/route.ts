@@ -46,6 +46,7 @@ export async function GET() {
     username: row.username,
     email: row.email,
     role: row.role,
+    branchId: row.branch_id ?? null,
     branchName: extractBranchName(row.branches),
     avatarUrl: row.avatar_url ?? null,
     createdAt: row.created_at,

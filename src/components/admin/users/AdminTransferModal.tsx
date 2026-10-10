@@ -21,6 +21,7 @@ export default function AdminTransferModal({
   staffMemberName,
   staffMemberDepartment,
   homeBranchId,
+  initialTargetBranchId,
   onClose,
   onSaved,
 }: {
@@ -28,6 +29,8 @@ export default function AdminTransferModal({
   staffMemberName: string;
   staffMemberDepartment?: string | null;
   homeBranchId: string | null;
+  /** Preselects the branch (e.g. the column it was dropped on in the Branch Board). */
+  initialTargetBranchId?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -35,7 +38,7 @@ export default function AdminTransferModal({
     ? `${staffMemberName} — ${staffMemberDepartment}`
     : staffMemberName;
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [targetBranchId, setTargetBranchId] = useState("");
+  const [targetBranchId, setTargetBranchId] = useState(initialTargetBranchId ?? "");
   const [selectedDates, setSelectedDates] = useState<Date[]>(() => [new Date()]);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
