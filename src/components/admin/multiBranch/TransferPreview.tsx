@@ -27,7 +27,7 @@ import { AppointmentCard } from "./BoardColumn";
 
 export type Done = (message: string, logId: string | null) => void;
 
-function Panel({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Panel({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -53,7 +53,7 @@ function Panel({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-function Side({ label, tone, children }: { label: string; tone: "old" | "new"; children: ReactNode }) {
+export function Side({ label, tone, children }: { label: string; tone: "old" | "new"; children: ReactNode }) {
   return (
     <div className={`min-w-0 rounded-xl border p-3 ${tone === "new" ? "border-coral/50 bg-blush" : "border-ink/10 bg-cream/60"}`}>
       <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink/45">{label}</p>

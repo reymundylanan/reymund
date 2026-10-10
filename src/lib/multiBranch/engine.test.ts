@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   checkSlot,
   checkStaffTransfer,
+  clientKey,
+  proposeAt,
   findConflicts,
   formatTime,
   openSlotCount,
@@ -218,5 +220,31 @@ describe("checkStaffTransfer", () => {
     const r = checkStaffTransfer(c, { staffId: "bea", toBranchId: "B", kind: "temporary", dates: [TOMORROW] });
     expect(r.ok).toBe(false);
     expect(r.affected).toHaveLength(1);
+  });
+});
+
+describe("client transfers", () => {
+  it("groups walk-ins by name and phone, accounts by id", () => {
+    expect(clientKey({ clientId: "c1", walkinName: "x" })).toBe("c:c1");
+    expect(clientKey({ clientId: null, walkinName: " Liza ", walkinPhone: "0917" })).toBe("w:Liza|0917");
+  });
+
+  it("keeps the same day and time at the new branch when a qualified staff member is free", () => {
+    const p = proposeAt(ctx(), appt({ date: TOMORROW }), "B");
+    expect(p).toMatchObject({ branchId: "B", staffId: "carla", date: TOMORROW, start: toMinutes("14:00") });
+  });
+
+  it("falls back to the nearest free time that day, and to null when nothing fits", () => {
+    const busy = ctx({ appointments: [appt({ id: "x", branchId: "B", professionalId: "carla", date: TOMORROW, start: "13:30:00", duration: 120 })] });
+    const p = proposeAt(busy, appt({ date: TOMORROW }), "B");
+    expect(p).not.toBeNull();
+    expect(p!.start + 90 <= toMinutes("13:30") || p!.start >= toMinutes("15:30")).toBe(true);
+    const off = ctx({ offs: [{ staffId: "carla", date: TOMORROW, period: "full_day", source: "leave" }] });
+    expect(proposeAt(off, appt({ date: TOMORROW }), "B")).toBeNull();
+  });
+
+  it("never proposes a branch that does not offer the service", () => {
+    const c = ctx({ services: [ctx().services[0]] });
+    expect(proposeAt(c, appt({ date: TOMORROW }), "B")).toBeNull();
   });
 });

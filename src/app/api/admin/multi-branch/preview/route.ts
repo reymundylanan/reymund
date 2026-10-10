@@ -3,16 +3,24 @@ import { checkSlot, checkStaffTransfer, suggestAlternatives, toMinutes } from "@
 import { loadContext } from "@/lib/multiBranch/load";
 import { requireAdmin } from "@/lib/multiBranch/server";
 import { clientChannels } from "@/lib/multiBranch/channels";
+import { clientTransferContext } from "@/lib/multiBranch/clientTransfer";
 
 type Body =
   | { type: "appointment"; appointmentId: string; branchId?: string; staffId?: string | null; date?: string; start?: string }
-  | { type: "staff"; staffId: string; toBranchId: string; kind: "temporary" | "permanent"; dates: string[] };
+  | { type: "staff"; staffId: string; toBranchId: string; kind: "temporary" | "permanent"; dates: string[] }
+  | { type: "client"; key: string; toBranchId: string };
 
 /** Dry run against live data: validation checklist + valid alternatives. Nothing is saved. */
 export async function POST(request: Request) {
   const gate = await requireAdmin();
   if ("error" in gate) return gate.error;
   const body = (await request.json()) as Body;
+
+  if (body.type === "client") {
+    const { client, bookings } = await clientTransferContext(gate.admin, body.key, body.toBranchId);
+    if (!client) return NextResponse.json({ error: "That client could not be found." }, { status: 404 });
+    return NextResponse.json({ client, bookings, channels: await clientChannels(gate.admin, client.clientId) });
+  }
 
   if (body.type === "staff") {
     const ctx = await loadContext(gate.admin, { date: [...(body.dates ?? [])].sort().at(-1) });

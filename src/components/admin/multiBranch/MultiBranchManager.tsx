@@ -16,6 +16,7 @@ import {
   Search,
   UserCheck,
   UserCog,
+  UserRound,
   Users,
   X,
 } from "lucide-react";
@@ -41,6 +42,7 @@ import { AppointmentCard, BranchColumn, Empty, MOVABLE, Section, type ColumnStat
 import { AppointmentPreview, StaffPreview } from "./TransferPreview";
 import ServicesPanel from "./ServicesPanel";
 import HistoryPanel from "./HistoryPanel";
+import ClientsBoard from "./ClientsBoard";
 import { Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
 
@@ -60,7 +62,7 @@ export default function MultiBranchManager() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [view, setView] = useState<"board" | "services" | "accounts">("board");
+  const [view, setView] = useState<"board" | "clients" | "services" | "accounts">("board");
   const [lower, setLower] = useState<"needs" | "history" | "activity">("needs");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -104,7 +106,7 @@ export default function MultiBranchManager() {
       }, 700);
     };
     const channel = supabase.channel("admin-multi-branch");
-    for (const table of ["appointments", "staff_members", "staff_shifts", "staff_attendance", "branch_transfer_requests", "branch_services", "branch_transfer_log"]) {
+    for (const table of ["appointments", "staff_members", "staff_shifts", "staff_attendance", "branch_transfer_requests", "branch_services", "branch_transfer_log", "profiles"]) {
       channel.on("postgres_changes", { event: "*", schema: "public", table }, refresh);
     }
     channel.subscribe();
@@ -225,6 +227,7 @@ export default function MultiBranchManager() {
   const onDrop = useCallback(
     (item: DragItem, key: string) => {
       if (!ctx || key === NEEDS) return;
+      if (item.kind === "client") return;
       if (item.kind === "staff") {
         const s = ctx.staff.find((x) => x.id === item.id);
         if (!s) return;
@@ -345,6 +348,7 @@ export default function MultiBranchManager() {
             {(
               [
                 ["board", "Board", LayoutGrid],
+                ["clients", "Clients", UserRound],
                 ["services", "Services", Scissors],
                 ["accounts", "Front desk", UserCog],
               ] as const
@@ -426,6 +430,8 @@ export default function MultiBranchManager() {
           onChanged={(text) => { setToast({ text, tone: "green" }); load(true); setHistoryKey((k) => k + 1); }}
           onReschedule={(a) => { setView("board"); openAppt(a); }}
         />
+      ) : view === "clients" ? (
+        <ClientsBoard ctx={ctx} refreshKey={historyKey} onDone={done} />
       ) : view === "accounts" ? (
         <BranchBoard only="accounts" />
       ) : (
@@ -441,7 +447,7 @@ export default function MultiBranchManager() {
           </p>
 
           <div className={`grid gap-4 ${preview ? "lg:grid-cols-[minmax(0,1fr)_26rem]" : ""}`}>
-            <div ref={scroller} className="scrollbar-hidden -mx-1 flex min-w-0 snap-x items-start gap-4 overflow-x-auto px-1 pb-4">
+            <div ref={scroller} className="scrollbar-hidden -mx-1 flex min-w-0 snap-x gap-4 overflow-x-auto px-1 pb-4">
               {branches.map((b) => {
                 const col = columnData.get(b.id)!;
                 const hint = dropHints.get(b.id) ?? null;

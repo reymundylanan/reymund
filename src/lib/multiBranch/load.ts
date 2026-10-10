@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logQueryError } from "@/lib/supabase/logQueryError";
-import { addDays, toMinutes, type Appointment, type Context } from "./engine";
+import { addDays, clientKey, toMinutes, type Appointment, type ClientCard, type Context } from "./engine";
 
 type Rel<T> = T | T[] | null;
 const one = <T,>(v: Rel<T>): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
@@ -22,6 +22,7 @@ type ApptRow = {
   professional_id: string | null;
   client_id: string | null;
   walkin_name: string | null;
+  walkin_phone: string | null;
   scheduled_date: string;
   start_time: string;
   duration_minutes: number;
@@ -53,7 +54,7 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
     supabase
       .from("appointments")
       .select(
-        "id, booking_code, branch_id, professional_id, client_id, walkin_name, scheduled_date, start_time, duration_minutes, status, session_status, visit_type, service_id, notes, client:profiles!appointments_client_id_fkey(full_name), appointment_services(service_id, service_name, position), payments(id)"
+        "id, booking_code, branch_id, professional_id, client_id, walkin_name, walkin_phone, scheduled_date, start_time, duration_minutes, status, session_status, visit_type, service_id, notes, client:profiles!appointments_client_id_fkey(full_name), appointment_services(service_id, service_name, position), payments(id)"
       )
       .gte("scheduled_date", from)
       .lte("scheduled_date", until)
@@ -93,6 +94,8 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
       services: [...new Set(linked.map((s) => s.name))],
       departments: [...new Set(linked.map((s) => s.department ?? "").filter(Boolean))],
       paid: (r.payments ?? []).length > 0,
+      walkinName: r.client_id ? null : r.walkin_name,
+      walkinPhone: r.client_id ? null : r.walkin_phone,
     };
   });
 
@@ -139,4 +142,132 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
       ? { open: toMinutes(window.booking_window_start), close: toMinutes(window.booking_window_end) }
       : { open: 8 * 60, close: 18 * 60 },
   };
+}
+
+type VisitRow = {
+  client_id: string | null;
+  walkin_name: string | null;
+  walkin_phone: string | null;
+  branch_id: string;
+  scheduled_date: string;
+  status: string;
+  session_status: string | null;
+  payments: { amount: number | string | null; status: string }[] | null;
+};
+
+type ProfileRow = { id: string; full_name: string | null; phone: string | null; avatar_url: string | null; vip: boolean | null; loyalty_points: number | null; branch_id: string | null };
+type Building = ClientCard & { last: string | null; next: string | null; lastBranch: string | null; nextBranch: string | null };
+
+/** Clients with bookings or walk-in visits, with their records (all branches).
+ * Visits and spend follow the front desk's client stats (058): a visit is a
+ * completed one; spend is settled payments. */
+export async function loadClients(supabase: SupabaseClient, ctx: Pick<Context, "today">): Promise<ClientCard[]> {
+  const rows: VisitRow[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("client_id, walkin_name, walkin_phone, branch_id, scheduled_date, status, session_status, payments(amount, status)")
+      .neq("status", "cancelled")
+      .order("scheduled_date", { ascending: true })
+      .range(from, from + 999);
+    if (error) {
+      logQueryError("multiBranch.loadClients visits", error);
+      break;
+    }
+    rows.push(...((data ?? []) as unknown as VisitRow[]));
+    if (!data || data.length < 1000) break;
+  }
+
+  const ids = [...new Set(rows.map((r) => r.client_id).filter((x): x is string => !!x))];
+  const profiles = new Map<string, ProfileRow>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, phone, avatar_url, vip, loyalty_points, branch_id")
+      .in("id", ids.slice(i, i + 200));
+    if (error) logQueryError("multiBranch.loadClients profiles", error);
+    for (const p of (data ?? []) as ProfileRow[]) profiles.set(p.id, p);
+  }
+
+  const cards = new Map<string, Building>();
+  for (const r of rows) {
+    if (!r.client_id && !r.walkin_name?.trim()) continue;
+    const p = r.client_id ? profiles.get(r.client_id) : undefined;
+    if (r.client_id && !p) continue;
+    const key = clientKey({ clientId: r.client_id, walkinName: r.walkin_name, walkinPhone: r.walkin_phone });
+    let c = cards.get(key);
+    if (!c) {
+      c = {
+        key,
+        clientId: r.client_id,
+        walkinName: r.client_id ? null : (r.walkin_name ?? "").trim(),
+        walkinPhone: r.client_id ? null : r.walkin_phone?.trim() || null,
+        name: p?.full_name ?? (r.walkin_name ?? "").trim(),
+        phone: p?.phone ?? r.walkin_phone ?? null,
+        avatarUrl: p?.avatar_url ?? null,
+        vip: !!p?.vip,
+        points: p?.loyalty_points ?? 0,
+        homeBranchId: p?.branch_id ?? null,
+        branchId: null,
+        branchSource: "none",
+        visits: 0,
+        lastVisit: null,
+        spend: 0,
+        upcoming: 0,
+        last: null,
+        next: null,
+        lastBranch: null,
+        nextBranch: null,
+      };
+      cards.set(key, c);
+    }
+    const done = r.status === "completed" || ["completed", "paid"].includes(r.session_status ?? "");
+    if (done) {
+      c.visits++;
+      if (!c.lastVisit || r.scheduled_date > c.lastVisit) c.lastVisit = r.scheduled_date;
+    }
+    for (const pay of r.payments ?? []) if (pay.status === "settled") c.spend += Number(pay.amount ?? 0);
+    const upcoming =
+      r.scheduled_date >= ctx.today && (r.status === "pending" || r.status === "confirmed") && !["no_show", "completed", "paid"].includes(r.session_status ?? "");
+    if (upcoming) {
+      c.upcoming++;
+      if (!c.next || r.scheduled_date < c.next) {
+        c.next = r.scheduled_date;
+        c.nextBranch = r.branch_id;
+      }
+    } else if (r.scheduled_date <= ctx.today && (!c.last || r.scheduled_date >= c.last)) {
+      c.last = r.scheduled_date;
+      c.lastBranch = r.branch_id;
+    }
+  }
+
+  return [...cards.values()]
+    .map((c): ClientCard => {
+      const where: [string | null, ClientCard["branchSource"]] = c.homeBranchId
+        ? [c.homeBranchId, "home"]
+        : c.nextBranch
+          ? [c.nextBranch, "next_visit"]
+          : c.lastBranch
+            ? [c.lastBranch, "last_visit"]
+            : [null, "none"];
+      return {
+        key: c.key,
+        clientId: c.clientId,
+        walkinName: c.walkinName,
+        walkinPhone: c.walkinPhone,
+        name: c.name,
+        phone: c.phone,
+        avatarUrl: c.avatarUrl,
+        vip: c.vip,
+        points: c.points,
+        homeBranchId: c.homeBranchId,
+        branchId: where[0],
+        branchSource: where[1],
+        visits: c.visits,
+        lastVisit: c.lastVisit,
+        spend: c.spend,
+        upcoming: c.upcoming,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 }

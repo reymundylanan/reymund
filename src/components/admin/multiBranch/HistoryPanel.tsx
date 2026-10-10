@@ -8,7 +8,7 @@ import { Badge, Spinner, postJson, type Tone } from "./ui";
 type Delivery = { channel: string; status: string; error: string | null; at: string | null };
 export type HistoryEntry = {
   id: string;
-  transfer_type: "appointment_move" | "staff_temporary" | "staff_permanent" | "service_availability";
+  transfer_type: "appointment_move" | "staff_temporary" | "staff_permanent" | "service_availability" | "client_transfer";
   status: "completed" | "undone";
   appointment_id: string | null;
   staff_member_id: string | null;
@@ -39,6 +39,7 @@ const TYPE_LABEL: Record<HistoryEntry["transfer_type"], string> = {
   staff_temporary: "Staff lent",
   staff_permanent: "Staff moved (permanent)",
   service_availability: "Service availability",
+  client_transfer: "Client transferred",
 };
 
 const DELIVERY_TONE: Record<string, Tone> = { sent: "green", pending: "amber", sending: "amber", failed: "red", skipped: "gray" };
@@ -174,6 +175,8 @@ export default function HistoryPanel({
               ? `${e.clientName ?? "Walk-in"}${e.bookingCode ? ` · #${e.bookingCode}` : ""}`
               : e.transfer_type === "service_availability"
                 ? String(e.next.service ?? "Service")
+                : e.transfer_type === "client_transfer"
+                  ? `${String(e.next.client ?? e.clientName ?? "Client")}${e.previous.type === "Walk-in" ? " (walk-in)" : ""}`
                 : String(e.next.staff ?? staffName(e.staff_member_id) ?? "Staff");
           return (
             <li key={e.id} className="rounded-xl bg-white shadow-sm">

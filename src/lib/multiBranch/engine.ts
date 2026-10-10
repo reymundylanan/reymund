@@ -44,6 +44,9 @@ export type Appointment = {
   departments: string[];
   /** Has a payment on record (kept with the appointment on any move). */
   paid: boolean;
+  /** Walk-ins without an account are grouped by name + phone. */
+  walkinName?: string | null;
+  walkinPhone?: string | null;
 };
 
 export type Context = {
@@ -424,4 +427,58 @@ export function checkStaffTransfer(
     detail: staff?.department && !destDepts.has(staff.department) ? `${dest?.name} has no active ${staff.department} services.` : undefined,
   });
   return { ok: items.every((i) => i.ok), items, affected };
+}
+
+// ── Clients ──
+
+/** A client on the Clients board: an account, or a walk-in (name + phone). */
+export type ClientCard = {
+  key: string;
+  clientId: string | null;
+  walkinName: string | null;
+  walkinPhone: string | null;
+  name: string;
+  phone: string | null;
+  avatarUrl: string | null;
+  vip: boolean;
+  points: number;
+  /** Account home branch (null for walk-ins or when never set). */
+  homeBranchId: string | null;
+  /** The column they show in: home branch, else their next or last visit's branch. */
+  branchId: string | null;
+  branchSource: "home" | "next_visit" | "last_visit" | "none";
+  visits: number;
+  lastVisit: string | null;
+  spend: number;
+  upcoming: number;
+};
+
+/** Stable key for a client: "c:<id>" for accounts, "w:<name>|<phone>" for walk-ins. */
+export function clientKey(a: { clientId: string | null; walkinName?: string | null; walkinPhone?: string | null }): string {
+  return a.clientId ? `c:${a.clientId}` : `w:${(a.walkinName ?? "").trim()}|${(a.walkinPhone ?? "").trim()}`;
+}
+
+/** The best slot for one booking at the destination branch: the same day and
+ * time with any qualified staff member first (their original one if they're
+ * there), otherwise the nearest valid time that day. Null = nothing valid. */
+export function proposeAt(ctx: Context, appt: Appointment, branchId: string): Suggestion | null {
+  const start = toMinutes(appt.start);
+  const date = appt.date < ctx.today ? ctx.today : appt.date;
+  const staff = candidateStaff(ctx, branchId, date, appt.departments).sort((a, b) =>
+    a.id === appt.professionalId ? -1 : b.id === appt.professionalId ? 1 : 0
+  );
+  for (const s of staff) {
+    const ok = checkSlot(ctx, {
+      branchId,
+      staffId: s.id,
+      date,
+      start,
+      duration: appt.duration,
+      departments: appt.departments,
+      services: branchId === appt.branchId ? [] : appt.services,
+      excludeAppointmentId: appt.id,
+    }).ok;
+    if (ok) return { branchId, staffId: s.id, date, start, label: "", sameBranch: branchId === appt.branchId, sameDay: true };
+  }
+  return suggestAlternatives(ctx, appt, { branchIds: [branchId], days: 1, limit: 1 })[0] ?? null;
 }
