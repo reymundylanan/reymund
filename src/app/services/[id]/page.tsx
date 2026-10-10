@@ -7,6 +7,8 @@ import Footer from "@/components/Footer";
 import ServiceBookButton from "@/components/services/ServiceBookButton";
 import ServiceReviewsSection from "@/components/reviews/ServiceReviewsSection";
 import ServicePhotoStrip from "@/components/reviews/ServicePhotoStrip";
+import ServiceMediaGallery from "@/components/services/ServiceMediaGallery";
+import { getServiceMediaMap } from "@/lib/serviceMedia";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceImage } from "@/lib/serviceImage";
 import { signPublicReviewPhotos } from "@/lib/supabase/reviewPhotoUrls";
@@ -40,11 +42,12 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [summary, firstPage, photos, unreviewedVisit] = await Promise.all([
+  const [summary, firstPage, photos, unreviewedVisit, mediaMap] = await Promise.all([
     getServiceRatingSummary(supabase, id),
     getServiceReviewPage(supabase, signPublicReviewPhotos, id, "all", 0),
     getServicePhotoStrip(supabase, signPublicReviewPhotos, id),
     user ? getUnreviewedVisitForService(supabase, user.id, id) : Promise.resolve(null),
+    getServiceMediaMap(supabase, [{ id, name: service.name }]),
   ]);
 
   return (
@@ -91,6 +94,8 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
               </div>
             </div>
           </div>
+
+          <ServiceMediaGallery items={mediaMap[id] ?? []} title={service.name} />
 
           <div className="rounded-3xl bg-white p-8 shadow-sm">
             <h2 className="text-lg font-semibold text-ink">Customer Reviews</h2>

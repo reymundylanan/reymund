@@ -1,5 +1,6 @@
 "use client";
 
+import ServiceMediaManager from "@/components/admin/branches/ServiceMediaManager";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -1587,6 +1588,14 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                       className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral resize-none"
                     />
                   </div>
+
+                  {editing ? (
+                    <ServiceMediaManager serviceId={editing.id} serviceName={editing.name} />
+                  ) : (
+                    <p className="rounded-xl border border-dashed border-ink/15 p-3 text-xs text-ink/45">
+                      Photos &amp; videos: save the service first, then edit it to add them.
+                    </p>
+                  )}
 
 
                 </div>

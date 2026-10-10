@@ -4,8 +4,10 @@ import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Camera, ChevronLeft, Clock, Search, Star } from "lucide-react";
+import { ArrowRight, Camera, ChevronLeft, Clock, Images, Play, Search, Star } from "lucide-react";
 import PhotoLightbox from "@/components/reviews/PhotoLightbox";
+import MediaLightbox from "@/components/services/MediaLightbox";
+import type { ServiceMediaItem } from "@/lib/serviceMedia";
 import type { ServiceReviewSummary } from "@/lib/supabase/queries/serviceReviews";
 import { useBooking } from "@/components/booking/BookingContext";
 import SectionHeading from "@/components/SectionHeading";
@@ -88,6 +90,7 @@ export default function ServiceCatalog({
   services,
   ratings = {},
   photos = {},
+  media = {},
   promos = [],
 }: {
   services: DbService[];
@@ -95,9 +98,12 @@ export default function ServiceCatalog({
   promos?: GuidePromo[];
   /** Clients' review photos per service id (newest first). */
   photos?: Record<string, string[]>;
+  /** The spa's own photos and videos per service id (Admin → Branches & Services). */
+  media?: Record<string, ServiceMediaItem[]>;
 }) {
   const { open } = useBooking();
   const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
+  const [viewer, setViewer] = useState<{ items: ServiceMediaItem[]; title: string } | null>(null);
   const router = useRouter();
   const sectionRef = useRef<HTMLElement>(null);
   const searchParams = useSearchParams();
@@ -287,15 +293,39 @@ export default function ServiceCatalog({
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {group.map((svc) => (
             <div key={svc.id} data-guide-id={svc.id} className="group flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#a8843a]/10">
-              {/* Each card shows its category's photo; clients' own photos are in the strip below. */}
-              <div className="relative h-32 overflow-hidden">
-                <Image
-                  src={(CATEGORY_META[svc.category] ?? FALLBACK).image}
-                  alt=""
-                  fill
-                  className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                />
+              {/* The spa's own photo or video of this treatment, else its category's photo. */}
+              <div className={`relative overflow-hidden ${media[svc.id]?.length ? "h-44" : "h-32"}`}>
+                {media[svc.id]?.length ? (
+                  <button
+                    type="button"
+                    onClick={() => setViewer({ items: media[svc.id], title: svc.name })}
+                    aria-label={`View photos and videos of ${svc.name}`}
+                    className="absolute inset-0 cursor-pointer"
+                  >
+                    {media[svc.id][0].kind === "video" ? (
+                      <video src={`${media[svc.id][0].url}#t=0.5`} muted playsInline preload="metadata" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    ) : (
+                      <Image src={media[svc.id][0].url} alt="" fill unoptimized className="object-cover object-center transition-transform duration-500 group-hover:scale-105" />
+                    )}
+                    {media[svc.id].some((m) => m.kind !== "image") && (
+                      <span className="absolute left-1/2 top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-coral-dark shadow-lg ring-2 ring-white/60">
+                        <Play className="ml-0.5 h-5 w-5 fill-current" />
+                      </span>
+                    )}
+                    <span className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-semibold text-white">
+                      <Images className="h-3 w-3" /> {media[svc.id].length}
+                      {media[svc.id].some((m) => m.kind !== "image") ? " · Watch" : " · View"}
+                    </span>
+                  </button>
+                ) : (
+                  <Image
+                    src={(CATEGORY_META[svc.category] ?? FALLBACK).image}
+                    alt=""
+                    fill
+                    className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  />
+                )}
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white/70 via-transparent to-transparent" />
               </div>
               <div className="flex flex-1 flex-col gap-3 p-5">
@@ -411,6 +441,7 @@ export default function ServiceCatalog({
       ) : (
         <p className="mt-10 text-center text-ink/50">No treatments match your search.</p>
       )}
+      {viewer && <MediaLightbox items={viewer.items} title={viewer.title} onClose={() => setViewer(null)} />}
       {lightbox && (
         <PhotoLightbox photos={lightbox.photos.map((url) => ({ url }))} startIndex={lightbox.index} onClose={() => setLightbox(null)} />
       )}
