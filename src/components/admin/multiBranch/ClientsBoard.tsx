@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeftRight, ArrowRight, Bell, CalendarClock, ChevronDown, ChevronRight, Crown, FolderOpen, GripVertical, Home, Search, Wallet } from "lucide-react";
+import { ArrowLeftRight, ArrowRight, Bell, CalendarClock, ChevronDown, ChevronRight, Crown, FolderOpen, GripVertical, Home, Rows3, Search, Users, Wallet } from "lucide-react";
 import { formatDay, formatTime, isBranchActive, toMinutes, toTime, type ClientCard, type Context } from "@/lib/multiBranch/engine";
 import type { ClientBooking } from "@/lib/multiBranch/clientTransfer";
 import type { Channels } from "@/lib/multiBranch/channels";
@@ -9,6 +9,7 @@ import { Avatar, Badge, Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
 import { Empty } from "./BoardColumn";
 import { Panel, Side, type Done } from "./TransferPreview";
+import DayTimeline from "./DayTimeline";
 
 const NONE = "none";
 const peso = (n: number) => `₱${Math.round(n).toLocaleString()}`;
@@ -28,6 +29,7 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
   const [type, setType] = useState<"all" | "account" | "walkin" | "upcoming">("all");
   const [preview, setPreview] = useState<{ key: string; toBranchId: string | null } | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [sub, setSub] = useState<"branches" | "day">("branches");
 
   useEffect(() => {
     let alive = true;
@@ -84,8 +86,39 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
   const previewClient = preview ? clients?.find((c) => c.key === preview.key) : null;
   const total = clients?.length ?? 0;
 
+  const switcher = (
+    <div role="tablist" aria-label="Clients view" className="flex w-fit rounded-full bg-white p-1 shadow-sm">
+      {(
+        [
+          ["branches", "Clients by branch", Users],
+          ["day", "Day timeline", Rows3],
+        ] as const
+      ).map(([k, label, Icon]) => (
+        <button
+          key={k}
+          role="tab"
+          aria-selected={sub === k}
+          onClick={() => setSub(k)}
+          className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition ${sub === k ? "bg-coral text-white shadow-sm" : "text-ink/55 hover:text-ink"}`}
+        >
+          <Icon className="h-4 w-4" /> {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (sub === "day") {
+    return (
+      <div className="space-y-3">
+        {switcher}
+        <DayTimeline ctx={ctx} refreshKey={refreshKey} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
+      {switcher}
       <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 shadow-sm">
         <label className="flex min-w-[12rem] flex-1 items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/50 focus-within:border-coral">
           <Search className="h-4 w-4 shrink-0" />
