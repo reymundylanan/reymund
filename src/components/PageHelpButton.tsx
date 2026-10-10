@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogIn } from "lucide-react";
 import GlowMascot from "@/components/GlowMascot";
-import { GUIDE_FONTS, TypeText } from "@/components/guide/guideKit";
+import { GUIDE_FONTS, TypeText, useMascotSize } from "@/components/guide/guideKit";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { pageHelpFor } from "@/lib/pageHelp";
 
@@ -17,6 +17,7 @@ export default function PageHelpButton() {
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
   const help = pageHelpFor(pathname);
+  const mascotSize = useMascotSize();
 
   // Tap outside or press Escape to close.
   useEffect(() => {
@@ -36,7 +37,11 @@ export default function PageHelpButton() {
   return (
     <div ref={boxRef} className={`fixed bottom-6 right-6 z-[60] flex flex-col items-end ${GUIDE_FONTS}`}>
       {open && (
-        <div role="dialog" aria-label={`Help with the ${help.page} page`} className="guide-bubble glowy-pop mb-3 w-[min(22rem,calc(100vw-3rem))] origin-bottom-right">
+        <div role="dialog" aria-label={`Help with the ${help.page} page`} className="glowy-pop mb-3 flex origin-bottom-right items-end gap-1">
+          <span className="glowy-bob hidden shrink-0 drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] sm:block">
+            <GlowMascot size={mascotSize} full pose="present" face="happy" alive blink />
+          </span>
+          <div className="guide-bubble w-[min(22rem,calc(100vw-3rem))]">
           <div className="guide-bubble-inner space-y-2.5 p-4">
             <p className="guide-rise flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">
               <span aria-hidden className="guide-live-dot" />
@@ -65,6 +70,7 @@ export default function PageHelpButton() {
             >
               <LogIn className="h-3.5 w-3.5" /> Log in to ask GlowSync AI anything
             </button>
+          </div>
           </div>
         </div>
       )}

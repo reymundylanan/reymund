@@ -5,18 +5,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { CalendarPlus, Star } from "lucide-react";
 import GlowMascot from "@/components/GlowMascot";
-import { GUIDE_FONTS, TypeText } from "@/components/guide/guideKit";
+import { GUIDE_FONTS, MASCOT_DESKTOP, TypeText, useMascotSize } from "@/components/guide/guideKit";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchContacts } from "@/lib/data";
 import { staffFacts } from "@/lib/staffGuide";
 import type { PublicStaff } from "@/lib/supabase/queries/staffProfiles";
 
-const PANEL_W = 460;
+const PANEL_W = 600; // room for the full-size mascot beside the text
 
 /** Meet the Team: tap a team member and GlowSync AI introduces them — why
  * clients choose them, what they do — with Book and View Profile. */
 export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; categories: Record<string, string[]> }) {
   const { open } = useBooking();
+  const mascotSize = useMascotSize();
   const gridRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -33,11 +34,11 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
     if (!card) return setPos(null);
     const g = grid.getBoundingClientRect();
     const c = card.getBoundingClientRect();
-    const width = Math.min(PANEL_W, g.width);
+    const width = Math.min(mascotSize === MASCOT_DESKTOP ? PANEL_W : 460, g.width);
     const centre = c.left - g.left + c.width / 2;
     const left = Math.max(0, Math.min(centre - width / 2, g.width - width));
     setPos({ left, top: c.bottom - g.top + 10, arrow: centre - left, width });
-  }, [activeId]);
+  }, [activeId, mascotSize]);
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(place);
@@ -129,7 +130,7 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
             <div className="guide-bubble-inner flex gap-3 p-4">
               <div className="relative shrink-0 self-end">
                 <span className="glowy-bob block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)]">
-                  <GlowMascot size={128} full pose="present" face="excited" alive blink />
+                  <GlowMascot size={mascotSize} full pose="present" face="excited" alive blink />
                 </span>
                 <span aria-hidden className="guide-emote absolute -top-2 right-0 flex h-8 min-w-8 items-center justify-center rounded-full border border-[#d9b968] bg-white px-1.5 text-base leading-none shadow-md">
                   ✨

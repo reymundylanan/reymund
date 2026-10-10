@@ -7,6 +7,7 @@ import { useAssistantChat } from "@/lib/hooks/useAssistantChat";
 import GlowMascot from "@/components/GlowMascot";
 import { CHAT_OVERLAY_EVENT } from "@/components/promos/PromoSideAd";
 import { pageHelpFor, pageHelpMessage } from "@/lib/pageHelp";
+import { useMascotSize } from "@/components/guide/guideKit";
 
 const QUICK_REPLIES = ["What can I do on this page?", "Recommend a treatment", "Prices & promos", "Branch hours", "My bookings"];
 const PAGE_HELP_Q = "What can I do on this page?";
@@ -43,6 +44,7 @@ function Rays({ className = "" }: { className?: string }) {
 export default function ChatWidget({ firstName = null }: { firstName?: string | null }) {
   const router = useRouter();
   const pathname = usePathname() ?? "/";
+  const mascotSize = useMascotSize();
   const lines = greetingLines(firstName);
   const [open, setOpen] = useState(false);
   const [teaser, setTeaser] = useState(false);
@@ -201,7 +203,7 @@ export default function ChatWidget({ firstName = null }: { firstName?: string | 
 
       {/* Greeting card from the chat head. */}
       {teaser && !open && (
-        <div className="glowy-pop relative mb-4 mr-6 w-[calc(100vw-3rem)] max-w-[26rem] origin-bottom-right rounded-[2rem] bg-white p-4 shadow-2xl ring-1 ring-champagne/50">
+        <div className="glowy-pop relative mb-4 mr-6 w-[calc(100vw-3rem)] max-w-[30rem] origin-bottom-right rounded-[2rem] bg-white p-4 shadow-2xl ring-1 ring-champagne/50">
           <button
             onClick={dismissTeaser}
             aria-label="Dismiss"
@@ -211,9 +213,9 @@ export default function ChatWidget({ firstName = null }: { firstName?: string | 
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="relative shrink-0 rounded-full bg-gradient-to-br from-cream to-champagne/50 p-1">
-              <span className="glowy-bob">
-                <GlowMascot size={96} full />
+            <div className="relative shrink-0 rounded-[2rem] bg-gradient-to-br from-cream to-champagne/50 px-2 pt-2">
+              <span className="glowy-bob block">
+                <GlowMascot size={mascotSize} full alive blink />
               </span>
               <Rays className="-right-3 -top-1 h-8 w-8 -scale-x-100" />
             </div>

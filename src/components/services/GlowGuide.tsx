@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { ArrowDown, CalendarPlus, ChevronLeft, Gift, Loader2, MessageCircleQuestion, Send } from "lucide-react";
 import Link from "next/link";
-import { GUIDE_FONTS, TypeText } from "@/components/guide/guideKit";
+import { GUIDE_FONTS, MASCOT_DESKTOP, MASCOT_PHONE, mascotWidth, TypeText } from "@/components/guide/guideKit";
 import GlowMascot, { type MascotFace, type MascotPose } from "@/components/GlowMascot";
 import { useBooking } from "@/components/booking/BookingContext";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
@@ -734,7 +734,7 @@ export default function GlowGuide({
       <div data-guide-ui className={`guide-bubble guide-bubble-still mb-6 ${GUIDE_FONTS}`}>
         <div className="guide-bubble-inner flex items-start gap-3 p-4">
           <button type="button" onClick={tapMascot} aria-label="Ask GlowSync AI" className="shrink-0">
-            {mascot(112)}
+            {mascot(MASCOT_PHONE)}
           </button>
           <div key={`${item.id}-${mode}-${greeting}`} className="min-w-0 flex-1">{bubble}</div>
         </div>
@@ -745,8 +745,8 @@ export default function GlowGuide({
   // ── Desktop: the arrow reaches the card, then the mascot follows ──
   if (!layout) return null;
   const { card, containerWidth } = layout;
-  const MASCOT = 208; // height; the full body is 120 × 152
-  const MASCOT_W = Math.round((MASCOT * 120) / 152);
+  const MASCOT = MASCOT_DESKTOP;
+  const MASCOT_W = mascotWidth(MASCOT);
   const OVERLAP = 14; // only the star wand reaches over the card's edge
   const TUCK = Math.round(MASCOT_W * 0.5); // how much of the mascot stands on the bubble
   const BUBBLE_W = 290 + TUCK; // room for the mascot inside the bubble's edge
