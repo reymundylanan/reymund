@@ -2,8 +2,13 @@
 // character. They live in different parts of the page, so they talk through
 // window events.
 
-/** The guide is on screen (detail: boolean): the floating character steps aside. */
+/** The guide is on screen or not: the floating character flies to it, or back
+ * to its corner. detail: GuideActiveDetail. */
 export const GUIDE_ACTIVE_EVENT = "glowsync:guide-active";
+export type ScreenRect = { x: number; y: number; w: number; h: number };
+export type GuideActiveDetail = { active: boolean; /** where the guide's mascot is on screen (computers) */ rect: ScreenRect | null };
+/** How long the character's flight between the corner and the cards takes. */
+export const FLIGHT_MS = 900;
 /** The chat panel opened or closed (detail: boolean): the guide pauses while it's open. */
 export const CHAT_PANEL_EVENT = "glowsync:chat-panel";
 /** Open the chat about a topic (detail: { topic?: string }). Cancelled = the chat handled it. */

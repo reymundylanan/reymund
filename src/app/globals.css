@@ -262,6 +262,11 @@ body {
 .glowy-fly-in { animation: glowy-fly-in 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.1) both; }
 @media (prefers-reduced-motion: reduce) { .glowy-fly-in { animation: none; } }
 
+/* The Services guide mascot appears as the flying character lands on it */
+@keyframes guide-after-flight { 0%, 85% { opacity: 0; } 100% { opacity: 1; } }
+.guide-after-flight { animation: guide-after-flight 0.95s linear both; }
+@media (prefers-reduced-motion: reduce) { .guide-after-flight { animation: none; } }
+
 /* Hidden promo card: a small tab that slides in from the edge */
 @keyframes promo-tab-in { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
 .promo-tab-in { animation: promo-tab-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }

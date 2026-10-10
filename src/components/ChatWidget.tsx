@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -26,11 +26,11 @@ import { pageHelpMessage } from "@/lib/pageHelp";
 import { promoImage } from "@/lib/promoImage";
 import { createClient } from "@/lib/supabase/client";
 import { getActivePromotions, type ActivePromotion } from "@/lib/supabase/queries/publicContent";
-import { GUIDE_FONTS, useMascotSize } from "@/components/guide/guideKit";
+import { GUIDE_FONTS, mascotWidth, useMascotSize } from "@/components/guide/guideKit";
 import { MascotFigure, useMascotPlay } from "@/components/guide/MascotPlay";
 import { buildBriefing, buildBubbles, type BriefingData, type Bubble, type Reminder } from "@/lib/welcomeBriefing";
 import { loadWelcomeBriefing, spaToday } from "@/lib/supabase/queries/welcomeBriefing";
-import { CHAT_PANEL_EVENT, GUIDE_ACTIVE_EVENT, OPEN_CHAT_EVENT, announce } from "@/lib/glowEvents";
+import { CHAT_PANEL_EVENT, FLIGHT_MS, GUIDE_ACTIVE_EVENT, OPEN_CHAT_EVENT, announce, type GuideActiveDetail, type ScreenRect } from "@/lib/glowEvents";
 
 const PAGE_HELP_Q = "What can I do on this page?";
 // Bubbles play once per sign-in (session), can be turned off (device), never
@@ -101,26 +101,125 @@ function ThoughtBubble({ b, onOpen, lift }: { b: Bubble; onOpen: () => void; /**
   );
 }
 
-/** The small floating GlowSync character (default view). Tap to open the assistant. */
-function FloatingCharacter({ size, talking, onOpen }: { size: number; talking: boolean; onOpen: () => void }) {
+/** The floating GlowSync character (default view). Tap to open the assistant;
+ * drag it anywhere and it springs back to its corner when you let go. */
+function FloatingCharacter({
+  size,
+  talking,
+  onOpen,
+  onDragging,
+}: {
+  size: number;
+  talking: boolean;
+  onOpen: () => void;
+  onDragging: (dragging: boolean) => void;
+}) {
   const ref = useRef<HTMLButtonElement>(null);
   const play = useMascotPlay({ targetRef: ref });
+  const [offset, setOffset] = useState<{ x: number; y: number } | null>(null);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(false);
+
+  function down(e: ReactPointerEvent<HTMLButtonElement>) {
+    start.current = { x: e.clientX, y: e.clientY };
+    moved.current = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function move(e: ReactPointerEvent<HTMLButtonElement>) {
+    const s = start.current;
+    if (!s) return play.rub(e);
+    const dx = e.clientX - s.x, dy = e.clientY - s.y;
+    if (!moved.current && Math.hypot(dx, dy) < 6) return;
+    if (!moved.current) {
+      moved.current = true;
+      onDragging(true);
+    }
+    setOffset({ x: dx, y: dy });
+  }
+  function up() {
+    start.current = null;
+    if (!moved.current) return;
+    // Spring back home, a little giggle on landing.
+    setOffset(null);
+    onDragging(false);
+    window.setTimeout(() => play.emote([{ face: "giggle", emote: "♪", ms: 1200 }]), 500);
+  }
+
   return (
     <button
       ref={ref}
       type="button"
-      aria-label="Open GlowSync AI"
+      aria-label="Open GlowSync AI (you can also drag me)"
       onClick={() => {
+        if (moved.current) {
+          moved.current = false; // that was a drag, not a tap
+          return;
+        }
         play.tap();
         onOpen();
       }}
-      onPointerMove={play.rub}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={up}
       onPointerEnter={play.hover}
-      className="relative block rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a]"
+      style={{
+        transform: offset ? `translate(${offset.x}px, ${offset.y}px) rotate(${Math.max(-12, Math.min(12, offset.x / 18))}deg)` : "none",
+        transition: offset ? "none" : "transform 650ms cubic-bezier(0.3, 1.45, 0.5, 1)",
+        touchAction: "none",
+      }}
+      className={`relative block rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a] ${offset ? "cursor-grabbing" : "cursor-grab"}`}
     >
       <span aria-hidden className="pointer-events-none absolute inset-x-2 bottom-2 top-6 rounded-full bg-[radial-gradient(circle,rgba(255,214,140,0.45),transparent_70%)]" />
-      <MascotFigure play={play} size={size} pose={talking ? "wave" : "present"} talking={talking} />
+      <MascotFigure
+        play={play}
+        size={size}
+        pose={offset ? "fly" : talking ? "wave" : "present"}
+        face={offset ? "surprised" : undefined}
+        emote={offset ? "!" : undefined}
+        motion={offset ? "guide-moving" : undefined}
+        talking={talking}
+      />
     </button>
+  );
+}
+
+type Flight = { id: number; from: ScreenRect; to: ScreenRect };
+
+/** The character flying between its corner and the Services guide, along an arc. */
+function Flyer({ flight, size, onDone }: { flight: Flight; size: number; onDone: () => void }) {
+  const [go, setGo] = useState(false);
+  useEffect(() => {
+    let r2 = 0;
+    const r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => setGo(true));
+    });
+    const t = window.setTimeout(onDone, FLIGHT_MS + 80);
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+      window.clearTimeout(t);
+    };
+  }, [onDone]);
+  const p = go ? flight.to : flight.from;
+  const scale = go ? flight.to.h / size : flight.from.h / size;
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed left-0 top-0 z-[59]"
+      style={{ transform: `translateX(${p.x}px)`, transition: `transform ${FLIGHT_MS}ms cubic-bezier(0.45, 0, 0.25, 1)` }}
+    >
+      {/* A different easing up/down than left/right draws a gentle arc. */}
+      <div style={{ transform: `translateY(${p.y}px)`, transition: `transform ${FLIGHT_MS}ms cubic-bezier(0.3, -0.45, 0.45, 1)` }}>
+        <div style={{ transform: `scale(${scale})`, transformOrigin: "top left", transition: `transform ${FLIGHT_MS}ms ease-in-out` }}>
+          <span className="guide-moving relative block drop-shadow-[0_14px_16px_rgba(120,90,30,0.3)]">
+            <GlowMascot size={size} full pose="fly" face="excited" />
+            <span className="guide-sparkle absolute -left-3 top-1/2 text-lg">✨</span>
+            <span className="guide-sparkle absolute -left-6 top-1/3 text-sm [animation-delay:150ms]">✨</span>
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -237,6 +336,14 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
   // On the Services page the guide on the cards *is* GlowSync AI: while it's on
   // screen this character steps aside (and flies back when it isn't).
   const [guideActive, setGuideActive] = useState(false);
+  const [flight, setFlight] = useState<Flight | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const endFlight = useCallback(() => setFlight(null), []);
+  // Where the character sits in its corner (matches the wrapper's bottom/right spacing).
+  const cornerRect = useCallback((): ScreenRect => {
+    const w = mascotWidth(mascotSize), h = mascotSize, gap = window.innerWidth >= 640 ? 16 : 12;
+    return { x: window.innerWidth - gap - w, y: window.innerHeight - gap - h, w, h };
+  }, [mascotSize]);
   // The service the client is asking about (from the guide's "Ask a question").
   const [topic, setTopic] = useState<string | null>(null);
   const who = userId ?? "guest";
@@ -294,10 +401,20 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
     const promo = promos.find((p) => !seenPromos.includes(p.id)) ?? null;
     return buildBubbles({ firstName, reminders, pointsGained: gained, promo: promo && { id: promo.id, title: promo.title } });
   }, [userId, reminders, briefing, promos, lastPoints, seenPromos, firstName]);
-  const bubble = !open && !guideActive && !bubblesOff && !alreadyShown ? bubbles[bubbleIdx] ?? null : null;
+  const bubble = !open && !guideActive && !flight && !dragging && !bubblesOff && !alreadyShown ? bubbles[bubbleIdx] ?? null : null;
 
   useEffect(() => {
-    const onGuide = (e: Event) => setGuideActive(Boolean((e as CustomEvent<boolean>).detail));
+    const onGuide = (e: Event) => {
+      const d = (e as CustomEvent<GuideActiveDetail>).detail;
+      setGuideActive((was) => {
+        // Fly between the corner and the guide (computers, when motion is welcome).
+        if (was !== d.active && d.rect && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          const corner = cornerRect();
+          setFlight({ id: Date.now(), from: d.active ? corner : d.rect, to: d.active ? d.rect : corner });
+        }
+        return d.active;
+      });
+    };
     const onOpenChat = (e: Event) => {
       e.preventDefault(); // tells the guide the chat handled it
       const t = (e as CustomEvent<{ topic?: string }>).detail?.topic;
@@ -310,7 +427,7 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
       window.removeEventListener(GUIDE_ACTIVE_EVENT, onGuide);
       window.removeEventListener(OPEN_CHAT_EVENT, onOpenChat);
     };
-  }, []);
+  }, [cornerRect]);
 
   // Tell the guide when the chat opens or closes.
   useEffect(() => {
@@ -553,9 +670,10 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
       )}
 
       {/* Default view: just the small GlowSync character, with a thought bubble now and then. */}
-      <div key={guideActive ? "away" : "here"} className={`flex items-end gap-1 ${open || guideActive ? "hidden" : "glowy-fly-in"}`}>
+      {flight && !open && <Flyer key={flight.id} flight={flight} size={mascotSize} onDone={endFlight} />}
+      <div className={`flex items-end gap-1 ${open ? "hidden" : guideActive || flight ? "invisible" : ""}`}>
         {bubble && <ThoughtBubble b={bubble} onOpen={finishBubbles} lift={Math.round(mascotSize * 0.48)} />}
-        <FloatingCharacter size={mascotSize} talking={!!bubble} onOpen={toggle} />
+        <FloatingCharacter size={mascotSize} talking={!!bubble} onOpen={toggle} onDragging={setDragging} />
       </div>
     </div>
   );

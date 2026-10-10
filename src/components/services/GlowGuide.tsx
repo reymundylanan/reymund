@@ -10,7 +10,7 @@ import { useBooking } from "@/components/booking/BookingContext";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import type { GuideFacts } from "@/lib/glowGuide";
-import { CHAT_PANEL_EVENT, GUIDE_ACTIVE_EVENT, announce, requestChat } from "@/lib/glowEvents";
+import { CHAT_PANEL_EVENT, GUIDE_ACTIVE_EVENT, announce, requestChat, type GuideActiveDetail } from "@/lib/glowEvents";
 
 /** GlowSync Guide: an arrow tours the service cards and the GlowSync
  * mascot flies to each one to introduce it. Hovering a card makes the guide
@@ -163,9 +163,14 @@ export default function GlowGuide({
     };
   }, [containerRef]);
   useEffect(() => {
-    announce(GUIDE_ACTIVE_EVENT, onStage && !minimized);
-  }, [onStage, minimized]);
-  useEffect(() => () => announce(GUIDE_ACTIVE_EVENT, false), []);
+    const r = mascotRef.current?.getBoundingClientRect();
+    const detail: GuideActiveDetail = {
+      active: onStage && !minimized,
+      rect: wide && r && r.width > 0 ? { x: r.left, y: r.top, w: r.width, h: r.height } : null,
+    };
+    announce(GUIDE_ACTIVE_EVENT, detail);
+  }, [onStage, minimized, wide]);
+  useEffect(() => () => announce(GUIDE_ACTIVE_EVENT, { active: false, rect: null } satisfies GuideActiveDetail), []);
   useEffect(() => {
     const onPanel = (e: Event) => setChatOpen(Boolean((e as CustomEvent<boolean>).detail));
     window.addEventListener(CHAT_PANEL_EVENT, onPanel);
@@ -680,7 +685,9 @@ export default function GlowGuide({
         className="guide-fly absolute left-0 top-0 z-40 rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a]"
         style={{ transform: `translate(${mascotX}px, ${mascotY}px)`, ...follow }}
       >
-        {mascot(MASCOT, side === "right")}
+        <span key={onStage ? "landed" : "away"} className={onStage ? "guide-after-flight block" : "block"}>
+          {mascot(MASCOT, side === "right")}
+        </span>
       </button>
     </>
   );
