@@ -14,7 +14,7 @@ export default function StaffLoginForm({
   onForgot,
 }: {
   onSuccess?: () => void;
-  /** Gate on the Terms checkbox when shown in LoginModal. */
+  /** Optional check before logging in. */
   canProceed?: () => boolean;
   /** "Exclusive offers" opt-in from LoginModal. */
   offers?: boolean;

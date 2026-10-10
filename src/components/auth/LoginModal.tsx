@@ -8,20 +8,9 @@ import StaffLoginForm from "@/components/auth/StaffLoginForm";
 import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 
 export default function LoginModal({ onClose }: { onClose: () => void }) {
-  const [agreed, setAgreed] = useState(false);
   const [offers, setOffers] = useState(false);
-  // Shown when someone tries to log in before ticking the Terms box.
-  const [nudge, setNudge] = useState(false);
   // "Forgot password?" swaps the login options for the reset form.
   const [forgot, setForgot] = useState(false);
-
-  /** Every login option checks this first: no login until the Terms are accepted. */
-  function requireAgreement() {
-    if (agreed) return true;
-    setNudge(true);
-    document.getElementById("login-agreement")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    return false;
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -47,7 +36,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
             <ForgotPasswordForm onBack={() => setForgot(false)} />
           ) : (
             <>
-              <StaffLoginForm onSuccess={onClose} canProceed={requireAgreement} offers={offers} onForgot={() => setForgot(true)} />
+              <StaffLoginForm onSuccess={onClose} offers={offers} onForgot={() => setForgot(true)} />
 
               <div className="my-6 flex items-center gap-3 text-xs text-ink/40">
                 <span className="h-px flex-1 bg-ink/15" />
@@ -55,42 +44,9 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
                 <span className="h-px flex-1 bg-ink/15" />
               </div>
 
-              <LoginCard canProceed={requireAgreement} offers={offers} />
+              <LoginCard offers={offers} />
 
-              <div
-                id="login-agreement"
-                className={`mt-6 space-y-2 rounded-2xl p-3 text-xs text-ink/60 transition ${
-                  nudge && !agreed ? "bg-red-50 ring-1 ring-red-300" : ""
-                }`}
-              >
-                <label className="flex cursor-pointer items-start gap-2">
-                  <input
-                    type="checkbox"
-                    checked={agreed}
-                    onChange={(e) => {
-                      setAgreed(e.target.checked);
-                      if (e.target.checked) setNudge(false);
-                    }}
-                    aria-invalid={nudge && !agreed}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink/20 accent-coral"
-                  />
-                  <span>
-                    I agree to the{" "}
-                    <Link href="/terms" target="_blank" className="font-medium text-coral-dark underline-offset-2 hover:underline">
-                      Terms of Service
-                    </Link>{" "}
-                    and{" "}
-                    <Link href="/privacy" target="_blank" className="font-medium text-coral-dark underline-offset-2 hover:underline">
-                      Privacy Policy
-                    </Link>
-                    . <span className="text-red-500">*</span>
-                  </span>
-                </label>
-                {nudge && !agreed && (
-                  <p role="alert" className="pl-6 font-medium text-red-600">
-                    Please agree to the Terms of Service and Privacy Policy to log in.
-                  </p>
-                )}
+              <div className="mt-6 space-y-3 px-3 text-xs text-ink/60">
                 <label className="flex cursor-pointer items-start gap-2">
                   <input
                     type="checkbox"
@@ -100,6 +56,17 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
                   />
                   <span>I&apos;d like to receive exclusive offers and beauty trends from GlowSync. (optional)</span>
                 </label>
+                <p className="text-center text-ink/45">
+                  By continuing, you agree to our{" "}
+                  <Link href="/terms" target="_blank" className="font-medium text-coral-dark underline-offset-2 hover:underline">
+                    Terms of Service
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="/privacy" target="_blank" className="font-medium text-coral-dark underline-offset-2 hover:underline">
+                    Privacy Policy
+                  </Link>
+                  .
+                </p>
               </div>
             </>
           )}

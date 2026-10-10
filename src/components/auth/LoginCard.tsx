@@ -4,8 +4,8 @@ import { useState } from "react";
 import { FacebookCircleIcon, GoogleIcon } from "@/components/icons/SocialIcons";
 import { createClient } from "@/lib/supabase/client";
 
-/** Google / Facebook login. `canProceed` gates it on the Terms checkbox
- * (in LoginModal). */
+/** Google / Facebook login. `canProceed` can gate it on a check first
+ * (optional). */
 export default function LoginCard({
   canProceed = () => true,
   offers = false,
