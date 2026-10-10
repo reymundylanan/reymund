@@ -18,7 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAssistantChat, type ServiceRecommendation } from "@/lib/hooks/useAssistantChat";
-import GlowMascot, { type MascotFace, type MascotPose } from "@/components/GlowMascot";
+import GlowMascot, { type MascotFace } from "@/components/GlowMascot";
 import { CHAT_OVERLAY_EVENT } from "@/components/promos/PromoSideAd";
 import BookPromoButton from "@/components/promos/BookPromoButton";
 import { useBooking } from "@/components/booking/BookingContext";
@@ -26,8 +26,8 @@ import { pageHelpMessage } from "@/lib/pageHelp";
 import { promoImage } from "@/lib/promoImage";
 import { createClient } from "@/lib/supabase/client";
 import { getActivePromotions, type ActivePromotion } from "@/lib/supabase/queries/publicContent";
-import { GUIDE_FONTS, MASCOT_PHONE, useMascotSize } from "@/components/guide/guideKit";
-import { MascotFigure, PlayfulMascot, useMascotPlay } from "@/components/guide/MascotPlay";
+import { GUIDE_FONTS, useMascotSize } from "@/components/guide/guideKit";
+import { MascotFigure, useMascotPlay } from "@/components/guide/MascotPlay";
 import { buildBriefing, buildBubbles, type BriefingData, type Bubble, type Reminder } from "@/lib/welcomeBriefing";
 import { loadWelcomeBriefing, spaToday } from "@/lib/supabase/queries/welcomeBriefing";
 
@@ -69,7 +69,7 @@ export function TypingDots() {
 }
 
 /** A thought bubble beside the floating character: one short, real update. */
-function ThoughtBubble({ b, onOpen }: { b: Bubble; onOpen: () => void }) {
+function ThoughtBubble({ b, onOpen, lift }: { b: Bubble; onOpen: () => void; /** px above the floor, beside the character's head */ lift: number }) {
   const body = (
     <>
       <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#fff6e6] text-lg ring-1 ring-[#f1dfb6]">
@@ -83,15 +83,15 @@ function ThoughtBubble({ b, onOpen }: { b: Bubble; onOpen: () => void }) {
       )}
     </>
   );
-  const cls = `glowy-pop relative mb-16 flex w-[min(17rem,calc(100vw-9rem))] origin-bottom-right items-center gap-2.5 rounded-[22px] bg-white px-3 py-2.5 text-left shadow-[0_18px_36px_-18px_rgba(168,132,58,0.7)] ring-2 ${b.important ? "ring-[#e8c766]" : "ring-[#f0dfc0]"} transition hover:-translate-y-0.5`;
+  const cls = `glowy-pop relative flex w-[min(17rem,calc(100vw-9rem))] origin-bottom-right items-center gap-2.5 rounded-[22px] bg-white px-3 py-2.5 text-left shadow-[0_18px_36px_-18px_rgba(168,132,58,0.7)] ring-2 ${b.important ? "ring-[#e8c766]" : "ring-[#f0dfc0]"} transition hover:-translate-y-0.5`;
   return (
     <div role="status" aria-live="polite" key={b.key} className="relative">
       {b.href ? (
-        <Link href={b.href} onClick={onOpen} className={cls}>
+        <Link href={b.href} onClick={onOpen} className={cls} style={{ marginBottom: lift }}>
           {body}
         </Link>
       ) : (
-        <div className={cls}>{body}</div>
+        <div className={cls} style={{ marginBottom: lift }}>{body}</div>
       )}
       {/* Thought-bubble dots toward the character */}
       <span aria-hidden className="absolute bottom-12 right-1 h-3 w-3 rounded-full bg-white ring-2 ring-[#f0dfc0]" />
@@ -130,7 +130,7 @@ function ReminderRow({ r, onGo, compact = false }: { r: Reminder; onGo: () => vo
     <Link
       href={r.href}
       onClick={onGo}
-      className={`group flex items-center gap-3 rounded-2xl px-3 ${compact ? "py-2" : "py-2.5"} ring-1 transition hover:-translate-y-0.5 hover:shadow-md ${
+      className={`group flex items-center gap-2.5 rounded-2xl px-3 ${compact ? "py-1.5" : "py-2.5"} ring-1 transition hover:-translate-y-0.5 hover:shadow-md ${
         urgent ? "bg-gradient-to-r from-[#fff4dc] to-[#fff0f7] ring-[#e8c766]" : "bg-white ring-[#efdcc6]"
       }`}
     >
@@ -139,7 +139,7 @@ function ReminderRow({ r, onGo, compact = false }: { r: Reminder; onGo: () => vo
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[13px] font-bold leading-snug text-ink">{r.title}</span>
-        <span className={`block text-xs leading-snug text-ink/60 ${compact ? "line-clamp-1" : "line-clamp-2"}`}>{r.detail}</span>
+        <span className={`text-xs leading-snug text-ink/60 ${compact ? "line-clamp-1" : "line-clamp-2"}`}>{r.detail}</span>
       </span>
       <span className="flex shrink-0 items-center gap-0.5 text-[11px] font-bold text-[#a97c1c]">
         {!compact && r.cta}
@@ -370,7 +370,6 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
 
   // The mascot's state: welcoming, thinking, recommending or celebrating a booking.
   const headFace: MascotFace = booking ? "love" : sending ? "think" : recommending ? "excited" : "happy";
-  const pose: MascotPose = booking ? "love" : sending ? "think" : recommending ? "present" : "wave";
   const status = booking ? "Booking it for you 💖" : sending ? "Thinking…" : recommending ? "Here's what I recommend" : "Your beauty concierge · Online";
 
   return (
@@ -379,7 +378,7 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
         <div
           role="dialog"
           aria-label="GlowSync AI beauty concierge"
-          className="glowy-pop fixed inset-0 z-[61] flex origin-bottom-right flex-col overflow-hidden bg-[#fffaf5] sm:static sm:mb-3 sm:h-[40rem] sm:max-h-[calc(100vh-7rem)] sm:w-[26rem] sm:rounded-[28px] sm:shadow-2xl sm:ring-1 sm:ring-[#e8d3a8]"
+          className="glowy-pop fixed inset-0 z-[61] flex origin-bottom-right flex-col overflow-hidden bg-[#fffaf5] sm:static sm:h-[min(38rem,calc(100dvh-2rem))] sm:w-[24rem] sm:rounded-[28px] sm:shadow-2xl sm:ring-1 sm:ring-[#e8d3a8]"
           style={{ fontFamily: "var(--font-guide-body), system-ui, sans-serif" }}
         >
           {/* Header */}
@@ -400,16 +399,16 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
             </button>
           </div>
 
-          <div ref={containerRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-y-contain scrollbar-hidden px-4 pb-4 pt-3">
+          <div ref={containerRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain scrollbar-hidden px-3.5 pb-4 pt-3">
             {/* Welcome: the mascot itself, not a chat bubble with an avatar pasted on */}
-            <section className="flex items-end gap-2 rounded-3xl bg-gradient-to-br from-white via-[#fff8ee] to-[#fdf0f7] p-3 ring-1 ring-[#efdcc6]">
-              <div className="relative shrink-0">
-                <PlayfulMascot size={mascotSize} pose={pose} face={sending ? "think" : undefined} emote={sending ? "…" : undefined} talking={sending} label="Play with GlowSync AI" />
-              </div>
-              <div className="min-w-0 flex-1 pb-1">
-                <p className="guide-display guide-title text-[18px] leading-tight">Hi{firstName ? ` ${firstName}` : " there"}! 👋</p>
-                <p className="mt-1 text-[13px] font-semibold leading-snug text-ink/75">
-                  I&apos;m your beauty concierge ✨ Tell me your skin, hair or body goal — or tap one below.
+            <section className="flex items-center gap-3 rounded-2xl bg-gradient-to-br from-white via-[#fff8ee] to-[#fdf0f7] p-3 ring-1 ring-[#efdcc6]">
+              <span className="glowy-bob flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#fff4d6] to-[#f8e2ef] ring-2 ring-[#ecd39a]">
+                <GlowMascot size={54} face={headFace} talking={sending} blink />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="guide-display guide-title text-[17px] leading-tight">Hi{firstName ? ` ${firstName}` : " there"}! 👋</p>
+                <p className="mt-0.5 text-[12.5px] font-semibold leading-snug text-ink/70">
+                  I&apos;m your beauty concierge ✨ Tell me your goal, or tap one below.
                 </p>
               </div>
             </section>
@@ -417,7 +416,7 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
             {reminders && reminders.length > 0 && (
               <section aria-label="Your reminders" className="space-y-2">
                 <p className="px-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">Your reminders</p>
-                {reminders.slice(0, 3).map((r) => (
+                {reminders.slice(0, 2).map((r) => (
                   <ReminderRow key={r.kind} r={r} compact onGo={() => setOpen(false)} />
                 ))}
               </section>
@@ -431,9 +430,9 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
                   type="button"
                   onClick={run}
                   disabled={sending}
-                  className="flex flex-col items-center gap-1.5 rounded-2xl bg-white px-1.5 py-2.5 text-center text-[11.5px] font-bold leading-tight text-ink/80 shadow-sm ring-1 ring-[#efdcc6] transition hover:-translate-y-0.5 hover:ring-[#d9b968] disabled:opacity-50"
+                  className="flex flex-col items-center gap-1 rounded-2xl bg-white px-1 py-2 text-center text-[11px] font-bold leading-tight text-ink/80 shadow-sm ring-1 ring-[#efdcc6] transition hover:-translate-y-0.5 hover:ring-[#d9b968] disabled:opacity-50"
                 >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#f6dc8e] to-[#d4a537] text-white shadow-sm">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-[#f6dc8e] to-[#d4a537] text-white shadow-sm">
                     <Icon className="h-4 w-4" />
                   </span>
                   {label}
@@ -516,9 +515,9 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
       )}
 
       {/* Default view: just the small GlowSync character, with a thought bubble now and then. */}
-      <div className={`flex items-end gap-1 ${open ? "hidden sm:flex" : ""}`}>
-        {bubble && <ThoughtBubble b={bubble} onOpen={finishBubbles} />}
-        <FloatingCharacter size={mascotSize === MASCOT_PHONE ? 88 : MASCOT_PHONE} talking={!!bubble} onOpen={toggle} />
+      <div className={`flex items-end gap-1 ${open ? "hidden" : ""}`}>
+        {bubble && <ThoughtBubble b={bubble} onOpen={finishBubbles} lift={Math.round(mascotSize * 0.48)} />}
+        <FloatingCharacter size={mascotSize} talking={!!bubble} onOpen={toggle} />
       </div>
     </div>
   );
