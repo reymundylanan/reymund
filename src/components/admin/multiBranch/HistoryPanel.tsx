@@ -8,7 +8,7 @@ import { Badge, Spinner, postJson, type Tone } from "./ui";
 type Delivery = { channel: string; status: string; error: string | null; at: string | null };
 export type HistoryEntry = {
   id: string;
-  transfer_type: "appointment_move" | "staff_temporary" | "staff_permanent" | "service_availability" | "client_transfer";
+  transfer_type: "appointment_move" | "staff_temporary" | "staff_permanent" | "service_availability" | "client_transfer" | "walkin_transfer";
   status: "completed" | "undone";
   appointment_id: string | null;
   staff_member_id: string | null;
@@ -40,6 +40,7 @@ const TYPE_LABEL: Record<HistoryEntry["transfer_type"], string> = {
   staff_permanent: "Staff moved (permanent)",
   service_availability: "Service availability",
   client_transfer: "Client transferred",
+  walkin_transfer: "Walk-in transferred",
 };
 
 const DELIVERY_TONE: Record<string, Tone> = { sent: "green", pending: "amber", sending: "amber", failed: "red", skipped: "gray" };
@@ -173,6 +174,8 @@ export default function HistoryPanel({
           const who =
             e.transfer_type === "appointment_move"
               ? `${e.clientName ?? "Walk-in"}${e.bookingCode ? ` · #${e.bookingCode}` : ""}`
+              : e.transfer_type === "walkin_transfer"
+                ? `${String(e.next.client ?? e.clientName ?? "Walk-in")}${e.next.booking ? ` · #${String(e.next.booking)}` : ""}`
               : e.transfer_type === "service_availability"
                 ? String(e.next.service ?? "Service")
                 : e.transfer_type === "client_transfer"
@@ -193,7 +196,7 @@ export default function HistoryPanel({
                     {e.transfer_type === "service_availability"
                       ? `${String(e.previous.branch ?? "")}: ${String(e.previous.status ?? "")} → ${String(e.next.status ?? "")}`
                       : `${branchName(e.from_branch_id)} → ${branchName(e.to_branch_id)}`}
-                    {e.transfer_type === "appointment_move" && ` · ${schedule(e.from_date, e.from_time)} → ${schedule(e.to_date, e.to_time)}`}
+                    {(e.transfer_type === "appointment_move" || e.transfer_type === "walkin_transfer") && ` · ${schedule(e.from_date, e.from_time)} → ${schedule(e.to_date, e.to_time)}`}
                     {e.transfer_type === "staff_temporary" && e.dates && ` · ${e.dates.length} day${e.dates.length === 1 ? "" : "s"}`}
                   </span>
                   <span className="block text-xs text-ink/40">
@@ -217,7 +220,7 @@ export default function HistoryPanel({
                         .join(" · ")}
                     </p>
                   )}
-                  {e.transfer_type === "appointment_move" && (
+                  {(e.transfer_type === "appointment_move" || e.transfer_type === "walkin_transfer") && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
                       <b className="text-ink/70">Client notification:</b>
                       {e.delivery.length === 0 && <span className="text-ink/50">None (walk-in without an account)</span>}
@@ -229,7 +232,7 @@ export default function HistoryPanel({
                       ))}
                     </div>
                   )}
-                  {e.status === "completed" && e.transfer_type !== "service_availability" && !e.undo_of && (
+                  {e.status === "completed" && e.transfer_type !== "service_availability" && e.transfer_type !== "walkin_transfer" && !e.undo_of && (
                     <button
                       onClick={() => undo(e)}
                       disabled={undoing === e.id}

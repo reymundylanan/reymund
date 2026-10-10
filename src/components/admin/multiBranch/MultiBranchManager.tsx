@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowLeftRight,
   Building2,
+  Footprints,
   CalendarClock,
   GripVertical,
   History,
@@ -45,13 +46,23 @@ import HistoryPanel from "./HistoryPanel";
 import ClientsBoard from "./ClientsBoard";
 import { Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
+import { WalkinTransferCard } from "./BoardColumn";
+import type { WalkinTransferItem } from "@/lib/multiBranch/walkinServer";
 
-type Board = { context: Context; conflicts: Conflict[]; pendingTransferRequests: number; migrated: boolean };
+type Board = { context: Context; conflicts: Conflict[]; pendingTransferRequests: number; migrated: boolean; walkinTransfers?: WalkinTransferItem[] };
 type Preview = { kind: "appointment"; id: string; branchId: string | null } | { kind: "staff"; id: string; toBranchId: string | null };
-type Filters = { branch: string; staff: string; service: string; appt: string; availability: string; q: string };
+type Filters = { branch: string; staff: string; service: string; appt: string; availability: string; transfer: string; q: string };
 
 const NEEDS = "needs";
-const EMPTY_FILTERS: Filters = { branch: "all", staff: "all", service: "all", appt: "all", availability: "all", q: "" };
+const EMPTY_FILTERS: Filters = { branch: "all", staff: "all", service: "all", appt: "all", availability: "all", transfer: "all", q: "" };
+// Transfer-status filter → walk-in transfer states.
+const TRANSFER_STATES: Record<string, string[]> = {
+  pending: ["waiting", "awaiting"],
+  confirmed: ["confirmed", "expected"],
+  active: ["checked_in", "in_service"],
+  completed: ["completed"],
+  cancelled: ["cancelled", "no_show"],
+};
 const AVAILABLE = new Set(["available", "scheduled", "partial_off"]);
 const BUSY = new Set(["in_service", "on_break"]);
 
@@ -106,7 +117,7 @@ export default function MultiBranchManager() {
       }, 700);
     };
     const channel = supabase.channel("admin-multi-branch");
-    for (const table of ["appointments", "staff_members", "staff_shifts", "staff_attendance", "branch_transfer_requests", "branch_services", "branch_transfer_log", "profiles"]) {
+    for (const table of ["appointments", "staff_members", "staff_shifts", "staff_attendance", "branch_transfer_requests", "branch_services", "branch_transfer_log", "profiles", "walkin_transfers"]) {
       channel.on("postgres_changes", { event: "*", schema: "public", table }, refresh);
     }
     channel.subscribe();
@@ -164,8 +175,25 @@ export default function MultiBranchManager() {
 
   const branches = useMemo(() => (ctx?.branches ?? []).filter((b) => filters.branch === "all" || b.id === filters.branch), [ctx, filters.branch]);
 
+  // Walk-in transfers (migration 077): cards on the board, filtered like the rest.
+  const walkins = useMemo(() => board?.walkinTransfers ?? [], [board]);
+  const walkinMatches = useCallback(
+    (w: WalkinTransferItem) => {
+      if (filters.transfer !== "all" && !(TRANSFER_STATES[filters.transfer] ?? []).includes(w.state.key)) return false;
+      if (filters.staff !== "all" && w.professional_id !== filters.staff) return false;
+      if (filters.service !== "all" && !w.services.some((s) => s.name === filters.service)) return false;
+      const q = filters.q.trim().toLowerCase();
+      return !q || `${w.walkin_name} ${w.walkin_phone ?? ""} ${w.bookingCode ?? ""} ${w.staffName ?? ""} ${w.services.map((s) => s.name).join(" ")}`.toLowerCase().includes(q);
+    },
+    [filters]
+  );
+  const pendingWalkins = useMemo(
+    () => walkins.filter((w) => (w.status === "waiting_availability" || w.status === "awaiting_approval") && (filters.branch === "all" || w.origin_branch_id === filters.branch) && walkinMatches(w)),
+    [walkins, filters.branch, walkinMatches]
+  );
+
   const columnData = useMemo(() => {
-    if (!ctx) return new Map<string, { staff: Staff[]; appointments: Appointment[]; stats: ColumnStats }>();
+    if (!ctx) return new Map<string, { staff: Staff[]; appointments: Appointment[]; walkins: WalkinTransferItem[]; stats: ColumnStats }>();
     return new Map(
       branches.map((b) => {
         const here = ctx.staff.filter((s) => presence(ctx, s.id, b.id, date));
@@ -180,18 +208,25 @@ export default function MultiBranchManager() {
           openSlots: isBranchActive(b) ? openSlotCount(ctx, b.id, date) : 0,
           appointments: dayAppts.length,
           conflicts: dayAppts.filter((a) => conflicts.has(a.id)).length,
+          incoming:
+            ctx.lends.filter((l) => l.branchId === b.id && l.dates.includes(date)).length +
+            walkins.filter((w) => w.dest_branch_id === b.id && w.proposed_date === date && w.status === "confirmed").length,
+          outgoing:
+            ctx.lends.filter((l) => l.dates.includes(date) && ctx.staff.find((s) => s.id === l.staffId)?.branchId === b.id).length +
+            walkins.filter((w) => w.origin_branch_id === b.id && w.dest_branch_id !== b.id && w.proposed_date === date && w.status === "confirmed").length,
         };
         return [
           b.id,
           {
             staff: here.filter((s) => staffMatches(s, b.id)),
             appointments: dayAppts.filter(apptMatches).sort((x, y) => toMinutes(x.start) - toMinutes(y.start)),
+            walkins: walkins.filter((w) => w.status === "confirmed" && w.dest_branch_id === b.id && w.proposed_date === date && walkinMatches(w)),
             stats,
           },
         ];
       })
     );
-  }, [ctx, branches, date, conflicts, staffMatches, apptMatches]);
+  }, [ctx, branches, date, conflicts, staffMatches, apptMatches, walkins, walkinMatches]);
 
   const needs = useMemo(
     () =>
@@ -220,8 +255,9 @@ export default function MultiBranchManager() {
       slots: [...columnData.values()].reduce((n, c) => n + c.stats.openSlots, 0),
       needs: board?.conflicts.length ?? 0,
       pending: board?.pendingTransferRequests ?? 0,
+      pendingWalkins: walkins.filter((w) => w.status === "waiting_availability" || w.status === "awaiting_approval").length,
     };
-  }, [ctx, date, columnData, board]);
+  }, [ctx, date, columnData, board, walkins]);
 
   // ── Drag & drop ──
   const onDrop = useCallback(
@@ -332,13 +368,14 @@ export default function MultiBranchManager() {
       {error && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
 
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
         <SummaryCard icon={Building2} label="Total branches" value={summary ? `${summary.activeBranches}/${summary.branches}` : "—"} hint="open / all" tone="gray" />
         <SummaryCard icon={UserCheck} label="Staff available" value={summary?.available} tone="green" />
         <SummaryCard icon={Users} label={date === ctx?.today ? "Staff in service" : "Staff with bookings"} value={summary?.busy} tone="blue" />
         <SummaryCard icon={CalendarClock} label="Open 1-hr slots" value={summary?.slots} tone="green" />
         <SummaryCard icon={AlertTriangle} label="Need rescheduling" value={summary?.needs} tone={summary?.needs ? "red" : "gray"} onClick={() => { setView("board"); setLower("needs"); document.getElementById("mb-lower")?.scrollIntoView({ behavior: "smooth" }); }} />
-        <SummaryCard icon={ArrowLeftRight} label="Pending transfer requests" value={summary?.pending} tone={summary?.pending ? "amber" : "gray"} />
+        <SummaryCard icon={ArrowLeftRight} label="Pending staff transfers" value={summary?.pending} tone={summary?.pending ? "amber" : "gray"} />
+        <SummaryCard icon={Footprints} label="Pending walk-in transfers" value={summary?.pendingWalkins} tone={summary?.pendingWalkins ? "amber" : "gray"} />
       </div>
 
       {/* View switch + filters */}
@@ -408,6 +445,14 @@ export default function MultiBranchManager() {
               <option value="busy">In service / on break</option>
               <option value="off">Off / out / lent out</option>
             </select>
+            <select value={filters.transfer} onChange={(e) => setFilters({ ...filters, transfer: e.target.value })} aria-label="Transfer status" className={field}>
+              <option value="all">Any transfer status</option>
+              <option value="pending">Awaiting client / availability</option>
+              <option value="confirmed">Confirmed / expected</option>
+              <option value="active">Checked in / in service</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled / no-show</option>
+            </select>
             {filtered && (
               <button onClick={() => setFilters(EMPTY_FILTERS)} className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-semibold text-coral-dark hover:bg-blush">
                 <RotateCcw className="h-3.5 w-3.5" /> Reset filters
@@ -470,6 +515,7 @@ export default function MultiBranchManager() {
                     cardProps={cardProps}
                     onMoveStaff={(s) => setPreview({ kind: "staff", id: s.id, toBranchId: null })}
                     onMoveAppointment={(a) => openAppt(a)}
+                    walkins={col.walkins}
                   />
                 );
               })}
@@ -477,8 +523,8 @@ export default function MultiBranchManager() {
                 <header className="flex items-center gap-2 px-1">
                   <span className="grid h-7 w-7 place-items-center rounded-lg bg-red-100 text-red-700"><AlertTriangle className="h-4 w-4" /></span>
                   <div>
-                    <h2 className="font-semibold text-ink">Unassigned / Needs rescheduling</h2>
-                    <p className="text-xs text-ink/50">{needs.length} upcoming · all dates</p>
+                    <h2 className="font-semibold text-ink">Needs attention</h2>
+                    <p className="text-xs text-ink/50">{needs.length} booking{needs.length === 1 ? "" : "s"}{pendingWalkins.length ? ` · ${pendingWalkins.length} walk-in${pendingWalkins.length === 1 ? "" : "s"}` : ""}</p>
                   </div>
                 </header>
                 <Section title="Appointments">
@@ -496,6 +542,13 @@ export default function MultiBranchManager() {
                   ))}
                   {needs.length === 0 && <Empty>Nothing to resolve 🎉</Empty>}
                 </Section>
+                {pendingWalkins.length > 0 && (
+                  <Section title={`Walk-ins waiting · ${pendingWalkins.length}`}>
+                    {pendingWalkins.map((w) => (
+                      <WalkinTransferCard key={w.id} ctx={ctx} item={w} />
+                    ))}
+                  </Section>
+                )}
               </section>
             </div>
 

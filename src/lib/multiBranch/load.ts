@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logQueryError } from "@/lib/supabase/logQueryError";
-import { addDays, clientKey, toMinutes, type Appointment, type ClientCard, type Context } from "./engine";
+import { addDays, clientKey, toMinutes, type Appointment, type ClientCard, type Context, type Service } from "./engine";
 
 type Rel<T> = T | T[] | null;
 const one = <T,>(v: Rel<T>): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
@@ -44,13 +44,13 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
   const until = addDays(opts.date && opts.date > today ? opts.date : today, opts.days ?? 14);
 
   const [branches, staff, offs, lends, attendance, breaks, services, appts, settings] = await Promise.all([
-    supabase.from("branches").select("id, name, address, phone, hours, status").order("name"),
+    supabase.from("branches").select("id, name, address, phone, hours, status, lat, lng").order("name"),
     supabase.from("staff_members").select("id, full_name, department, branch_id, avatar_url").order("full_name"),
     supabase.from("staff_shifts").select("staff_member_id, shift_date, period, source").gte("shift_date", from).lte("shift_date", until),
     supabase.from("branch_transfer_requests").select("id, staff_member_id, target_branch_id, dates").eq("status", "approved"),
     supabase.from("staff_attendance").select("id, staff_member_id, attendance_date, status").eq("attendance_date", today),
     supabase.from("staff_attendance_breaks").select("attendance_id, break_start").is("break_end", null),
-    supabase.from("branch_services").select("id, branch_id, name, department, category, duration, price, status"),
+    supabase.from("branch_services").select("id, branch_id, name, department, category, duration, price, status, hair_options"),
     supabase
       .from("appointments")
       .select(
@@ -66,7 +66,7 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
     if (res.error) logQueryError(`multiBranch.load ${label}`, res.error);
   }
 
-  const serviceRows = (services.data ?? []) as { id: string; branch_id: string; name: string; department: string | null; category: string | null; duration: string | null; price: number | null; status: string | null }[];
+  const serviceRows = (services.data ?? []) as { id: string; branch_id: string; name: string; department: string | null; category: string | null; duration: string | null; price: number | null; status: string | null; hair_options: { prices?: Record<string, string | number | null> } | null }[];
   const serviceById = new Map(serviceRows.map((s) => [s.id, s]));
 
   const breakByAttendance = new Map(
@@ -134,6 +134,7 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
       duration: s.duration,
       price: Number(s.price ?? 0),
       status: s.status ?? "Active",
+      hairPrices: hairPriceMap(s.hair_options),
     })),
     appointments,
     today,
@@ -270,4 +271,16 @@ export async function loadClients(supabase: SupabaseClient, ctx: Pick<Context, "
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Short / Medium / Long prices set by Admin for a hair service (only the ones with a price). */
+export function hairPriceMap(options: { prices?: Record<string, string | number | null> } | null | undefined): Service["hairPrices"] {
+  const p = options?.prices;
+  if (!p) return null;
+  const out: NonNullable<Service["hairPrices"]> = {};
+  for (const size of ["short", "medium", "long"] as const) {
+    const v = Number(String(p[size] ?? "").replace(/[₱,\s]/g, ""));
+    if (Number.isFinite(v) && v > 0) out[size] = v;
+  }
+  return Object.keys(out).length ? out : null;
 }

@@ -32,3 +32,20 @@ export function rpcFailure(error: { message?: string; code?: string } | null): R
 export function fail(f: RpcFailure, extra: Record<string, unknown> = {}) {
   return NextResponse.json({ error: f.message, code: f.code, ...extra }, { status: f.status });
 }
+
+/** Admin, or a Front Desk user (with their branch) — for walk-in transfers,
+ * which the Front Desk starts from its own branch. The database checks again. */
+export async function requireDesk() {
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return { error: NextResponse.json({ error: "Not signed in." }, { status: 401 }) } as const;
+  const { data: profile } = await supabase.from("profiles").select("role, branch_id").eq("id", auth.user.id).single();
+  const role = profile?.role as string | undefined;
+  if (role !== "admin" && role !== "front_desk") {
+    return { error: NextResponse.json({ error: "Only Front Desk or Admin can transfer walk-ins." }, { status: 403 }) } as const;
+  }
+  if (role === "front_desk" && !profile?.branch_id) {
+    return { error: NextResponse.json({ error: "This Front Desk account has no branch assigned." }, { status: 403 }) } as const;
+  }
+  return { supabase, admin: createAdminClient(), userId: auth.user.id, role, branchId: (profile?.branch_id as string | null) ?? null } as const;
+}

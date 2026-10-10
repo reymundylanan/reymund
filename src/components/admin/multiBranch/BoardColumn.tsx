@@ -3,9 +3,11 @@
 import { AlertTriangle, ArrowLeftRight, CalendarClock, ChevronDown, ChevronRight, Clock, GripVertical, MapPin, Plane, Wallet } from "lucide-react";
 import type { ReactNode } from "react";
 import {
+  branchHours,
   formatDay,
   formatTime,
   isBranchActive,
+  offFor,
   presence,
   staffStatus,
   toMinutes,
@@ -15,9 +17,20 @@ import {
   type Staff,
 } from "@/lib/multiBranch/engine";
 import { Avatar, Badge, STAFF_STATUS, TONE, type Tone } from "./ui";
+import type { WalkinTransferItem } from "@/lib/multiBranch/walkinServer";
 import type { DragItem } from "./useCardDrag";
 
-export type ColumnStats = { availableStaff: number; working: number; openSlots: number; appointments: number; conflicts: number };
+export type ColumnStats = {
+  availableStaff: number;
+  working: number;
+  openSlots: number;
+  appointments: number;
+  conflicts: number;
+  /** Staff lent in + walk-ins sent here (that day). */
+  incoming: number;
+  /** Staff lent out + walk-ins sent elsewhere (that day). */
+  outgoing: number;
+};
 
 type CardProps = (item: DragItem, enabled?: boolean) => Record<string, unknown>;
 
@@ -75,7 +88,7 @@ export function StaffCard({
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium text-ink">{staff.name}</span>
         <span className="flex flex-wrap items-center gap-1 text-xs text-ink/50">
-          {staff.department || "—"}
+          {staff.department || "—"} · {workingHours(ctx, staff.id, branchId, date)}
           {bookings > 0 && <span>· {bookings} booking{bookings === 1 ? "" : "s"}</span>}
         </span>
         <span className="mt-1 flex flex-wrap gap-1">
@@ -198,6 +211,7 @@ export function BranchColumn({
   cardProps,
   onMoveStaff,
   onMoveAppointment,
+  walkins = [],
 }: {
   ctx: Context;
   branch: Branch;
@@ -215,6 +229,7 @@ export function BranchColumn({
   cardProps: CardProps;
   onMoveStaff: (s: Staff) => void;
   onMoveAppointment: (a: Appointment) => void;
+  walkins?: WalkinTransferItem[];
 }) {
   const active = isBranchActive(branch);
   const bookingsOf = (id: string) => ctx.appointments.filter((a) => a.professionalId === id && a.date === date).length;
@@ -269,6 +284,12 @@ export function BranchColumn({
             <Stat label="Conflicts" value={stats.conflicts} tone={stats.conflicts ? "red" : "gray"} />
           </dl>
         )}
+        {!collapsed && (stats.incoming > 0 || stats.outgoing > 0) && (
+          <p className="mt-1.5 flex justify-center gap-3 text-[11px] font-semibold">
+            <span className="text-blue-700">↘ {stats.incoming} incoming</span>
+            <span className="text-amber-700">↗ {stats.outgoing} outgoing</span>
+          </p>
+        )}
       </header>
 
       {!collapsed && (
@@ -306,9 +327,51 @@ export function BranchColumn({
             ))}
             {appointments.length === 0 && <Empty>No appointments this day</Empty>}
           </Section>
+          {walkins.length > 0 && (
+            <Section title={`Walk-in transfers · ${walkins.length}`}>
+              {walkins.map((w) => (
+                <WalkinTransferCard key={w.id} ctx={ctx} item={w} />
+              ))}
+            </Section>
+          )}
         </>
       )}
     </section>
+  );
+}
+
+/** "8:00 AM–7:00 PM", "From 1:00 PM" (morning off), "Day off"… */
+function workingHours(ctx: Context, staffId: string, branchId: string, date: string) {
+  const { open, close } = branchHours(ctx, branchId);
+  const off = offFor(ctx, staffId, branchId, date);
+  if (off?.period === "full_day") return off.source === "transfer" ? "lent out" : "off";
+  if (off?.period === "morning") return `from ${formatTime(Math.max(open, 13 * 60))}`;
+  if (off?.period === "afternoon") return `until ${formatTime(Math.min(close, 13 * 60))}`;
+  return `${formatTime(open)}–${formatTime(close)}`;
+}
+
+const WALKIN_TONE: Record<WalkinTransferItem["state"]["tone"], Tone> = { green: "green", blue: "blue", amber: "amber", red: "red", gray: "gray", purple: "purple" };
+
+/** A walk-in sent from one branch to another (or still looking for a place). */
+export function WalkinTransferCard({ ctx, item: w }: { ctx: Context; item: WalkinTransferItem }) {
+  const time = w.proposed_time ? formatTime(w.proposed_time.slice(0, 5)) : null;
+  return (
+    <li className="rounded-xl border border-[#E8D5A5] bg-[#FFFBF0] p-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 truncate text-sm font-semibold text-ink">{w.walkin_name}</p>
+        <Badge tone={WALKIN_TONE[w.state.tone]}>{w.state.label}</Badge>
+      </div>
+      <p className="truncate text-xs text-ink/60">{w.services.map((s) => s.name).filter(Boolean).join(", ")}</p>
+      <p className="text-xs text-ink/55">
+        {w.originName} → {w.destName ?? "looking for a branch"}
+        {w.proposed_date && ` · ${formatDay(w.proposed_date, ctx.today)}${time ? ` ${time}` : ""}`}
+      </p>
+      <p className="text-[11px] text-ink/45">
+        {w.staffName ? `with ${w.staffName} · ` : ""}
+        {w.status === "confirmed" ? "client approved" : w.status === "awaiting_approval" ? "waiting for the client's answer" : w.status === "waiting_availability" ? "no branch free yet" : "cancelled"}
+        {w.bookingCode ? ` · #${w.bookingCode}` : ""}
+      </p>
+    </li>
   );
 }
 

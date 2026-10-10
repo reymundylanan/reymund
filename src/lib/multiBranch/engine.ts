@@ -17,12 +17,23 @@ export const CUTOFF_MINUTES = 13 * 60;
 export const SLOT_STEP = 30;
 const ACTIVE = new Set(["pending", "confirmed"]);
 
-export type Branch = { id: string; name: string; address: string | null; phone: string | null; hours: string | null; status: string | null };
+export type Branch = { id: string; name: string; address: string | null; phone: string | null; hours: string | null; status: string | null; lat?: number | null; lng?: number | null };
 export type Staff = { id: string; name: string; department: string; branchId: string | null; avatarUrl: string | null };
 export type OffRecord = { staffId: string; date: string; period: "full_day" | "morning" | "afternoon"; source: "manual" | "leave" | "transfer" };
 export type Lend = { id?: string; staffId: string; branchId: string; dates: string[] };
 export type Attendance = { staffId: string; date: string; status: string; breakStartedMinutes?: number | null };
-export type Service = { id: string; branchId: string; name: string; department: string; category: string; duration: string | null; price: number; status: string };
+export type Service = {
+  id: string;
+  branchId: string;
+  name: string;
+  department: string;
+  category: string;
+  duration: string | null;
+  price: number;
+  status: string;
+  /** Hair services: price by length (short / medium / long). */
+  hairPrices?: Partial<Record<"short" | "medium" | "long", number>> | null;
+};
 export type Appointment = {
   id: string;
   code: string | null;

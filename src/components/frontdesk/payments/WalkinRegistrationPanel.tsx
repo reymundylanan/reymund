@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { Check, ChevronRight, UserPlus2 } from "lucide-react";
+import { ArrowLeftRight, Check, ChevronRight, UserPlus2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { toDateKey } from "@/lib/supabase/queries/staffShifts";
@@ -13,6 +13,7 @@ import ClientAccountSearch, { ClientAvatar, ClientFoundDialog } from "@/componen
 import { findPossibleDuplicates, phoneHint, providerLabel, type ClientMatch } from "@/lib/walkinLinking";
 import { toAppointmentServiceRows } from "@/lib/bookedServices";
 import { logQueryError } from "@/lib/supabase/logQueryError";
+import WalkinTransferModal from "@/components/frontdesk/payments/WalkinTransferModal";
 
 type BranchService = {
   id: string;
@@ -83,6 +84,8 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
   const [linked, setLinked] = useState<ClientMatch | null>(null);
   const [possibleMatches, setPossibleMatches] = useState<ClientMatch[] | null>(null);
   const [confirmMatch, setConfirmMatch] = useState<ClientMatch | null>(null);
+  // Not possible here (not offered, or nobody free): find another branch.
+  const [transferOpen, setTransferOpen] = useState(false);
 
   useEffect(() => {
     if (!profile?.branchId) {
@@ -319,6 +322,12 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
       <p className="mt-1 text-xs text-ink/50">
         Direct intake for clients without appointments
       </p>
+      <button
+        onClick={() => setTransferOpen(true)}
+        className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-coral-dark hover:underline"
+      >
+        <ArrowLeftRight className="h-3.5 w-3.5" /> Service not offered or nobody free? Find another branch
+      </button>
 
       {loading ? (
         <p className="mt-6 py-8 text-center text-sm text-ink/40">Loading services...</p>
@@ -469,9 +478,21 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
               {selectedServices.length > 1 && <span className="font-normal text-ink/40"> (does all selected services)</span>}
             </label>
             {availableTherapists.length === 0 ? (
-              <p className="mt-2 text-xs text-red-600">
-                No {department} staff free{totalMinutes ? ` for ${totalMinutes} mins` : ""} right now — check Staff Schedule.
-              </p>
+              <div className="mt-2 rounded-xl bg-red-50 p-3">
+                <p className="text-xs text-red-600">
+                  No {department} staff free{totalMinutes ? ` for ${totalMinutes} mins` : ""} right now here.
+                </p>
+                {selectedServices.length > 0 && (
+                  <button
+                    onClick={() => setTransferOpen(true)}
+                    disabled={!fullName.trim() || needsSize.length > 0}
+                    title={!fullName.trim() ? "Enter the client's name first" : needsSize.length ? "Pick the hair length first" : undefined}
+                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-full bg-coral px-3 py-2 text-xs font-semibold text-white disabled:opacity-40"
+                  >
+                    <ArrowLeftRight className="h-3.5 w-3.5" /> Find another branch for this client
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {availableTherapists.map((t) => (
@@ -560,6 +581,29 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
             </div>
           </div>
         </div>
+      )}
+
+      {transferOpen && (
+        <WalkinTransferModal
+          clientName={linked?.fullName ?? fullName}
+          clientPhone={mobileNumber || null}
+          clientId={linked?.id ?? null}
+          initialServices={selectedServices.map((s) => ({ name: s.name, size: hairSize[s.id] ?? null, price: unitPrice(s) }))}
+          initialDuration={totalMinutes || 60}
+          originPrice={selectedServices.length ? totalPrice : null}
+          preferredStaffId={therapistId}
+          onClose={() => setTransferOpen(false)}
+          onBooked={() => {
+            setTransferOpen(false);
+            setFullName("");
+            setMobileNumber("");
+            setTherapistId(null);
+            setServiceIds([]);
+            setHairSize({});
+            setLinked(null);
+            onRegistered();
+          }}
+        />
       )}
 
       {confirmMatch && (

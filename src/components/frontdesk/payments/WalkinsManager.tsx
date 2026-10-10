@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import WalkinTransfersPanel from "@/components/frontdesk/payments/WalkinTransfersPanel";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { readQueryParam } from "@/lib/queryParam";
@@ -39,6 +40,8 @@ export default function WalkinsManager() {
   const [staffFilter, setStaffFilter] = useState("all");
 
   const [showRegistration, setShowRegistration] = useState(false);
+  // Bumped when a walk-in is registered or transferred, to refresh the transfers list.
+  const [transfersKey, setTransfersKey] = useState(0);
   const [editingRow, setEditingRow] = useState<WalkinRow | null>(null);
   const [cancellingRow, setCancellingRow] = useState<WalkinRow | null>(null);
   const [payingRow, setPayingRow] = useState<WalkinRow | null>(null);
@@ -163,10 +166,18 @@ export default function WalkinsManager() {
         />
       </div>
 
+      <WalkinTransfersPanel refreshKey={transfersKey} />
+
       <WalkinStatusGuide />
 
       {showRegistration && (
-        <WalkinRegistrationModal onClose={() => setShowRegistration(false)} onRegistered={refresh} />
+        <WalkinRegistrationModal
+          onClose={() => setShowRegistration(false)}
+          onRegistered={() => {
+            refresh();
+            setTransfersKey((k) => k + 1);
+          }}
+        />
       )}
 
       {editingRow && (
