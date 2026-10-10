@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   CalendarDays,
+  ChevronRight,
   CalendarPlus,
   Clock,
   FileText,
@@ -29,6 +30,8 @@ import { createClient } from "@/lib/supabase/client";
 import { getActivePromotions, type ActivePromotion } from "@/lib/supabase/queries/publicContent";
 import { GUIDE_FONTS, useMascotSize } from "@/components/guide/guideKit";
 import { PlayfulMascot } from "@/components/guide/MascotPlay";
+import { buildBriefing, type Reminder } from "@/lib/welcomeBriefing";
+import { loadWelcomeBriefing, spaToday } from "@/lib/supabase/queries/welcomeBriefing";
 
 const PAGE_HELP_Q = "What can I do on this page?";
 const TEASER_KEY = "glowy-teaser-dismissed";
@@ -53,6 +56,32 @@ function Rays({ className = "" }: { className?: string }) {
     <svg viewBox="0 0 40 40" aria-hidden className={`glowy-rays pointer-events-none absolute ${className}`}>
       <path d="M6 22l7-3M10 8l6 6M24 4l-1 8" stroke="#d4af37" strokeWidth="3.2" strokeLinecap="round" />
     </svg>
+  );
+}
+
+/** One "welcome back" reminder: what needs attention, with a link to it. */
+function ReminderRow({ r, onGo, compact = false }: { r: Reminder; onGo: () => void; compact?: boolean }) {
+  const urgent = r.kind === "today" || r.kind === "pending";
+  return (
+    <Link
+      href={r.href}
+      onClick={onGo}
+      className={`group flex items-center gap-3 rounded-2xl px-3 ${compact ? "py-2" : "py-2.5"} ring-1 transition hover:-translate-y-0.5 hover:shadow-md ${
+        urgent ? "bg-gradient-to-r from-[#fff4dc] to-[#fff0f7] ring-[#e8c766]" : "bg-white ring-[#efdcc6]"
+      }`}
+    >
+      <span className={`flex shrink-0 items-center justify-center rounded-full bg-[#fff6e6] ring-1 ring-[#f1dfb6] ${compact ? "h-8 w-8 text-base" : "h-9 w-9 text-lg"}`} aria-hidden>
+        {r.emoji}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-bold leading-snug text-ink">{r.title}</span>
+        <span className={`block text-xs leading-snug text-ink/60 ${compact ? "line-clamp-1" : "line-clamp-2"}`}>{r.detail}</span>
+      </span>
+      <span className="flex shrink-0 items-center gap-0.5 text-[11px] font-bold text-[#a97c1c]">
+        {!compact && r.cta}
+        <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+      </span>
+    </Link>
   );
 }
 
@@ -130,7 +159,7 @@ function PromoStrip({ promos }: { promos: ActivePromotion[] | null }) {
   );
 }
 
-export default function ChatWidget({ firstName = null }: { firstName?: string | null }) {
+export default function ChatWidget({ userId = null, firstName = null }: { userId?: string | null; firstName?: string | null }) {
   const router = useRouter();
   const pathname = usePathname() ?? "/";
   const { open: openBooking } = useBooking();
@@ -139,18 +168,34 @@ export default function ChatWidget({ firstName = null }: { firstName?: string | 
   const [teaser, setTeaser] = useState(false);
   const [promos, setPromos] = useState<ActivePromotion[] | null>(null);
   const [booking, setBooking] = useState(false); // a moment of joy after choosing Book
+  // "Welcome back" reminders from the client's account (null while loading).
+  const [reminders, setReminders] = useState<Reminder[] | null>(null);
+  const teaserKey = `${TEASER_KEY}:${userId ?? "guest"}`;
   const { messages, input, setInput, sending, send, answerLocally, containerRef } = useAssistantChat(greeting(firstName));
 
-  // The greeting card pops out of the chat head shortly after the page loads.
+  // The welcome card pops out of the chat head shortly after the page loads —
+  // once per sign-in for each client.
   useEffect(() => {
     let dismissed = false;
     try {
-      dismissed = sessionStorage.getItem(TEASER_KEY) === "1";
+      dismissed = sessionStorage.getItem(teaserKey) === "1";
     } catch {}
     if (dismissed) return;
-    const t = setTimeout(() => setTeaser(true), 1800);
+    const t = setTimeout(() => setTeaser(true), 1500);
     return () => clearTimeout(t);
-  }, []);
+  }, [teaserKey]);
+
+  // What needs their attention: bookings, notifications, reviews, vouchers, points.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    loadWelcomeBriefing(createClient(), userId)
+      .then((data) => !cancelled && setReminders(buildBriefing(data, spaToday())))
+      .catch(() => !cancelled && setReminders([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   // Today's promos load the first time the chat opens.
   useEffect(() => {
@@ -177,7 +222,7 @@ export default function ChatWidget({ firstName = null }: { firstName?: string | 
   function dismissTeaser() {
     setTeaser(false);
     try {
-      sessionStorage.setItem(TEASER_KEY, "1");
+      sessionStorage.setItem(teaserKey, "1");
     } catch {}
   }
 
@@ -274,6 +319,15 @@ export default function ChatWidget({ firstName = null }: { firstName?: string | 
               </div>
             </section>
 
+            {reminders && reminders.length > 0 && (
+              <section aria-label="Your reminders" className="space-y-2">
+                <p className="px-1 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">Your reminders</p>
+                {reminders.slice(0, 3).map((r) => (
+                  <ReminderRow key={r.kind} r={r} compact onGo={() => setOpen(false)} />
+                ))}
+              </section>
+            )}
+
             {/* Quick actions */}
             <div className="grid grid-cols-3 gap-2">
               {quick.map(({ label, icon: Icon, run }) => (
@@ -367,19 +421,45 @@ export default function ChatWidget({ firstName = null }: { firstName?: string | 
 
           <div className="flex items-center gap-3">
             <div className="relative shrink-0 rounded-[2rem] bg-gradient-to-br from-cream to-champagne/50 px-2 pt-2">
-              <PlayfulMascot size={mascotSize} pose="wave" label="Play with GlowSync AI" />
+              <PlayfulMascot
+                size={mascotSize}
+                pose={reminders?.some((r) => r.kind === "today" || r.kind === "pending") ? "present" : "excited"}
+                emote={reminders?.find((r) => r.kind === "today")?.emoji ?? (reminders ? "💖" : undefined)}
+                label="Play with GlowSync AI"
+              />
               <Rays className="-right-3 -top-1 h-8 w-8 -scale-x-100" />
             </div>
             <div className="mr-6 min-w-0 flex-1 rounded-2xl bg-cream/70 px-4 py-3">
-              <p className="text-xl font-bold text-ink">
-                Hi{firstName ? ` ${firstName}` : " there"}! <span className="glowy-wave-emoji inline-block">👋</span>
+              <p className="guide-display text-xl font-bold text-ink">
+                {userId ? "Welcome back" : "Hi"}
+                {firstName ? `, ${firstName}` : userId ? "" : " there"}! <span className="glowy-wave-emoji inline-block">{userId ? "💖" : "👋"}</span>
               </p>
               <p className="mt-1 text-sm leading-snug text-ink/80">
-                I&apos;m GlowSync AI! ✨<br />
-                What can I help you with today?
+                {userId ? (
+                  reminders === null ? (
+                    "Let me check what's new for you…"
+                  ) : reminders.some((r) => r.kind !== "book" && r.kind !== "points") ? (
+                    "Here's what's happening with your glow ✨"
+                  ) : (
+                    "All caught up! ✨ What can I help you with today?"
+                  )
+                ) : (
+                  <>
+                    I&apos;m GlowSync AI! ✨<br />
+                    What can I help you with today?
+                  </>
+                )}
               </p>
             </div>
           </div>
+
+          {userId && (
+            <div className="mt-3 space-y-2" aria-live="polite">
+              {reminders === null
+                ? [0, 1].map((i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-[#f6ead8]" />)
+                : reminders.slice(0, 4).map((r) => <ReminderRow key={r.kind} r={r} onGo={dismissTeaser} />)}
+            </div>
+          )}
 
           <button
             type="button"

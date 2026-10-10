@@ -22,7 +22,7 @@ export default function ChatWidgetWrapper() {
   // the chat head would cover the booking window's buttons.
   return (
     <div className={bookingOpen ? "hidden" : undefined}>
-      <ChatWidget firstName={user.fullName?.trim().split(/\s+/)[0] || null} />
+      <ChatWidget userId={user.id} firstName={user.fullName?.trim().split(/\s+/)[0] || null} />
     </div>
   );
 }
