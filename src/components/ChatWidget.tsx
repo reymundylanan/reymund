@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { CalendarDays, FileText, HelpCircle, Send, Star, X, type LucideIcon } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { CalendarDays, FileText, HelpCircle, Send, Sparkles, Star, X, type LucideIcon } from "lucide-react";
 import { useAssistantChat } from "@/lib/hooks/useAssistantChat";
 import GlowMascot from "@/components/GlowMascot";
 import { CHAT_OVERLAY_EVENT } from "@/components/promos/PromoSideAd";
+import { pageHelpFor, pageHelpMessage } from "@/lib/pageHelp";
 
-const QUICK_REPLIES = ["Recommend a treatment", "Prices & promos", "Branch hours", "My bookings"];
+const QUICK_REPLIES = ["What can I do on this page?", "Recommend a treatment", "Prices & promos", "Branch hours", "My bookings"];
+const PAGE_HELP_Q = "What can I do on this page?";
 const TEASER_KEY = "glowy-teaser-dismissed";
 
 /** One greeting line per bubble; the intro "types" them out one by one. */
@@ -40,12 +42,24 @@ function Rays({ className = "" }: { className?: string }) {
 
 export default function ChatWidget({ firstName = null }: { firstName?: string | null }) {
   const router = useRouter();
+  const pathname = usePathname() ?? "/";
   const lines = greetingLines(firstName);
   const [open, setOpen] = useState(false);
   const [teaser, setTeaser] = useState(false);
   // How many greeting lines are visible; the intro plays the first time it opens.
   const [shown, setShown] = useState(0);
-  const { messages, input, setInput, sending, send, containerRef } = useAssistantChat(lines.join("\n"));
+  const { messages, input, setInput, sending, send, answerLocally, containerRef } = useAssistantChat(lines.join("\n"));
+
+  /** Answers "What can I do on this page?" instantly from the page guide. */
+  function explainPage() {
+    setOpen(true);
+    answerLocally(PAGE_HELP_Q, pageHelpMessage(pathname));
+  }
+
+  function quickReply(q: string) {
+    if (q === PAGE_HELP_Q) explainPage();
+    else send(q);
+  }
 
   // The greeting card pops out of the chat head shortly after the page loads.
   useEffect(() => {
@@ -133,7 +147,7 @@ export default function ChatWidget({ firstName = null }: { firstName?: string | 
                 {QUICK_REPLIES.map((q) => (
                   <button
                     key={q}
-                    onClick={() => send(q)}
+                    onClick={() => quickReply(q)}
                     disabled={sending}
                     className="rounded-full border border-coral/50 bg-white px-3 py-1.5 text-xs font-medium text-coral-dark transition hover:-translate-y-0.5 hover:bg-blush disabled:opacity-40"
                   >
@@ -214,7 +228,23 @@ export default function ChatWidget({ firstName = null }: { firstName?: string | 
             </div>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              dismissTeaser();
+              explainPage();
+            }}
+            className="mt-3 flex w-full items-center gap-2 rounded-2xl bg-gradient-to-r from-[#f7f0ff] to-[#fdf0f7] px-3 py-2.5 text-left text-sm font-semibold text-[#5b2d86] ring-1 ring-[#e3d6f7] transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#c49bff] to-[#8a4fd8] text-white">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <span className="min-w-0">
+              New here? What can I do on {pageHelpFor(pathname).page === "this page" ? "this page" : `the ${pageHelpFor(pathname).page} page`}?
+            </span>
+          </button>
+
+          <div className="mt-2 grid grid-cols-2 gap-2">
             {actions.map(({ label, icon: Icon, run }) => (
               <button
                 key={label}

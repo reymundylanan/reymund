@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { ArrowDown, CalendarPlus, ChevronLeft, Gift, Loader2, MessageCircleQuestion, Send } from "lucide-react";
 import Link from "next/link";
-import { Fredoka, Nunito } from "next/font/google";
+import { GUIDE_FONTS, TypeText } from "@/components/guide/guideKit";
 import GlowMascot, { type MascotFace, type MascotPose } from "@/components/GlowMascot";
 import { useBooking } from "@/components/booking/BookingContext";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
@@ -23,11 +23,6 @@ const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
 
 const sameName = (a?: string | null, b?: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 const MINIMIZED_KEY = "glowguide-minimized";
-
-// Rounded, friendly faces for the speech bubble (scoped to the guide).
-const guideDisplay = Fredoka({ subsets: ["latin"], variable: "--font-guide-display" });
-const guideBody = Nunito({ subsets: ["latin"], variable: "--font-guide-body" });
-const GUIDE_FONTS = `${guideDisplay.variable} ${guideBody.variable}`;
 
 type BurstKind = "hearts" | "stars" | "party";
 type Particle = { id: number; kind: BurstKind; char: string; color: string; dx: number; dy: number; rot: number; delay: number };
@@ -59,38 +54,6 @@ function makeBurst(kind: BurstKind): Particle[] {
       delay: Math.random() * 120,
     };
   });
-}
-
-/** Types its text out like the mascot is speaking. Remount (key) to replay. */
-function TypeText({ text, onDone }: { text: string; onDone?: () => void }) {
-  const [shown, setShown] = useState(0);
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const id = window.setTimeout(() => {
-        setShown(text.length);
-        onDone?.();
-      }, 0);
-      return () => window.clearTimeout(id);
-    }
-    const id = window.setInterval(() => {
-      setShown((n) => {
-        if (n + 1 >= text.length) {
-          window.clearInterval(id);
-          onDone?.();
-        }
-        return Math.min(n + 1, text.length);
-      });
-    }, 22);
-    return () => window.clearInterval(id);
-  }, [text, onDone]);
-  return (
-    <>
-      <span>{text.slice(0, shown)}</span>
-      {shown < text.length && <span aria-hidden className="guide-caret" />}
-      {/* Screen readers get the whole line at once. */}
-      <span className="sr-only">{text}</span>
-    </>
-  );
 }
 
 type Mode = "intro" | "menu" | "ask" | "answer";

@@ -6,8 +6,11 @@ import { Send } from "lucide-react";
 import { useAssistantChat } from "@/lib/hooks/useAssistantChat";
 import GlowMascot from "@/components/GlowMascot";
 import { TypingDots } from "@/components/ChatWidget";
+import { pageHelpMessage } from "@/lib/pageHelp";
 
+const PAGE_HELP_Q = "What can I do on this page?";
 const SUGGESTED_PROMPTS = [
+  PAGE_HELP_Q,
   "Recommend a service for me",
   "Check my bookings",
   "Track my Glow Journey",
@@ -15,7 +18,7 @@ const SUGGESTED_PROMPTS = [
 ];
 
 export default function AssistantPanel({ firstName }: { firstName: string }) {
-  const { messages, input, setInput, sending, send, containerRef } = useAssistantChat(
+  const { messages, input, setInput, sending, send, answerLocally, containerRef } = useAssistantChat(
     `Hi ${firstName}! ✨ How can I help you today?`
   );
   const userHasSpoken = messages.some((m) => m.role === "user");
@@ -101,7 +104,7 @@ export default function AssistantPanel({ firstName }: { firstName: string }) {
         {SUGGESTED_PROMPTS.map((prompt) => (
           <button
             key={prompt}
-            onClick={() => send(prompt)}
+            onClick={() => (prompt === PAGE_HELP_Q ? answerLocally(prompt, pageHelpMessage("/my-glow")) : send(prompt))}
             disabled={sending}
             className="rounded-full border border-coral/40 px-3 py-1.5 text-left text-xs font-medium text-coral-dark transition hover:-translate-y-0.5 hover:bg-blush disabled:opacity-40"
           >

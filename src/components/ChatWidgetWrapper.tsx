@@ -3,12 +3,17 @@
 import { usePathname } from "next/navigation";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import ChatWidget from "@/components/ChatWidget";
+import PageHelpButton from "@/components/PageHelpButton";
 import { useBooking } from "@/components/booking/BookingContext";
 
 export default function ChatWidgetWrapper() {
-  const { user } = useCurrentUser();
+  const { user, loading } = useCurrentUser();
   const pathname = usePathname();
   const { isOpen: bookingOpen } = useBooking();
+  // Visitors who aren't signed in get page help instead of the AI chat.
+  if (!loading && !user && !pathname?.startsWith("/auth")) {
+    return <div className={bookingOpen ? "hidden" : undefined}><PageHelpButton /></div>;
+  }
   if (user?.role !== "customer") return null;
   // My Glow already has its own inline AssistantPanel — avoid showing two
   // separate chat conversations on the same page.

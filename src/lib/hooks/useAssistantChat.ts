@@ -38,7 +38,8 @@ export function useAssistantChat(greeting: string) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // Only role/content go to the model — recommendation cards are UI-only.
-        body: JSON.stringify({ messages: next.map(({ role, content }) => ({ role, content })) }),
+        // The page they're on, so GlowSync AI can explain what it's for.
+        body: JSON.stringify({ messages: next.map(({ role, content }) => ({ role, content })), page: window.location.pathname }),
       });
       const data = await res.json();
       setMessages((list) => [
@@ -64,5 +65,14 @@ export function useAssistantChat(greeting: string) {
     }
   }
 
-  return { messages, input, setInput, sending, send, containerRef };
+  /** A question answered right here, without the AI (e.g. "What can I do on this page?"). */
+  function answerLocally(question: string, answer: string) {
+    setMessages((list) => [...list, { role: "user", content: question }, { role: "assistant", content: answer }]);
+    setTimeout(() => {
+      const el = containerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }, 50);
+  }
+
+  return { messages, input, setInput, sending, send, answerLocally, containerRef };
 }

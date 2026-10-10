@@ -262,6 +262,8 @@ export default function BookingModal({
   );
   // Which branch the service was already pre-added for (so removing it sticks).
   const preselectedFor = useRef<string | null>(null);
+  // "Book with Ms. X": choose that professional once, when they fit the booking.
+  const preselectedStaff = useRef(false);
   const [preselectNote, setPreselectNote] = useState<string | null>(null);
   const [promoId, setPromoId] = useState<string | null>(promoOptions?.[0]?.id ?? null);
   const [promoLength, setPromoLength] = useState<PromoLength | null>(null);
@@ -495,6 +497,13 @@ export default function BookingModal({
       }));
       setStaffMembers([...homeStaff, ...guests]);
       setTransferGuestIds(new Set(transferredInNotHome.map((t) => t.staffMemberId)));
+      // Booked from a team member: select them if they work here and do the chosen services.
+      const wanted = preselect?.staffId ? [...homeStaff, ...guests].find((s) => s.id === preselect.staffId) : null;
+      const depts = new Set(selectedServices.map((s) => s.department).filter(Boolean));
+      if (wanted && !preselectedStaff.current && (depts.size === 0 || depts.has(wanted.department))) {
+        preselectedStaff.current = true;
+        setProfessionalId(wanted.id);
+      }
       setStaffLoading(false);
     })();
   }, [step, branchId]);

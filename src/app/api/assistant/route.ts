@@ -4,6 +4,7 @@ import { getUpcomingAppointment, getVisitedBranches } from "@/lib/supabase/queri
 import { getTierProgress } from "@/lib/myGlowTiers";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 import { askSpaAssistant, loadLiveServices, lowestPrice, type ChatTurn } from "@/lib/ai/spaAssistant";
+import { pageContextLine } from "@/lib/pageHelp";
 import { loadSpaKnowledge } from "@/lib/ai/spaKnowledge";
 
 export async function POST(request: Request) {
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { messages } = (await request.json()) as { messages: ChatTurn[] };
+  const { messages, page } = (await request.json()) as { messages: ChatTurn[]; page?: string };
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json({ error: "No messages provided." }, { status: 400 });
@@ -52,7 +53,8 @@ export async function POST(request: Request) {
 
   const userContext = `The customer you're talking to is ${profile.full_name}.
 Their loyalty status: ${balance} GlowPoints, ${tier.tier} tier.
-${upcomingText ? `Their next booking is ${upcomingText}.` : "They have no upcoming bookings."}`;
+${upcomingText ? `Their next booking is ${upcomingText}.` : "They have no upcoming bookings."}
+${typeof page === "string" && page.startsWith("/") ? pageContextLine(page.slice(0, 200)) : ""}`;
 
   const knowledge = await loadSpaKnowledge(supabase).catch(() => null);
   const { reply, recommendations } = await askSpaAssistant({

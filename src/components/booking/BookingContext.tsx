@@ -16,6 +16,8 @@ export type BookableService = {
   category?: string | null;
   /** Booked from a branch page (branchContacts id): skip choosing the branch. */
   branchId?: string;
+  /** "Book with Ms. X" (Meet the Team): pick this professional when they can do the chosen services. */
+  staffId?: string;
 };
 
 type BookingContextValue = {
