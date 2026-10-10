@@ -27,9 +27,10 @@ type Toast = { text: string; undo?: () => Promise<void> };
 
 const ROLE_LABEL: Record<string, string> = { front_desk: "Front desk", specialist: "Specialist" };
 
-export default function BranchBoard() {
+/** `only`: show one kind without the switch (Multi-Branch uses it for accounts). */
+export default function BranchBoard({ only }: { only?: Kind } = {}) {
   const supabase = useMemo(() => createClient(), []);
-  const [kind, setKind] = useState<Kind>("staff");
+  const [kind, setKind] = useState<Kind>(only ?? "staff");
   const [branches, setBranches] = useState<Branch[]>([]);
   const [staff, setStaff] = useState<Card[]>([]);
   const [accounts, setAccounts] = useState<Card[]>([]);
@@ -262,7 +263,7 @@ export default function BranchBoard() {
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-white p-4 shadow-sm">
-        <div role="tablist" aria-label="What to arrange" className="flex rounded-full bg-cream p-1">
+        <div role="tablist" aria-label="What to arrange" className={`flex rounded-full bg-cream p-1 ${only ? "hidden" : ""}`}>
           {(
             [
               ["staff", "Staff", Users, staff.length],
