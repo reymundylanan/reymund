@@ -30,7 +30,7 @@ import { GUIDE_FONTS, mascotWidth, useMascotSize } from "@/components/guide/guid
 import { MascotFigure, useMascotPlay } from "@/components/guide/MascotPlay";
 import { buildBriefing, buildBubbles, type BriefingData, type Bubble, type Reminder } from "@/lib/welcomeBriefing";
 import { loadWelcomeBriefing, spaToday } from "@/lib/supabase/queries/welcomeBriefing";
-import { CHAT_PANEL_EVENT, FLIGHT_MS, GUIDE_ACTIVE_EVENT, OPEN_CHAT_EVENT, announce, type GuideActiveDetail, type ScreenRect } from "@/lib/glowEvents";
+import { CHAT_HERE_EVENT, CHAT_PANEL_EVENT, FLIGHT_MS, GUIDE_ACTIVE_EVENT, OPEN_CHAT_EVENT, announce, type GuideActiveDetail, type ScreenRect } from "@/lib/glowEvents";
 
 const PAGE_HELP_Q = "What can I do on this page?";
 // Bubbles play once per sign-in (session), can be turned off (device), never
@@ -336,6 +336,8 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
   // On the Services page the guide on the cards *is* GlowSync AI: while it's on
   // screen this character steps aside (and flies back when it isn't).
   const [guideActive, setGuideActive] = useState(false);
+  // Which stages currently have the AI (Services guide, Meet the Team…).
+  const stages = useRef(new Map<string, boolean>());
   const [flight, setFlight] = useState<Flight | null>(null);
   const [dragging, setDragging] = useState(false);
   const endFlight = useCallback(() => setFlight(null), []);
@@ -406,15 +408,18 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
   useEffect(() => {
     const onGuide = (e: Event) => {
       const d = (e as CustomEvent<GuideActiveDetail>).detail;
-      setGuideActive((was) => {
-        // Fly between the corner and the guide (computers, when motion is welcome).
-        if (was !== d.active && d.rect && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          const corner = cornerRect();
-          setFlight({ id: Date.now(), from: d.active ? corner : d.rect, to: d.active ? d.rect : corner });
-        }
-        return d.active;
-      });
+      const was = [...stages.current.values()].some(Boolean);
+      stages.current.set(d.source, d.active);
+      const now = [...stages.current.values()].some(Boolean);
+      // Fly between the corner and the stage (when its position is known and motion is welcome).
+      if (was !== now && d.rect && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        const corner = cornerRect();
+        setFlight({ id: Date.now(), from: now ? corner : d.rect, to: now ? d.rect : corner });
+      }
+      setGuideActive(now);
     };
+    const onHere = (e: Event) => e.preventDefault();
+    window.addEventListener(CHAT_HERE_EVENT, onHere);
     const onOpenChat = (e: Event) => {
       e.preventDefault(); // tells the guide the chat handled it
       const t = (e as CustomEvent<{ topic?: string }>).detail?.topic;
@@ -426,6 +431,7 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
     return () => {
       window.removeEventListener(GUIDE_ACTIVE_EVENT, onGuide);
       window.removeEventListener(OPEN_CHAT_EVENT, onOpenChat);
+      window.removeEventListener(CHAT_HERE_EVENT, onHere);
     };
   }, [cornerRect]);
 

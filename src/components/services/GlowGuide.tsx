@@ -10,7 +10,8 @@ import { useBooking } from "@/components/booking/BookingContext";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import type { GuideFacts } from "@/lib/glowGuide";
-import { CHAT_PANEL_EVENT, GUIDE_ACTIVE_EVENT, announce, requestChat, type GuideActiveDetail } from "@/lib/glowEvents";
+import { CHAT_PANEL_EVENT, requestChat } from "@/lib/glowEvents";
+import { useStage } from "@/components/guide/useStage";
 
 /** GlowSync Guide: an arrow tours the service cards and the GlowSync
  * mascot flies to each one to introduce it. Hovering a card makes the guide
@@ -138,17 +139,20 @@ export default function GlowGuide({
 
   // One GlowSync AI: while the guide is on screen the floating chat character
   // steps aside, and while the chat is open the guide holds still.
-  // "On stage" = the cards fill a good part of the screen (not just a sliver).
+  // "On stage" decides which one GlowSync AI shows: this guide or the floating
+  // corner character — never both. Computers: the cards fill a good part of the
+  // screen. Phones: the guide bar above the cards is on screen.
   const [onStage, setOnStage] = useState(false);
+  const barRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
     let frame = 0;
     const check = () => {
       frame = 0;
+      const el = wide ? containerRef.current : barRef.current;
+      if (!el) return setOnStage(false);
       const r = el.getBoundingClientRect();
       const visible = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0);
-      setOnStage(visible >= window.innerHeight * 0.45);
+      setOnStage(wide ? visible >= window.innerHeight * 0.45 : visible >= r.height * 0.5);
     };
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(check);
@@ -161,16 +165,8 @@ export default function GlowGuide({
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, [containerRef]);
-  useEffect(() => {
-    const r = mascotRef.current?.getBoundingClientRect();
-    const detail: GuideActiveDetail = {
-      active: onStage && !minimized,
-      rect: wide && r && r.width > 0 ? { x: r.left, y: r.top, w: r.width, h: r.height } : null,
-    };
-    announce(GUIDE_ACTIVE_EVENT, detail);
-  }, [onStage, minimized, wide]);
-  useEffect(() => () => announce(GUIDE_ACTIVE_EVENT, { active: false, rect: null } satisfies GuideActiveDetail), []);
+  }, [containerRef, wide]);
+  useStage("services", onStage && !minimized, mascotRef, { fly: wide, where: index });
   useEffect(() => {
     const onPanel = (e: Event) => setChatOpen(Boolean((e as CustomEvent<boolean>).detail));
     window.addEventListener(CHAT_PANEL_EVENT, onPanel);
@@ -624,7 +620,7 @@ export default function GlowGuide({
   // ── Phones and tablets: a guide bar above the cards ──
   if (!wide) {
     return (
-      <div data-guide-ui className={`guide-bubble guide-bubble-still mb-6 ${GUIDE_FONTS}`}>
+      <div ref={barRef} data-guide-ui className={`guide-bubble guide-bubble-still mb-6 ${GUIDE_FONTS}`}>
         <div className="guide-bubble-inner flex items-start gap-3 p-4">
           <button type="button" onClick={tapMascot} aria-label="Ask GlowSync AI" className="shrink-0">
             {mascot(MASCOT_PHONE)}
@@ -636,7 +632,7 @@ export default function GlowGuide({
   }
 
   // ── Desktop: the arrow reaches the card, then the mascot follows ──
-  if (!layout) return null;
+  if (!layout || !onStage) return null;
   const { card, containerWidth } = layout;
   const MASCOT = MASCOT_DESKTOP;
   const MASCOT_W = mascotWidth(MASCOT);
