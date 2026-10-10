@@ -4,7 +4,8 @@ import ServicesHero from "@/components/services/ServicesHero";
 import ServiceCatalog, { type DbService } from "@/components/services/ServiceCatalog";
 import MottoBanner from "@/components/services/MottoBanner";
 import { createClient } from "@/lib/supabase/server";
-import { getServiceReviewSummaries } from "@/lib/supabase/queries/serviceReviews";
+import { getServicePhotoThumbs, getServiceReviewSummaries } from "@/lib/supabase/queries/serviceReviews";
+import { signPublicReviewPhotos } from "@/lib/supabase/reviewPhotoUrls";
 import { getActivePromotions } from "@/lib/supabase/queries/publicContent";
 
 async function fetchServices(): Promise<DbService[]> {
@@ -37,10 +38,12 @@ export default async function ServicesPage() {
   const services = await fetchServices();
   // Rating + a recent review quote per service (same service name at any branch).
   const supabase = await createClient();
-  const [ratings, promos] = await Promise.all([
+  const [ratings, promos, photos] = await Promise.all([
     getServiceReviewSummaries(supabase, services.map((s) => ({ id: s.id, name: s.name }))),
     // Active promos, so the GlowSync guide can mention them on the right cards.
     getActivePromotions(supabase, 30),
+    // Clients' photos from their reviews, shown on each card.
+    getServicePhotoThumbs(supabase, signPublicReviewPhotos, services.map((s) => ({ id: s.id, name: s.name }))),
   ]);
 
   return (
@@ -51,6 +54,7 @@ export default async function ServicesPage() {
         <ServiceCatalog
           services={services}
           ratings={ratings}
+          photos={photos}
           promos={promos.map((p) => ({ id: p.id, title: p.title, price: p.price, validUntil: p.validUntil, category: p.category }))}
         />
         <MottoBanner />

@@ -4,7 +4,8 @@ import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, ChevronLeft, Clock, Search, Star } from "lucide-react";
+import { ArrowRight, Camera, ChevronLeft, Clock, Search, Star } from "lucide-react";
+import PhotoLightbox from "@/components/reviews/PhotoLightbox";
 import type { ServiceReviewSummary } from "@/lib/supabase/queries/serviceReviews";
 import { useBooking } from "@/components/booking/BookingContext";
 import SectionHeading from "@/components/SectionHeading";
@@ -86,13 +87,17 @@ const FALLBACK = { image: "/images/hero/clinic.jpeg", description: "Explore our 
 export default function ServiceCatalog({
   services,
   ratings = {},
+  photos = {},
   promos = [],
 }: {
   services: DbService[];
   ratings?: Record<string, ServiceReviewSummary>;
   promos?: GuidePromo[];
+  /** Clients' review photos per service id (newest first). */
+  photos?: Record<string, string[]>;
 }) {
   const { open } = useBooking();
+  const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
   const router = useRouter();
   const sectionRef = useRef<HTMLElement>(null);
   const searchParams = useSearchParams();
@@ -282,7 +287,7 @@ export default function ServiceCatalog({
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {group.map((svc) => (
             <div key={svc.id} data-guide-id={svc.id} className="group flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-[#a8843a]/10">
-              {/* No per-service photos yet, so each card shows its category's photo. */}
+              {/* Each card shows its category's photo; clients' own photos are in the strip below. */}
               <div className="relative h-32 overflow-hidden">
                 <Image
                   src={(CATEGORY_META[svc.category] ?? FALLBACK).image}
@@ -291,7 +296,7 @@ export default function ServiceCatalog({
                   className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-white/70 via-transparent to-transparent" />
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white/70 via-transparent to-transparent" />
               </div>
               <div className="flex flex-1 flex-col gap-3 p-5">
                 <div>
@@ -322,6 +327,31 @@ export default function ServiceCatalog({
                       </Link>
                     </figcaption>
                   </figure>
+                )}
+                {photos[svc.id] && photos[svc.id].length > 0 && (
+                  <div>
+                    <p className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-ink/55">
+                      <Camera className="h-3.5 w-3.5" /> Photos from clients
+                    </p>
+                    <div className="flex gap-1.5">
+                      {photos[svc.id].slice(0, 4).map((url, i) => (
+                        <button
+                          key={url}
+                          type="button"
+                          onClick={() => setLightbox({ photos: photos[svc.id], index: i })}
+                          aria-label={`Open client photo ${i + 1} of ${svc.name}`}
+                          className="relative h-14 w-14 overflow-hidden rounded-xl bg-blush ring-1 ring-nude/70 transition hover:ring-coral"
+                        >
+                          <Image src={url} alt="" fill sizes="56px" unoptimized className="object-cover" />
+                          {i === 3 && photos[svc.id].length > 4 && (
+                            <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-sm font-bold text-white">
+                              +{photos[svc.id].length - 4}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 )}
                 {(svc.description || svc.benefits) && (
                   <p className="line-clamp-2 text-base text-ink/60">
@@ -380,6 +410,9 @@ export default function ServiceCatalog({
         </div>
       ) : (
         <p className="mt-10 text-center text-ink/50">No treatments match your search.</p>
+      )}
+      {lightbox && (
+        <PhotoLightbox photos={lightbox.photos.map((url) => ({ url }))} startIndex={lightbox.index} onClose={() => setLightbox(null)} />
       )}
     </section>
   );

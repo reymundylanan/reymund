@@ -261,3 +261,64 @@ export async function getUnreviewedVisitForService(
   const done = new Set(((reviewed ?? []) as { appointment_id: string }[]).map((r) => r.appointment_id));
   return ids.find((id) => !done.has(id)) ?? null;
 }
+
+/** Client photos from reviews for many services at once (Services page
+ * cards): newest first, up to `perService` each. Reviews of the same service
+ * name at any branch count, like the ratings. Keyed by the given service id. */
+export async function getServicePhotoThumbs(
+  supabase: SupabaseClient,
+  sign: SignFn,
+  services: { id: string; name: string }[],
+  perService = 6
+): Promise<Record<string, string[]>> {
+  if (services.length === 0) return {};
+  const names = [...new Set(services.map((s) => s.name))];
+  const { data: same, error: sameError } = await supabase.from("branch_services").select("id, name").in("name", names);
+  logQueryError("getServicePhotoThumbs services", sameError);
+  const nameById = new Map<string, string>(((same ?? []) as { id: string; name: string }[]).map((s) => [s.id, s.name]));
+  for (const s of services) nameById.set(s.id, s.name);
+
+  const { data: reviewData, error } = await supabase
+    .from("public_service_reviews")
+    .select("id, service_id")
+    .in("service_id", [...nameById.keys()])
+    .gt("photo_count", 0)
+    .order("created_at", { ascending: false })
+    .limit(300);
+  logQueryError("getServicePhotoThumbs reviews", error);
+  const reviews = (reviewData ?? []) as { id: string; service_id: string }[];
+  if (reviews.length === 0) return {};
+
+  const { data: photoData, error: photoErr } = await supabase
+    .from("review_photos")
+    .select("review_id, storage_path, position")
+    .in("review_id", reviews.map((r) => r.id))
+    .order("position");
+  logQueryError("getServicePhotoThumbs photos", photoErr);
+  const photosByReview = new Map<string, PhotoRow[]>();
+  for (const p of (photoData ?? []) as PhotoRow[]) {
+    const list = photosByReview.get(p.review_id) ?? [];
+    list.push(p);
+    photosByReview.set(p.review_id, list);
+  }
+
+  // Newest reviews first, each review's photos in order, capped per service name.
+  const pathsByName = new Map<string, string[]>();
+  for (const r of reviews) {
+    const name = nameById.get(r.service_id);
+    if (!name) continue;
+    const list = pathsByName.get(name) ?? [];
+    for (const p of (photosByReview.get(r.id) ?? []).sort((a, b) => a.position - b.position)) {
+      if (list.length < perService) list.push(p.storage_path);
+    }
+    pathsByName.set(name, list);
+  }
+
+  const signed = await sign([...new Set([...pathsByName.values()].flat())]);
+  const out: Record<string, string[]> = {};
+  for (const s of services) {
+    const urls = (pathsByName.get(s.name) ?? []).map((p) => signed.get(p)).filter((u): u is string => !!u);
+    if (urls.length) out[s.id] = urls;
+  }
+  return out;
+}
