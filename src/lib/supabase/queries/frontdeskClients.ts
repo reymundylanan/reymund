@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 import { formatVisitDate } from "@/lib/clientDirectory";
+import { parseBookingNotes } from "@/lib/bookingNotes";
 
 export type FrontDeskClient = {
   id: string;
@@ -33,6 +34,8 @@ export type ClientServiceHistoryItem = {
   service: string;
   therapist: string | null;
   price: string;
+  /** True when the price is a settled payment; false = the booked price. */
+  pricePaid: boolean;
   status: string;
 };
 
@@ -142,6 +145,7 @@ type RawHistoryRow = {
   service: Rel<{ name: string }>;
   professional: Rel<{ full_name: string }>;
   payments: { amount: number; status: string }[] | null;
+  appointment_services?: { service_name: string; position: number }[] | null;
 };
 
 export async function getClientServiceHistory(
@@ -151,7 +155,7 @@ export async function getClientServiceHistory(
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, scheduled_date, status, session_status, notes, service:branch_services(name), professional:staff_members(full_name), payments(amount, status)"
+      "id, scheduled_date, status, session_status, notes, service:branch_services(name), professional:staff_members(full_name), payments(amount, status), appointment_services(service_name, position)"
     )
     .eq("client_id", clientId)
     .order("scheduled_date", { ascending: false });
@@ -162,15 +166,20 @@ export async function getClientServiceHistory(
     const session = row.session_status ?? "";
     const completed =
       row.status !== "cancelled" && (row.status === "completed" || session === "completed" || session === "paid");
-    const paid = (row.payments ?? []).find((p) => p.status === "settled") ?? row.payments?.[0];
+    const paid = (row.payments ?? []).find((p) => p.status === "settled");
+    // The saved summary repeats staff and price; show only the services here.
+    const note = parseBookingNotes(row.notes);
+    const lines = [...(row.appointment_services ?? [])].sort((a, b) => a.position - b.position).map((l) => l.service_name);
+    const booked = paid ? Number(paid.amount) : note.price;
     return {
       id: row.id,
       date: formatVisitDate(row.scheduled_date),
       dateKey: row.scheduled_date,
       completed,
-      service: one(row.service)?.name ?? row.notes ?? "Appointment",
-      therapist: one(row.professional)?.full_name ?? null,
-      price: paid ? `₱${Number(paid.amount).toLocaleString()}` : "—",
+      service: lines.length ? lines.join(", ") : note.services ?? one(row.service)?.name ?? "Appointment",
+      therapist: one(row.professional)?.full_name ?? note.staff ?? null,
+      price: booked != null ? `₱${booked.toLocaleString()}` : "—",
+      pricePaid: !!paid,
       // Finished visits are recorded in session_status; show that.
       status: completed
         ? "completed"

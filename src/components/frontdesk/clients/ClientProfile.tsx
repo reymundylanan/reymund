@@ -79,7 +79,7 @@ export default function ClientProfile({
   const genderLabel = GENDER_OPTIONS.find((g) => g.value === client.gender)?.label ?? null;
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
+    <div className="overflow-y-auto overscroll-contain rounded-2xl bg-white p-6 shadow-sm [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin] lg:h-full">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex items-center gap-4">
           <span className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-blush text-xl font-semibold text-coral-dark">
@@ -215,14 +215,22 @@ export default function ClientProfile({
 
       <div className="mt-4">
         {tab === "Service History" && (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="text-xs uppercase text-ink/40">
-                <th className="py-2">Date</th>
-                <th className="py-2">Service</th>
-                <th className="py-2">Therapist</th>
-                <th className="py-2">Price</th>
-                <th className="py-2">Status</th>
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[34rem] table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[7.5rem]" />
+              <col />
+              <col className="w-[7.5rem]" />
+              <col className="w-[6.5rem]" />
+              <col className="w-[7rem]" />
+            </colgroup>
+            <thead className="sticky top-0 z-10 bg-white">
+              <tr className="text-xs font-medium text-ink/45">
+                <th className="py-2 font-medium">Date</th>
+                <th className="py-2 font-medium">Service</th>
+                <th className="py-2 font-medium">Therapist</th>
+                <th className="py-2 font-medium">Price</th>
+                <th className="py-2 font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -241,24 +249,33 @@ export default function ClientProfile({
                 </tr>
               )}
               {history.map((s) => (
-                <tr key={s.id} className="border-t border-ink/5">
-                  <td className="py-3 text-ink/60">{s.date}</td>
-                  <td className="py-3 font-medium text-ink">{s.service}</td>
-                  <td className="py-3 text-ink/60">{s.therapist ?? "—"}</td>
-                  <td className="py-3 text-ink/60">{s.price}</td>
+                <tr key={s.id} className="border-t border-ink/5 transition hover:bg-[#fffaf0]">
+                  <td className="whitespace-nowrap py-3 text-ink/60">{s.date}</td>
+                  <td className="py-3 pr-3 font-medium text-ink">
+                    {/* Long lists of services end in "…"; the full list shows on hover. */}
+                    <span className="block truncate" title={s.service}>{s.service}</span>
+                  </td>
+                  <td className="truncate py-3 pr-2 text-ink/60" title={s.therapist ?? undefined}>{s.therapist ?? "—"}</td>
+                  <td className="py-3">
+                    <span className={s.pricePaid ? "font-semibold text-ink" : "text-ink/50"} title={s.pricePaid ? "Paid" : "Booked price — not paid yet"}>
+                      {s.price}
+                    </span>
+                    {!s.pricePaid && s.price !== "—" && <span className="block text-[10px] text-ink/40">unpaid</span>}
+                  </td>
                   <td className="py-3">
                     <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                      className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${
                         statusStyles[s.status] ?? "bg-ink/10 text-ink/50"
                       }`}
                     >
-                      {s.status.replace("_", " ")}
+                      {s.status.replace(/_/g, " ")}
                     </span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
 
         {tab === "Preferences & Notes" && (

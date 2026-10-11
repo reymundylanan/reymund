@@ -38,8 +38,11 @@ export default function ClientList({
     }`;
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <h2 className="font-semibold text-ink">Client Directory</h2>
+    <div className="flex flex-col rounded-2xl bg-white p-6 shadow-sm lg:h-full lg:min-h-0">
+      <h2 className="flex items-center justify-between font-semibold text-ink">
+        Client Directory
+        <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-xs font-semibold text-ink/55">{filtered.length}</span>
+      </h2>
 
       <div className="mt-4 flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/50">
         <Search className="h-4 w-4" />
@@ -68,7 +71,7 @@ export default function ClientList({
       </div>
       {highSpend && <p className="mt-2 text-[11px] text-ink/40">Spent {peso(HIGH_SPEND_MIN)} or more · biggest first</p>}
 
-      <div className="mt-4 space-y-1">
+      <div className="-mx-2 mt-4 max-h-[60vh] min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin] lg:max-h-none">
         {loading && <p className="py-6 text-center text-sm text-ink/40">Loading clients…</p>}
         {!loading && filtered.length === 0 && (
           <p className="py-6 text-center text-sm text-ink/40">

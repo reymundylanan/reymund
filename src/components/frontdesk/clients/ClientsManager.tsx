@@ -44,7 +44,7 @@ export default function ClientsManager() {
   const selected = clients.find((c) => c.id === selectedId) ?? null;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+    <div className="grid gap-6 lg:h-[calc(100dvh-9rem)] lg:min-h-[32rem] lg:grid-cols-[360px_1fr]">
       <ClientList
         clients={clients}
         loading={loading}
@@ -63,7 +63,7 @@ export default function ClientsManager() {
           }
         />
       ) : (
-        <div className="flex items-center justify-center rounded-2xl bg-white p-6 text-sm text-ink/40 shadow-sm">
+        <div className="flex items-center justify-center rounded-2xl bg-white p-6 text-sm text-ink/40 shadow-sm lg:h-full">
           {loading ? "Loading clients…" : "No clients found."}
         </div>
       )}

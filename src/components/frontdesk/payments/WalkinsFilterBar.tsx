@@ -1,4 +1,7 @@
-import { RefreshCw } from "lucide-react";
+import { CalendarDays, RefreshCw } from "lucide-react";
+
+// Every control the same height and shape, so the row lines up.
+const control = "h-10 rounded-full border border-ink/15 bg-white px-4 text-sm text-ink/75 outline-none transition hover:border-ink/30 focus:border-coral";
 import type { WalkinStatusKey } from "@/components/frontdesk/payments/walkinStatus";
 
 const STATUS_OPTIONS: { value: WalkinStatusKey | "all"; label: string }[] = [
@@ -36,10 +39,12 @@ export default function WalkinsFilterBar({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 shadow-sm">
+      <span className="px-1 text-xs font-semibold text-ink/45">Filter</span>
       <select
         value={statusFilter}
         onChange={(e) => onStatusFilterChange(e.target.value as WalkinStatusKey | "all")}
-        className="rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
+        aria-label="Status"
+        className={`${control} w-36`}
       >
         {STATUS_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -49,7 +54,8 @@ export default function WalkinsFilterBar({
       <select
         value={serviceFilter}
         onChange={(e) => onServiceFilterChange(e.target.value)}
-        className="rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
+        aria-label="Service"
+        className={`${control} w-48 truncate`}
       >
         <option value="all">All Services</option>
         {serviceOptions.map((s) => (
@@ -60,7 +66,8 @@ export default function WalkinsFilterBar({
       <select
         value={staffFilter}
         onChange={(e) => onStaffFilterChange(e.target.value)}
-        className="rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
+        aria-label="Staff"
+        className={`${control} w-40`}
       >
         <option value="all">All Staff</option>
         {staffOptions.map((s) => (
@@ -68,16 +75,15 @@ export default function WalkinsFilterBar({
         ))}
       </select>
 
-      <input
-        type="date"
-        value={dateKey}
-        onChange={(e) => onDateChange(e.target.value)}
-        className="rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
-      />
+      <label className={`${control} flex items-center gap-2`}>
+        <CalendarDays className="h-4 w-4 text-ink/40" />
+        <span className="sr-only">Date</span>
+        <input type="date" value={dateKey} onChange={(e) => onDateChange(e.target.value)} className="bg-transparent text-sm outline-none" />
+      </label>
 
       <button
         onClick={onRefresh}
-        className="flex items-center gap-1.5 rounded-lg border border-ink/15 px-3 py-2 text-sm font-medium text-ink/70 hover:border-ink/30"
+        className={`${control} ml-auto flex items-center gap-1.5 font-medium`}
       >
         <RefreshCw className="h-3.5 w-3.5" /> Refresh
       </button>

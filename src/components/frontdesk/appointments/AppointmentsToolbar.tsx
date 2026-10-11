@@ -5,6 +5,9 @@ import type { StaffRow, ServiceRow } from "@/components/frontdesk/appointments/A
 
 export type StatusFilter = "today" | "upcoming" | "past" | "completed" | "cancelled" | "no_show";
 
+// Every control the same height and shape, so the rows line up.
+const control = "h-10 rounded-full border border-ink/15 bg-white px-4 text-sm text-ink/75 outline-none transition hover:border-ink/30 focus:border-coral";
+
 const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
   { key: "today", label: "Today" },
   { key: "upcoming", label: "Upcoming" },
@@ -79,7 +82,7 @@ export default function AppointmentsToolbar({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      <div role="tablist" aria-label="Show" className="mt-5 flex w-fit max-w-full flex-wrap gap-1 rounded-full bg-[#f8f1df] p-1">
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.key}
@@ -87,18 +90,34 @@ export default function AppointmentsToolbar({
               onStatusFilterChange(f.key);
               onDateFilterChange("");
             }}
-            className={`rounded-full px-4 py-2 text-sm font-medium ${
-              statusFilter === f.key && !dateFilter ? "bg-coral text-white" : "border border-ink/15 text-ink/60 hover:border-coral"
+            role="tab"
+            aria-selected={statusFilter === f.key && !dateFilter}
+            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
+              statusFilter === f.key && !dateFilter ? "bg-coral text-white shadow-sm" : "text-ink/60 hover:text-ink"
             }`}
           >
             {f.label}
           </button>
         ))}
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <label className={`${control} flex min-w-[16rem] flex-1 items-center gap-2 text-ink/50`}>
+          <Search className="h-4 w-4 shrink-0" />
+          <input
+            value={query}
+            onChange={(e) => onQueryChange(e.target.value)}
+            placeholder="Search by name, phone, or booking ID..."
+            aria-label="Search appointments"
+            className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink/40"
+          />
+        </label>
 
         <select
           value={staffFilter}
           onChange={(e) => onStaffFilterChange(e.target.value)}
-          className="rounded-full border border-ink/15 px-4 py-2 text-sm text-ink/70 outline-none focus:border-coral"
+          aria-label="Staff"
+          className={`${control} w-40`}
         >
           <option value="all">All Staff</option>
           {staff.map((s) => (
@@ -109,7 +128,8 @@ export default function AppointmentsToolbar({
         <select
           value={serviceFilter}
           onChange={(e) => onServiceFilterChange(e.target.value)}
-          className="rounded-full border border-ink/15 px-4 py-2 text-sm text-ink/70 outline-none focus:border-coral"
+          aria-label="Service"
+          className={`${control} w-48 truncate`}
         >
           <option value="all">All Services</option>
           {services.map((s) => (
@@ -118,9 +138,7 @@ export default function AppointmentsToolbar({
         </select>
 
         <label
-          className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm ${
-            dateFilter ? "border-coral text-ink" : "border-ink/15 text-ink/70"
-          }`}
+          className={`${control} flex items-center gap-2 ${dateFilter ? "border-coral text-ink" : ""}`}
         >
           <CalendarDays className="h-4 w-4 text-ink/40" />
           <span className="sr-only">Show a specific date</span>
@@ -136,18 +154,6 @@ export default function AppointmentsToolbar({
             </button>
           )}
         </label>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/50">
-          <Search className="h-4 w-4" />
-          <input
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Search by name, phone, or booking ID..."
-            className="w-64 text-sm outline-none placeholder:text-ink/40"
-          />
-        </div>
       </div>
     </div>
   );
