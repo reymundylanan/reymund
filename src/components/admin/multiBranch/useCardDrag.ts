@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-export type DragItem = { kind: "staff" | "appointment" | "client" | "promo"; id: string };
+export type DragItem = { kind: "staff" | "appointment" | "client" | "promo" | "service"; id: string };
 type Ghost = { item: DragItem; x: number; y: number; w: number; ox: number; oy: number };
 
 /** Pointer-based drag (mouse, pen, finger) between board columns. Fingers drag

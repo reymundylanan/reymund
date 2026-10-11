@@ -1,7 +1,7 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Plus, Search } from "lucide-react";
+import { Fragment, useCallback, useMemo, useState } from "react";
+import { ArrowRight, ChevronDown, ChevronRight, Copy, GripVertical, LayoutGrid, Plus, Rows3, Search } from "lucide-react";
 import {
   addDays,
   candidateStaff,
@@ -13,7 +13,8 @@ import {
   type Context,
   type Service,
 } from "@/lib/multiBranch/engine";
-import { Badge, Spinner, postJson } from "./ui";
+import { Badge, Spinner, TONE, postJson, type Tone } from "./ui";
+import { useCardDrag, type DragItem } from "./useCardDrag";
 
 type Row = { name: string; category: string; department: string; byBranch: Map<string, Service> };
 
@@ -36,6 +37,9 @@ export default function ServicesPanel({
   const [confirm, setConfirm] = useState<{ service: Service; affected: Appointment[] } | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<"board" | "table">("board");
+  // A service dropped on another branch: offer it there (copy), or there and off here (move).
+  const [drop, setDrop] = useState<{ service: Service; to: string } | null>(null);
 
   const branches = ctx.branches;
   const rows = useMemo(() => {
@@ -102,6 +106,55 @@ export default function ServicesPanel({
 
   const branchName = (id: string) => branches.find((b) => b.id === id)?.name ?? "—";
 
+  // ── Board: drag a service card onto another branch ──
+  const rowOf = useCallback((s: Service) => rows.find((r) => r.name.toLowerCase() === s.name.toLowerCase()), [rows]);
+  const onDrop = useCallback(
+    (item: DragItem, branchId: string) => {
+      const s = ctx.services.find((x) => x.id === item.id);
+      if (!s || branchId === s.branchId) return;
+      if (rowOf(s)?.byBranch.get(branchId)?.status === "Active") {
+        setError(`${s.name} is already offered at ${branches.find((b) => b.id === branchId)?.name ?? "that branch"}.`);
+        return;
+      }
+      setDrop({ service: s, to: branchId });
+    },
+    [ctx.services, rowOf, branches]
+  );
+  const { ghost, over, scroller, cardProps, columnRef, dragging } = useCardDrag(onDrop);
+  const dragged = dragging ? ctx.services.find((s) => s.id === dragging.id) ?? null : null;
+  const hint = (branchId: string): { tone: Tone; text: string } | null => {
+    if (!dragged || branchId === dragged.branchId) return null;
+    const there = rowOf(dragged)?.byBranch.get(branchId);
+    if (there?.status === "Active") return { tone: "red", text: "Already offered here" };
+    if (!candidateStaff(ctx, branchId, date, dragged.department ? [dragged.department] : []).length)
+      return { tone: "amber", text: `No ${dragged.department || "qualified"} staff here that day — you can still offer it` };
+    return { tone: "green", text: there ? "Drop to switch it on here" : "Drop to offer it here" };
+  };
+
+  /** Offer at the drop branch (switch on its copy, or add one); "move" also switches it off where it came from. */
+  async function applyDrop(move: boolean) {
+    if (!drop) return;
+    const { service: s, to } = drop;
+    const there = rowOf(s)?.byBranch.get(to);
+    const key = `${s.name}-${to}`;
+    setBusy(key);
+    setError(null);
+    try {
+      await postJson(
+        "/api/admin/multi-branch/service",
+        there ? { action: "toggle", serviceId: there.id, active: true, reason: "Dragged on the Services board" } : { action: "offer", serviceId: s.id, branchId: to, reason: "Dragged on the Services board" }
+      );
+      if (move && s.status === "Active") {
+        await postJson("/api/admin/multi-branch/service", { action: "toggle", serviceId: s.id, active: false, reason: `Moved to ${branchName(to)}` });
+      }
+      onChanged(`${s.name} ${move ? "moved" : "now offered"} ${move ? "to" : "at"} ${branchName(to)}.`);
+      setDrop(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+    setBusy(null);
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 shadow-sm">
@@ -109,19 +162,197 @@ export default function ServicesPanel({
           <Search className="h-4 w-4 shrink-0" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search services" className="w-full bg-transparent text-ink outline-none placeholder:text-ink/40" />
         </label>
+        <div className="flex rounded-full bg-cream p-1">
+          {(
+            [
+              ["board", "Board", LayoutGrid],
+              ["table", "Table", Rows3],
+            ] as const
+          ).map(([k, label, Icon]) => (
+            <button
+              key={k}
+              onClick={() => setView(k)}
+              aria-pressed={view === k}
+              className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold ${view === k ? "bg-white text-ink shadow-sm" : "text-ink/50"}`}
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </button>
+          ))}
+        </div>
         <select value={category} onChange={(e) => setCategory(e.target.value)} aria-label="Category" className="rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/70">
           {categories.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>
         <p className="w-full text-xs text-ink/50">
-          Open slots are for {formatDay(date, ctx.today)}{" "}with qualified staff (same department), for the service&apos;s full duration. Turning a service off never moves
+          Drag a service onto another branch to offer it there too, or move it. Open slots are for {formatDay(date, ctx.today)}{" "}with qualified staff (same department), for the service&apos;s full duration. Turning a service off never moves
           existing bookings — they&apos;re listed for you to review. Rooms and equipment aren&apos;t tracked in GlowSync.
         </p>
       </div>
 
       {error && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
 
+      {view === "board" && (
+        <div ref={scroller} className="scrollbar-hidden -mx-1 flex snap-x gap-4 overflow-x-auto px-1 pb-4">
+          {branches.map((b) => {
+            const list = shown.map((r) => r.byBranch.get(b.id)).filter((s): s is Service => !!s);
+            const offered = list.filter((s) => s.status === "Active").length;
+            const h = hint(b.id);
+            return (
+              <section
+                key={b.id}
+                ref={columnRef(b.id)}
+                aria-label={`Services at ${b.name}`}
+                className={`flex h-[min(46rem,calc(100dvh-12rem))] w-[19rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border-2 transition sm:w-[21rem] ${
+                  h ? `${TONE[h.tone].ring} ${TONE[h.tone].soft} shadow-lg` : "border-transparent bg-white shadow-sm"
+                }`}
+              >
+                <header className="shrink-0 border-b border-ink/5 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="truncate font-semibold text-ink">{b.name}</h2>
+                    <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-sm font-bold text-ink/70">{list.length}</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
+                    <div className="rounded-lg bg-green-50 py-1">
+                      <p className="text-sm font-bold text-green-700">{offered}</p>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-ink/45">Offered</p>
+                    </div>
+                    <div className="rounded-lg bg-ink/[0.04] py-1">
+                      <p className="text-sm font-bold text-ink">{list.length - offered}</p>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-ink/45">Off</p>
+                    </div>
+                    <div className="rounded-lg bg-blue-50 py-1">
+                      <p className="text-sm font-bold text-blue-700">{candidateStaff(ctx, b.id, date, []).length}</p>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-ink/45">Staff</p>
+                    </div>
+                  </div>
+                  {over === b.id && h && <p className={`mt-2 rounded-lg px-2 py-1.5 text-xs font-semibold ${TONE[h.tone].badge}`}>{h.text}</p>}
+                </header>
+                <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2.5 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
+                  {list.map((svc) => {
+                    const on = svc.status === "Active";
+                    const row = rowOf(svc)!;
+                    const qualified = candidateStaff(ctx, b.id, date, svc.department ? [svc.department] : []).length;
+                    const slots = slotsFor(row, b.id, date);
+                    const affected = affectedBy(svc);
+                    const key = `${row.name}-${b.id}`;
+                    return (
+                      <li
+                        key={svc.id}
+                        {...cardProps({ kind: "service", id: svc.id })}
+                        className={`group cursor-grab select-none rounded-xl border bg-white p-2.5 transition active:cursor-grabbing ${
+                          dragging?.id === svc.id ? "opacity-30" : "hover:-translate-y-0.5 hover:border-coral/50 hover:shadow-md"
+                        } ${on ? "border-ink/10" : "border-dashed border-ink/15 bg-ink/[0.02]"}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span data-grip className="-my-1 touch-none py-1 text-ink/20 group-hover:text-ink/45" aria-hidden>
+                            <GripVertical className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-semibold leading-snug ${on ? "text-ink" : "text-ink/50"}`}>{svc.name}</p>
+                            <p className="truncate text-xs text-ink/50">
+                              {svc.category} · {parseDuration(svc.duration)} min · ₱{svc.price.toLocaleString()}
+                            </p>
+                          </div>
+                          <button
+                            role="switch"
+                            aria-checked={on}
+                            aria-label={`${svc.name} at ${b.name}: ${on ? "offered" : "off"}`}
+                            disabled={busy === key}
+                            onClick={() =>
+                              on
+                                ? setConfirm({ service: svc, affected })
+                                : run(key, { action: "toggle", serviceId: svc.id, active: true, reason: "Re-enabled from Multi-Branch" }, `${svc.name} is offered at ${b.name} again.`)
+                            }
+                            className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition ${on ? "bg-green-500" : "bg-ink/20"} disabled:opacity-50`}
+                          >
+                            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${on ? "left-[18px]" : "left-0.5"}`} />
+                          </button>
+                        </div>
+                        <div className="mt-2 grid grid-cols-3 divide-x divide-ink/5 rounded-lg bg-cream/70 py-1.5 text-center">
+                          <div>
+                            <p className="text-xs font-bold text-ink">{qualified}</p>
+                            <p className="text-[10px] uppercase tracking-wide text-ink/40">Qualified</p>
+                          </div>
+                          <div>
+                            <p className={`text-xs font-bold ${on ? (slots ? "text-green-700" : "text-red-700") : "text-ink/35"}`}>{on ? slots ?? 0 : "—"}</p>
+                            <p className="text-[10px] uppercase tracking-wide text-ink/40">Open {formatDay(date, ctx.today) === "Today" ? "today" : "slots"}</p>
+                          </div>
+                          <div>
+                            <p className={`text-xs font-bold ${affected.length ? "text-amber-700" : "text-ink"}`}>{affected.length}</p>
+                            <p className="text-[10px] uppercase tracking-wide text-ink/40">Booked</p>
+                          </div>
+                        </div>
+                        {!on && <p className="mt-1.5 text-[11px] font-semibold text-ink/45">Not offered here — switch on to bring it back</p>}
+                      </li>
+                    );
+                  })}
+                  {list.length === 0 && (
+                    <li className="rounded-xl border-2 border-dashed border-ink/10 px-3 py-6 text-center text-xs text-ink/35">No services match</li>
+                  )}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      )}
+
+      {ghost && (
+        <div
+          className="pointer-events-none fixed left-0 top-0 z-[90] rounded-xl border border-coral bg-white p-2.5 shadow-2xl"
+          style={{ width: ghost.w, transform: `translate(${ghost.x - ghost.ox}px, ${ghost.y - ghost.oy}px) rotate(2deg)` }}
+        >
+          <p className="text-sm font-semibold text-ink">{dragged?.name}</p>
+          <p className="text-xs text-ink/50">Drop on a branch</p>
+        </div>
+      )}
+
+      {drop && (
+        <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/50 px-4" onClick={() => setDrop(null)}>
+          <div role="dialog" aria-modal="true" aria-label="Offer service at another branch" className="w-full max-w-md rounded-2xl bg-white p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="font-semibold text-ink">
+              {drop.service.name} → {branchName(drop.to)}
+            </h2>
+            <p className="mt-1 text-sm text-ink/60">
+              {rowOf(drop.service)?.byBranch.get(drop.to) ? "It's switched off there — this switches it back on." : "A copy is added there with the same price, duration and details."}
+            </p>
+            <div className="mt-4 space-y-2">
+              <button
+                disabled={!!busy}
+                onClick={() => applyDrop(false)}
+                className="flex w-full items-start gap-3 rounded-xl border-2 border-ink/10 p-3 text-left transition hover:border-coral hover:bg-blush disabled:opacity-50"
+              >
+                <Copy className="mt-0.5 h-4 w-4 shrink-0 text-coral-dark" />
+                <span>
+                  <span className="block font-semibold text-ink">Offer at both</span>
+                  <span className="block text-xs text-ink/55">Keep it at {branchName(drop.service.branchId)} too.</span>
+                </span>
+              </button>
+              <button
+                disabled={!!busy || drop.service.status !== "Active"}
+                onClick={() => applyDrop(true)}
+                className="flex w-full items-start gap-3 rounded-xl border-2 border-ink/10 p-3 text-left transition hover:border-coral hover:bg-blush disabled:opacity-50"
+              >
+                <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-coral-dark" />
+                <span>
+                  <span className="block font-semibold text-ink">Move</span>
+                  <span className="block text-xs text-ink/55">
+                    Offered at {branchName(drop.to)}, switched off at {branchName(drop.service.branchId)}.
+                    {affectedBy(drop.service).length
+                      ? ` ${affectedBy(drop.service).length} upcoming booking${affectedBy(drop.service).length === 1 ? " stays" : "s stay"} as booked — review them on the Board.`
+                      : ""}
+                  </span>
+                </span>
+              </button>
+              <button onClick={() => setDrop(null)} className="w-full rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {view === "table" && (
       <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
         <table className="w-full min-w-[40rem] text-sm">
           <thead>
@@ -248,6 +479,8 @@ export default function ServicesPanel({
           </tbody>
         </table>
       </div>
+
+      )}
 
       {confirm && (
         <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/50 px-4" onClick={() => setConfirm(null)}>
