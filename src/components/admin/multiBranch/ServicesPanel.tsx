@@ -433,7 +433,7 @@ export default function ServicesPanel({
                   <span className="block text-xs text-ink/55">
                     Offered at {branchName(drop.to)}, switched off at {branchName(drop.service.branchId)}.
                     {affectedBy(drop.service).length
-                      ? ` ${affectedBy(drop.service).length} upcoming booking${affectedBy(drop.service).length === 1 ? " stays" : "s stay"} as booked — review them on the Board.`
+                      ? ` ${affectedBy(drop.service).length} upcoming booking${affectedBy(drop.service).length === 1 ? " stays" : "s stay"} as booked — review them on the Staff tab.`
                       : ""}
                   </span>
                 </span>

@@ -9,7 +9,6 @@ import {
   CalendarClock,
   GripVertical,
   History,
-  LayoutGrid,
   ListChecks,
   RefreshCw,
   RotateCcw,
@@ -386,7 +385,7 @@ export default function MultiBranchManager() {
           <div role="tablist" aria-label="View" className="scrollbar-hidden flex max-w-full overflow-x-auto rounded-full bg-cream p-1">
             {(
               [
-                ["board", "Board", LayoutGrid],
+                ["board", "Staff", Users],
                 ["clients", "Clients", UserRound],
                 ["services", "Services", Scissors],
                 ["promos", "Promos", Tag],
