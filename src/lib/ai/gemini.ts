@@ -2,8 +2,12 @@ export const GEMINI_REVIEW_MODEL = "gemini-2.5-flash-lite";
 export type GeminiImage = { mimeType: string; base64: string };
 
 /** Tried in order. Each model has its own free-tier quota, so when one is
- * used up (429) or retired (404) the next one answers instead. */
-export const GEMINI_MODELS = [GEMINI_REVIEW_MODEL, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.0-flash-lite"];
+ * used up (429), retired (404), slow or unreachable, the next one answers.
+ * (gemini-2.0-* and gemini-2.5-flash were retired by Google in 2026.) */
+export const GEMINI_MODELS = [GEMINI_REVIEW_MODEL, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.8-flash"];
+
+/** One model gets at most this long before the next one is tried. */
+const PER_MODEL_MS = 12_000;
 
 export class GeminiError extends Error {
   constructor(
@@ -20,14 +24,18 @@ export class GeminiError extends Error {
 
 const RETRY_NEXT_MODEL = new Set([404, 429, 500, 503]);
 
-/** generateContent with model fallback; returns the first candidate's text. */
+/** generateContent with model fallback; returns the first candidate's text.
+ * `timeoutMs` is the budget for the whole call, across every model tried. */
 export async function geminiGenerate(body: object, timeoutMs = 25_000): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new GeminiError(500, "GEMINI_API_KEY is not set");
+  const deadline = Date.now() + timeoutMs;
   let last: GeminiError | null = null;
   for (const model of GEMINI_MODELS) {
+    const remaining = deadline - Date.now();
+    if (remaining < 1_500) break;
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), Math.min(PER_MODEL_MS, remaining));
     try {
       const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
         method: "POST",
@@ -42,11 +50,15 @@ export async function geminiGenerate(body: object, timeoutMs = 25_000): Promise<
       const err = await res.json().catch(() => null);
       last = new GeminiError(res.status, `Gemini ${res.status} (${model}): ${err?.error?.message ?? "request failed"}`);
       if (!RETRY_NEXT_MODEL.has(res.status)) throw last;
+    } catch (e) {
+      if (e instanceof GeminiError) throw e;
+      // Timed out or couldn't connect — try the next model while time remains.
+      last = new GeminiError(503, `Gemini ${model}: ${e instanceof Error && e.name === "AbortError" ? "timed out" : "network error"}`);
     } finally {
       clearTimeout(timer);
     }
   }
-  throw last ?? new GeminiError(503, "Gemini unavailable");
+  throw last ?? new GeminiError(503, "Gemini unavailable (out of time)");
 }
 
 export async function geminiJson(opts: {

@@ -207,6 +207,10 @@ export type AskInput = {
 
 /** GlowSync AI's answer (Gemini with model fallback), or a catalog answer
  * when every model is out of quota — never a raw Google error. */
+/** Leaves time for the rest of the request, so a client never waits past the
+ * chat's 35 s limit — if the AI is out of time, the built-in answer is sent. */
+const ASSISTANT_AI_BUDGET_MS = 20_000;
+
 export async function askSpaAssistant(input: AskInput): Promise<{ reply: string; recommendations: LiveService[] }> {
   const { messages, services, preferredBranchName } = input;
   const contents = messages.map((m) => ({
@@ -231,7 +235,7 @@ export async function askSpaAssistant(input: AskInput): Promise<{ reply: string;
           required: ["reply", "recommendedServiceIds"],
         },
       },
-    });
+    }, ASSISTANT_AI_BUDGET_MS);
   } catch (e) {
     aiFailed = true;
     console.error("assistant: Gemini unavailable:", e instanceof GeminiError ? e.message : e);
