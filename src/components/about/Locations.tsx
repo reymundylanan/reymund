@@ -1,8 +1,33 @@
-import Image from "next/image";
-import { MapPin } from "lucide-react";
-import { aboutLocations } from "@/lib/data";
+import { aboutLocations, branchContacts } from "@/lib/data";
+import { branchPitch, type BranchStats } from "@/lib/branchGuide";
+import { getBranchStats } from "@/lib/supabase/queries/branchStats";
+import LocationsGrid, { type LocationCard } from "@/components/about/LocationsGrid";
 
-export default function Locations() {
+// Each About-page location ↔ its branch in the database, booking id and page.
+const LINKS: Record<string, { branch: string; place: string; kind: BranchStats["kind"]; href: string; booking: string }> = {
+  "one-cecilia-center": { branch: "One Cecilia Center", place: "One Cecilia Center", kind: "flagship", href: "/branches/pagadian", booking: "one-cecilia-center" },
+  "robinson-pagadian": { branch: "Robinsons Pagadian", place: "Robinsons Mall", kind: "mall", href: "/branches/robinsons", booking: "robinson-mall" },
+};
+
+export default async function Locations() {
+  const known = aboutLocations.filter((l) => LINKS[l.id]);
+  const stats = await getBranchStats(known.map((l) => ({ name: LINKS[l.id].branch, place: LINKS[l.id].place, kind: LINKS[l.id].kind })));
+  const cards: LocationCard[] = known.map((l) => {
+    const link = LINKS[l.id];
+    const s = stats[link.branch];
+    return {
+      id: l.id,
+      name: l.name,
+      subtitle: l.subtitle,
+      description: l.description,
+      image: l.image,
+      href: link.href,
+      bookingBranchId: branchContacts.some((b) => b.id === link.booking) ? link.booking : null,
+      stats: s,
+      pitch: branchPitch(s),
+    };
+  });
+
   return (
     <section className="mx-auto max-w-7xl px-6 py-20">
       <div className="text-center">
@@ -10,42 +35,11 @@ export default function Locations() {
           Our <span className="text-coral">Premier</span> Locations
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-ink/60">
-          Visit us at our strategically located branches in the heart of
-          Pagadian City
+          Visit us at our strategically located branches in the heart of Pagadian City. Point at (or tap) a branch and GlowSync AI will show you around.
         </p>
         <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-coral" />
       </div>
-
-      <div className="mt-10 grid gap-6 sm:grid-cols-2">
-        {aboutLocations.map((loc) => (
-          <div
-            key={loc.id}
-            className="group overflow-hidden rounded-2xl border border-ink/10 bg-white shadow-sm transition hover:shadow-lg"
-          >
-            <div className="relative h-56 overflow-hidden bg-gradient-to-br from-rose to-coral-dark">
-              <Image
-                src={loc.image}
-                alt={loc.name}
-                fill
-                sizes="(max-width: 640px) 100vw, 50vw"
-                className="object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#2b1a10]/40 to-transparent" />
-              <span className="absolute left-4 top-4 rounded-full bg-gold px-3 py-1 text-xs font-semibold text-ink shadow-sm">
-                Open Daily
-              </span>
-            </div>
-            <div className="p-5">
-              <p className="flex items-center gap-1 text-xs font-medium text-coral-dark">
-                <MapPin className="h-3.5 w-3.5" />
-                {loc.subtitle}
-              </p>
-              <h3 className="mt-2 font-semibold text-ink">{loc.name}</h3>
-              <p className="mt-2 text-sm text-ink/60">{loc.description}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      <LocationsGrid locations={cards} />
     </section>
   );
 }
