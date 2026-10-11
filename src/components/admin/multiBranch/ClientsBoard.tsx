@@ -29,6 +29,8 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
   const [type, setType] = useState<"all" | "account" | "walkin" | "upcoming">("all");
   const [preview, setPreview] = useState<{ key: string; toBranchId: string | null } | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Per column: show only accounts, walk-ins or clients with upcoming bookings.
+  const [groupBy, setGroupBy] = useState<Record<string, Group | undefined>>({});
   const [sub, setSub] = useState<"branches" | "day">("branches");
 
   useEffect(() => {
@@ -154,6 +156,9 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
               const isCollapsed = collapsed.has(id);
               const walkIns = list.filter((c) => !c.clientId).length;
               const upcoming = list.filter((c) => c.upcoming > 0).length;
+              const group = groupBy[id];
+              const visible = group ? list.filter(GROUPS[group].match) : list;
+              const pickGroup = (g: Group) => setGroupBy((cur) => ({ ...cur, [id]: cur[id] === g ? undefined : g }));
               const toggle = () =>
                 setCollapsed((s) => {
                   const n = new Set(s);
@@ -197,17 +202,27 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
                     </div>
                     {!isCollapsed && (
                       <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-center">
-                        <MiniStat label="Accounts" value={list.length - walkIns} tone="blue" />
-                        <MiniStat label="Walk-ins" value={walkIns} tone="gray" />
-                        <MiniStat label="Upcoming" value={upcoming} tone="amber" />
+                        <MiniStat label="Accounts" value={list.length - walkIns} tone="blue" active={group === "account"} onClick={() => pickGroup("account")} />
+                        <MiniStat label="Walk-ins" value={walkIns} tone="gray" active={group === "walkin"} onClick={() => pickGroup("walkin")} />
+                        <MiniStat label="Upcoming" value={upcoming} tone="amber" active={group === "upcoming"} onClick={() => pickGroup("upcoming")} />
                       </div>
+                    )}
+                    {!isCollapsed && group && (
+                      <p className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-cream px-2.5 py-1.5 text-xs text-ink/70">
+                        <span>
+                          Showing <b className="text-ink">{GROUPS[group].label}</b> · {visible.length}
+                        </span>
+                        <button onClick={() => pickGroup(group)} className="font-semibold text-coral-dark hover:underline">
+                          Show all
+                        </button>
+                      </p>
                     )}
                     {!isCollapsed && over === id && h && <p className={`mt-2 rounded-lg px-2 py-1.5 text-xs font-semibold ${TONE[h.tone].badge}`}>{h.text}</p>}
                   </header>
 
                   {!isCollapsed && (
                     <ul className="min-h-0 flex-1 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin] space-y-2 overflow-y-auto overscroll-contain p-2.5">
-                      {list.map((c) => (
+                      {visible.map((c) => (
                         <li
                           key={c.key}
                           {...cardProps({ kind: "client", id: c.key })}
@@ -272,11 +287,11 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
                           </div>
                         </li>
                       ))}
-                      {list.length === 0 && <Empty>{q || type !== "all" ? "No clients match" : "No clients here"}</Empty>}
+                      {visible.length === 0 && <Empty>{group ? `No ${GROUPS[group].label.toLowerCase()} here` : q || type !== "all" ? "No clients match" : "No clients here"}</Empty>}
                     </ul>
                   )}
-                  {!isCollapsed && list.length > 4 && (
-                    <p className="shrink-0 border-t border-ink/5 px-3 py-1.5 text-center text-[11px] text-ink/40">{list.length} clients · scroll for more</p>
+                  {!isCollapsed && visible.length > 4 && (
+                    <p className="shrink-0 border-t border-ink/5 px-3 py-1.5 text-center text-[11px] text-ink/40">{visible.length} clients · scroll for more</p>
                   )}
                 </section>
               );
@@ -322,12 +337,30 @@ function shortDay(dateKey: string) {
   return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-function MiniStat({ label, value, tone }: { label: string; value: number; tone: Tone }) {
+type Group = "account" | "walkin" | "upcoming";
+const GROUPS: Record<Group, { label: string; match: (c: ClientCard) => boolean }> = {
+  account: { label: "Accounts", match: (c) => !!c.clientId },
+  walkin: { label: "Walk-ins", match: (c) => !c.clientId },
+  upcoming: { label: "Upcoming", match: (c) => c.upcoming > 0 },
+};
+
+const STAT_RING: Partial<Record<Tone, string>> = { blue: "ring-blue-400", amber: "ring-amber-400", gray: "ring-ink/40" };
+
+/** A column counter that also filters the column when pressed. */
+function MiniStat({ label, value, tone, active, onClick }: { label: string; value: number; tone: Tone; active: boolean; onClick: () => void }) {
   return (
-    <div className={`rounded-lg py-1 ${TONE[tone].soft}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title={active ? "Show all clients" : `Show only ${label.toLowerCase()}`}
+      className={`rounded-lg py-1 transition hover:-translate-y-0.5 hover:shadow-sm ${TONE[tone].soft} ${
+        active ? `ring-2 ring-offset-1 ${STAT_RING[tone] ?? "ring-ink/40"}` : ""
+      }`}
+    >
       <p className={`text-sm font-bold ${tone === "gray" ? "text-ink" : TONE[tone].badge.split(" ")[1]}`}>{value}</p>
       <p className="text-[10px] font-medium uppercase tracking-wide text-ink/45">{label}</p>
-    </div>
+    </button>
   );
 }
 
