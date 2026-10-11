@@ -57,6 +57,7 @@ export function StaffCard({
   dragProps,
   dimmed,
   onMove,
+  onOpen,
 }: {
   ctx: Context;
   staff: Staff;
@@ -66,6 +67,7 @@ export function StaffCard({
   dragProps?: Record<string, unknown>;
   dimmed?: boolean;
   onMove?: () => void;
+  onOpen?: () => void;
 }) {
   const status = STAFF_STATUS[staffStatus(ctx, staff.id, branchId, date)];
   const guest = presence(ctx, staff.id, branchId, date) === "guest";
@@ -74,6 +76,15 @@ export function StaffCard({
   return (
     <li
       {...dragProps}
+      onClick={
+        onOpen
+          ? (e: React.MouseEvent) => {
+              if ((e.target as HTMLElement).closest("button")) return;
+              onOpen();
+            }
+          : undefined
+      }
+      title={onOpen ? "Click for details · drag to another branch" : undefined}
       className={`group relative flex select-none items-center gap-2.5 rounded-xl border bg-white p-2.5 transition ${
         dragProps ? "cursor-grab active:cursor-grabbing" : ""
       } ${dimmed ? "opacity-30" : "hover:border-coral/50 hover:shadow-sm"} border-ink/10`}
@@ -127,6 +138,7 @@ export function AppointmentCard({
   dimmed,
   showDate,
   onReschedule,
+  onOpen,
 }: {
   ctx: Context;
   appt: Appointment;
@@ -135,6 +147,7 @@ export function AppointmentCard({
   dimmed?: boolean;
   showDate?: boolean;
   onReschedule?: () => void;
+  onOpen?: () => void;
 }) {
   const { tone, label } = appointmentTone(appt, !!conflict);
   const staff = ctx.staff.find((s) => s.id === appt.professionalId);
@@ -142,6 +155,15 @@ export function AppointmentCard({
   return (
     <li
       {...dragProps}
+      onClick={
+        onOpen
+          ? (e: React.MouseEvent) => {
+              if ((e.target as HTMLElement).closest("button")) return;
+              onOpen();
+            }
+          : undefined
+      }
+      title={onOpen ? "Click for details · drag to another branch" : undefined}
       className={`group relative select-none rounded-xl border bg-white p-2.5 transition ${dragProps ? "cursor-grab active:cursor-grabbing" : ""} ${
         dimmed ? "opacity-30" : "hover:border-coral/50 hover:shadow-sm"
       } ${conflict ? "border-red-300 bg-red-50/40" : "border-ink/10"}`}
@@ -211,6 +233,8 @@ export function BranchColumn({
   cardProps,
   onMoveStaff,
   onMoveAppointment,
+  onOpenStaff,
+  onOpenAppointment,
   walkins = [],
 }: {
   ctx: Context;
@@ -229,6 +253,8 @@ export function BranchColumn({
   cardProps: CardProps;
   onMoveStaff: (s: Staff) => void;
   onMoveAppointment: (a: Appointment) => void;
+  onOpenStaff?: (s: Staff) => void;
+  onOpenAppointment?: (a: Appointment) => void;
   walkins?: WalkinTransferItem[];
 }) {
   const active = isBranchActive(branch);
@@ -309,6 +335,7 @@ export function BranchColumn({
                 dragProps={cardProps({ kind: "staff", id: s.id }, presence(ctx, s.id, branch.id, date) === "home")}
                 dimmed={dragging?.kind === "staff" && dragging.id === s.id}
                 onMove={() => onMoveStaff(s)}
+                onOpen={onOpenStaff ? () => onOpenStaff(s) : undefined}
               />
             ))}
             {staff.length === 0 && <Empty>No staff match</Empty>}
@@ -323,6 +350,7 @@ export function BranchColumn({
                 dragProps={cardProps({ kind: "appointment", id: a.id }, MOVABLE(a))}
                 dimmed={dragging?.kind === "appointment" && dragging.id === a.id}
                 onReschedule={MOVABLE(a) ? () => onMoveAppointment(a) : undefined}
+                onOpen={onOpenAppointment ? () => onOpenAppointment(a) : undefined}
               />
             ))}
             {appointments.length === 0 && <Empty>No appointments this day</Empty>}

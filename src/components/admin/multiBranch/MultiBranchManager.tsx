@@ -45,6 +45,7 @@ import ServicesPanel from "./ServicesPanel";
 import HistoryPanel from "./HistoryPanel";
 import ClientsBoard from "./ClientsBoard";
 import PromosPanel from "./PromosPanel";
+import { AppointmentDetails, StaffDetails } from "./StaffDetails";
 import { Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
 import { WalkinTransferCard } from "./BoardColumn";
@@ -80,6 +81,8 @@ export default function MultiBranchManager() {
   const [preview, setPreview] = useState<Preview | null>(null);
   const [toast, setToast] = useState<{ text: string; logId?: string | null; tone?: Tone } | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
+  // Card whose details panel is open (staff: with the branch column it was opened from).
+  const [detail, setDetail] = useState<{ kind: "staff"; id: string; branchId: string } | { kind: "appointment"; id: string } | null>(null);
 
   // ── Loading (filters and date are kept across refreshes) ──
   const dateRef = useRef(date);
@@ -519,6 +522,8 @@ export default function MultiBranchManager() {
                     cardProps={cardProps}
                     onMoveStaff={(s) => setPreview({ kind: "staff", id: s.id, toBranchId: null })}
                     onMoveAppointment={(a) => openAppt(a)}
+                    onOpenStaff={(s) => setDetail({ kind: "staff", id: s.id, branchId: b.id })}
+                    onOpenAppointment={(a) => setDetail({ kind: "appointment", id: a.id })}
                     walkins={col.walkins}
                   />
                 );
@@ -542,6 +547,7 @@ export default function MultiBranchManager() {
                       dragProps={cardProps({ kind: "appointment", id: a.id }, MOVABLE(a))}
                       dimmed={dragging?.id === a.id}
                       onReschedule={() => openAppt(a)}
+                      onOpen={() => setDetail({ kind: "appointment", id: a.id })}
                     />
                   ))}
                   {needs.length === 0 && <Empty>Nothing to resolve 🎉</Empty>}
@@ -620,7 +626,7 @@ export default function MultiBranchManager() {
             {lower === "needs" ? (
               <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 {(ctx.appointments.filter((a) => conflicts.has(a.id)) ?? []).map((a) => (
-                  <AppointmentCard key={a.id} ctx={ctx} appt={a} showDate conflict={conflicts.get(a.id)} onReschedule={() => openAppt(a)} />
+                  <AppointmentCard key={a.id} ctx={ctx} appt={a} showDate conflict={conflicts.get(a.id)} onReschedule={() => openAppt(a)} onOpen={() => setDetail({ kind: "appointment", id: a.id })} />
                 ))}
                 {conflicts.size === 0 && <Empty>No appointments need rescheduling.</Empty>}
               </ul>
@@ -634,6 +640,34 @@ export default function MultiBranchManager() {
             )}
           </div>
         </>
+      )}
+
+      {ctx && detail?.kind === "staff" && ctx.staff.find((s) => s.id === detail.id) && (
+        <StaffDetails
+          ctx={ctx}
+          staff={ctx.staff.find((s) => s.id === detail.id)!}
+          branchId={detail.branchId}
+          date={date}
+          onClose={() => setDetail(null)}
+          onMove={() => {
+            setDetail(null);
+            setPreview({ kind: "staff", id: detail.id, toBranchId: null });
+          }}
+        />
+      )}
+      {ctx && detail?.kind === "appointment" && ctx.appointments.find((a) => a.id === detail.id) && (
+        <AppointmentDetails
+          ctx={ctx}
+          appt={ctx.appointments.find((a) => a.id === detail.id)!}
+          conflict={conflicts.get(detail.id) ?? null}
+          movable={MOVABLE(ctx.appointments.find((a) => a.id === detail.id)!)}
+          onClose={() => setDetail(null)}
+          onReschedule={() => {
+            const a = ctx.appointments.find((x) => x.id === detail.id)!;
+            setDetail(null);
+            openAppt(a);
+          }}
+        />
       )}
 
       {toast && (
