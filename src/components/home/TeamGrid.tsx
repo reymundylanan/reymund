@@ -85,8 +85,10 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
     []
   );
   const keepOpen = () => window.clearTimeout(closeTimer.current);
+  // While the mascot is being dragged (even outside the panel), keep it open.
+  const draggingMascot = useRef(false);
   const closeSoon = (e: React.PointerEvent) => {
-    if (e.pointerType !== "mouse") return;
+    if (e.pointerType !== "mouse" || draggingMascot.current) return;
     window.clearTimeout(openTimer.current);
     window.clearTimeout(closeTimer.current);
     closeTimer.current = window.setTimeout(() => setActiveId(null), 420);
@@ -178,7 +180,15 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
           <div key={`${active.id}-${reply}`} className="guide-bubble glowy-pop">
             <div className="guide-bubble-inner flex gap-3 p-4">
               <div className="relative shrink-0 self-end">
-                <PlayfulMascot size={mascotSize} pose="present" label="Play with GlowSync AI" />
+                <PlayfulMascot
+                  size={mascotSize}
+                  pose="present"
+                  label="Play with GlowSync AI"
+                  onDragging={(d) => {
+                    draggingMascot.current = d;
+                    keepOpen();
+                  }}
+                />
               </div>
               <div className="min-w-0 flex-1 space-y-2">
                 <p className="guide-rise flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">

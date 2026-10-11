@@ -12,7 +12,7 @@ export default async function Team() {
       <SectionHeading
         eyebrow="Our Experts"
         title="Meet the Team"
-        subtitle="Skilled, caring specialists dedicated to your glow. Tap anyone and GlowSync AI will introduce them."
+        subtitle="Skilled, caring specialists dedicated to your glow. Point at (or tap) anyone and GlowSync AI will introduce them."
       />
 
       {staff.length === 0 ? (

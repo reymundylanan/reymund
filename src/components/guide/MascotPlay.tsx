@@ -260,6 +260,7 @@ export function PlayfulMascot({
   talking = false,
   label = "GlowSync AI",
   className = "",
+  onDragging,
 }: {
   size: number;
   pose?: MascotPose;
@@ -269,20 +270,74 @@ export function PlayfulMascot({
   talking?: boolean;
   label?: string;
   className?: string;
+  /** Told when a drag starts and ends (e.g. so a hover panel stays open). */
+  onDragging?: (dragging: boolean) => void;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const play = useMascotPlay({ targetRef: ref });
+  // Drag it anywhere; let go and it springs back home with a little giggle.
+  const [offset, setOffset] = useState<{ x: number; y: number } | null>(null);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(false);
+
+  function down(e: ReactPointerEvent<HTMLButtonElement>) {
+    if (e.button !== 0) return;
+    start.current = { x: e.clientX, y: e.clientY };
+    moved.current = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function move(e: ReactPointerEvent<HTMLButtonElement>) {
+    const s = start.current;
+    if (!s) return play.rub(e);
+    const dx = e.clientX - s.x;
+    const dy = e.clientY - s.y;
+    if (!moved.current && Math.hypot(dx, dy) < 6) return;
+    if (!moved.current) {
+      moved.current = true;
+      onDragging?.(true);
+    }
+    setOffset({ x: dx, y: dy });
+  }
+  function up() {
+    start.current = null;
+    if (!moved.current) return;
+    setOffset(null);
+    onDragging?.(false);
+    window.setTimeout(() => play.emote([{ face: "giggle", emote: "♪", ms: 1200 }]), 500);
+  }
+
   return (
     <button
       ref={ref}
       type="button"
-      aria-label={label}
-      onClick={play.tap}
-      onPointerMove={play.rub}
+      aria-label={`${label} (you can drag me)`}
+      onClick={() => {
+        if (moved.current) {
+          moved.current = false; // that was a drag, not a tap
+          return;
+        }
+        play.tap();
+      }}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={up}
       onPointerEnter={play.hover}
-      className={`block rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a] ${className}`}
+      style={{
+        transform: offset ? `translate(${offset.x}px, ${offset.y}px) rotate(${Math.max(-12, Math.min(12, offset.x / 18))}deg)` : "none",
+        transition: offset ? "none" : "transform 650ms cubic-bezier(0.3, 1.45, 0.5, 1)",
+        touchAction: "none",
+      }}
+      className={`relative block rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a] ${offset ? "z-50 cursor-grabbing" : "cursor-grab"} ${className}`}
     >
-      <MascotFigure play={play} size={size} pose={pose} face={face} emote={emote} talking={talking} />
+      <MascotFigure
+        play={play}
+        size={size}
+        pose={offset ? "excited" : pose}
+        face={offset ? "surprised" : face}
+        emote={offset ? "!" : emote}
+        talking={talking}
+      />
     </button>
   );
 }
