@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Star } from "lucide-react";
-import { useMascotSize } from "@/components/guide/guideKit";
+import { Quote, Star } from "lucide-react";
 import { PlayfulMascot } from "@/components/guide/MascotPlay";
 import { createClient } from "@/lib/supabase/client";
 import { getPublicStaffProfile, type PublicStaffReview } from "@/lib/supabase/queries/staffProfiles";
@@ -42,7 +41,6 @@ export default function StaffProfileDetails({
 }) {
   const [data, setData] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState(false);
-  const mascotSize = useMascotSize();
 
   useEffect(() => {
     let cancelled = false;
@@ -60,9 +58,9 @@ export default function StaffProfileDetails({
 
   if (!data && !failed) {
     return (
-      <div className="space-y-2" aria-label="Loading profile">
-        <div className="h-16 animate-pulse rounded-2xl bg-[#f6ead8]" />
-        <div className="h-24 animate-pulse rounded-2xl bg-[#f6ead8]" />
+      <div className="space-y-3" aria-label="Loading profile">
+        <div className="h-28 animate-pulse rounded-3xl bg-[#f6ead8]" />
+        <div className="h-24 animate-pulse rounded-3xl bg-[#f6ead8]" />
       </div>
     );
   }
@@ -73,55 +71,70 @@ export default function StaffProfileDetails({
   const facts = staffFacts({ fullName, department, branchName, average: summary.average, count: summary.count, quote, categories });
   const servicesReviewed = Array.from(new Set(reviews.map((r) => r.serviceName).filter((s): s is string => !!s))).slice(0, 4);
 
+  const section = "text-[11px] font-bold uppercase tracking-[0.16em] text-[#a97c1c]";
+
   return (
-    <div className="space-y-3 text-left">
-      {/* GlowSync AI: why pick them */}
-      <div className="flex items-end gap-2 rounded-2xl bg-gradient-to-br from-white via-[#fff8ee] to-[#fdf0f7] p-3 ring-1 ring-[#efdcc6]">
-        <span className="shrink-0">
-          <PlayfulMascot size={mascotSize} pose="present" label="Play with GlowSync AI" />
+    <div className="space-y-5 text-left">
+      {/* GlowSync AI: why pick them — a small mascot with a speech bubble */}
+      <div className="flex items-end gap-1">
+        <span className="-mb-1 shrink-0">
+          <PlayfulMascot size={92} pose="present" label="Play with GlowSync AI" />
         </span>
-        <div className="min-w-0 text-[13px] leading-snug text-ink/80">
-          <p className="font-bold text-[#5b2d86]">Why pick {fullName}? ✨</p>
-          <p className="mt-0.5">{facts.why}</p>
-          <p className="mt-0.5">{facts.specialties}</p>
+        <div className="relative mb-3 min-w-0 flex-1 rounded-3xl rounded-bl-md bg-gradient-to-br from-white to-[#fff6e8] p-4 shadow-sm ring-1 ring-[#efdcc6]">
+          <p className="flex items-center gap-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.16em] text-[#a97c1c]">
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#e9bc4c]" /> GlowSync AI
+          </p>
+          <p className="mt-1 font-display text-[17px] font-semibold leading-tight text-ink">Why pick {fullName}?</p>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-ink/75">{facts.why}</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-ink/75">{facts.specialties}</p>
         </div>
       </div>
 
-      {/* Rating breakdown */}
-      {summary.count > 0 ? (
-        <div className="flex gap-3 rounded-2xl bg-white p-3 ring-1 ring-[#efdcc6]">
-          <div className="flex w-20 shrink-0 flex-col items-center justify-center">
-            <p className="text-3xl font-bold leading-none text-ink">{summary.average.toFixed(1)}</p>
-            <Stars value={summary.average} size="h-3 w-3" />
-            <p className="mt-1 text-[11px] text-ink/55">
-              {summary.count} review{summary.count === 1 ? "" : "s"}
-            </p>
+      {/* Rating */}
+      <section>
+        <p className={section}>Client rating</p>
+        {summary.count > 0 ? (
+          <div className="mt-2 flex items-center gap-4 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-[#efdcc6]">
+            <div className="flex w-24 shrink-0 flex-col items-center border-r border-[#f1e4cc] pr-4">
+              <p className="font-display text-4xl font-semibold leading-none text-ink">{summary.average.toFixed(1)}</p>
+              <span className="mt-1.5">
+                <Stars value={summary.average} size="h-3.5 w-3.5" />
+              </span>
+              <p className="mt-1 text-[11px] text-ink/55">
+                {summary.count} review{summary.count === 1 ? "" : "s"}
+              </p>
+            </div>
+            <div className="min-w-0 flex-1 space-y-1.5">
+              {summary.breakdown.map((b) => (
+                <div key={b.stars} className="flex items-center gap-2 text-[11px] text-ink/60">
+                  <span className="flex w-6 items-center justify-end gap-0.5 tabular-nums">
+                    {b.stars}
+                    <Star className="h-2.5 w-2.5 fill-[#d4a537] text-[#d4a537]" aria-hidden />
+                  </span>
+                  <span className="h-2 flex-1 overflow-hidden rounded-full bg-[#f5ecdc]">
+                    <span className="block h-full rounded-full bg-gradient-to-r from-[#f0d27e] to-[#c9a24a]" style={{ width: `${(b.count / summary.count) * 100}%` }} />
+                  </span>
+                  <span className="w-4 text-right tabular-nums">{b.count}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="min-w-0 flex-1 space-y-1">
-            {summary.breakdown.map((b) => (
-              <div key={b.stars} className="flex items-center gap-2 text-[11px] text-ink/60">
-                <span className="w-3 text-right tabular-nums">{b.stars}</span>
-                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#f3e7d2]">
-                  <span className="block h-full rounded-full bg-gradient-to-r from-[#f3d98b] to-[#c9a24a]" style={{ width: `${(b.count / summary.count) * 100}%` }} />
-                </span>
-                <span className="w-4 tabular-nums">{b.count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <p className="rounded-2xl bg-white p-3 text-center text-xs text-ink/55 ring-1 ring-[#efdcc6]">No reviews yet — be one of the first to review {fullName}.</p>
-      )}
+        ) : (
+          <p className="mt-2 rounded-3xl bg-white p-4 text-center text-[13px] text-ink/60 ring-1 ring-[#efdcc6]">
+            No reviews yet — be one of the first to review {fullName}.
+          </p>
+        )}
+      </section>
 
       {/* What they do */}
       {(categories.length > 0 || servicesReviewed.length > 0) && (
-        <div className="space-y-1.5">
+        <section>
           {categories.length > 0 && (
             <>
-              <p className="text-[11px] font-bold uppercase tracking-wide text-[#a97c1c]">Specialties at this branch</p>
-              <div className="flex flex-wrap gap-1.5">
-                {categories.slice(0, 6).map((c) => (
-                  <span key={c} className="rounded-full bg-[#f5effd] px-2.5 py-0.5 text-[11px] font-semibold text-[#5b2d86] ring-1 ring-[#e6d8f8]">
+              <p className={section}>Specialties at this branch</p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {categories.slice(0, 8).map((c) => (
+                  <span key={c} className="rounded-full bg-[#fbf1dc] px-3 py-1 text-xs font-semibold text-[#8a6a1c] ring-1 ring-[#efd9a8]">
                     {c}
                   </span>
                 ))}
@@ -129,36 +142,44 @@ export default function StaffProfileDetails({
             </>
           )}
           {servicesReviewed.length > 0 && (
-            <p className="text-[11.5px] text-ink/55">Clients reviewed {fullName} for {listJoin(servicesReviewed)}.</p>
+            <p className="mt-2 text-xs text-ink/55">Clients reviewed {fullName} for {listJoin(servicesReviewed)}.</p>
           )}
-        </div>
+        </section>
       )}
 
       {/* Recent reviews */}
       {reviews.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-[#a97c1c]">What clients say</p>
+        <section className="space-y-2">
+          <p className={section}>What clients say</p>
           {reviews.slice(0, 3).map((r) => (
-            <figure key={r.id} className="rounded-2xl bg-[#fffaf3] p-3 ring-1 ring-[#f1dfb6]">
-              <div className="flex items-center justify-between gap-2">
-                <Stars value={r.rating} size="h-3 w-3" />
-                <span className="text-[10.5px] text-ink/45">
-                  {new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            <figure key={r.id} className="relative rounded-3xl bg-white p-4 shadow-sm ring-1 ring-[#f1e4cc]">
+              <Quote aria-hidden className="absolute right-4 top-4 h-5 w-5 text-[#f0e0bd]" />
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#fbf1dc] text-sm font-bold text-[#8a6a1c]">
+                  {(r.reviewer || "C").charAt(0).toUpperCase()}
                 </span>
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold text-ink">{r.reviewer}</p>
+                  <div className="flex items-center gap-2">
+                    <Stars value={r.rating} size="h-3 w-3" />
+                    <span className="text-[10.5px] text-ink/45">
+                      {new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                  </div>
+                </div>
               </div>
-              {r.text && <blockquote className="mt-1 line-clamp-3 text-[12.5px] leading-snug text-ink/75">“{r.text}”</blockquote>}
-              <figcaption className="mt-1 text-[11px] text-ink/50">
-                — {r.reviewer}
-                {r.serviceName && <> · {r.serviceName}</>}
-              </figcaption>
+              {r.text && <blockquote className="mt-2 line-clamp-3 text-[13px] leading-relaxed text-ink/75">{r.text}</blockquote>}
+              {r.serviceName && (
+                <figcaption className="mt-2 inline-block rounded-full bg-[#faf5ec] px-2.5 py-0.5 text-[11px] text-ink/55">{r.serviceName}</figcaption>
+              )}
             </figure>
           ))}
           {reviews.length > 3 && (
-            <Link href={`/team/${staffId}`} target="_blank" className="block text-center text-xs font-bold text-[#a97c1c] hover:underline">
+            <Link href={`/team/${staffId}`} target="_blank" className="block pt-1 text-center text-xs font-bold text-[#a97c1c] hover:underline">
               See all {reviews.length} reviews →
             </Link>
           )}
-        </div>
+        </section>
       )}
     </div>
   );

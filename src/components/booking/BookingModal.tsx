@@ -2099,78 +2099,115 @@ export default function BookingModal({
       </div>
 
       {profileMember && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 px-4" onClick={() => setProfileMember(null)}>
+        <div
+          className="fixed inset-0 z-[70] flex items-end justify-center bg-[#2b1a10]/55 backdrop-blur-[2px] sm:items-center sm:px-4"
+          onClick={() => setProfileMember(null)}
+        >
           <div
-            className="flex max-h-[calc(100vh-3rem)] w-full max-w-md flex-col rounded-3xl bg-white p-6 shadow-2xl"
+            role="dialog"
+            aria-label={`${profileMember.full_name}'s profile`}
+            className="glowy-pop relative flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[28px] bg-[#fffdf9] shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-[28px]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold text-ink">Staff Profile</h3>
-              <button onClick={() => setProfileMember(null)} className="text-ink/40 hover:text-ink">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex flex-col items-center gap-3">
-              {profileMember.avatar_url ? (
-                <>
+            <button
+              onClick={() => setProfileMember(null)}
+              aria-label="Close"
+              className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/80 text-ink/60 shadow-sm backdrop-blur transition hover:bg-white hover:text-ink"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-4 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
+              {/* Header: warm banner (scrolls with the profile) with the photo overlapping it */}
+              <div className="relative -mx-5 h-24 overflow-hidden bg-gradient-to-br from-[#f3dc9c] via-[#f8e9cf] to-[#f6dfe6]">
+                <span aria-hidden className="absolute -right-6 -top-8 h-28 w-28 rounded-full bg-white/30" />
+                <span aria-hidden className="absolute left-8 top-3 h-10 w-10 rounded-full bg-white/25" />
+                <p className="absolute left-5 top-4 text-[11px] font-bold uppercase tracking-[0.2em] text-[#8a6a1c]">Staff Profile</p>
+              </div>
+              <div className="relative -mt-12 flex flex-col items-center text-center">
+                {profileMember.avatar_url ? (
                   <button
                     onClick={() => setZoomedAvatar(profileMember.avatar_url)}
-                    className="relative flex h-20 w-20 shrink-0 rounded-full overflow-hidden ring-2 ring-coral/30 hover:ring-coral transition-all cursor-zoom-in"
+                    aria-label={`Enlarge ${profileMember.full_name}'s photo`}
+                    className="relative h-24 w-24 shrink-0 cursor-zoom-in overflow-hidden rounded-full shadow-lg ring-4 ring-white transition hover:scale-[1.03]"
                   >
-                    <Image src={profileMember.avatar_url} alt={profileMember.full_name} fill className="object-cover" />
+                    <Image src={profileMember.avatar_url} alt={profileMember.full_name} fill sizes="96px" className="object-cover" />
                   </button>
-                  {zoomedAvatar && (
-                    <div
-                      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 cursor-zoom-out"
-                      onClick={() => setZoomedAvatar(null)}
-                    >
-                      <div className="relative h-72 w-72 rounded-full overflow-hidden shadow-2xl">
-                        <Image src={zoomedAvatar} alt="zoomed" fill className="object-cover" />
-                      </div>
-                    </div>
+                ) : (
+                  <span className="flex h-24 w-24 items-center justify-center rounded-full bg-blush text-3xl font-bold text-coral-dark shadow-lg ring-4 ring-white">
+                    {profileMember.full_name.charAt(0).toUpperCase()}
+                  </span>
+                )}
+                <h3 className="mt-3 font-display text-2xl font-semibold text-ink">{profileMember.full_name}</h3>
+                <div className="mt-2 flex flex-wrap justify-center gap-1.5 text-xs font-semibold">
+                  <span className="rounded-full bg-[#fbf1dc] px-3 py-1 text-[#8a6a1c] ring-1 ring-[#efd9a8]">{profileMember.department}</span>
+                  {branchContacts.find((b) => b.id === branchId)?.name && (
+                    <span className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-ink/65 ring-1 ring-nude">
+                      <MapPin className="h-3 w-3" aria-hidden /> {branchContacts.find((b) => b.id === branchId)?.name}
+                    </span>
                   )}
-                </>
-              ) : (
-                <span className="relative flex h-20 w-20 items-center justify-center rounded-full bg-blush text-2xl font-bold text-coral-dark overflow-hidden">
-                  {profileMember.full_name.charAt(0).toUpperCase()}
-                </span>
-              )}
-              <div className="text-center">
-                <p className="text-lg font-semibold text-ink">{profileMember.full_name}</p>
-                <p className="text-sm text-coral-dark font-medium">{profileMember.department}</p>
-              </div>
-              {profileMember.phone && (
-                <div className="flex items-center gap-2 text-sm text-ink/60">
-                  <Phone className="h-4 w-4" />
-                  {profileMember.phone}
+                  {profileMember.phone && (
+                    <a
+                      href={`tel:${profileMember.phone.replace(/\s/g, "")}`}
+                      className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-ink/65 ring-1 ring-nude transition hover:text-coral-dark hover:ring-coral"
+                    >
+                      <Phone className="h-3 w-3" aria-hidden /> {profileMember.phone}
+                    </a>
+                  )}
                 </div>
-              )}
+              </div>
+
+              <div className="mt-5">
+                <StaffProfileDetails
+                  staffId={profileMember.id}
+                  fullName={profileMember.full_name}
+                  department={profileMember.department}
+                  branchName={branchContacts.find((b) => b.id === branchId)?.name ?? null}
+                  categories={Array.from(
+                    dbServices
+                      .filter((s) => s.department === profileMember.department)
+                      .reduce((m, s) => m.set(s.category, (m.get(s.category) ?? 0) + 1), new Map<string, number>())
+                  )
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([c]) => c)}
+                />
+              </div>
             </div>
-            <div className="-mx-1 mt-4 min-h-0 flex-1 overflow-y-auto px-1">
-              <StaffProfileDetails
-                staffId={profileMember.id}
-                fullName={profileMember.full_name}
-                department={profileMember.department}
-                branchName={branchContacts.find((b) => b.id === branchId)?.name ?? null}
-                categories={Array.from(
-                  dbServices
-                    .filter((s) => s.department === profileMember.department)
-                    .reduce((m, s) => m.set(s.category, (m.get(s.category) ?? 0) + 1), new Map<string, number>())
-                )
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([c]) => c)}
-              />
+
+            {/* Always-visible footer */}
+            <div className="flex shrink-0 items-center gap-2 border-t border-nude/70 bg-white px-5 py-3">
+              <Link
+                href={`/team/${profileMember.id}`}
+                target="_blank"
+                className="rounded-full border border-nude px-4 py-2.5 text-sm font-semibold text-ink/70 transition hover:border-coral hover:text-coral-dark"
+              >
+                Full profile
+              </Link>
+              <button
+                onClick={() => {
+                  setProfessionalId(profileMember.id);
+                  setProfileMember(null);
+                }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-coral py-2.5 text-sm font-semibold text-white shadow-md shadow-coral/30 transition hover:bg-coral-dark"
+              >
+                <Check className="h-4 w-4" aria-hidden /> Select {profileMember.full_name}
+              </button>
             </div>
-            <button
-              onClick={() => {
-                setProfessionalId(profileMember.id);
-                setProfileMember(null);
-              }}
-              className="mt-4 w-full shrink-0 rounded-full bg-coral py-2.5 text-sm font-semibold text-white hover:bg-coral-dark"
-            >
-              Select {profileMember.full_name}
-            </button>
           </div>
+
+          {zoomedAvatar && (
+            <div
+              className="fixed inset-0 z-[80] flex cursor-zoom-out items-center justify-center bg-black/80"
+              onClick={(e) => {
+                e.stopPropagation();
+                setZoomedAvatar(null);
+              }}
+            >
+              <div className="relative h-72 w-72 overflow-hidden rounded-full shadow-2xl">
+                <Image src={zoomedAvatar} alt="" fill sizes="288px" className="object-cover" />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
