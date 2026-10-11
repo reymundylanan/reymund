@@ -30,6 +30,15 @@ const AVAILABILITY_STYLE: Record<AvailabilityStatus, string> = {
   day_off: "text-ink/40",
 };
 
+// "Oct 9, 2026" — unambiguous, unlike 09/10/2026.
+const shortDate = (d: string) => {
+  const [y, m, day] = d.split("-").map(Number);
+  return new Date(y, m - 1, day).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
+// "any professional" (no one chosen yet) reads better as "Any staff".
+const staffLabel = (name: string) => (/^any\b/i.test(name.trim()) ? "Any staff" : name);
+
 const statusStyles: Record<string, string> = {
   pending: "bg-amber-100 text-amber-700",
   confirmed: "bg-green-100 text-green-700",
@@ -52,17 +61,28 @@ export default function AppointmentsListView({
   const now = useServiceTimingClock();
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <table className="w-full text-left text-base">
+    <div className="overflow-x-auto rounded-2xl bg-white p-6 shadow-sm">
+      {/* Fixed column widths: the service list takes what's left and ends in "…" (full text on hover). */}
+      {/* Other columns are fixed; the service column always keeps at least ~13rem. */}
+      <table className="w-full min-w-[64rem] table-fixed text-left text-base">
+        <colgroup>
+          <col className="w-[10rem]" />
+          <col />
+          <col className="w-[11rem]" />
+          <col className="w-[7.5rem]" />
+          <col className="w-[6rem]" />
+          <col className="w-[8rem]" />
+          <col className="w-[8rem]" />
+        </colgroup>
         <thead>
-          <tr className="text-sm uppercase text-ink/40">
-            <th className="py-3">Client</th>
-            <th className="py-3">Service</th>
-            <th className="py-3">Staff</th>
-            <th className="py-3">Date</th>
-            <th className="py-3">Time</th>
-            <th className="py-3">Status</th>
-            <th className="py-3">Session</th>
+          <tr className="text-sm text-ink/45">
+            <th className="py-3 font-medium">Client</th>
+            <th className="py-3 font-medium">Service</th>
+            <th className="py-3 font-medium">Staff</th>
+            <th className="py-3 font-medium">Date</th>
+            <th className="py-3 font-medium">Time</th>
+            <th className="py-3 font-medium">Status</th>
+            <th className="py-3 font-medium">Session</th>
           </tr>
         </thead>
         <tbody>
@@ -83,13 +103,13 @@ export default function AppointmentsListView({
                   <div className="flex items-center gap-2.5">
                     <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-sm font-bold text-coral-dark">
                       {client.avatar_url ? (
-                        <Image src={client.avatar_url} alt={client.full_name} fill className="object-cover" />
+                        <Image src={client.avatar_url} alt={client.full_name} fill sizes="36px" className="object-cover" />
                       ) : (
                         client.full_name.charAt(0)
                       )}
                     </span>
-                    <div>
-                      <div className="flex items-center gap-1.5">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 truncate">
                         {conflictIds.has(r.id) && (
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-red-500" aria-label="Scheduling conflict" />
                         )}
@@ -99,18 +119,22 @@ export default function AppointmentsListView({
                     </div>
                   </div>
                 </td>
-                <td className="py-4 text-ink/70">{appointmentServiceName(r)}</td>
-                <td className="py-4 text-ink/70">
-                  <div className="flex items-center gap-2.5">
+                <td className="py-4 pr-4 text-ink/70">
+                  <span className="block truncate" title={appointmentServiceName(r)}>
+                    {appointmentServiceName(r)}
+                  </span>
+                </td>
+                <td className="py-4 pr-3 text-ink/70">
+                  <div className="flex min-w-0 items-center gap-2.5">
                     <span className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-xs font-bold text-coral-dark">
                       {staffPhoto ? (
-                        <Image src={staffPhoto} alt={appointmentStaffName(r)} fill className="object-cover" />
+                        <Image src={staffPhoto} alt={appointmentStaffName(r)} fill sizes="32px" className="object-cover" />
                       ) : (
                         appointmentStaffName(r).charAt(0)
                       )}
                     </span>
-                    <div>
-                      <p>{appointmentStaffName(r)}</p>
+                    <div className="min-w-0">
+                      <p className="truncate" title={appointmentStaffName(r)}>{staffLabel(appointmentStaffName(r))}</p>
                       {availability && (
                         <p className={`text-xs font-medium ${AVAILABILITY_STYLE[availability]}`}>
                           {AVAILABILITY_LABEL[availability]}
@@ -119,13 +143,11 @@ export default function AppointmentsListView({
                     </div>
                   </div>
                 </td>
-                <td className="py-4 text-ink/50">
-                  {new Date(r.scheduled_date).toLocaleDateString()}
-                </td>
-                <td className="py-4 text-ink/50">{formatTime(r.start_time)}</td>
+                <td className="whitespace-nowrap py-4 text-ink/55">{shortDate(r.scheduled_date)}</td>
+                <td className="whitespace-nowrap py-4 text-ink/55">{formatTime(r.start_time)}</td>
                 <td className="py-4">
                   <span
-                    className={`rounded-full px-2.5 py-1 text-sm font-medium capitalize ${
+                    className={`whitespace-nowrap rounded-full px-2.5 py-1 text-sm font-medium capitalize ${
                       statusStyles[r.status] ?? "bg-ink/10 text-ink/50"
                     }`}
                   >
@@ -152,13 +174,13 @@ export default function AppointmentsListView({
                           : null;
                       if (timing) {
                         return (
-                          <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${serviceTimingStyle(timing)}`}>
+                          <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-sm font-medium ${serviceTimingStyle(timing)}`}>
                             {serviceTimingLabel(timing)}
                           </span>
                         );
                       }
                       return (
-                        <span className={`rounded-full px-2.5 py-1 text-sm font-medium ${SESSION_STYLE[sessionStatus]}`}>
+                        <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-sm font-medium ${SESSION_STYLE[sessionStatus]}`}>
                           {SESSION_LABEL[sessionStatus]}
                         </span>
                       );
