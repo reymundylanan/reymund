@@ -16,6 +16,7 @@ import {
   Scissors,
   Search,
   UserCheck,
+  Tag,
   UserCog,
   UserRound,
   Users,
@@ -44,6 +45,7 @@ import { AppointmentPreview, StaffPreview } from "./TransferPreview";
 import ServicesPanel from "./ServicesPanel";
 import HistoryPanel from "./HistoryPanel";
 import ClientsBoard from "./ClientsBoard";
+import PromosPanel from "./PromosPanel";
 import { Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
 import { WalkinTransferCard } from "./BoardColumn";
@@ -73,7 +75,7 @@ export default function MultiBranchManager() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [view, setView] = useState<"board" | "clients" | "services" | "accounts">("board");
+  const [view, setView] = useState<"board" | "clients" | "services" | "promos" | "accounts">("board");
   const [lower, setLower] = useState<"needs" | "history" | "activity">("needs");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -387,6 +389,7 @@ export default function MultiBranchManager() {
                 ["board", "Board", LayoutGrid],
                 ["clients", "Clients", UserRound],
                 ["services", "Services", Scissors],
+                ["promos", "Promos", Tag],
                 ["accounts", "Front desk", UserCog],
               ] as const
             ).map(([k, label, Icon]) => (
@@ -475,6 +478,8 @@ export default function MultiBranchManager() {
           onChanged={(text) => { setToast({ text, tone: "green" }); load(true); setHistoryKey((k) => k + 1); }}
           onReschedule={(a) => { setView("board"); openAppt(a); }}
         />
+      ) : view === "promos" ? (
+        <PromosPanel ctx={ctx} onChanged={(text) => { setToast({ text, tone: "green" }); setHistoryKey((k) => k + 1); }} />
       ) : view === "clients" ? (
         <ClientsBoard ctx={ctx} refreshKey={historyKey} onDone={done} />
       ) : view === "accounts" ? (

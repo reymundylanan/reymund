@@ -115,7 +115,7 @@ export default function ServicesPanel({
           ))}
         </select>
         <p className="w-full text-xs text-ink/50">
-          Open slots are for {formatDay(date, ctx.today)} with qualified staff (same department), for the service&apos;s full duration. Turning a service off never moves
+          Open slots are for {formatDay(date, ctx.today)}{" "}with qualified staff (same department), for the service&apos;s full duration. Turning a service off never moves
           existing bookings — they&apos;re listed for you to review. Rooms and equipment aren&apos;t tracked in GlowSync.
         </p>
       </div>

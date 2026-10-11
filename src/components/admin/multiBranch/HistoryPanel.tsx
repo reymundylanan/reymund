@@ -8,7 +8,7 @@ import { Badge, Spinner, postJson, type Tone } from "./ui";
 type Delivery = { channel: string; status: string; error: string | null; at: string | null };
 export type HistoryEntry = {
   id: string;
-  transfer_type: "appointment_move" | "staff_temporary" | "staff_permanent" | "service_availability" | "client_transfer" | "walkin_transfer";
+  transfer_type: "appointment_move" | "staff_temporary" | "staff_permanent" | "service_availability" | "client_transfer" | "walkin_transfer" | "promo_availability";
   status: "completed" | "undone";
   appointment_id: string | null;
   staff_member_id: string | null;
@@ -41,6 +41,7 @@ const TYPE_LABEL: Record<HistoryEntry["transfer_type"], string> = {
   service_availability: "Service availability",
   client_transfer: "Client transferred",
   walkin_transfer: "Walk-in transferred",
+  promo_availability: "Promo change",
 };
 
 const DELIVERY_TONE: Record<string, Tone> = { sent: "green", pending: "amber", sending: "amber", failed: "red", skipped: "gray" };
@@ -178,6 +179,8 @@ export default function HistoryPanel({
                 ? `${String(e.next.client ?? e.clientName ?? "Walk-in")}${e.next.booking ? ` · #${String(e.next.booking)}` : ""}`
               : e.transfer_type === "service_availability"
                 ? String(e.next.service ?? "Service")
+                : e.transfer_type === "promo_availability"
+                  ? String(e.next.promo ?? "Promo")
                 : e.transfer_type === "client_transfer"
                   ? `${String(e.next.client ?? e.clientName ?? "Client")}${e.previous.type === "Walk-in" ? " (walk-in)" : ""}`
                 : String(e.next.staff ?? staffName(e.staff_member_id) ?? "Staff");
@@ -193,7 +196,7 @@ export default function HistoryPanel({
                     {e.undo_of && <Badge tone="purple">Undo</Badge>}
                   </span>
                   <span className="block text-xs text-ink/55">
-                    {e.transfer_type === "service_availability"
+                    {e.transfer_type === "service_availability" || (e.transfer_type === "promo_availability" && e.from_branch_id === e.to_branch_id)
                       ? `${String(e.previous.branch ?? "")}: ${String(e.previous.status ?? "")} → ${String(e.next.status ?? "")}`
                       : `${branchName(e.from_branch_id)} → ${branchName(e.to_branch_id)}`}
                     {(e.transfer_type === "appointment_move" || e.transfer_type === "walkin_transfer") && ` · ${schedule(e.from_date, e.from_time)} → ${schedule(e.to_date, e.to_time)}`}
@@ -232,7 +235,7 @@ export default function HistoryPanel({
                       ))}
                     </div>
                   )}
-                  {e.status === "completed" && e.transfer_type !== "service_availability" && e.transfer_type !== "walkin_transfer" && !e.undo_of && (
+                  {e.status === "completed" && e.transfer_type !== "service_availability" && e.transfer_type !== "walkin_transfer" && e.transfer_type !== "promo_availability" && !e.undo_of && (
                     <button
                       onClick={() => undo(e)}
                       disabled={undoing === e.id}
