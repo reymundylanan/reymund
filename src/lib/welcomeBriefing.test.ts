@@ -23,7 +23,7 @@ describe("welcome briefing", () => {
       "2026-10-10"
     );
     expect(r[0].kind).toBe("pending");
-    expect(r[0].detail).toBe("Vitamin C — Thu, Oct 15 at 2:00 PM at One Cecilia Center. We'll notify you once the branch confirms.");
+    expect(r[0].detail).toBe("Vitamin C — Thu, Oct 15 at 2:00 PM. We'll notify you once it's confirmed.");
     expect(r[0].href).toBe("/my-glow/appointments/a1");
     expect(r[1].title).toBe("2 new notifications");
     expect(r.some((x) => x.kind === "book")).toBe(false);
@@ -82,6 +82,6 @@ describe("character bubbles", () => {
       { ...empty, upcoming: { id: "a", date: "2026-10-10", time: "15:30", status: "confirmed", serviceName: "Facial", branchName: "One Cecilia Center" } },
       "2026-10-10"
     );
-    expect(buildBubbles({ firstName: "A", reminders, pointsGained: 0, promo: null })[1].text).toBe("Your appointment is today at 3:30 PM at One Cecilia Center!");
+    expect(buildBubbles({ firstName: "A", reminders, pointsGained: 0, promo: null })[1].text).toBe("Your appointment is today at 3:30 PM!");
   });
 });

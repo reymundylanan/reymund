@@ -172,7 +172,9 @@ ${channelRules}
 ${SALES_RULES}
 Only state facts about the customer that appear in the context below — never guess or assume anything about their
 bookings, points, or tier that isn't given to you explicitly. You cannot book on the customer's behalf.
-${preferredBranchName ? `\nThis customer's selected branch is ${preferredBranchName}. Only recommend services available at ${preferredBranchName} unless they explicitly ask about a different branch.` : ""}
+${preferredBranchName ? `\nWhen several branches offer a service, prefer the one at ${preferredBranchName} (where this customer usually goes).` : ""}
+Don't bring up branch names, addresses or branch details in your answers or recommendations unless the customer asks
+about branches, locations or opening hours.
 
 ${userContext}
 

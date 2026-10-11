@@ -11,7 +11,6 @@ import {
   Clock,
   Gift,
   HelpCircle,
-  MapPin,
   Send,
   Sparkles,
   X,
@@ -56,7 +55,7 @@ function writeStore(store: "session" | "local", key: string, value: string) {
 }
 
 function greeting(firstName: string | null) {
-  return `Hi${firstName ? ` ${firstName}` : " there"}! 👋 I'm GlowSync AI, your beauty concierge ✨ I can find the right treatment for you, show today's promos and branch info, and help you book.`;
+  return `Hi${firstName ? ` ${firstName}` : " there"}! 👋 I'm GlowSync AI, your beauty concierge ✨ I can find the right treatment for you, show today's promos, and help you book.`;
 }
 
 export function TypingDots() {
@@ -216,6 +215,9 @@ function RecommendationCard({ s, onBook }: { s: ServiceRecommendation; onBook: (
   return (
     <div className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-[#efdcc6]">
       <p className="text-[11px] font-bold uppercase tracking-wide text-[#a97c1c]">{s.category}</p>
+      {s.reason && (
+        <p className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-[#fdf0f7] px-2 py-0.5 text-[10px] font-bold text-[#b0457f]">♥ {s.reason}</p>
+      )}
       <p className="guide-display text-[15px] font-semibold leading-snug text-ink">{s.name}</p>
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink/65">
         <span className="font-bold text-[#a97c1c]">{s.priceLabel ?? `₱${s.price.toLocaleString()}`}</span>
@@ -263,7 +265,7 @@ function PromoStrip({ promos }: { promos: ActivePromotion[] | null }) {
                     <Image src={promoImage(p)} alt="" fill sizes="208px" className="object-cover" />
                     <span className="absolute inset-0 bg-gradient-to-t from-[#2b1a10]/60 to-transparent" />
                     <span className="absolute bottom-1.5 left-2 max-w-[90%] truncate rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#a97c1c]">
-                      {p.badge ?? p.branchName}
+                      {p.badge ?? "Promo"}
                     </span>
                   </span>
                   <span className="block px-3 pt-2">
@@ -447,7 +449,6 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
   const quick: { label: string; icon: LucideIcon; run: () => void }[] = [
     { label: "Find a treatment", icon: Sparkles, run: () => send("Can you recommend a treatment for me?") },
     { label: "Promotions", icon: Gift, run: () => send("What promos are running right now?") },
-    { label: "Branches & hours", icon: MapPin, run: () => send("Where are your branches and what are the hours today?") },
     { label: "Book now", icon: CalendarPlus, run: bookAnything },
     { label: "My bookings", icon: CalendarDays, run: () => send("When is my next booking?") },
     { label: "Help with this page", icon: HelpCircle, run: explainPage },

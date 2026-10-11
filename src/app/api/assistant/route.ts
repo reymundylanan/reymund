@@ -7,6 +7,8 @@ import { askSpaAssistant, loadLiveServices, lowestPrice, type ChatTurn } from "@
 import { pageContextLine } from "@/lib/pageHelp";
 import { priceText } from "@/lib/assistantFallback";
 import { loadSpaKnowledge } from "@/lib/ai/spaKnowledge";
+import { getClientReviewTaste } from "@/lib/supabase/queries/reviewTaste";
+import { reasonFromTaste, tasteContext } from "@/lib/reviewTaste";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -35,10 +37,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No messages provided." }, { status: 400 });
   }
 
-  const [upcoming, visitedBranches, services] = await Promise.all([
+  const [upcoming, visitedBranches, services, taste] = await Promise.all([
     getUpcomingAppointment(supabase, auth.user.id),
     getVisitedBranches(supabase, auth.user.id),
     loadLiveServices(supabase),
+    getClientReviewTaste(supabase, auth.user.id),
   ]);
   const { data: rewards, error: rewardsError } = await supabase
     .from("client_rewards")
@@ -55,7 +58,8 @@ export async function POST(request: Request) {
   const userContext = `The customer you're talking to is ${profile.full_name}.
 Their loyalty status: ${balance} GlowPoints, ${tier.tier} tier.
 ${upcomingText ? `Their next booking is ${upcomingText}.` : "They have no upcoming bookings."}
-${typeof page === "string" && page.startsWith("/") ? pageContextLine(page.slice(0, 200)) : ""}`;
+${typeof page === "string" && page.startsWith("/") ? pageContextLine(page.slice(0, 200)) : ""}
+${tasteContext(taste)}`;
 
   const knowledge = await loadSpaKnowledge(supabase).catch(() => null);
   const { reply, recommendations } = await askSpaAssistant({
@@ -81,6 +85,8 @@ ${typeof page === "string" && page.startsWith("/") ? pageContextLine(page.slice(
       duration: s.duration,
       description: s.description,
       category: s.category,
+      // Why it suits them, from their own reviews (e.g. "Because you loved Hydrafacial").
+      reason: reasonFromTaste(taste, { name: s.name, category: s.category }),
     })),
   });
 }

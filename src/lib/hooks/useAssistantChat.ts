@@ -11,6 +11,8 @@ export type ServiceRecommendation = {
   duration?: string | null;
   description: string | null;
   category: string;
+  /** Why it suits them, from their own reviews. */
+  reason?: string | null;
 };
 
 // Never leave the client staring at a typing indicator: give up after this long.

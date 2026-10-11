@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRecentAppointments } from "@/lib/supabase/queries/myGlow";
+import { getClientReviewTaste } from "@/lib/supabase/queries/reviewTaste";
 
 export type Recommendation = {
   id: string;
@@ -51,10 +52,10 @@ export async function getRecommendationsForClient(
   clientId: string,
   branchId: string
 ): Promise<Recommendation[]> {
-  const recent = await getRecentAppointments(supabase, clientId, 20);
-  if (recent.length === 0) return [];
+  const [recent, taste] = await Promise.all([getRecentAppointments(supabase, clientId, 20), getClientReviewTaste(supabase, clientId)]);
+  if (recent.length === 0 && taste.lovedCategories.length === 0) return [];
 
-  const daysSinceLast = Math.floor((Date.now() - new Date(recent[0].scheduledDate).getTime()) / 86400000);
+  const daysSinceLast = recent.length ? Math.floor((Date.now() - new Date(recent[0].scheduledDate).getTime()) / 86400000) : 0;
   const missedClient = daysSinceLast > WE_MISS_YOU_DAYS;
 
   const categoryCounts = new Map<string, number>();
@@ -62,11 +63,20 @@ export async function getRecommendationsForClient(
     const cat = detectCategory(appt.serviceName);
     if (cat) categoryCounts.set(cat, (categoryCounts.get(cat) ?? 0) + 1);
   }
+  // Their reviews lead: categories they rated highly first, then what they book
+  // most; categories they rated poorly are left out.
+  for (const c of taste.lovedCategories) categoryCounts.set(c, Math.max(categoryCounts.get(c) ?? 0, 1));
+  for (const c of taste.avoidCategories) categoryCounts.delete(c);
   if (categoryCounts.size === 0) return [];
 
-  const lastCategory = detectCategory(recent[0].serviceName);
+  const lastCategory = recent.length ? detectCategory(recent[0].serviceName) : null;
   const bookedNames = new Set(recent.map((a) => (a.serviceName ?? "").toLowerCase().trim()));
-  const sortedCategories = Array.from(categoryCounts.entries()).sort((a, b) => b[1] - a[1]);
+  const dislikedNames = new Set(taste.disliked.map((d) => d.name.toLowerCase().trim()));
+  const loveRank = (c: string) => {
+    const i = taste.lovedCategories.indexOf(c);
+    return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+  };
+  const sortedCategories = Array.from(categoryCounts.entries()).sort((a, b) => loveRank(a[0]) - loveRank(b[0]) || b[1] - a[1]);
 
   const { data: services, error } = await supabase
     .from("branch_services")
@@ -86,15 +96,17 @@ export async function getRecommendationsForClient(
   for (const [category, count] of sortedCategories) {
     if (picks.length >= 3) break;
     const candidates = catalog.filter(
-      (s) => s.category === category && !bookedNames.has(s.name.toLowerCase().trim()) && !usedIds.has(s.id)
+      (s) => s.category === category && !bookedNames.has(s.name.toLowerCase().trim()) && !dislikedNames.has(s.name.toLowerCase().trim()) && !usedIds.has(s.id)
     );
     if (candidates.length === 0) continue;
     const pick = candidates[0];
     usedIds.add(pick.id);
 
     const shortCategory = category.replace(" Services", "");
-    const reason =
-      picks.length === 0 && missedClient
+    const loved = taste.loved.find((l) => l.category === category);
+    const reason = loved
+      ? `Because You Loved ${loved.name}`
+      : picks.length === 0 && missedClient
         ? "We Miss You"
         : picks.length === 0 && count > 1
         ? "Popular with You"

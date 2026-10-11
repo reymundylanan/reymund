@@ -43,16 +43,15 @@ export function buildBriefing(d: BriefingData, today: string): Reminder[] {
   if (d.upcoming) {
     const u = d.upcoming;
     const what = u.serviceName ?? "Your appointment";
-    const where = u.branchName ? ` at ${u.branchName}` : "";
     const days = daysBetween(today, u.date);
     const when = days === 0 ? `today at ${fmtTime(u.time)}` : days === 1 ? `tomorrow at ${fmtTime(u.time)}` : `${fmtDate(u.date)} at ${fmtTime(u.time)}`;
     const href = `/my-glow/appointments/${u.id}`;
     if (u.status === "pending") {
-      out.push({ kind: "pending", emoji: "⏳", title: "Waiting for confirmation", detail: `${what} — ${when}${where}. We'll notify you once the branch confirms.`, href, cta: "View booking" });
+      out.push({ kind: "pending", emoji: "⏳", title: "Waiting for confirmation", detail: `${what} — ${when}. We'll notify you once it's confirmed.`, href, cta: "View booking" });
     } else if (days <= 1) {
-      out.push({ kind: "today", emoji: "⏰", title: days === 0 ? "Your appointment is today!" : "See you tomorrow!", detail: `${what} — ${when}${where}. Please arrive 10 minutes early.`, href, cta: "View booking" });
+      out.push({ kind: "today", emoji: "⏰", title: days === 0 ? "Your appointment is today!" : "See you tomorrow!", detail: `${what} — ${when}. Please arrive 10 minutes early.`, href, cta: "View booking" });
     } else {
-      out.push({ kind: "booking", emoji: "📅", title: "Coming up", detail: `${what} — ${when}${where}.`, href, cta: "View booking" });
+      out.push({ kind: "booking", emoji: "📅", title: "Coming up", detail: `${what} — ${when}.`, href, cta: "View booking" });
     }
   }
 
