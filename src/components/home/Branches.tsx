@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin } from "lucide-react";
-import { branches } from "@/lib/data";
+import { MapPin, Navigation, Phone } from "lucide-react";
+import { branchContacts, branches } from "@/lib/data";
 import { createClient } from "@/lib/supabase/client";
 
 function parseTime12h(s: string): number | null {
@@ -50,6 +50,7 @@ export default function Branches() {
   const selectedBranch = branches.find((b) => b.id === selected) ?? branches[0];
   const mapQuery = encodeURIComponent(selectedBranch.address);
   const mapSrc = `https://www.google.com/maps?q=${mapQuery}&output=embed`;
+  const contact = branchContacts.find((c) => c.id === selectedBranch.id);
 
   return (
     <section id="branches" className="mx-auto max-w-7xl px-6 py-20">
@@ -106,17 +107,38 @@ export default function Branches() {
           })}
         </div>
 
-        <div className="overflow-hidden rounded-2xl" style={{ minHeight: 320 }}>
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-nude/70 bg-skin/60">
           <iframe
             key={mapSrc}
-            title="GlowSync branch location"
+            title={`Map to ${selectedBranch.name}`}
             src={mapSrc}
             width="100%"
             height="100%"
-            style={{ minHeight: 320, border: 0, display: "block" }}
+            style={{ minHeight: 320, border: 0, display: "block", flex: 1 }}
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-white px-4 py-3">
+            <p className="text-sm font-semibold text-ink">{selectedBranch.name}</p>
+            <div className="flex flex-wrap gap-2">
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${mapQuery}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white transition hover:bg-coral-dark"
+              >
+                <Navigation className="h-4 w-4" aria-hidden /> Get directions
+              </a>
+              {contact?.phone && (
+                <a
+                  href={`tel:${contact.phone.replace(/\s/g, "")}`}
+                  className="flex items-center gap-1.5 rounded-full border border-nude px-4 py-2 text-sm font-semibold text-ink/80 transition hover:border-coral hover:text-coral-dark"
+                >
+                  <Phone className="h-4 w-4" aria-hidden /> Call
+                </a>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </section>
