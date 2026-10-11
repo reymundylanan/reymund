@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
-import { CalendarPlus, ChevronRight, Heart, Info, LogIn, LogOut, MapPin, Menu, Sparkles, Users, X } from "lucide-react";
+import { CalendarPlus, ChevronRight, Heart, Home, Info, LogIn, LogOut, MapPin, Menu, Sparkles, Users, X } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
 import type { CurrentUser } from "@/lib/hooks/useCurrentUser";
 
@@ -13,6 +13,7 @@ const BOOKING_SERVICE = { name: "GlowSync Booking", duration: "", price: 0 };
 
 // An icon for each header link (unknown links get a sparkle).
 const ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  "/": Home,
   "/services": Sparkles,
   "/branches": MapPin,
   "/#team": Users,

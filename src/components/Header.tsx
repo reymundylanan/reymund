@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 import MobileNavPanel from "@/components/MobileNavPanel";
 
 const baseNavLinks = [
+  { label: "Home", href: "/" },
   { label: "Services", href: "/services" },
   { label: "Branches", href: "/branches" },
   { label: "Teams", href: "/#team" },

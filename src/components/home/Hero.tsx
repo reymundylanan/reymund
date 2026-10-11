@@ -92,7 +92,7 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
 
       {facts.categories.length > 0 && (
         <nav aria-label="Treatment categories" className="relative z-10 mx-auto -mt-7 max-w-7xl px-6">
-          <div className="flex gap-2 overflow-x-auto rounded-2xl border border-nude/70 bg-white/95 p-2.5 shadow-lg shadow-[#a8843a]/10 backdrop-blur [scrollbar-width:none]">
+          <div className="scrollbar-hidden flex gap-2 overflow-x-auto rounded-2xl border border-nude/70 bg-white/95 p-2.5 shadow-lg shadow-[#a8843a]/10 backdrop-blur [mask-image:linear-gradient(to_right,black_92%,transparent)]">
             <span className="hidden shrink-0 items-center px-3 text-xs font-semibold uppercase tracking-[0.18em] text-coral-dark sm:flex">
               Explore
             </span>
