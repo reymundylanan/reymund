@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MoreHorizontal, Search, UserPlus, Users, ShieldCheck, UserCog, MonitorSmartphone, UserCircle } from "lucide-react";
+import { MapPin, MoreHorizontal, Search, UserPlus, Users, ShieldCheck, UserCog, MonitorSmartphone, UserCircle } from "lucide-react";
 import UserEditPanel from "@/components/admin/users/UserEditPanel";
 import ClientViewPanel from "@/components/admin/users/ClientViewPanel";
 import CreateUserModal from "@/components/admin/users/CreateUserModal";
@@ -15,6 +15,13 @@ const tabs = ["Administrators", "Front Desk", "Staff", "Clients"];
 const tabRoleMap: Record<string, StaffUser["role"] | null> = {
   Administrators: "admin",
   "Front Desk": "front_desk",
+};
+
+const joined = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+const roleChip: Record<string, string> = {
+  admin: "bg-ink text-white",
+  front_desk: "bg-[#F3E7C4] text-[#7A5F14]",
 };
 
 const roleLabels: Record<string, string> = {
@@ -189,7 +196,7 @@ export default function UsersTable({
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold text-ink">Users &amp; Roles</h2>
+          <h2 className="text-2xl font-semibold text-ink">Users &amp; Roles</h2>
           <p className="text-base text-ink/50">
             Manage system users, assign roles, and control access permissions.
           </p>
@@ -197,7 +204,7 @@ export default function UsersTable({
         {!isClientsTab && !isStaffTab && (
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-full bg-coral px-5 py-2.5 text-base font-semibold text-white hover:bg-coral-dark"
+            className="flex items-center gap-2 rounded-full bg-coral px-5 py-2.5 text-base font-semibold text-white shadow-[0_8px_18px_-10px_rgba(168,137,48,0.9)] transition hover:bg-coral-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral-dark"
           >
             <UserPlus className="h-5 w-5" /> Add User
           </button>
@@ -209,44 +216,48 @@ export default function UsersTable({
         {statCards.map((card) => (
           <div
             key={card.label}
-            className="flex flex-col gap-3 rounded-2xl bg-white p-5 shadow-sm"
+            className="relative flex flex-col gap-4 overflow-hidden rounded-3xl bg-white p-5 shadow-[0_10px_30px_-22px_rgba(90,60,20,0.45)] ring-1 ring-[#efe3c6]"
           >
-            <span
-              className="flex h-11 w-11 items-center justify-center rounded-xl"
-              style={{ backgroundColor: card.iconBg, color: card.iconColor }}
-            >
-              {card.icon}
-            </span>
+            <div className="flex items-center justify-between">
+              <span
+                className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                style={{ backgroundColor: card.iconBg, color: card.iconColor }}
+              >
+                {card.icon}
+              </span>
+            </div>
             <div>
-              <p className="text-sm text-ink/50">{card.label}</p>
-              <p className="text-2xl font-bold text-ink">
+              <p className="text-3xl font-semibold tabular-nums leading-none text-ink">
                 {card.value.toLocaleString()}
               </p>
-              <p className="mt-0.5 text-xs text-ink/40">{card.sub}</p>
+              <p className="mt-2 text-sm font-medium text-ink/75">{card.label}</p>
+              <p className="mt-0.5 text-xs text-ink/45">{card.sub}</p>
             </div>
           </div>
         ))}
       </div>
 
       {/* Table card */}
-      <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/10 pb-4">
-          <div className="flex flex-wrap gap-2">
+      <div className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_-22px_rgba(90,60,20,0.45)] ring-1 ring-[#efe3c6]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f1e7cf] pb-4">
+          <div role="tablist" aria-label="Role" className="flex flex-wrap gap-1 rounded-full bg-[#f8f1df] p-1">
             {tabs.map((t) => (
               <button
                 key={t}
+                role="tab"
+                aria-selected={tab === t}
                 onClick={() => setTab(t)}
-                className={`rounded-full px-4 py-2 text-base font-medium ${
+                className={`rounded-full px-4 py-1.5 text-base font-semibold transition ${
                   tab === t
-                    ? "bg-coral text-white"
-                    : "text-ink/50 hover:text-coral-dark"
+                    ? "bg-coral text-white shadow-sm"
+                    : "text-ink/55 hover:text-ink"
                 }`}
               >
                 {t}
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-base text-ink/50">
+          <div className="flex items-center gap-2 rounded-full border border-ink/10 bg-[#fffdf8] px-4 py-2 text-base text-ink/50 focus-within:border-coral">
             <Search className="h-5 w-5" />
             <input
               value={query}
@@ -256,7 +267,8 @@ export default function UsersTable({
                   ? "Search name, dept. or branch..."
                   : "Search name or email..."
               }
-              className="w-48 text-base outline-none placeholder:text-ink/40"
+              aria-label="Search users"
+              className="w-52 bg-transparent text-base text-ink outline-none placeholder:text-ink/40"
             />
           </div>
         </div>
@@ -266,9 +278,9 @@ export default function UsersTable({
             <StaffMembersPanel query={query} />
           </div>
         ) : isClientsTab ? (
-          <table className="mt-4 w-full text-left text-base">
+          <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[40rem] text-left text-base">
             <thead>
-              <tr className="text-sm uppercase text-ink/40">
+              <tr className="text-sm text-ink/45 [&>th]:font-medium">
                 <th className="py-3">Client Profile</th>
                 <th className="py-3">Email</th>
                 <th className="py-3">Joined</th>
@@ -277,23 +289,25 @@ export default function UsersTable({
             </thead>
             <tbody>
               {filteredClients.map((client) => (
-                <tr key={client.id} className="border-t border-ink/5">
+                <tr key={client.id} onClick={() => setActiveClient(client)} className="group cursor-pointer border-t border-[#f4ecd9] transition hover:bg-[#fffaf0]">
                   <td className="py-4">
                     <div className="flex items-center gap-3">
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full bg-blush text-base font-semibold text-coral-dark">
-                        {client.fullName.charAt(0)}
+                      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f3e7c4] text-base font-semibold text-[#7A5F14] shadow-sm ring-2 ring-white">
+                        {client.avatarUrl ? <Image src={client.avatarUrl} alt="" fill sizes="40px" className="object-cover" /> : client.fullName.charAt(0).toUpperCase()}
                       </span>
                       <p className="font-medium text-ink">{client.fullName}</p>
                     </div>
                   </td>
                   <td className="py-4 text-ink/70">{client.email}</td>
-                  <td className="py-4 text-ink/50">
-                    {new Date(client.createdAt).toLocaleDateString()}
-                  </td>
+                  <td className="py-4 text-sm text-ink/55">{joined(client.createdAt)}</td>
                   <td className="py-4">
                     <button
-                      onClick={() => setActiveClient(client)}
-                      className="rounded-full p-2 text-ink/40 hover:bg-blush hover:text-ink"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveClient(client);
+                      }}
+                      aria-label={`Open ${client.fullName}`}
+                      className="rounded-full p-2 text-ink/40 transition group-hover:text-coral-dark hover:bg-blush"
                     >
                       <MoreHorizontal className="h-5 w-5" />
                     </button>
@@ -315,11 +329,11 @@ export default function UsersTable({
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></div>
         ) : (
-          <table className="mt-4 w-full text-left text-base">
+          <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[40rem] text-left text-base">
             <thead>
-              <tr className="text-sm uppercase text-ink/40">
+              <tr className="text-sm text-ink/45 [&>th]:font-medium">
                 <th className="py-3">User Profile</th>
                 <th className="py-3">Role</th>
                 <th className="py-3">Branch</th>
@@ -329,10 +343,10 @@ export default function UsersTable({
             </thead>
             <tbody>
               {filtered.map((user) => (
-                <tr key={user.id} className="border-t border-ink/5">
+                <tr key={user.id} onClick={() => setActiveUser(user)} className="group cursor-pointer border-t border-[#f4ecd9] transition hover:bg-[#fffaf0]">
                   <td className="py-4">
                     <div className="flex items-center gap-3">
-                      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-base font-semibold text-coral-dark">
+                      <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f3e7c4] text-base font-semibold text-[#7A5F14] shadow-sm ring-2 ring-white">
                         {user.avatarUrl ? (
                           <Image src={user.avatarUrl} alt={user.fullName} fill sizes="40px" className="object-cover" />
                         ) : (
@@ -347,15 +361,25 @@ export default function UsersTable({
                       </div>
                     </div>
                   </td>
-                  <td className="py-4 text-ink/70">{roleLabels[user.role]}</td>
-                  <td className="py-4 text-ink/70">{user.branchName ?? "—"}</td>
-                  <td className="py-4 text-ink/50">
-                    {new Date(user.createdAt).toLocaleDateString()}
+                  <td className="py-4">
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleChip[user.role] ?? "bg-ink/5 text-ink/70"}`}>{roleLabels[user.role] ?? user.role}</span>
                   </td>
+                  <td className="py-4 text-sm text-ink/70">
+                    {user.branchName ? (
+                      <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-coral-dark" /> {user.branchName}</span>
+                    ) : (
+                      <span className="text-ink/40">{user.role === "admin" ? "All branches" : "—"}</span>
+                    )}
+                  </td>
+                  <td className="py-4 text-sm text-ink/55">{joined(user.createdAt)}</td>
                   <td className="py-4">
                     <button
-                      onClick={() => setActiveUser(user)}
-                      className="rounded-full p-2 text-ink/40 hover:bg-blush hover:text-ink"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveUser(user);
+                      }}
+                      aria-label={`Manage ${user.fullName}`}
+                      className="rounded-full p-2 text-ink/40 transition group-hover:text-coral-dark hover:bg-blush"
                     >
                       <MoreHorizontal className="h-5 w-5" />
                     </button>
@@ -370,11 +394,11 @@ export default function UsersTable({
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></div>
         )}
 
         {!isStaffTab && (
-          <p className="mt-4 text-base text-ink/50">
+          <p className="mt-4 text-sm text-ink/45">
             {isClientsTab
               ? `Showing ${filteredClients.length} of ${clients.length} client accounts`
               : `Showing ${filtered.length} of ${users.length} staff accounts`}
