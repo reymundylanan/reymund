@@ -188,9 +188,7 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
   const [spaForm, setSpaForm] = useState(emptySpaForm);
   const [savingSpa, setSavingSpa] = useState(false);
   const [spaError, setSpaError] = useState<string | null>(null);
-  const [allBranches, setAllBranches] = useState<{ id: string; name: string }[]>([]);
   const [confirmSpaBranch, setConfirmSpaBranch] = useState<{ id: string; name: string } | null>(null);
-  const [confirmPromoBranch, setConfirmPromoBranch] = useState<{ id: string; name: string } | null>(null);
   const [editingMesolipoExislim, setEditingMesolipoExislim] = useState<Promotion | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteTitle, setConfirmDeleteTitle] = useState<string | null>(null);
@@ -243,7 +241,6 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       .select("id, name")
       .then(({ data }) => {
         const rows = (data ?? []) as { id: string; name: string }[];
-        setAllBranches(rows);
         const current = rows.find((r) => r.id === branchId);
         if (current) setBranchName(current.name);
       });
@@ -1067,37 +1064,6 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
         </div>
       )}
 
-      {confirmPromoBranch && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 mx-auto">
-              <svg className="h-6 w-6 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
-            </div>
-            <h3 className="mt-4 text-center text-lg font-semibold text-ink">Add to Another Branch?</h3>
-            <p className="mt-2 text-center text-sm text-ink/50">
-              This promo will also be added to <span className="font-semibold text-ink">{confirmPromoBranch.name}</span>.
-            </p>
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setConfirmPromoBranch(null)}
-                className="flex-1 rounded-full border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-coral"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  const b = confirmPromoBranch;
-                  setForm((f) => ({ ...f, extra_branch_ids: [...f.extra_branch_ids, b.id] }));
-                  setConfirmPromoBranch(null);
-                }}
-                className="flex-1 rounded-full bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {confirmDeleteId && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 px-4">
@@ -1462,33 +1428,6 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
                 </div>
               </div>
 
-              {/* Assigned Branch */}
-              <div>
-                <label className="text-xs font-medium uppercase text-ink/40">Assigned Branch</label>
-                <div className="mt-1 space-y-2 rounded-lg border border-ink/15 px-3 py-2.5">
-                  {[...allBranches].sort((a, b) => (a.name === "One Cecilia Center" ? -1 : b.name === "One Cecilia Center" ? 1 : 0)).map((b) => {
-                    const isCurrent = b.id === branchId;
-                    return (
-                      <label key={b.id} className={`flex items-center gap-3 ${isCurrent ? "cursor-default" : "cursor-pointer"}`}>
-                        <input
-                          type="checkbox"
-                          checked={isCurrent || form.extra_branch_ids.includes(b.id)}
-                          readOnly={isCurrent}
-                          onChange={isCurrent ? undefined : (e) => {
-                            if (e.target.checked) {
-                              setConfirmPromoBranch(b);
-                            } else {
-                              setForm({ ...form, extra_branch_ids: form.extra_branch_ids.filter((id) => id !== b.id) });
-                            }
-                          }}
-                          className="h-4 w-4 accent-coral"
-                        />
-                        <span className="text-sm text-ink">{b.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
 
 
 
