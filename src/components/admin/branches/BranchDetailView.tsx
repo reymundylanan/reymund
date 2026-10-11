@@ -1,7 +1,6 @@
 "use client";
 
 import ServiceMediaManager from "@/components/admin/branches/ServiceMediaManager";
-import ServiceBranchToggles, { useServiceAvailability } from "@/components/admin/branches/ServiceBranchToggles";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -182,8 +181,6 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
   const [now, setNow] = useState(new Date());
   const [services, setServices] = useState<ServiceRow[]>([]);
   const [branchUuid, setBranchUuid] = useState<string | null>(null);
-  // Which branches offer each service (On / Off / + Add per branch).
-  const availability = useServiceAvailability();
   const [loadingServices, setLoadingServices] = useState(true);
   const [staffMembers, setStaffMembers] = useState<{ id: string; fullName: string; department: string; phone: string | null; avatarUrl: string | null }[]>([]);
   const [loadingStaff, setLoadingStaff] = useState(false);
@@ -852,7 +849,6 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                       {groupHasBenefits && <th className="pb-3 text-left">Benefits</th>}
                       <th className="pb-3 text-left">Duration</th>
                       <th className="pb-3 text-left">{filterCat === "All Categories" || ["Premium Treatments", "Laser Services", "Cocktail Drips", "Slimming Services"].includes(group.label) ? "Per Session" : "Price"}</th>
-                      <th className="pb-3 text-left">Available at</th>
                       <th className="pb-3 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -959,17 +955,6 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                           ) : (
                             <span className="font-semibold">₱{svc.price1.toLocaleString()}.00</span>
                           )}
-                        </td>
-                        <td className="py-4 pr-3">
-                          <ServiceBranchToggles
-                            serviceId={svc.id}
-                            serviceName={svc.name}
-                            currentBranchId={branchUuid}
-                            availability={availability}
-                            onChanged={(id) => {
-                              if (id === branchUuid && branchUuid) loadServices(branchUuid);
-                            }}
-                          />
                         </td>
                         <td className="py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
