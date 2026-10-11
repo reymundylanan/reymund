@@ -252,6 +252,90 @@ export function MascotFigure({
 }
 
 /** A full-size mascot you can play with (tap, triple-tap, rub, hover). */
+/**
+ * Drag a mascot anywhere; let go and it springs back home. Used by every
+ * GlowSync mascot so they all behave the same. A drag never counts as a tap.
+ */
+export function useSpringDrag(opts: { onDragging?: (dragging: boolean) => void; onLand?: () => void } = {}) {
+  const [offset, setOffset] = useState<{ x: number; y: number } | null>(null);
+  const start = useRef<{ x: number; y: number } | null>(null);
+  const moved = useRef(false);
+  const { onDragging, onLand } = opts;
+
+  const bind = {
+    onPointerDown(e: ReactPointerEvent<HTMLElement>) {
+      if (e.button !== 0) return;
+      start.current = { x: e.clientX, y: e.clientY };
+      moved.current = false;
+      e.currentTarget.setPointerCapture(e.pointerId);
+    },
+    onPointerMove(e: ReactPointerEvent<HTMLElement>) {
+      const s = start.current;
+      if (!s) return;
+      const dx = e.clientX - s.x;
+      const dy = e.clientY - s.y;
+      if (!moved.current && Math.hypot(dx, dy) < 6) return;
+      if (!moved.current) {
+        moved.current = true;
+        onDragging?.(true);
+      }
+      setOffset({ x: dx, y: dy });
+    },
+    onPointerUp() {
+      start.current = null;
+      if (!moved.current) return;
+      setOffset(null);
+      onDragging?.(false);
+      if (onLand) window.setTimeout(onLand, 500);
+    },
+    onPointerCancel() {
+      start.current = null;
+      if (!moved.current) return;
+      setOffset(null);
+      onDragging?.(false);
+    },
+    /** Swallow the click that ends a drag. */
+    onClickCapture(e: React.MouseEvent) {
+      if (!moved.current) return;
+      moved.current = false;
+      e.stopPropagation();
+      e.preventDefault();
+    },
+  };
+  const style: CSSProperties = {
+    transform: offset ? `translate(${offset.x}px, ${offset.y}px) rotate(${Math.max(-12, Math.min(12, offset.x / 18))}deg)` : "none",
+    transition: offset ? "none" : "transform 650ms cubic-bezier(0.3, 1.45, 0.5, 1)",
+    touchAction: "none",
+  };
+  return { dragging: !!offset, bind, style };
+}
+
+/** Wraps any mascot so it can be dragged and springs back. Children may be a
+ * function of `dragging` (to look surprised while carried). */
+export function SpringDrag({
+  children,
+  onDragging,
+  onLand,
+  className = "",
+}: {
+  children: React.ReactNode | ((dragging: boolean) => React.ReactNode);
+  onDragging?: (dragging: boolean) => void;
+  onLand?: () => void;
+  className?: string;
+}) {
+  const d = useSpringDrag({ onDragging, onLand });
+  return (
+    <span
+      {...d.bind}
+      style={d.style}
+      title="You can drag me"
+      className={`relative inline-block ${d.dragging ? "z-50 cursor-grabbing" : "cursor-grab"} ${className}`}
+    >
+      {typeof children === "function" ? children(d.dragging) : children}
+    </span>
+  );
+}
+
 export function PlayfulMascot({
   size,
   pose = "present",
@@ -275,59 +359,22 @@ export function PlayfulMascot({
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const play = useMascotPlay({ targetRef: ref });
-  // Drag it anywhere; let go and it springs back home with a little giggle.
-  const [offset, setOffset] = useState<{ x: number; y: number } | null>(null);
-  const start = useRef<{ x: number; y: number } | null>(null);
-  const moved = useRef(false);
-
-  function down(e: ReactPointerEvent<HTMLButtonElement>) {
-    if (e.button !== 0) return;
-    start.current = { x: e.clientX, y: e.clientY };
-    moved.current = false;
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-  function move(e: ReactPointerEvent<HTMLButtonElement>) {
-    const s = start.current;
-    if (!s) return play.rub(e);
-    const dx = e.clientX - s.x;
-    const dy = e.clientY - s.y;
-    if (!moved.current && Math.hypot(dx, dy) < 6) return;
-    if (!moved.current) {
-      moved.current = true;
-      onDragging?.(true);
-    }
-    setOffset({ x: dx, y: dy });
-  }
-  function up() {
-    start.current = null;
-    if (!moved.current) return;
-    setOffset(null);
-    onDragging?.(false);
-    window.setTimeout(() => play.emote([{ face: "giggle", emote: "♪", ms: 1200 }]), 500);
-  }
+  const drag = useSpringDrag({ onDragging, onLand: () => play.emote([{ face: "giggle", emote: "♪", ms: 1200 }]) });
+  const offset = drag.dragging;
 
   return (
     <button
       ref={ref}
       type="button"
       aria-label={`${label} (you can drag me)`}
-      onClick={() => {
-        if (moved.current) {
-          moved.current = false; // that was a drag, not a tap
-          return;
-        }
-        play.tap();
+      onClick={play.tap}
+      {...drag.bind}
+      onPointerMove={(e) => {
+        drag.bind.onPointerMove(e);
+        if (!drag.dragging) play.rub(e);
       }}
-      onPointerDown={down}
-      onPointerMove={move}
-      onPointerUp={up}
-      onPointerCancel={up}
       onPointerEnter={play.hover}
-      style={{
-        transform: offset ? `translate(${offset.x}px, ${offset.y}px) rotate(${Math.max(-12, Math.min(12, offset.x / 18))}deg)` : "none",
-        transition: offset ? "none" : "transform 650ms cubic-bezier(0.3, 1.45, 0.5, 1)",
-        touchAction: "none",
-      }}
+      style={drag.style}
       className={`relative block rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a] ${offset ? "z-50 cursor-grabbing" : "cursor-grab"} ${className}`}
     >
       <MascotFigure

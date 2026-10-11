@@ -27,7 +27,7 @@ import { promoImage } from "@/lib/promoImage";
 import { createClient } from "@/lib/supabase/client";
 import { getActivePromotions, type ActivePromotion } from "@/lib/supabase/queries/publicContent";
 import { GUIDE_FONTS } from "@/components/guide/guideKit";
-import { MascotFigure, useMascotPlay } from "@/components/guide/MascotPlay";
+import { MascotFigure, SpringDrag, useMascotPlay } from "@/components/guide/MascotPlay";
 import { buildBriefing, buildBubbles, type BriefingData, type Bubble, type Reminder } from "@/lib/welcomeBriefing";
 import { loadWelcomeBriefing, spaToday } from "@/lib/supabase/queries/welcomeBriefing";
 import { CHAT_PANEL_EVENT, OPEN_CHAT_EVENT, announce } from "@/lib/glowEvents";
@@ -491,9 +491,13 @@ export default function ChatWidget({ userId = null, firstName = null }: { userId
           <div ref={containerRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-y-contain scrollbar-hidden px-3.5 pb-4 pt-3">
             {/* Welcome: the mascot itself, not a chat bubble with an avatar pasted on */}
             <section className="flex items-center gap-3 rounded-2xl bg-gradient-to-br from-white via-[#fff8ee] to-[#fdf0f7] p-3 ring-1 ring-[#efdcc6]">
-              <span className="glowy-bob flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#fff4d6] to-[#f8e2ef] ring-2 ring-[#ecd39a]">
-                <GlowMascot size={54} face={headFace} talking={sending} blink />
-              </span>
+              <SpringDrag className="shrink-0">
+                {(dragged) => (
+                  <span className="glowy-bob flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-[#fff4d6] to-[#f8e2ef] ring-2 ring-[#ecd39a]">
+                    <GlowMascot size={54} face={dragged ? "surprised" : headFace} talking={sending} blink />
+                  </span>
+                )}
+              </SpringDrag>
               <div className="min-w-0 flex-1">
                 <p className="guide-display guide-title text-[17px] leading-tight">Hi{firstName ? ` ${firstName}` : " there"}! 👋</p>
                 <p className="mt-0.5 text-[12.5px] font-semibold leading-snug text-ink/70">

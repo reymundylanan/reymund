@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Send } from "lucide-react";
 import { useAssistantChat } from "@/lib/hooks/useAssistantChat";
 import GlowMascot from "@/components/GlowMascot";
+import { SpringDrag } from "@/components/guide/MascotPlay";
 import { TypingDots } from "@/components/ChatWidget";
 import { pageHelpMessage } from "@/lib/pageHelp";
 
@@ -81,9 +82,13 @@ export default function AssistantPanel({ firstName }: { firstName: string }) {
         {!userHasSpoken && !sending && (
           <div className="glowy-msg flex flex-col items-center pt-6 text-center">
             <div className="relative rounded-full bg-gradient-to-br from-cream to-champagne/50 p-3">
-              <span className="glowy-bob">
-                <GlowMascot size={120} full />
-              </span>
+              <SpringDrag>
+                {(dragged) => (
+                  <span className="glowy-bob block">
+                    <GlowMascot size={120} full pose={dragged ? "excited" : undefined} face={dragged ? "surprised" : undefined} />
+                  </span>
+                )}
+              </SpringDrag>
             </div>
             <p className="mt-3 text-sm font-semibold text-ink">I&apos;m GlowSync AI ✨</p>
             <p className="mt-1 max-w-[16rem] text-xs text-ink/60">

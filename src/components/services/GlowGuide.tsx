@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type Re
 import { ArrowDown, CalendarPlus, ChevronLeft, Gift, Loader2, MessageCircleQuestion, Send } from "lucide-react";
 import Link from "next/link";
 import { GUIDE_FONTS, MASCOT_DESKTOP, MASCOT_PHONE, mascotWidth, TypeText } from "@/components/guide/guideKit";
-import { MascotFigure, useMascotPlay } from "@/components/guide/MascotPlay";
+import { MascotFigure, SpringDrag, useMascotPlay } from "@/components/guide/MascotPlay";
 import GlowMascot, { type MascotFace, type MascotPose } from "@/components/GlowMascot";
 import { useBooking } from "@/components/booking/BookingContext";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
@@ -552,13 +552,15 @@ export default function GlowGuide({
   const face: MascotFace | undefined = celebrate ? "love" : asking ? "think" : moving ? "excited" : undefined;
   const bubbleEmote = asking ? "…" : greeting ? "👋" : moving ? "" : undefined;
 
-  const mascot = (size: number, flip = false) => (
+  // Drag it anywhere; it springs back to its card with a giggle.
+  const giggle = () => play.emote([{ face: "giggle", emote: "♪", ms: 1200 }]);
+  const mascot = (size: number, flip = false, dragged = false) => (
     <MascotFigure
       play={play}
       size={size}
-      pose={pose}
-      face={face}
-      emote={bubbleEmote}
+      pose={dragged ? "excited" : pose}
+      face={dragged ? "surprised" : face}
+      emote={dragged ? "!" : bubbleEmote}
       flip={flip}
       motion={celebrate ? "guide-celebrate" : moving ? "guide-moving" : landing ? "guide-land" : undefined}
       still={moving || celebrate}
@@ -594,7 +596,7 @@ export default function GlowGuide({
       <div data-guide-ui className={`guide-bubble guide-bubble-still mb-6 ${GUIDE_FONTS}`}>
         <div className="guide-bubble-inner flex items-start gap-3 p-4">
           <button type="button" onClick={tapMascot} aria-label="Ask GlowSync AI" className="shrink-0">
-            {mascot(MASCOT_PHONE)}
+            <SpringDrag onLand={giggle}>{(dragged) => mascot(MASCOT_PHONE, false, dragged)}</SpringDrag>
           </button>
           <div key={`${item.id}-${mode}-${greeting}`} className="min-w-0 flex-1">{bubble}</div>
         </div>
@@ -652,7 +654,7 @@ export default function GlowGuide({
         className="guide-fly absolute left-0 top-0 z-40 rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a]"
         style={{ transform: `translate(${mascotX}px, ${mascotY}px)`, ...follow }}
       >
-        {mascot(MASCOT, side === "right")}
+        <SpringDrag onLand={giggle}>{(dragged) => mascot(MASCOT, side === "right", dragged)}</SpringDrag>
       </button>
     </>
   );
