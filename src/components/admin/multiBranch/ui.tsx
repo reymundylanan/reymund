@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { Check, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import type { StaffStatus } from "@/lib/multiBranch/engine";
 
 /** Status colours (inside `.status-colors`, so they're the real hues):
@@ -78,4 +78,59 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
   const json = (await res.json().catch(() => ({}))) as T & { error?: string };
   if (!res.ok) throw Object.assign(new Error(json.error ?? "Something went wrong."), { data: json, status: res.status });
   return json;
+}
+
+/** Side panel with a card's full details (bottom sheet on phones). */
+export function DetailDrawer({ title, subtitle, onClose, children }: { title: string; subtitle?: ReactNode; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-[88] flex justify-end bg-black/30" onClick={onClose}>
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onClick={(e) => e.stopPropagation()}
+        className="status-colors mt-auto max-h-[88dvh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:mt-0 sm:h-full sm:max-h-none sm:w-[26rem] sm:rounded-none sm:rounded-l-3xl"
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold leading-snug text-ink">{title}</h2>
+            {subtitle && <div className="mt-0.5 text-sm text-ink/55">{subtitle}</div>}
+          </div>
+          <button onClick={onClose} aria-label="Close details" className="rounded-full p-1 text-ink/40 hover:bg-blush hover:text-ink">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="space-y-4">{children}</div>
+      </aside>
+    </div>
+  );
+}
+
+/** A labelled block inside a DetailDrawer. */
+export function DetailSection({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <section>
+      <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink/45">{label}</h3>
+      <div className="text-sm text-ink/80">{children}</div>
+    </section>
+  );
+}
+
+/** "Label ........ value" rows. */
+export function DetailRows({ rows }: { rows: [string, ReactNode][] }) {
+  return (
+    <dl className="divide-y divide-ink/5 rounded-xl bg-cream/60 px-3">
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex items-start justify-between gap-3 py-1.5 text-sm">
+          <dt className="text-ink/50">{k}</dt>
+          <dd className="text-right font-medium text-ink">{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 }

@@ -31,6 +31,8 @@ export type Service = {
   duration: string | null;
   price: number;
   status: string;
+  description?: string | null;
+  benefits?: string | null;
   /** Hair services: price by length (short / medium / long). */
   hairPrices?: Partial<Record<"short" | "medium" | "long", number>> | null;
 };

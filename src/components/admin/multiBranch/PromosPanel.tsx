@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Copy, GripVertical, LayoutGrid, Rows3, Search, Tag } from "lucide-react";
 import type { Context } from "@/lib/multiBranch/engine";
-import { Badge, Spinner, TONE, postJson, type Tone } from "./ui";
+import { Badge, DetailDrawer, DetailRows, DetailSection, Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
 
 type Promo = {
@@ -16,6 +16,10 @@ type Promo = {
   price_medium: number | null;
   price_long: number | null;
   badge: string | null;
+  description?: string | null;
+  discount_type?: string | null;
+  discount_value?: string | null;
+  created_at?: string;
   valid_from: string | null;
   valid_until: string | null;
   is_active: boolean;
@@ -49,6 +53,7 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
   const [busy, setBusy] = useState<string | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null);
   const [view, setView] = useState<"board" | "table">("board");
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
 
   const load = useCallback(async () => {
@@ -215,6 +220,11 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
                       <li
                         key={p.id}
                         {...cardProps({ kind: "promo", id: p.id })}
+                        onClick={(e) => {
+                          if ((e.target as HTMLElement).closest("button")) return;
+                          setDetailId(p.id);
+                        }}
+                        title="Click for details · drag to another branch"
                         className={`group cursor-grab select-none rounded-xl border bg-white p-2.5 transition active:cursor-grabbing ${
                           dragging?.id === p.id ? "opacity-30" : "hover:-translate-y-0.5 hover:border-coral/50 hover:shadow-md"
                         } ${p.is_active ? "border-ink/10" : "border-dashed border-ink/15 bg-ink/[0.02]"}`}
@@ -368,6 +378,69 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
           </table>
         </div>
       )}
+
+      {(() => {
+        const p = detailId ? (promos ?? []).find((x) => x.id === detailId) : null;
+        if (!p) return null;
+        const st = promoState(p, today);
+        const row = rowOf(p);
+        const discount =
+          p.discount_type === "percent" ? `${p.discount_value}% off`
+          : p.discount_type === "fixed" ? `₱${p.discount_value} off`
+          : p.discount_type === "bogo" ? "Buy one, get one"
+          : p.discount_value || null;
+        return (
+          <DetailDrawer
+            title={p.title}
+            subtitle={
+              <>
+                at {branchName(p.branch_id)} <Badge tone={st.tone}>{st.label}</Badge>
+              </>
+            }
+            onClose={() => setDetailId(null)}
+          >
+            <DetailSection label="Description">
+              {p.description?.trim() ? <p className="whitespace-pre-line">{p.description}</p> : <span className="text-ink/40">No description yet.</span>}
+            </DetailSection>
+            <DetailRows
+              rows={[
+                ["Price", p.price_medium || p.price_long ? `Short ${peso(p.price)} · Medium ${peso(p.price_medium)} · Long ${peso(p.price_long)}` : peso(p.price)],
+                ...(discount ? ([["Discount", discount]] as [string, string][]) : []),
+                ["Category", [p.category, p.department].filter(Boolean).join(" · ") || "—"],
+                ["Badge", p.badge || "—"],
+                ["Runs", p.valid_from || p.valid_until ? `${p.valid_from ? day(p.valid_from) : "now"} – ${p.valid_until ? day(p.valid_until) : "no end"}` : "No end date"],
+                ["Upcoming bookings", String(p.upcomingBookings)],
+              ]}
+            />
+            <DetailSection label={`Included services · ${p.services.length}`}>
+              {p.services.length ? (
+                <ul className="flex flex-wrap gap-1.5">
+                  {p.services.map((s) => (
+                    <li key={s} className="rounded-full bg-blush px-2.5 py-1 text-xs font-semibold text-ink">{s}</li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="text-ink/45">Not linked to specific services.</span>
+              )}
+            </DetailSection>
+            <DetailSection label="At each branch">
+              <ul className="space-y-1">
+                {ctx.branches.map((b) => {
+                  const there = row?.byBranch.get(b.id);
+                  const s = there ? promoState(there, today) : null;
+                  return (
+                    <li key={b.id} className="flex items-center justify-between gap-2">
+                      <span>{b.name}</span>
+                      {s ? <Badge tone={s.tone}>{s.label}</Badge> : <Badge tone="gray">Not here</Badge>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </DetailSection>
+            <p className="text-xs text-ink/45">Edit the details in Branches &amp; Services → Promotions.</p>
+          </DetailDrawer>
+        );
+      })()}
 
       {ask && (
         <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/50 px-4" onClick={() => setAsk(null)}>

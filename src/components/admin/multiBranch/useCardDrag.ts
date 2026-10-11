@@ -12,6 +12,8 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void)
   const columns = useRef(new Map<string, HTMLElement>());
   const scroller = useRef<HTMLDivElement>(null);
   const pending = useRef<{ item: DragItem; x: number; y: number; el: HTMLElement; started: boolean } | null>(null);
+  // The click that ends a drag must not also open the card.
+  const justDragged = useRef(false);
   const pointer = useRef({ x: 0, y: 0 });
   const [ghost, setGhost] = useState<Ghost | null>(null);
   const [over, setOver] = useState<string | null>(null);
@@ -49,6 +51,7 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void)
     return {
       onPointerDown(e: ReactPointerEvent<HTMLElement>) {
         if (e.button !== 0) return;
+        justDragged.current = false;
         const target = e.target as HTMLElement;
         if (target.closest("button, select, a, input, label")) return;
         if (e.pointerType === "touch" && !target.closest("[data-grip]")) return;
@@ -76,7 +79,14 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void)
         const to = columnAt(e.clientX, e.clientY);
         setGhost(null);
         setOver(null);
+        justDragged.current = true;
         if (to) onDrop(p.item, to);
+      },
+      onClickCapture(e: React.MouseEvent) {
+        if (!justDragged.current) return;
+        justDragged.current = false;
+        e.stopPropagation();
+        e.preventDefault();
       },
       onPointerCancel() {
         pending.current = null;

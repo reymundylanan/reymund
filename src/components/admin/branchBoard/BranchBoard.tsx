@@ -9,6 +9,7 @@ import { toDateKey } from "@/lib/supabase/queries/staffShifts";
 import { NO_BRANCH, departmentSummary, formatDateRuns, groupByColumn } from "@/lib/branchBoard";
 import AdminTransferModal from "@/components/admin/users/AdminTransferModal";
 import type { StaffUser } from "@/components/admin/users/types";
+import { Badge, DetailDrawer, DetailRows, DetailSection } from "@/components/admin/multiBranch/ui";
 
 type Branch = { id: string; name: string; address: string | null };
 type Kind = "staff" | "accounts";
@@ -43,6 +44,10 @@ export default function BranchBoard({ only }: { only?: Kind } = {}) {
   const [drop, setDrop] = useState<Drop | null>(null);
   const [lendTarget, setLendTarget] = useState<Drop | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  // Full account details (for the details panel) and which card is open.
+  const [accountInfo, setAccountInfo] = useState<Record<string, StaffUser>>({});
+  const [detail, setDetail] = useState<Card | null>(null);
+  const dragEnded = useRef(false);
 
   const loadStaff = useCallback(async () => {
     const { data, error: err } = await supabase
@@ -61,6 +66,7 @@ export default function BranchBoard({ only }: { only?: Kind } = {}) {
       const res = await fetch("/api/admin/users");
       const json = (await res.json()) as { users?: StaffUser[]; error?: string };
       if (!res.ok) throw new Error(json.error ?? "Couldn't load accounts.");
+      setAccountInfo(Object.fromEntries((json.users ?? []).map((u) => [u.id, u])));
       setAccounts(
         (json.users ?? [])
           .filter((u) => u.role === "front_desk" || u.role === "specialist")
@@ -227,6 +233,7 @@ export default function BranchBoard({ only }: { only?: Kind } = {}) {
     const p = pending.current;
     pending.current = null;
     if (!p?.started) return;
+    dragEnded.current = true; // the click that follows isn't "open details"
     const to = cancelled ? null : columnAt(e.clientX, e.clientY);
     setGhost(null);
     setOver(null);
@@ -392,7 +399,19 @@ export default function BranchBoard({ only }: { only?: Kind } = {}) {
                     return (
                       <li
                         key={card.id}
-                        onPointerDown={(e) => onCardPointerDown(e, card)}
+                        onPointerDown={(e) => {
+                          dragEnded.current = false;
+                          onCardPointerDown(e, card);
+                        }}
+                        onClick={(e) => {
+                          if (dragEnded.current) {
+                            dragEnded.current = false;
+                            return;
+                          }
+                          if ((e.target as HTMLElement).closest("button, select, label")) return;
+                          setDetail(card);
+                        }}
+                        title="Click for details · drag to another branch"
                         onPointerMove={onCardPointerMove}
                         onPointerUp={(e) => endDrag(e)}
                         onPointerCancel={(e) => endDrag(e, true)}
@@ -479,6 +498,59 @@ export default function BranchBoard({ only }: { only?: Kind } = {}) {
           }}
         />
       )}
+
+      {detail && (() => {
+        const info = accountInfo[detail.id];
+        const away = kind === "staff" ? lendsOf(detail.id) : [];
+        const off = kind === "staff" ? leaves[detail.id] : undefined;
+        return (
+          <DetailDrawer
+            title={detail.name}
+            subtitle={
+              <>
+                {detail.sub || "—"} · {branchName(detail.branchId)}
+              </>
+            }
+            onClose={() => setDetail(null)}
+          >
+            <div className="flex items-center gap-3">
+              <span className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-champagne text-xl font-semibold text-coral-dark">
+                {detail.avatarUrl ? <Image src={detail.avatarUrl} alt="" fill sizes="64px" className="object-cover" /> : detail.name.charAt(0).toUpperCase()}
+              </span>
+              <div>
+                <p className="font-semibold text-ink">{detail.name}</p>
+                <Badge tone={kind === "accounts" ? "blue" : "green"}>{detail.sub || (kind === "accounts" ? "Account" : "Staff")}</Badge>
+              </div>
+            </div>
+            {kind === "accounts" ? (
+              <DetailRows
+                rows={[
+                  ["Branch", branchName(detail.branchId)],
+                  ["Role", detail.sub || "—"],
+                  ["Username", info?.username || "—"],
+                  ["Email", info?.email || "—"],
+                  ["Account since", info?.createdAt ? new Date(info.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"],
+                ]}
+              />
+            ) : (
+              <DetailRows
+                rows={[
+                  ["Home branch", branchName(detail.branchId)],
+                  ["Department", detail.sub || "—"],
+                  ["Lent out", away.length ? away.map((l) => `${branchName(l.branchId)}: ${formatDateRuns(l.dates)}`).join("; ") : "No"],
+                  ["Leave", off ? formatDateRuns(off) : "None upcoming"],
+                ]}
+              />
+            )}
+            <DetailSection label="Change it">
+              <p className="text-ink/60">
+                Drag the card onto another branch to move {kind === "accounts" ? "the account" : "them"}.{" "}
+                {kind === "accounts" ? "Edit the name, email or password in Users & Roles." : "Edit the profile in Users & Roles → Staff."}
+              </p>
+            </DetailSection>
+          </DetailDrawer>
+        );
+      })()}
 
       {toast && (
         <div role="status" className="fixed bottom-6 left-1/2 z-[80] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-full bg-ink px-5 py-3 text-sm text-white shadow-xl">

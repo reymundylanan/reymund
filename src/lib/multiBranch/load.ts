@@ -50,7 +50,7 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
     supabase.from("branch_transfer_requests").select("id, staff_member_id, target_branch_id, dates").eq("status", "approved"),
     supabase.from("staff_attendance").select("id, staff_member_id, attendance_date, status").eq("attendance_date", today),
     supabase.from("staff_attendance_breaks").select("attendance_id, break_start").is("break_end", null),
-    supabase.from("branch_services").select("id, branch_id, name, department, category, duration, price, status, hair_options"),
+    supabase.from("branch_services").select("id, branch_id, name, department, category, duration, price, status, hair_options, description, benefits"),
     supabase
       .from("appointments")
       .select(
@@ -66,7 +66,7 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
     if (res.error) logQueryError(`multiBranch.load ${label}`, res.error);
   }
 
-  const serviceRows = (services.data ?? []) as { id: string; branch_id: string; name: string; department: string | null; category: string | null; duration: string | null; price: number | null; status: string | null; hair_options: { prices?: Record<string, string | number | null> } | null }[];
+  const serviceRows = (services.data ?? []) as { id: string; branch_id: string; name: string; department: string | null; category: string | null; duration: string | null; price: number | null; status: string | null; description?: string | null; benefits?: string | null; hair_options: { prices?: Record<string, string | number | null> } | null }[];
   const serviceById = new Map(serviceRows.map((s) => [s.id, s]));
 
   const breakByAttendance = new Map(
@@ -135,6 +135,8 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
       price: Number(s.price ?? 0),
       status: s.status ?? "Active",
       hairPrices: hairPriceMap(s.hair_options),
+      description: s.description ?? null,
+      benefits: s.benefits ?? null,
     })),
     appointments,
     today,

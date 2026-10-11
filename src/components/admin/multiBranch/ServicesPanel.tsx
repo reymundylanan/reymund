@@ -6,6 +6,7 @@ import {
   addDays,
   candidateStaff,
   formatDay,
+  formatTime,
   isBranchActive,
   openStarts,
   parseDuration,
@@ -13,7 +14,7 @@ import {
   type Context,
   type Service,
 } from "@/lib/multiBranch/engine";
-import { Badge, Spinner, TONE, postJson, type Tone } from "./ui";
+import { Badge, DetailDrawer, DetailRows, DetailSection, Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
 
 type Row = { name: string; category: string; department: string; byBranch: Map<string, Service> };
@@ -40,6 +41,8 @@ export default function ServicesPanel({
   const [view, setView] = useState<"board" | "table">("board");
   // A service dropped on another branch: offer it there (copy), or there and off here (move).
   const [drop, setDrop] = useState<{ service: Service; to: string } | null>(null);
+  // The card whose details are open.
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const branches = ctx.branches;
   const rows = useMemo(() => {
@@ -240,6 +243,11 @@ export default function ServicesPanel({
                       <li
                         key={svc.id}
                         {...cardProps({ kind: "service", id: svc.id })}
+                        onClick={(e) => {
+                          if ((e.target as HTMLElement).closest("button")) return;
+                          setDetailId(svc.id);
+                        }}
+                        title="Click for details · drag to another branch"
                         className={`group cursor-grab select-none rounded-xl border bg-white p-2.5 transition active:cursor-grabbing ${
                           dragging?.id === svc.id ? "opacity-30" : "hover:-translate-y-0.5 hover:border-coral/50 hover:shadow-md"
                         } ${on ? "border-ink/10" : "border-dashed border-ink/15 bg-ink/[0.02]"}`}
@@ -306,6 +314,92 @@ export default function ServicesPanel({
           <p className="text-xs text-ink/50">Drop on a branch</p>
         </div>
       )}
+
+      {(() => {
+        const svc = detailId ? ctx.services.find((s) => s.id === detailId) : null;
+        if (!svc) return null;
+        const row = rowOf(svc);
+        const depts = svc.department ? [svc.department] : [];
+        const staff = candidateStaff(ctx, svc.branchId, date, depts);
+        const bookings = affectedBy(svc).sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start));
+        const sizes = svc.hairPrices ? Object.entries(svc.hairPrices) : [];
+        return (
+          <DetailDrawer
+            title={svc.name}
+            subtitle={
+              <>
+                {svc.category} · at {branchName(svc.branchId)} <Badge tone={svc.status === "Active" ? "green" : "gray"}>{svc.status === "Active" ? "Offered" : "Off"}</Badge>
+              </>
+            }
+            onClose={() => setDetailId(null)}
+          >
+            <DetailSection label="Description">{svc.description?.trim() || <span className="text-ink/40">No description yet.</span>}</DetailSection>
+            {svc.benefits?.trim() && <DetailSection label="Benefits"><p className="whitespace-pre-line">{svc.benefits}</p></DetailSection>}
+            <DetailRows
+              rows={[
+                ["Price", sizes.length ? sizes.map(([k, v]) => `${k[0].toUpperCase()}${k.slice(1)} ₱${Number(v).toLocaleString()}`).join(" · ") : `₱${svc.price.toLocaleString()}`],
+                ["Duration", `${parseDuration(svc.duration)} min`],
+                ["Department", svc.department || "—"],
+                ["Category", svc.category || "—"],
+              ]}
+            />
+            <DetailSection label={`Who can do it · ${formatDay(date, ctx.today)}`}>
+              {staff.length ? (
+                <ul className="flex flex-wrap gap-1.5">
+                  {staff.map((s) => (
+                    <li key={s.id} className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">{s.name}</li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="text-ink/45">No {svc.department || "qualified"} staff working that day.</span>
+              )}
+              <p className="mt-1 text-xs text-ink/45">Staff in the {svc.department || "same"} department, working at this branch that day (off, on leave or lent out don&apos;t count).</p>
+            </DetailSection>
+            {row && svc.status === "Active" && (
+              <DetailSection label="Open times, next 7 days">
+                <div className="flex flex-wrap gap-1">
+                  {Array.from({ length: 7 }, (_, i) => addDays(ctx.today, i)).map((d) => {
+                    const n = slotsFor(row, svc.branchId, d) ?? 0;
+                    return (
+                      <span key={d} className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${n ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                        {formatDay(d, ctx.today)} · {n}
+                      </span>
+                    );
+                  })}
+                </div>
+              </DetailSection>
+            )}
+            <DetailSection label={`Upcoming bookings · ${bookings.length}`}>
+              {bookings.length ? (
+                <ul className="space-y-1">
+                  {bookings.slice(0, 8).map((a) => (
+                    <li key={a.id} className="flex justify-between gap-2 rounded-lg bg-cream/60 px-2.5 py-1.5 text-xs">
+                      <span className="font-medium text-ink">{a.clientName}</span>
+                      <span className="text-ink/55">{formatDay(a.date, ctx.today)} · {formatTime(a.start)}</span>
+                    </li>
+                  ))}
+                  {bookings.length > 8 && <li className="text-xs text-ink/45">+{bookings.length - 8} more</li>}
+                </ul>
+              ) : (
+                <span className="text-ink/45">None in the next two weeks.</span>
+              )}
+            </DetailSection>
+            <DetailSection label="At each branch">
+              <ul className="space-y-1">
+                {branches.map((b) => {
+                  const there = row?.byBranch.get(b.id);
+                  return (
+                    <li key={b.id} className="flex items-center justify-between gap-2">
+                      <span>{b.name}</span>
+                      <Badge tone={!there ? "gray" : there.status === "Active" ? "green" : "red"}>{!there ? "Not offered" : there.status === "Active" ? "Offered" : "Off"}</Badge>
+                    </li>
+                  );
+                })}
+              </ul>
+            </DetailSection>
+          </DetailDrawer>
+        );
+      })()}
 
       {drop && (
         <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/50 px-4" onClick={() => setDrop(null)}>

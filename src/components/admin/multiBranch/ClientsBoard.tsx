@@ -5,7 +5,7 @@ import { ArrowLeftRight, ArrowRight, Bell, CalendarClock, ChevronDown, ChevronRi
 import { formatDay, formatTime, isBranchActive, toMinutes, toTime, type ClientCard, type Context } from "@/lib/multiBranch/engine";
 import type { ClientBooking } from "@/lib/multiBranch/clientTransfer";
 import type { Channels } from "@/lib/multiBranch/channels";
-import { Avatar, Badge, Spinner, TONE, postJson, type Tone } from "./ui";
+import { Avatar, Badge, DetailDrawer, DetailRows, DetailSection, Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
 import { Empty } from "./BoardColumn";
 import { Panel, Side, type Done } from "./TransferPreview";
@@ -32,6 +32,7 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
   // Per column: show only accounts, walk-ins or clients with upcoming bookings.
   const [groupBy, setGroupBy] = useState<Record<string, Group | undefined>>({});
   const [sub, setSub] = useState<"branches" | "day">("branches");
+  const [detailKey, setDetailKey] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -226,6 +227,11 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
                         <li
                           key={c.key}
                           {...cardProps({ kind: "client", id: c.key })}
+                          onClick={(e) => {
+                            if ((e.target as HTMLElement).closest("button")) return;
+                            setDetailKey(c.key);
+                          }}
+                          title="Click for details · drag to another branch"
                           className={`group relative cursor-grab select-none rounded-xl border bg-white p-2.5 transition active:cursor-grabbing ${
                             dragging?.id === c.key ? "opacity-30" : "hover:-translate-y-0.5 hover:border-coral/50 hover:shadow-md"
                           } ${c.upcoming > 0 ? "border-amber-200" : "border-ink/10"}`}
@@ -314,6 +320,18 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
         </div>
       )}
 
+      {detailKey && clients?.find((c) => c.key === detailKey) && (
+        <ClientDetails
+          ctx={ctx}
+          client={clients.find((c) => c.key === detailKey)!}
+          onClose={() => setDetailKey(null)}
+          onTransfer={(c) => {
+            setDetailKey(null);
+            setPreview({ key: c.key, toBranchId: null });
+          }}
+        />
+      )}
+
       {ghost && (
         <div
           className="pointer-events-none fixed left-0 top-0 z-[90] rounded-xl border border-coral bg-white p-2.5 shadow-2xl"
@@ -324,6 +342,141 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
         </div>
       )}
     </div>
+  );
+}
+
+type Visit = {
+  id: string;
+  code: string | null;
+  date: string;
+  time: string;
+  duration: number;
+  status: string;
+  sessionStatus: string | null;
+  walkIn: boolean;
+  branch: string;
+  staff: string | null;
+  services: string;
+  paid: number;
+};
+type ClientDetail = {
+  profile: { email?: string | null; gender?: string | null; address?: string | null; created_at?: string; allergy?: string | null; preferences?: string | null; branch?: string | null } | null;
+  upcoming: Visit[];
+  recent: Visit[];
+};
+
+function visitLabel(v: Visit): { label: string; tone: Tone } {
+  if (v.sessionStatus === "no_show") return { label: "No-show", tone: "red" };
+  if (v.status === "completed" || v.sessionStatus === "completed" || v.sessionStatus === "paid") return { label: "Done", tone: "green" };
+  if (v.status === "pending") return { label: "Pending", tone: "amber" };
+  return { label: "Confirmed", tone: "blue" };
+}
+
+/** Everything about one client: contact, totals, upcoming bookings, recent visits. */
+function ClientDetails({ ctx, client: c, onClose, onTransfer }: { ctx: Context; client: ClientCard; onClose: () => void; onTransfer: (c: ClientCard) => void }) {
+  const [data, setData] = useState<ClientDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/admin/multi-branch/client?key=${encodeURIComponent(c.key)}`)
+      .then(async (r) => {
+        const j = (await r.json()) as ClientDetail & { error?: string };
+        if (!alive) return;
+        if (!r.ok) setError(j.error ?? "Couldn't load the client.");
+        else setData(j);
+      })
+      .catch(() => alive && setError("Couldn't load the client."));
+    return () => {
+      alive = false;
+    };
+  }, [c.key]);
+  const branchName = (id: string | null) => ctx.branches.find((b) => b.id === id)?.name ?? "—";
+  const p = data?.profile;
+  const row = (v: Visit) => {
+    const s = visitLabel(v);
+    return (
+      <li key={v.id} className="rounded-lg bg-cream/60 px-2.5 py-2 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-semibold text-ink">
+            {formatDay(v.date, ctx.today)} · {formatTime(toMinutes(v.time))}
+          </span>
+          <Badge tone={s.tone}>{s.label}</Badge>
+        </div>
+        <p className="mt-0.5 text-ink/70">{v.services}</p>
+        <p className="text-ink/45">
+          {v.branch}
+          {v.staff ? ` · ${v.staff}` : ""}
+          {v.walkIn ? " · walk-in" : ""}
+          {v.paid ? ` · ${peso(v.paid)} paid` : ""}
+          {v.code ? ` · #${v.code}` : ""}
+        </p>
+      </li>
+    );
+  };
+  return (
+    <DetailDrawer
+      title={c.name}
+      subtitle={
+        <>
+          {c.clientId ? "Account" : "Walk-in"} · {c.phone ?? "no phone"} {c.vip && <Badge tone="amber">VIP</Badge>}
+        </>
+      }
+      onClose={onClose}
+    >
+      <div className="grid grid-cols-3 divide-x divide-ink/5 rounded-xl bg-cream/70 py-2 text-center">
+        <div>
+          <p className="font-bold text-ink">{c.visits}</p>
+          <p className="text-[10px] uppercase tracking-wide text-ink/45">Visits</p>
+        </div>
+        <div>
+          <p className="font-bold text-ink">{peso(c.spend)}</p>
+          <p className="text-[10px] uppercase tracking-wide text-ink/45">Spent</p>
+        </div>
+        <div>
+          <p className="font-bold text-ink">{c.clientId ? c.points : c.upcoming}</p>
+          <p className="text-[10px] uppercase tracking-wide text-ink/45">{c.clientId ? "Points" : "Upcoming"}</p>
+        </div>
+      </div>
+      <DetailRows
+        rows={[
+          [c.homeBranchId ? "Home branch" : "Branch", `${branchName(c.branchId)} (${SOURCE[c.branchSource].toLowerCase()})`],
+          ["Last visit", c.lastVisit ? formatDay(c.lastVisit, ctx.today) : "—"],
+          ...(c.clientId
+            ? ([
+                ["Email", p?.email || "—"],
+                ["Gender", p?.gender || "—"],
+                ["Address", p?.address || "—"],
+                ["Member since", p?.created_at ? new Date(p.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "—"],
+              ] as [string, string][])
+            : []),
+        ]}
+      />
+      {(p?.allergy || p?.preferences) && (
+        <DetailSection label="Notes">
+          {p?.allergy && <p><b>Allergy:</b> {p.allergy}</p>}
+          {p?.preferences && <p><b>Preferences:</b> {p.preferences}</p>}
+        </DetailSection>
+      )}
+      {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {!data && !error && (
+        <p className="flex items-center gap-2 text-sm text-ink/50">
+          <Spinner /> Loading bookings…
+        </p>
+      )}
+      {data && (
+        <>
+          <DetailSection label={`Upcoming · ${data.upcoming.length}`}>
+            {data.upcoming.length ? <ul className="space-y-1.5">{data.upcoming.map(row)}</ul> : <span className="text-ink/45">No upcoming bookings.</span>}
+          </DetailSection>
+          <DetailSection label="Recent visits">
+            {data.recent.length ? <ul className="space-y-1.5">{data.recent.map(row)}</ul> : <span className="text-ink/45">No visits yet.</span>}
+          </DetailSection>
+        </>
+      )}
+      <button onClick={() => onTransfer(c)} className="w-full rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
+        Transfer to another branch
+      </button>
+    </DetailDrawer>
   );
 }
 
