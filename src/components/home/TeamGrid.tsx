@@ -71,6 +71,39 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
     setReply((n) => n + 1);
   }
 
+  // With a mouse, hovering a person introduces them (like Services) — no click
+  // needed. Short delays so sweeping across the grid doesn't flicker, and the
+  // introduction stays open while the pointer moves down into it.
+  const openTimer = useRef(0);
+  const closeTimer = useRef(0);
+  const lastPointer = useRef<string>("");
+  useEffect(
+    () => () => {
+      window.clearTimeout(openTimer.current);
+      window.clearTimeout(closeTimer.current);
+    },
+    []
+  );
+  const keepOpen = () => window.clearTimeout(closeTimer.current);
+  const closeSoon = (e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    window.clearTimeout(openTimer.current);
+    window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setActiveId(null), 420);
+  };
+  const hoverCard = (e: React.PointerEvent, id: string) => {
+    lastPointer.current = e.pointerType;
+    if (e.pointerType !== "mouse") return;
+    keepOpen();
+    window.clearTimeout(openTimer.current);
+    openTimer.current = window.setTimeout(() => {
+      setActiveId((cur) => {
+        if (cur !== id) setReply((n) => n + 1);
+        return id;
+      });
+    }, activeId ? 120 : 220);
+  };
+
   const cats = active ? categories[`${active.branchName}|${active.department}`] ?? [] : [];
   const facts = active ? staffFacts({ ...active, quote: active.quote ?? null, categories: cats }) : null;
 
@@ -89,7 +122,21 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
             key={m.id}
             type="button"
             data-staff-id={m.id}
-            onClick={() => choose(m.id)}
+            onPointerEnter={(e) => hoverCard(e, m.id)}
+            onPointerLeave={closeSoon}
+            onPointerDown={(e) => (lastPointer.current = e.pointerType)}
+            onClick={() => {
+              // A mouse click on an open card keeps it open (hover already opened it).
+              if (lastPointer.current === "mouse") {
+                window.clearTimeout(openTimer.current);
+                if (activeId !== m.id) {
+                  setActiveId(m.id);
+                  setReply((n) => n + 1);
+                }
+                return;
+              }
+              choose(m.id);
+            }}
             aria-expanded={activeId === m.id}
             className={`group flex flex-col items-center gap-2 rounded-3xl p-2 text-center transition ${
               activeId === m.id ? "bg-white shadow-[0_0_0_2px_#d9b968,0_14px_30px_-18px_rgba(168,132,58,0.6)]" : "hover:bg-white/60"
@@ -119,6 +166,8 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
       {active && facts && pos && (
         <div
           ref={panelRef}
+          onPointerEnter={keepOpen}
+          onPointerLeave={closeSoon}
           role="dialog"
           aria-label={`GlowSync AI introduces ${active.fullName}`}
           className={`absolute z-30 ${GUIDE_FONTS}`}
