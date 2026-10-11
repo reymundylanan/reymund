@@ -169,7 +169,7 @@ export default function HowItWorksSteps() {
                 active === i ? "border-transparent shadow-[0_0_0_2px_#d9b968,0_14px_30px_-18px_rgba(168,132,58,0.6)]" : "border-nude/70 hover:-translate-y-0.5 hover:shadow-md"
               }`}
             >
-              <span className="absolute right-5 top-4 font-display text-4xl font-semibold text-champagne/70" aria-hidden>
+              <span className="absolute right-5 top-4 font-display text-4xl font-semibold text-coral-dark/80" aria-hidden>
                 {i + 1}
               </span>
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-skin text-coral-dark transition group-hover:bg-coral group-hover:text-white">
