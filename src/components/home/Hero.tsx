@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, Clock, ShieldCheck, Sparkles, Star, Users, Wallet } from "lucide-react";
+import { CalendarCheck, ChevronLeft, ChevronRight, Clock, ShieldCheck, Sparkles, Star, Users, Wallet } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchServiceCategories } from "@/lib/data";
 import MenuGalleryModal from "@/components/home/MenuGalleryModal";
@@ -90,24 +90,7 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
         </div>
       </div>
 
-      {facts.categories.length > 0 && (
-        <nav aria-label="Treatment categories" className="relative z-10 mx-auto -mt-7 max-w-7xl px-6">
-          <div className="scrollbar-hidden flex gap-2 overflow-x-auto rounded-2xl border border-nude/70 bg-white/95 p-2.5 shadow-lg shadow-[#a8843a]/10 backdrop-blur [mask-image:linear-gradient(to_right,black_92%,transparent)]">
-            <span className="hidden shrink-0 items-center px-3 text-xs font-semibold uppercase tracking-[0.18em] text-coral-dark sm:flex">
-              Explore
-            </span>
-            {facts.categories.map((c) => (
-              <Link
-                key={c}
-                href={`/services?category=${encodeURIComponent(c)}`}
-                className="shrink-0 rounded-full bg-skin/70 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-coral hover:text-white"
-              >
-                {c}
-              </Link>
-            ))}
-          </div>
-        </nav>
-      )}
+      {facts.categories.length > 0 && <CategoryBar categories={facts.categories} />}
 
       {showMenu && <MenuGalleryModal onClose={() => setShowMenu(false)} />}
     </section>
@@ -169,5 +152,65 @@ function TodayCard({ facts }: { facts: HeroFacts }) {
         Directions &amp; contact →
       </Link>
     </aside>
+  );
+}
+
+/** Category shortcuts under the hero. The bar itself stays solid; only the
+ * pills fade at an edge where more are hidden, with arrows to scroll. */
+function CategoryBar({ categories }: { categories: string[] }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+
+  const measure = useCallback(() => {
+    const el = scroller.current;
+    if (!el) return;
+    setEdges({ left: el.scrollLeft > 4, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  }, []);
+
+  useEffect(() => {
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [measure]);
+
+  const nudge = (dir: 1 | -1) => scroller.current?.scrollBy({ left: dir * 280, behavior: "smooth" });
+  const fade = `linear-gradient(to right, ${edges.left ? "transparent, black 3rem" : "black"}, ${edges.right ? "black calc(100% - 3rem), transparent" : "black"})`;
+  const arrow =
+    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-nude bg-white text-coral-dark shadow-sm transition hover:bg-coral hover:text-white";
+
+  return (
+    <nav aria-label="Treatment categories" className="relative z-10 mx-auto -mt-7 max-w-7xl px-6">
+      <div className="flex items-center gap-2 rounded-2xl border border-nude/70 bg-white p-2.5 shadow-lg shadow-[#a8843a]/10">
+        <span className="hidden shrink-0 items-center px-3 text-xs font-semibold uppercase tracking-[0.18em] text-coral-dark sm:flex">
+          Explore
+        </span>
+        {edges.left && (
+          <button type="button" onClick={() => nudge(-1)} aria-label="Show earlier categories" className={`hidden sm:flex ${arrow}`}>
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
+        <div
+          ref={scroller}
+          onScroll={measure}
+          className="scrollbar-hidden flex min-w-0 flex-1 gap-2 overflow-x-auto"
+          style={{ maskImage: fade, WebkitMaskImage: fade }}
+        >
+          {categories.map((c) => (
+            <Link
+              key={c}
+              href={`/services?category=${encodeURIComponent(c)}`}
+              className="shrink-0 rounded-full bg-skin/70 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-coral hover:text-white"
+            >
+              {c}
+            </Link>
+          ))}
+        </div>
+        {edges.right && (
+          <button type="button" onClick={() => nudge(1)} aria-label="Show more categories" className={`hidden sm:flex ${arrow}`}>
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+    </nav>
   );
 }
