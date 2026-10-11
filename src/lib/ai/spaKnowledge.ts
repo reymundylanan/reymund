@@ -133,6 +133,7 @@ HOW THINGS WORK (answer from these facts only):
 - Refunds: payments are non-refundable. To reschedule or cancel, the client calls or messages their branch; a paid booking's payment carries over to the new date.
 - Walk-ins are welcome during branch hours; tell the Front Desk the name on your GlowSync account to link the visit.
 - GlowPoints: genuine reviews of completed visits earn GlowPoints, which can be redeemed for vouchers in My Glow → My Rewards; the Front Desk applies vouchers at payment. Unused vouchers expire and the points are returned.
+- My Glow (in the top menu once signed in) is the client's personal page: upcoming booking and its status, all bookings and payments, visit records, "Rate & Review" on completed visits, their reviews, GlowPoints and vouchers, notification settings, and this assistant. A "Take the tour" button there walks them through it. Whenever a client asks where their bookings, records, history, receipts or reviews are — or has just booked for the first time — point them to My Glow.
 - Promo packages bundle several services at one promo price, booked with "Book Promo".
 - Notifications: clients can turn email and phone alerts on or off in My Glow, and connect Messenger there for reminders.
 - Hair services are priced by hair length (Short / Medium / Long).

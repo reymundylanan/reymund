@@ -11,6 +11,7 @@ import {
 } from "@/lib/data";
 import type { BookableService } from "@/components/booking/BookingContext";
 import StaffProfileDetails from "@/components/booking/StaffProfileDetails";
+import MyGlowIntroCard from "@/components/booking/MyGlowIntroCard";
 import { createClient } from "@/lib/supabase/client";
 import { useServiceTimingClock } from "@/lib/serviceTiming";
 import { isSlotPast } from "@/lib/slotTime";
@@ -1931,6 +1932,8 @@ export default function BookingModal({
                   confirmed or if anything changes.
                 </p>
               )}
+
+              <MyGlowIntroCard onNavigate={close} />
             </div>
           )}
         </div>

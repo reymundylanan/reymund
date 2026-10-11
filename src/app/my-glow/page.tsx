@@ -18,6 +18,7 @@ import MyRewardsCard from "@/components/my-glow/MyRewardsCard";
 import { getMyRewards } from "@/lib/supabase/queries/rewards";
 import { getRedemptionState, getMyVouchers } from "@/lib/supabase/queries/vouchers";
 import WelcomeBanner from "@/components/my-glow/WelcomeBanner";
+import MyGlowTour from "@/components/my-glow/MyGlowTour";
 import GlowJourneyBanner from "@/components/my-glow/GlowJourneyBanner";
 import ReviewsPanel from "@/components/my-glow/ReviewsPanel";
 import AssistantPanel from "@/components/my-glow/AssistantPanel";
@@ -97,7 +98,7 @@ export default async function MyGlowPage({
         <div className="mx-auto max-w-7xl space-y-6 [&_[id]]:scroll-mt-28">
           <WelcomeBanner firstName={profile.full_name.split(" ")[0]} />
 
-          <nav aria-label="My Glow sections" className="flex flex-wrap gap-2">
+          <nav aria-label="My Glow sections" className="flex flex-wrap items-center gap-2">
             {SECTIONS.map((s) => (
               <a
                 key={s.href}
@@ -107,6 +108,9 @@ export default async function MyGlowPage({
                 {s.label}
               </a>
             ))}
+            <span className="sm:ml-auto">
+              <MyGlowTour userId={auth.user.id} firstName={profile.full_name.split(" ")[0]} />
+            </span>
           </nav>
 
           <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
