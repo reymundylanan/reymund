@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import Script from "next/script";
 import { Geist, Geist_Mono, Playfair_Display } from "next/font/google";
 import { BookingProvider } from "@/components/booking/BookingContext";
 import { LoginModalProvider } from "@/components/auth/LoginModalContext";
@@ -8,6 +7,7 @@ import ChatWidgetWrapper from "@/components/ChatWidgetWrapper";
 import IntentHandler from "@/components/notifications/IntentHandler";
 import ClientNotificationToaster from "@/components/notifications/ClientNotificationToaster";
 import PromoSideAd from "@/components/promos/PromoSideAd";
+import InlineScript from "@/components/InlineScript";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -50,9 +50,10 @@ export default function RootLayout({
         {/* Browser autofill extensions (e.g. Edge's) stamp attributes such as
             fdprocessedid onto inputs and buttons before React hydrates, which
             shows a hydration-mismatch warning. Strip them until hydration is done. */}
-        <Script id="strip-extension-attrs" strategy="beforeInteractive">
-          {`(function(){var A=["fdprocessedid","__gchrome_uniqueid","data-lastpass-icon-root"];function clean(r){A.forEach(function(a){r.querySelectorAll("["+a+"]").forEach(function(e){e.removeAttribute(a)})})}clean(document);var o=new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==="attributes"&&m.attributeName){m.target.removeAttribute(m.attributeName)}})});o.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:A});setTimeout(function(){o.disconnect()},15000)})();`}
-        </Script>
+        <InlineScript
+          id="strip-extension-attrs"
+          html={`(function(){var A=["fdprocessedid","__gchrome_uniqueid","data-lastpass-icon-root"];function clean(r){A.forEach(function(a){r.querySelectorAll("["+a+"]").forEach(function(e){e.removeAttribute(a)})})}clean(document);var o=new MutationObserver(function(ms){ms.forEach(function(m){if(m.type==="attributes"&&m.attributeName){m.target.removeAttribute(m.attributeName)}})});o.observe(document.documentElement,{attributes:true,subtree:true,attributeFilter:A});setTimeout(function(){o.disconnect()},15000)})();`}
+        />
         <LoginModalProvider>
           <BookingProvider>
             {children}
