@@ -1,9 +1,10 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Copy, Search, Tag } from "lucide-react";
+import { ArrowRight, Copy, GripVertical, LayoutGrid, Rows3, Search, Tag } from "lucide-react";
 import type { Context } from "@/lib/multiBranch/engine";
-import { Badge, Spinner, postJson, type Tone } from "./ui";
+import { Badge, Spinner, TONE, postJson, type Tone } from "./ui";
+import { useCardDrag, type DragItem } from "./useCardDrag";
 
 type Promo = {
   id: string;
@@ -22,7 +23,7 @@ type Promo = {
   upcomingBookings: number;
 };
 type Row = { key: string; title: string; category: string | null; any: Promo; byBranch: Map<string, Promo> };
-type Ask = { kind: "off"; promo: Promo } | { kind: "move" | "copy"; promo: Promo; to: string };
+type Ask = { kind: "off"; promo: Promo } | { kind: "move" | "copy" | "drop"; promo: Promo; to: string };
 
 const peso = (n: number | null) => (n == null ? "—" : `₱${Number(n).toLocaleString()}`);
 const day = (d: string) => {
@@ -47,6 +48,7 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
   const [status, setStatus] = useState("all");
   const [busy, setBusy] = useState<string | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null);
+  const [view, setView] = useState<"board" | "table">("board");
   const [tick, setTick] = useState(0);
 
   const load = useCallback(async () => {
@@ -88,6 +90,31 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
 
   const branchName = (id: string) => ctx.branches.find((b) => b.id === id)?.name ?? "—";
 
+  // ── Board: a column per branch; drag a promo onto another branch ──
+  const rowOf = useCallback((p: Promo) => rows.find((r) => r.key === p.title.toLowerCase().trim()), [rows]);
+  const onDrop = useCallback(
+    (item: DragItem, branchId: string) => {
+      const p = (promos ?? []).find((x) => x.id === item.id);
+      if (!p || branchId === p.branch_id) return;
+      if (rowOf(p)?.byBranch.get(branchId)?.is_active) {
+        setError(`“${p.title}” is already live at ${branchName(branchId)}.`);
+        return;
+      }
+      setAsk({ kind: "drop", promo: p, to: branchId });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- branchName reads ctx
+    [promos, rowOf, ctx]
+  );
+  const { ghost, over, scroller, cardProps, columnRef, dragging } = useCardDrag(onDrop);
+  const dragged = dragging ? (promos ?? []).find((p) => p.id === dragging.id) ?? null : null;
+  const hint = (branchId: string): { tone: Tone; text: string } | null => {
+    if (!dragged || branchId === dragged.branch_id) return null;
+    const there = rowOf(dragged)?.byBranch.get(branchId);
+    if (there?.is_active) return { tone: "red", text: "Already live here" };
+    if (there) return { tone: "green", text: "Drop to switch it on here" };
+    return { tone: "green", text: "Drop to copy or move here" };
+  };
+
   async function run(key: string, body: unknown, message: string) {
     setBusy(key);
     setError(null);
@@ -118,6 +145,23 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
           <Search className="h-4 w-4 shrink-0" />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search promos" className="w-full bg-transparent text-ink outline-none placeholder:text-ink/40" />
         </label>
+        <div className="flex rounded-full bg-cream p-1">
+          {(
+            [
+              ["board", "Board", LayoutGrid],
+              ["table", "Table", Rows3],
+            ] as const
+          ).map(([k, label, Icon]) => (
+            <button
+              key={k}
+              onClick={() => setView(k)}
+              aria-pressed={view === k}
+              className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold ${view === k ? "bg-white text-ink shadow-sm" : "text-ink/50"}`}
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </button>
+          ))}
+        </div>
         <select value={status} onChange={(e) => setStatus(e.target.value)} aria-label="Promo status" className="rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/70">
           <option value="all">All promos</option>
           <option value="live">Live ({counts.live})</option>
@@ -126,7 +170,7 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
           <option value="expired">Expired ({counts.expired})</option>
         </select>
         <p className="w-full text-xs text-ink/50">
-          Switch a promo on or off at each branch, copy it to a branch that doesn&apos;t have it, or move it (copied there, switched off here). Bookings already made
+              Drag a promo onto another branch to copy or move it (copied there, switched off here), or use its switch to turn it on or off. Bookings already made
           with a promo keep it. Edit a promo&apos;s details in Branches &amp; Services → Promotions.
         </p>
       </div>
@@ -138,7 +182,98 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
         </p>
       )}
 
-      {promos && (
+      {promos && view === "board" && (
+        <div ref={scroller} className="scrollbar-hidden -mx-1 flex snap-x gap-4 overflow-x-auto px-1 pb-4">
+          {ctx.branches.map((b) => {
+            const list = shown.map((r) => r.byBranch.get(b.id)).filter((p): p is Promo => !!p);
+            const live = list.filter((p) => promoState(p, today).label === "Live").length;
+            const h = hint(b.id);
+            return (
+              <section
+                key={b.id}
+                ref={columnRef(b.id)}
+                aria-label={`Promos at ${b.name}`}
+                className={`flex h-[min(44rem,calc(100dvh-12rem))] w-[19rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl border-2 transition sm:w-[21rem] ${
+                  h ? `${TONE[h.tone].ring} ${TONE[h.tone].soft} shadow-lg` : "border-transparent bg-white shadow-sm"
+                }`}
+              >
+                <header className="shrink-0 border-b border-ink/5 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="truncate font-semibold text-ink">{b.name}</h2>
+                    <span className="rounded-full bg-ink/5 px-2.5 py-0.5 text-sm font-bold text-ink/70">{list.length}</span>
+                  </div>
+                  <p className="text-xs text-ink/50">
+                    {live} live · {list.length - live} off, scheduled or expired
+                  </p>
+                  {over === b.id && h && <p className={`mt-2 rounded-lg px-2 py-1.5 text-xs font-semibold ${TONE[h.tone].badge}`}>{h.text}</p>}
+                </header>
+                <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2.5 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
+                  {list.map((p) => {
+                    const st = promoState(p, today);
+                    const cellKey = `${p.title.toLowerCase().trim()}-${b.id}`;
+                    return (
+                      <li
+                        key={p.id}
+                        {...cardProps({ kind: "promo", id: p.id })}
+                        className={`group cursor-grab select-none rounded-xl border bg-white p-2.5 transition active:cursor-grabbing ${
+                          dragging?.id === p.id ? "opacity-30" : "hover:-translate-y-0.5 hover:border-coral/50 hover:shadow-md"
+                        } ${p.is_active ? "border-ink/10" : "border-dashed border-ink/15 bg-ink/[0.02]"}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span data-grip className="-my-1 touch-none py-1 text-ink/20 group-hover:text-ink/45" aria-hidden>
+                            <GripVertical className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-semibold leading-snug ${p.is_active ? "text-ink" : "text-ink/50"}`}>{p.title}</p>
+                            <p className="truncate text-xs text-ink/50">
+                              {[p.category, p.badge].filter(Boolean).join(" · ") || "Promo"}
+                              {p.valid_until ? ` · until ${day(p.valid_until)}` : ""}
+                            </p>
+                            <div className="mt-1.5 flex items-center gap-2">
+                              <span className="text-sm font-bold text-[#a97c1c]">{peso(p.price)}</span>
+                              <Badge tone={st.tone}>{st.label}</Badge>
+                              {p.upcomingBookings > 0 && <span className="text-[11px] text-ink/45">{p.upcomingBookings} booked</span>}
+                            </div>
+                          </div>
+                          <button
+                            role="switch"
+                            aria-checked={p.is_active}
+                            aria-label={`${p.title} at ${b.name}: ${p.is_active ? "on" : "off"}`}
+                            disabled={busy === cellKey}
+                            onClick={() =>
+                              p.is_active
+                                ? setAsk({ kind: "off", promo: p })
+                                : run(cellKey, { action: "toggle", promoId: p.id, active: true }, `${p.title} is on at ${b.name}.`)
+                            }
+                            className={`relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition ${p.is_active ? "bg-green-500" : "bg-ink/20"} disabled:opacity-50`}
+                          >
+                            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${p.is_active ? "left-[18px]" : "left-0.5"}`} />
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                  {list.length === 0 && (
+                    <li className="rounded-xl border-2 border-dashed border-ink/10 px-3 py-6 text-center text-xs text-ink/35">No promos match</li>
+                  )}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      )}
+
+      {ghost && (
+        <div
+          className="pointer-events-none fixed left-0 top-0 z-[90] rounded-xl border border-coral bg-white p-2.5 shadow-2xl"
+          style={{ width: ghost.w, transform: `translate(${ghost.x - ghost.ox}px, ${ghost.y - ghost.oy}px) rotate(2deg)` }}
+        >
+          <p className="text-sm font-semibold text-ink">{dragged?.title}</p>
+          <p className="text-xs text-ink/50">Drop on a branch</p>
+        </div>
+      )}
+
+      {promos && view === "table" && (
         <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
           <table className="w-full min-w-[44rem] text-sm">
             <thead>
@@ -247,6 +382,15 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
                   </p>
                 )}
               </>
+            ) : ask.kind === "drop" ? (
+              <>
+                <h2 className="font-semibold text-ink">
+                  “{ask.promo.title}” → {branchName(ask.to)}
+                </h2>
+                <p className="mt-1 text-sm text-ink/60">
+                  Same price, dates and details. Bookings already made keep their promo.{ask.promo.services.length ? " Its services must also be offered there." : ""}
+                </p>
+              </>
             ) : (
               <>
                 <h2 className="font-semibold text-ink">
@@ -260,6 +404,37 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
                 </p>
               </>
             )}
+            {ask.kind === "drop" ? (
+              <div className="mt-4 space-y-2">
+                <button
+                  disabled={!!busy}
+                  onClick={() => run(`${ask.promo.title.toLowerCase().trim()}-${ask.to}`, { action: "copy", promoId: ask.promo.id, branchId: ask.to }, `${ask.promo.title} copied to ${branchName(ask.to)}.`)}
+                  className="flex w-full items-start gap-3 rounded-xl border-2 border-ink/10 p-3 text-left transition hover:border-coral hover:bg-blush disabled:opacity-50"
+                >
+                  <Copy className="mt-0.5 h-4 w-4 shrink-0 text-coral-dark" />
+                  <span>
+                    <span className="block font-semibold text-ink">Copy</span>
+                    <span className="block text-xs text-ink/55">Live at both {branchName(ask.promo.branch_id)} and {branchName(ask.to)}.</span>
+                  </span>
+                </button>
+                <button
+                  disabled={!!busy || !ask.promo.is_active}
+                  onClick={() => run(`${ask.promo.title.toLowerCase().trim()}-${ask.to}`, { action: "copy", promoId: ask.promo.id, branchId: ask.to, move: true }, `${ask.promo.title} moved to ${branchName(ask.to)}.`)}
+                  className="flex w-full items-start gap-3 rounded-xl border-2 border-ink/10 p-3 text-left transition hover:border-coral hover:bg-blush disabled:opacity-50"
+                >
+                  <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-coral-dark" />
+                  <span>
+                    <span className="block font-semibold text-ink">Move</span>
+                    <span className="block text-xs text-ink/55">
+                      {ask.promo.is_active ? `Live at ${branchName(ask.to)}, switched off at ${branchName(ask.promo.branch_id)}.` : "It's already off here — use Copy."}
+                    </span>
+                  </span>
+                </button>
+                <button onClick={() => setAsk(null)} className="w-full rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70">
+                  Cancel
+                </button>
+              </div>
+            ) : (
             <div className="mt-4 flex gap-2">
               <button onClick={() => setAsk(null)} className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70">
                 Cancel
@@ -280,6 +455,7 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
                 {ask.kind === "off" ? "Switch off" : ask.kind === "move" ? "Move" : "Copy"}
               </button>
             </div>
+            )}
           </div>
         </div>
       )}
