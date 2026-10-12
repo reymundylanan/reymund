@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useMemo, useState } from "react";
-import { ArrowRight, ChevronDown, ChevronRight, Copy, GripVertical, LayoutGrid, Plus, Rows3, Search } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronDown, ChevronRight, Clock, Copy, GripVertical, LayoutGrid, Plus, Rows3, Search, Users } from "lucide-react";
 import {
   addDays,
   candidateStaff,
@@ -447,30 +447,52 @@ export default function ServicesPanel({
       )}
 
       {view === "table" && (
-      <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
-        <table className="w-full min-w-[40rem] text-sm">
+      <div className="space-y-2">
+        {/* What the little icons mean */}
+        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-ink/50">
+          <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" /> qualified staff working</span>
+          <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> open start times {formatDay(date, ctx.today).toLowerCase()}</span>
+          <span className="flex items-center gap-1"><CalendarDays className="h-3.5 w-3.5" /> upcoming bookings</span>
+        </p>
+        <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
+        <table className="w-full min-w-[44rem] table-fixed text-sm">
+          <colgroup>
+            <col className="w-[34%]" />
+            {branches.map((b) => (
+              <col key={b.id} />
+            ))}
+          </colgroup>
           <thead>
-            <tr className="border-b border-ink/10 text-left text-xs uppercase tracking-wide text-ink/45">
+            <tr className="border-b border-ink/10 text-left text-[11px] uppercase tracking-wide text-ink/45">
               <th className="px-4 py-3 font-semibold">Service</th>
               {branches.map((b) => (
-                <th key={b.id} className="px-3 py-3 font-semibold">{b.name}</th>
+                <th key={b.id} className="truncate px-3 py-3 font-semibold">{b.name}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {shown.map((row) => {
+            {shown.map((row, i) => {
               const any = [...row.byBranch.values()][0];
               const isOpen = open === row.name;
+              const newGroup = i === 0 || shown[i - 1].category !== row.category;
+              const groupSize = newGroup ? shown.filter((r) => r.category === row.category).length : 0;
               return (
                 <Fragment key={row.name}>
-                  <tr className="border-b border-ink/5 align-top">
-                    <td className="px-4 py-3">
-                      <button onClick={() => setOpen(isOpen ? null : row.name)} className="flex items-start gap-1.5 text-left" aria-expanded={isOpen}>
-                        {isOpen ? <ChevronDown className="mt-0.5 h-4 w-4 text-ink/40" /> : <ChevronRight className="mt-0.5 h-4 w-4 text-ink/40" />}
-                        <span>
-                          <span className="block font-medium text-ink">{row.name}</span>
-                          <span className="block text-xs text-ink/50">
-                            {row.category} · {row.department || "—"} · {parseDuration(any?.duration)} min · ₱{(any?.price ?? 0).toLocaleString()}
+                  {newGroup && (
+                    <tr className="bg-cream/70">
+                      <td colSpan={branches.length + 1} className="px-4 py-1.5 text-xs font-bold text-ink/60">
+                        {row.category || "Other"} <span className="font-medium text-ink/40">· {groupSize}</span>
+                      </td>
+                    </tr>
+                  )}
+                  <tr className={`border-b border-ink/5 transition hover:bg-[#fffaf0] ${isOpen ? "bg-[#fffaf0]" : ""}`}>
+                    <td className="px-4 py-2.5">
+                      <button onClick={() => setOpen(isOpen ? null : row.name)} className="flex w-full items-center gap-1.5 text-left" aria-expanded={isOpen}>
+                        {isOpen ? <ChevronDown className="h-4 w-4 shrink-0 text-ink/40" /> : <ChevronRight className="h-4 w-4 shrink-0 text-ink/40" />}
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium text-ink">{row.name}</span>
+                          <span className="block truncate text-xs text-ink/50">
+                            {row.department || "—"} · {parseDuration(any?.duration)} min · ₱{(any?.price ?? 0).toLocaleString()}
                           </span>
                         </span>
                       </button>
@@ -479,48 +501,61 @@ export default function ServicesPanel({
                       const svc = row.byBranch.get(b.id);
                       const active = svc?.status === "Active";
                       const qualified = candidateStaff(ctx, b.id, date, row.department ? [row.department] : []).length;
-                      const slots = slotsFor(row, b.id, date);
+                      const slots = slotsFor(row, b.id, date) ?? 0;
                       const affected = svc ? affectedBy(svc) : [];
                       const key = `${row.name}-${b.id}`;
+                      const chip = "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-semibold";
                       return (
-                        <td key={b.id} className="px-3 py-3">
+                        <td key={b.id} className="px-3 py-2.5">
                           {svc ? (
-                            <div className="space-y-1">
-                              <Badge tone={active ? "green" : "red"}>{active ? "Offered" : "Off"}</Badge>
-                              {active && (
-                                <p className="text-xs text-ink/55">
-                                  {qualified} qualified · <span className={slots ? "text-green-700" : "text-red-700"}>{slots ?? 0} open</span>
-                                </p>
-                              )}
-                              {affected.length > 0 && <p className="text-xs text-ink/45">{affected.length} upcoming booking{affected.length === 1 ? "" : "s"}</p>}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               <button
+                                role="switch"
+                                aria-checked={active}
+                                aria-label={`${row.name} at ${b.name}: ${active ? "on" : "off"}`}
                                 disabled={busy === key}
                                 onClick={() =>
                                   active
                                     ? setConfirm({ service: svc, affected })
                                     : run(key, { action: "toggle", serviceId: svc.id, active: true, reason: "Re-enabled from Multi-Branch" }, `${row.name} is offered at ${b.name} again.`)
                                 }
-                                className="text-xs font-semibold text-coral-dark hover:underline disabled:opacity-50"
+                                className="flex items-center gap-1.5 disabled:opacity-50"
                               >
-                                {busy === key ? <Spinner /> : active ? "Turn off" : "Turn on"}
+                                <span className={`relative h-5 w-9 rounded-full transition ${active ? "bg-green-500" : "bg-ink/20"}`}>
+                                  <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${active ? "left-[18px]" : "left-0.5"}`} />
+                                </span>
+                                <span className={`w-7 text-xs font-semibold ${active ? "text-green-700" : "text-ink/45"}`}>{busy === key ? <Spinner /> : active ? "On" : "Off"}</span>
                               </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-1">
-                              <Badge tone="gray">Not offered</Badge>
-                              {isBranchActive(b) && any && (
-                                <button
-                                  disabled={busy === key}
-                                  onClick={() =>
-                                    run(key, { action: "offer", serviceId: any.id, branchId: b.id, reason: "Offered from Multi-Branch" }, `${row.name} is now offered at ${b.name}.`)
-                                  }
-                                  className="flex items-center gap-1 text-xs font-semibold text-coral-dark hover:underline disabled:opacity-50"
-                                >
-                                  {busy === key ? <Spinner /> : <Plus className="h-3 w-3" />} Offer here
-                                </button>
+                              {active && (
+                                <>
+                                  <span className={`${chip} bg-ink/5 text-ink/60`} title={`${qualified} qualified ${row.department || ""} staff working ${formatDay(date, ctx.today)}`}>
+                                    <Users className="h-3 w-3" /> {qualified}
+                                  </span>
+                                  <span
+                                    className={`${chip} ${slots ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}
+                                    title={slots ? `${slots} open start times ${formatDay(date, ctx.today)}` : `No open time ${formatDay(date, ctx.today)} (fully booked or no staff working)`}
+                                  >
+                                    <Clock className="h-3 w-3" /> {slots ? `${slots} slots` : "No slots"}
+                                  </span>
+                                </>
                               )}
-                              {qualified === 0 && <p className="text-xs text-ink/45">No {row.department} staff</p>}
+                              {affected.length > 0 && (
+                                <span className={`${chip} bg-blue-50 text-blue-700`} title={`${affected.length} upcoming booking${affected.length === 1 ? "" : "s"}`}>
+                                  <CalendarDays className="h-3 w-3" /> {affected.length}
+                                </span>
+                              )}
                             </div>
+                          ) : isBranchActive(b) && any ? (
+                            <button
+                              disabled={busy === key}
+                              onClick={() => run(key, { action: "offer", serviceId: any.id, branchId: b.id, reason: "Offered from Multi-Branch" }, `${row.name} is now offered at ${b.name}.`)}
+                              title={qualified === 0 ? `No ${row.department} staff here — you can still offer it` : undefined}
+                              className="inline-flex items-center gap-1 rounded-full border border-dashed border-coral/60 px-2.5 py-1 text-xs font-semibold text-coral-dark transition hover:bg-blush disabled:opacity-50"
+                            >
+                              {busy === key ? <Spinner /> : <Plus className="h-3 w-3" />} Offer here
+                            </button>
+                          ) : (
+                            <span className="text-xs text-ink/40">Not offered</span>
                           )}
                         </td>
                       );
@@ -545,9 +580,9 @@ export default function ServicesPanel({
                                     return (
                                       <span
                                         key={d}
-                                        title={n === null ? "Not offered" : n === 0 ? "Unavailable all day" : `${n} open start times`}
+                                        title={n === null ? "Not offered" : n === 0 ? "No open time that day" : `${n} open start times`}
                                         className={`rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
-                                          n === null ? "bg-ink/5 text-ink/40" : n === 0 ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                                          n === null ? "bg-ink/5 text-ink/40" : n === 0 ? "bg-amber-50 text-amber-700" : "bg-green-100 text-green-700"
                                         }`}
                                       >
                                         {formatDay(d, ctx.today)} · {n ?? "—"}
@@ -572,8 +607,8 @@ export default function ServicesPanel({
             )}
           </tbody>
         </table>
+        </div>
       </div>
-
       )}
 
       {confirm && (
