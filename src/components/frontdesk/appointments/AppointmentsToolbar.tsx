@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, List, Search, X } from "lucide-react";
+import { CalendarDays, CalendarPlus, List, Search, X } from "lucide-react";
 import type { StaffRow, ServiceRow } from "@/components/frontdesk/appointments/AppointmentsManager";
 
 export type StatusFilter = "today" | "upcoming" | "past" | "completed" | "cancelled" | "no_show";
@@ -33,6 +33,8 @@ export default function AppointmentsToolbar({
   onServiceFilterChange,
   dateFilter,
   onDateFilterChange,
+  onNewBooking,
+  newBookingDisabled = false,
 }: {
   view: "calendar" | "list";
   onViewChange: (v: "calendar" | "list") => void;
@@ -49,6 +51,8 @@ export default function AppointmentsToolbar({
   onServiceFilterChange: (id: string) => void;
   dateFilter: string;
   onDateFilterChange: (date: string) => void;
+  onNewBooking?: () => void;
+  newBookingDisabled?: boolean;
 }) {
   return (
     <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -79,6 +83,16 @@ export default function AppointmentsToolbar({
               <List className="h-3.5 w-3.5" /> List
             </button>
           </div>
+          {onNewBooking && (
+            <button
+              type="button"
+              onClick={onNewBooking}
+              disabled={newBookingDisabled}
+              className="flex h-10 items-center gap-2 rounded-full bg-coral px-5 text-sm font-semibold text-white shadow-sm hover:bg-coral-dark disabled:opacity-50"
+            >
+              <CalendarPlus className="h-4 w-4" /> New Booking
+            </button>
+          )}
         </div>
       </div>
 

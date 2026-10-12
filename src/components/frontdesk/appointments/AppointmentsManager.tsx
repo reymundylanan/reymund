@@ -15,7 +15,6 @@ import StaffTimeline from "@/components/frontdesk/appointments/StaffTimeline";
 import AppointmentsListView, { type AvailabilityStatus } from "@/components/frontdesk/appointments/AppointmentsListView";
 import AppointmentDetailPanel from "@/components/frontdesk/appointments/AppointmentDetailPanel";
 import NewBookingModal from "@/components/frontdesk/appointments/NewBookingModal";
-import { CalendarPlus } from "lucide-react";
 import {
   clientInfo,
   appointmentStaffName,
@@ -350,16 +349,6 @@ export default function AppointmentsManager() {
         </div>
       )}
 
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => setNewBookingOpen(true)}
-          disabled={!profile?.branchId}
-          className="flex items-center gap-2 rounded-full bg-coral px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-coral-dark disabled:opacity-50"
-        >
-          <CalendarPlus className="h-4 w-4" /> New Booking
-        </button>
-      </div>
       {newBookingOpen && profile?.branchId && (
         <NewBookingModal
           branchId={profile.branchId}
@@ -399,6 +388,8 @@ export default function AppointmentsManager() {
         onServiceFilterChange={setServiceFilter}
         dateFilter={dateFilter}
         onDateFilterChange={setDateFilter}
+        onNewBooking={() => setNewBookingOpen(true)}
+        newBookingDisabled={!profile?.branchId}
       />
       <ConflictBanner conflicts={conflicts} onResolve={(id) => setActiveId(id)} />
 
