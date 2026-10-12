@@ -373,6 +373,16 @@ export default function AppointmentsManager() {
         />
       )}
 
+      {/* Today at a glance, first */}
+      <AppointmentsSummary
+        summary={summary}
+        rows={todaysRows}
+        onReschedule={(id) => {
+          setRescheduleTargetId(id);
+          setActiveId(id);
+        }}
+      />
+
       <AppointmentsToolbar
         view={view}
         onViewChange={setView}
@@ -389,14 +399,6 @@ export default function AppointmentsManager() {
         onServiceFilterChange={setServiceFilter}
         dateFilter={dateFilter}
         onDateFilterChange={setDateFilter}
-      />
-      <AppointmentsSummary
-        summary={summary}
-        rows={todaysRows}
-        onReschedule={(id) => {
-          setRescheduleTargetId(id);
-          setActiveId(id);
-        }}
       />
       <ConflictBanner conflicts={conflicts} onResolve={(id) => setActiveId(id)} />
 
