@@ -300,7 +300,7 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
                   <div
                     key={b.id}
                     className={`min-w-0 flex-1 border-r border-ink/5 transition-colors ${dragging && over === b.id ? "bg-[#fff8e6]" : ""}`}
-                    style={{ minWidth: `max(17rem, ${maxLanes * 8.5}rem)` }}
+                    style={{ minWidth: `max(13.5rem, ${maxLanes * 8}rem)` }}
                   >
                     <div className="sticky top-0 z-10 h-16 border-b border-ink/5 bg-white px-3 py-2">
                       <p className="flex items-baseline justify-between gap-2">
@@ -395,7 +395,7 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
                         );
                       })}
                       {list.length === 0 && (
-                        <p className="absolute inset-x-3 top-6 rounded-xl border-2 border-dashed border-ink/10 py-4 text-center text-xs text-ink/35">
+                        <p className="absolute inset-x-3 rounded-xl border-2 border-dashed border-ink/10 bg-white/70 py-4 text-center text-xs text-ink/40" style={{ top: Math.max(0, (open - range.start) * PX_PER_MIN) + 12 }}>
                           No {kind === "walk_in" ? "walk-ins" : kind === "booking" ? "bookings" : "visits"} this day
                         </p>
                       )}
@@ -406,24 +406,8 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
             </div>
           </div>
 
-          {/* Side column: the move preview after a drop, otherwise the visit's details */}
-          {move ? (
-            <div className="w-full lg:w-[26rem]">
-              <AppointmentPreview
-                key={`${move.appt.id}-${move.pick?.branchId ?? ""}-${move.pick?.start ?? ""}`}
-                ctx={ctx}
-                appt={move.appt}
-                conflict={null}
-                initialBranchId={move.pick?.branchId ?? null}
-                initialPick={move.pick}
-                onClose={() => setMove(null)}
-                onDone={(text, logId) => {
-                  setMove(null);
-                  onDone(text, logId);
-                }}
-              />
-            </div>
-          ) : (
+          {/* Side column: the visit's details (the move preview slides in over the page) */}
+          {!move && (
             chosen && (
               <VisitDetails
                 visit={chosen}
@@ -523,25 +507,22 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
         </div>
       )}
 
-      {/* Move preview opened from the Kanban or List (Calendar shows it beside the timeline) */}
-      {move && mode !== "timeline" && (
-        <div className="fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto bg-ink/40 p-4" onClick={() => setMove(null)}>
-          <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <AppointmentPreview
-              key={move.appt.id}
-              ctx={ctx}
-              appt={move.appt}
-              conflict={null}
-              initialBranchId={null}
-              initialPick={null}
-              onClose={() => setMove(null)}
-              onDone={(text, logId) => {
-                setMove(null);
-                onDone(text, logId);
-              }}
-            />
-          </div>
-        </div>
+      {/* Move preview: slides in from the right, over the calendar (never squeezes it) */}
+      {move && (
+        <AppointmentPreview
+          key={`${move.appt.id}-${move.pick?.branchId ?? ""}-${move.pick?.start ?? ""}`}
+          ctx={ctx}
+          appt={move.appt}
+          conflict={null}
+          initialBranchId={move.pick?.branchId ?? null}
+          initialPick={move.pick}
+          drawer
+          onClose={() => setMove(null)}
+          onDone={(text, logId) => {
+            setMove(null);
+            onDone(text, logId);
+          }}
+        />
       )}
 
       {/* Status change confirmation */}

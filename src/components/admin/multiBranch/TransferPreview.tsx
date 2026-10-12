@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AlertTriangle, ArrowRight, Bell, CalendarClock, MapPin, Plane, RefreshCw, Wallet, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bell, CalendarClock, Plane, RefreshCw, X } from "lucide-react";
 import {
   addDays,
   branchHours,
@@ -27,17 +27,21 @@ import { AppointmentCard } from "./BoardColumn";
 
 export type Done = (message: string, logId: string | null) => void;
 
-export function Panel({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Panel({ title, onClose, children, drawer = false }: { title: string; onClose: () => void; children: ReactNode; drawer?: boolean }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-  return (
+  const body = (
     <aside
       role="dialog"
       aria-label={title}
-      className="fixed inset-0 z-[80] overflow-y-auto bg-white p-5 lg:sticky lg:inset-auto lg:top-4 lg:z-auto lg:max-h-[calc(100dvh-2rem)] lg:rounded-2xl lg:border lg:border-coral/30 lg:shadow-lg"
+      className={
+        drawer
+          ? "glowy-pop fixed inset-y-0 right-0 z-[90] w-full max-w-md overflow-y-auto overscroll-contain bg-white p-5 shadow-2xl [scrollbar-width:thin] sm:rounded-l-3xl"
+          : "fixed inset-0 z-[80] overflow-y-auto bg-white p-5 lg:sticky lg:inset-auto lg:top-4 lg:z-auto lg:max-h-[calc(100dvh-2rem)] lg:rounded-2xl lg:border lg:border-coral/30 lg:shadow-lg"
+      }
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
@@ -50,6 +54,13 @@ export function Panel({ title, onClose, children }: { title: string; onClose: ()
       </div>
       {children}
     </aside>
+  );
+  if (!drawer) return body;
+  return (
+    <>
+      <div aria-hidden className="fixed inset-0 z-[89] bg-ink/25" onClick={onClose} />
+      {body}
+    </>
   );
 }
 
@@ -73,6 +84,7 @@ export function AppointmentPreview({
   conflict,
   initialBranchId,
   initialPick = null,
+  drawer = false,
   onClose,
   onDone,
 }: {
@@ -82,6 +94,8 @@ export function AppointmentPreview({
   initialBranchId: string | null;
   /** A slot chosen by dropping the card on a timeline — checked straight away. */
   initialPick?: Pick | null;
+  /** Slide in over the page (Day timeline) instead of sitting beside the board. */
+  drawer?: boolean;
   onClose: () => void;
   onDone: Done;
 }) {
@@ -99,6 +113,9 @@ export function AppointmentPreview({
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showChecks, setShowChecks] = useState(false);
+  const [showAlts, setShowAlts] = useState(false);
+  const [allAlts, setAllAlts] = useState(false);
 
   const branchName = (id: string) => ctx.branches.find((b) => b.id === id)?.name ?? "—";
   const staffName = (id: string | null) => (id ? ctx.staff.find((s) => s.id === id)?.name ?? "—" : "Any available");
@@ -191,43 +208,52 @@ export function AppointmentPreview({
   const destBranch = pick ? ctx.branches.find((b) => b.id === pick.branchId) : null;
   const canConfirm = !!pick && !!check?.ok && !checking && reason.trim().length > 0;
 
+  // Alternatives open by themselves when there's no slot yet or the chosen one fails.
+  const altsOpen = showAlts || !pick || (!!check && !check.ok && !checking);
+  const alts = data?.suggestions ?? [];
+  const visibleAlts = allAlts ? alts : alts.slice(0, 3);
+  const row = "grid grid-cols-[3.25rem_minmax(0,1fr)] gap-x-2 text-sm";
+
   return (
-    <Panel title={`Move ${appt.clientName}'s appointment`} onClose={onClose}>
+    <Panel title={`Move ${appt.clientName}'s ${appt.visitType === "walk_in" ? "walk-in" : "booking"}`} onClose={onClose} drawer={drawer}>
       {conflict && (
         <p className="mb-3 flex items-start gap-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> <span><b>Why it can&apos;t go ahead:</b> {conflict}</span>
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-        <Side label="Original" tone="old">
-          <p className="font-semibold">{branchName(appt.branchId)}</p>
-          <p>{formatDay(appt.date, ctx.today)} · {formatTime(start)}–{formatTime(start + appt.duration)}</p>
-          <p className="text-ink/60">{staffName(appt.professionalId)}</p>
-          <p className="text-ink/60">{appt.serviceLabel} · {appt.duration} min</p>
-          {appt.code && <p className="text-xs text-ink/45">#{appt.code} · {appt.status}</p>}
-        </Side>
-        <Side label="Proposed" tone="new">
+      {/* From → To */}
+      <div className="overflow-hidden rounded-2xl border border-ink/10">
+        <div className={`${row} bg-cream/60 px-3 py-2.5`}>
+          <span className="pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-ink/45">From</span>
+          <span className="min-w-0">
+            <span className="block truncate font-semibold text-ink">{branchName(appt.branchId)}</span>
+            <span className="block text-ink/60">
+              {formatDay(appt.date, ctx.today)} · {formatTime(start)}–{formatTime(start + appt.duration)} · {staffName(appt.professionalId)}
+            </span>
+          </span>
+        </div>
+        <div className={`${row} border-t border-ink/10 bg-[#fffaf0] px-3 py-2.5`}>
+          <span className="pt-0.5 text-[11px] font-semibold uppercase tracking-wide text-coral-dark">To</span>
           {pick ? (
-            <>
-              <p className="font-semibold">{branchName(pick.branchId)}</p>
-              {destBranch?.address && pick.branchId !== appt.branchId && (
-                <p className="flex items-start gap-1 text-xs text-ink/60">
-                  <MapPin className="mt-0.5 h-3 w-3 shrink-0" /> {destBranch.address}
-                </p>
-              )}
-              <p>{formatDay(pick.date, ctx.today)} · {formatTime(pick.start)}–{formatTime(pick.start + appt.duration)}</p>
+            <span className="min-w-0 space-y-1.5">
+              <span className="block">
+                <span className="block truncate font-semibold text-ink" title={destBranch?.address ?? undefined}>{branchName(pick.branchId)}</span>
+                <span className="block text-ink/70">
+                  {formatDay(pick.date, ctx.today)} · {formatTime(pick.start)}–{formatTime(pick.start + appt.duration)}
+                </span>
+              </span>
               {staffOptions.length > 0 || pick.staffId ? (
-                <label className="mt-1 block text-xs font-medium text-ink/55">
-                  Staff
+                <span className="block">
                   <select
+                    aria-label="Staff"
                     value={pick.staffId ?? ""}
                     onChange={(e) => {
                       setAutoStaff(false);
                       setConfirming(false);
                       setPick({ ...pick, staffId: e.target.value || null });
                     }}
-                    className="mt-0.5 w-full rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+                    className="w-full rounded-lg border border-ink/15 bg-white px-2 py-1.5 text-sm text-ink"
                   >
                     {pick.staffId && !staffOptions.includes(pick.staffId) && <option value={pick.staffId}>{staffName(pick.staffId)}</option>}
                     {staffOptions.map((id) => (
@@ -239,144 +265,152 @@ export function AppointmentPreview({
                   </select>
                   {autoStaff && pick.staffId && (
                     <span className="mt-0.5 block text-[11px] text-green-700">
-                      {pick.staffId === appt.professionalId ? "Kept their original staff — free for the full service." : "Auto-selected: qualified and free for the full service."}
+                      {pick.staffId === appt.professionalId ? "Same staff — free for the whole service." : "Picked for you: qualified and free for the whole service."}
                     </span>
                   )}
-                </label>
+                </span>
               ) : (
-                <p className="text-ink/60">{checking ? "Finding available staff…" : "No qualified staff free at this time"}</p>
+                <span className="block text-ink/55">{checking ? "Finding available staff…" : "No qualified staff free at this time"}</span>
               )}
-              <p className="text-ink/60">Same service · {appt.duration} min (not shortened)</p>
-            </>
+            </span>
           ) : (
-            <p className="text-ink/50">Choose a suggestion below, or pick a slot yourself.</p>
+            <span className="text-ink/55">Pick a time below.</span>
           )}
-        </Side>
-      </div>
-
-      {appt.paid && (
-        <p className="mt-2 flex items-center gap-1.5 text-xs text-ink/55">
-          <Wallet className="h-3.5 w-3.5" /> Its payment and balance stay with this booking — nothing is refunded or changed.
-        </p>
-      )}
-
-      {/* Suggestions */}
-      <div className="mt-4">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold text-ink">
-            {scope ? `Open slots at ${branchName(scope)}` : "Valid alternatives"}
-          </h3>
-          <div className="flex gap-1.5">
-            {scope && (
-              <button onClick={() => setScope(null)} className="rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/70 hover:border-coral">
-                Choose another branch
-              </button>
-            )}
-            <button onClick={() => setManual((m) => !m)} className="rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/70 hover:border-coral">
-              {manual ? "Hide picker" : "Choose another slot"}
-            </button>
-          </div>
         </div>
-        {loading ? (
-          <p className="flex items-center gap-2 text-sm text-ink/50"><Spinner /> Checking live availability…</p>
-        ) : data && data.suggestions.length > 0 ? (
-          <ul className="space-y-1.5">
-            {data.suggestions.map((s) => {
-              const chosen = pick && pick.branchId === s.branchId && pick.staffId === s.staffId && pick.date === s.date && pick.start === s.start;
-              return (
-                <li key={`${s.branchId}-${s.staffId}-${s.date}-${s.start}`}>
-                  <button
-                    onClick={() => {
-                      setPick({ branchId: s.branchId, staffId: s.staffId, date: s.date, start: s.start });
-                      setConfirming(false);
-                    }}
-                    className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm transition ${
-                      chosen ? "border-coral bg-blush" : "border-ink/10 hover:border-coral/60"
-                    }`}
-                  >
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${s.sameBranch ? "bg-green-500" : "bg-blue-500"}`} />
-                    <span className="min-w-0 flex-1">
-                      <span className="block font-medium text-ink">
-                        {branchName(s.branchId)} — {formatDay(s.date, ctx.today)} {formatTime(s.start)}
-                      </span>
-                      <span className="block text-xs text-ink/55">
-                        {staffName(s.staffId)} · qualified and free for the full {appt.duration} min
-                        {s.sameBranch && s.sameDay ? " · same branch, same day" : ""}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        ) : (
-          <div className="rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
-            <p className="font-semibold">No valid slot found{scope ? ` at ${branchName(scope)} in the next 7 days` : " in the next 3 days"}.</p>
-            <p className="mt-0.5 text-xs">
-              Nothing is changed — the appointment stays as booked{conflict ? " and remains under Needs rescheduling" : ""}. Contact {appt.clientName}
-              {appt.code ? ` (booking #${appt.code})` : ""} to agree on another schedule, or pick a later date with “Choose another slot”.
-            </p>
-          </div>
-        )}
       </div>
+      <p className="mt-1.5 px-1 text-[11px] text-ink/50">
+        {appt.serviceLabel} · {appt.duration} min (not shortened){appt.paid ? " · payment stays with the booking" : ""}
+      </p>
 
-      {manual && <ManualPicker ctx={ctx} appt={appt} onPick={(p) => { setPick(p); setConfirming(false); }} />}
-
-      {/* Validation */}
+      {/* One-line result of the checks */}
       {pick && (
-        <div className="mt-4">
-          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
-            Validation {checking && <Spinner className="text-coral" />}
-          </h3>
-          {check && !checking && (
-            <ul className="space-y-1.5">
-              <CheckRow ok={check.checks.staffAvailable} label="Staff available" detail={!check.checks.staffAvailable ? check.reasons.find((r) => /off|punched|break|serving|work at/i.test(r)) : undefined} />
+        <div className="mt-3">
+          {checking || !check ? (
+            <p className="flex items-center gap-2 rounded-xl bg-cream px-3 py-2 text-sm text-ink/60"><Spinner className="text-coral" /> Checking availability…</p>
+          ) : check.ok ? (
+            <button
+              onClick={() => setShowChecks((s) => !s)}
+              className="flex w-full items-center justify-between gap-2 rounded-xl bg-green-50 px-3 py-2 text-left text-sm font-semibold text-green-800"
+            >
+              <span>✓ All checks passed</span>
+              <span className="text-xs font-medium text-green-700/80">{showChecks ? "Hide" : "Details"}</span>
+            </button>
+          ) : (
+            <div className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+              <p className="font-semibold">This time won&apos;t work</p>
+              <p className="mt-0.5 text-xs">{check.reasons.join(" ")}</p>
+            </div>
+          )}
+          {check && !checking && (showChecks || !check.ok) && (
+            <ul className="mt-2 space-y-1.5 px-1">
+              <CheckRow ok={check.checks.staffAvailable} label="Staff available" />
               <CheckRow ok={check.checks.qualified} label="Staff qualified for the service" />
               <CheckRow ok={check.checks.serviceAvailable} label="Service offered at this branch" />
-              <CheckRow ok={check.checks.slotFree && check.checks.notPast} label="Time slot available (full duration)" />
+              <CheckRow ok={check.checks.slotFree && check.checks.notPast} label="Time free for the whole service" />
               <CheckRow ok={check.checks.branchOpen && check.checks.withinHours} label="Branch open for the whole service" />
-              <CheckRow ok={check.ok} label={check.ok ? "No conflicts detected" : "Conflicts detected"} detail={check.ok ? undefined : check.reasons.join(" ")} />
-              <CheckRow ok na label="Rooms / equipment" detail="Not tracked in GlowSync — no resource check needed." />
             </ul>
           )}
         </div>
       )}
 
-      {/* Notification + reason */}
-      <div className="mt-4 space-y-3">
-        <p className="flex items-start gap-2 rounded-xl bg-cream px-3 py-2 text-xs text-ink/70">
-          <Bell className="mt-0.5 h-3.5 w-3.5 shrink-0 text-coral-dark" />
-          <span>
-            <b>Client notification:</b> {data?.channels.summary ?? "…"} — sent only after you confirm, with the old and new schedule, the reason, and how to
-            reach the salon.
-          </span>
-        </p>
-        <label className="block">
-          <span className="text-sm font-medium text-ink/70">Reason for the change *</span>
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={2}
-            placeholder="e.g. Angela is unavailable at 2:00 PM"
-            className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm focus:border-coral focus:outline-none"
-          />
-        </label>
+      {/* Other times: folded away while the chosen one works */}
+      <div className="mt-3">
+        {!altsOpen ? (
+          <button onClick={() => setShowAlts(true)} className="text-sm font-semibold text-coral-dark hover:underline">
+            Pick a different time{alts.length ? ` (${alts.length} options)` : ""} →
+          </button>
+        ) : (
+          <div className="rounded-2xl border border-ink/10 p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-ink">{scope ? `Other times at ${branchName(scope)}` : "Other valid times"}</h3>
+              <div className="flex gap-1.5">
+                {scope && (
+                  <button onClick={() => setScope(null)} className="rounded-full border border-ink/15 px-2.5 py-0.5 text-xs font-semibold text-ink/70 hover:border-coral">
+                    Any branch
+                  </button>
+                )}
+                <button onClick={() => setManual((m) => !m)} className="rounded-full border border-ink/15 px-2.5 py-0.5 text-xs font-semibold text-ink/70 hover:border-coral">
+                  {manual ? "Hide picker" : "Choose myself"}
+                </button>
+              </div>
+            </div>
+            {loading ? (
+              <p className="flex items-center gap-2 text-sm text-ink/50"><Spinner /> Checking live availability…</p>
+            ) : alts.length > 0 ? (
+              <ul className="space-y-1.5">
+                {visibleAlts.map((s) => {
+                  const chosen = pick && pick.branchId === s.branchId && pick.staffId === s.staffId && pick.date === s.date && pick.start === s.start;
+                  return (
+                    <li key={`${s.branchId}-${s.staffId}-${s.date}-${s.start}`}>
+                      <button
+                        onClick={() => {
+                          setAutoStaff(false);
+                          setPick({ branchId: s.branchId, staffId: s.staffId, date: s.date, start: s.start });
+                          setConfirming(false);
+                        }}
+                        className={`flex w-full items-center gap-2 rounded-xl border px-3 py-1.5 text-left text-sm transition ${
+                          chosen ? "border-coral bg-blush" : "border-ink/10 hover:border-coral/60"
+                        }`}
+                      >
+                        <span className={`h-2 w-2 shrink-0 rounded-full ${s.sameBranch ? "bg-green-500" : "bg-blue-500"}`} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-ink">
+                            {formatDay(s.date, ctx.today)} {formatTime(s.start)}
+                            {!scope && <span className="font-normal text-ink/55"> · {branchName(s.branchId)}</span>}
+                          </span>
+                          <span className="block truncate text-xs text-ink/55">{staffName(s.staffId)}</span>
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+                {alts.length > 3 && (
+                  <li>
+                    <button onClick={() => setAllAlts((a) => !a)} className="w-full pt-0.5 text-center text-xs font-semibold text-coral-dark hover:underline">
+                      {allAlts ? "Show fewer" : `Show ${alts.length - 3} more`}
+                    </button>
+                  </li>
+                )}
+              </ul>
+            ) : (
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                No open time found{scope ? ` at ${branchName(scope)} this week` : " in the next 3 days"}. Nothing is changed — contact {appt.clientName}
+                {appt.code ? ` (#${appt.code})` : ""} or use “Choose myself” for a later date.
+              </p>
+            )}
+            {manual && <ManualPicker ctx={ctx} appt={appt} onPick={(p) => { setAutoStaff(false); setPick(p); setConfirming(false); }} />}
+          </div>
+        )}
       </div>
+
+      {/* Reason + notice */}
+      <label className="mt-4 block">
+        <span className="text-sm font-medium text-ink/70">Reason for the change *</span>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={2}
+          placeholder="e.g. Ms. Raquel is unavailable at 9:00 AM"
+          className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm focus:border-coral focus:outline-none"
+        />
+      </label>
+      <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-ink/50">
+        <Bell className="mt-px h-3 w-3 shrink-0 text-coral-dark" /> {data?.channels.summary ?? "The client"} gets the new schedule after you confirm.
+      </p>
 
       {error && <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       {confirming && pick ? (
         <div className="mt-4 rounded-xl border-2 border-coral bg-blush p-3">
           <p className="text-sm text-ink">
-            Move <b>{appt.clientName}</b> to <b>{branchName(pick.branchId)}</b>, {formatDay(pick.date, ctx.today)} at {formatTime(pick.start)} with{" "}
-            {staffName(pick.staffId)}? {appt.status === "confirmed" ? "This is a confirmed booking — " : ""}the client will be notified.
+            Move <b>{appt.clientName}</b> to <b>{branchName(pick.branchId)}</b>, {formatDay(pick.date, ctx.today)} at {formatTime(pick.start)} with {staffName(pick.staffId)}?
           </p>
           <div className="mt-3 flex gap-2">
             <button onClick={() => setConfirming(false)} disabled={saving} className="flex-1 rounded-full border border-ink/15 bg-white px-4 py-2 text-sm font-semibold text-ink/70">
               Back
             </button>
             <button onClick={confirm} disabled={saving} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
-              {saving && <Spinner />} {saving ? "Re-checking & saving…" : "Yes, move it"}
+              {saving && <Spinner />} {saving ? "Saving…" : "Yes, move it"}
             </button>
           </div>
         </div>
@@ -388,10 +422,10 @@ export function AppointmentPreview({
           <button
             onClick={() => setConfirming(true)}
             disabled={!canConfirm}
-            title={!pick ? "Choose a slot first" : !check?.ok ? "Every check must pass" : !reason.trim() ? "Add a reason" : undefined}
+            title={!pick ? "Choose a time first" : !check?.ok ? "Every check must pass" : !reason.trim() ? "Add a reason" : undefined}
             className="flex-1 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Confirm transfer
+            Confirm move
           </button>
         </div>
       )}
