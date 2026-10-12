@@ -125,13 +125,12 @@ export default function UsersTable({
   const totalCount = adminCount + frontDeskCount + staffCount + clientsTotal;
 
   const statCards: StatCard[] = [
-    { label: "Total Users", value: totalCount, sub: "Across all roles", icon: <Users className="h-5 w-5" />, tab: null },
-    { label: "Administrators", value: adminCount, sub: "All branches access", icon: <ShieldCheck className="h-5 w-5" />, tab: "Administrators" },
-    { label: "Front Desk", value: frontDeskCount, sub: "Active accounts", icon: <MonitorSmartphone className="h-5 w-5" />, tab: "Front Desk" },
-    { label: "Staff / Therapists", value: staffCount, sub: "Assigned to branches", icon: <UserCog className="h-5 w-5" />, tab: "Staff" },
-    { label: "Customers", value: clientsTotal, sub: "Registered clients", icon: <UserCircle className="h-5 w-5" />, tab: "Clients" },
+    { label: "Total Users", value: totalCount, sub: "Across all roles", icon: <Users className="h-[18px] w-[18px]" />, tab: null },
+    { label: "Administrators", value: adminCount, sub: "All branches access", icon: <ShieldCheck className="h-[18px] w-[18px]" />, tab: "Administrators" },
+    { label: "Front Desk", value: frontDeskCount, sub: "Active accounts", icon: <MonitorSmartphone className="h-[18px] w-[18px]" />, tab: "Front Desk" },
+    { label: "Staff / Therapists", value: staffCount, sub: "Assigned to branches", icon: <UserCog className="h-[18px] w-[18px]" />, tab: "Staff" },
+    { label: "Customers", value: clientsTotal, sub: "Registered clients", icon: <UserCircle className="h-[18px] w-[18px]" />, tab: "Clients" },
   ];
-  const tabCount: Record<string, number> = { Administrators: adminCount, "Front Desk": frontDeskCount, Staff: staffCount, Clients: clientsTotal };
 
   const isClientsTab = tab === "Clients";
   const isStaffTab = tab === "Staff";
@@ -176,21 +175,21 @@ export default function UsersTable({
           const active = card.tab === tab;
           const body = (
             <>
-              <span
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition ${
-                  active ? "bg-coral text-white" : card.tab ? "bg-[#f8efd9] text-coral-dark" : "bg-ink text-white"
-                }`}
-              >
-                {card.icon}
+              <span className="flex items-center gap-2.5">
+                <span
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${
+                    active ? "bg-coral text-white" : card.tab ? "bg-[#f8efd9] text-coral-dark" : "bg-ink text-white"
+                  }`}
+                >
+                  {card.icon}
+                </span>
+                <span className="truncate text-sm font-semibold text-ink">{card.label}</span>
               </span>
-              <span className="min-w-0 text-left">
-                <span className="block text-2xl font-semibold tabular-nums leading-none text-ink">{card.value.toLocaleString()}</span>
-                <span className="mt-1 block truncate text-sm font-medium text-ink/75">{card.label}</span>
-                <span className="block truncate text-xs text-ink/45">{card.sub}</span>
-              </span>
+              <span className="mt-3 block text-3xl font-semibold tabular-nums leading-none text-ink">{card.value.toLocaleString()}</span>
+              <span className="mt-1.5 block truncate text-xs font-medium text-ink/60">{card.sub}</span>
             </>
           );
-          const shell = `flex items-center gap-3 rounded-2xl bg-white p-4 shadow-[0_10px_30px_-24px_rgba(90,60,20,0.5)] ring-1 transition ${
+          const shell = `flex flex-col items-start text-left rounded-2xl bg-white p-4 shadow-[0_10px_30px_-24px_rgba(90,60,20,0.5)] ring-1 transition ${
             active ? "ring-2 ring-coral" : "ring-[#efe3c6]"
           }`;
           return card.tab ? (
@@ -213,7 +212,7 @@ export default function UsersTable({
       {/* Table card */}
       <div className="rounded-3xl bg-white p-6 shadow-[0_10px_30px_-22px_rgba(90,60,20,0.45)] ring-1 ring-[#efe3c6]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#f1e7cf] pb-4">
-          <div role="tablist" aria-label="Role" className="flex flex-wrap gap-1 rounded-full bg-[#f8f1df] p-1">
+          <div role="tablist" aria-label="Role" className="flex flex-wrap gap-1 rounded-full border border-[#e6d6ad] bg-[#fbf6ea] p-1">
             {tabs.map((t) => (
               <button
                 key={t}
@@ -223,11 +222,10 @@ export default function UsersTable({
                 className={`rounded-full px-4 py-1.5 text-base font-semibold transition ${
                   tab === t
                     ? "bg-coral text-white shadow-sm"
-                    : "text-ink/55 hover:text-ink"
+                    : "text-ink/80 hover:bg-white hover:text-ink"
                 }`}
               >
                 {t}
-                <span className={`ml-1.5 rounded-full px-1.5 text-xs tabular-nums ${tab === t ? "bg-white/25" : "bg-ink/5 text-ink/45"}`}>{tabCount[t] ?? 0}</span>
               </button>
             ))}
           </div>
