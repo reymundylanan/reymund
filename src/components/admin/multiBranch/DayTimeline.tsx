@@ -21,6 +21,14 @@ const KIND_STYLE = {
   booking: { block: "border-blue-500 bg-blue-50", chip: "bg-blue-100 text-blue-700", dot: "bg-blue-500", label: "Booking" },
 } as const;
 
+const TONE_CHIP = {
+  green: "bg-green-100 text-green-700",
+  blue: "bg-blue-100 text-blue-700",
+  amber: "bg-amber-100 text-amber-800",
+  red: "bg-red-100 text-red-700",
+  gray: "bg-ink/10 text-ink/55",
+} as const;
+
 /** Only visits that haven't started can be moved (same rule as the board and the database). */
 const NOT_STARTED = ["arrived", "waiting", "ready", "late_arrival", "in_service", "completed", "paid", "no_show"];
 const SNAP = 15;
@@ -239,16 +247,43 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
         </p>
       )}
 
+      {visits && mode !== "list" && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-[11px] text-ink/55" aria-label="Legend">
+          <span className="flex items-center gap-1.5"><span className="h-3 w-1.5 rounded-sm bg-blue-500" /> Booking</span>
+          <span className="flex items-center gap-1.5"><span className="h-3 w-1.5 rounded-sm bg-[#C9A84A]" /> Walk-in</span>
+          <span className="h-3 w-px bg-ink/10" aria-hidden />
+          {(
+            [
+              ["amber", "Pending"],
+              ["blue", "Confirmed / arrived"],
+              ["green", "Done"],
+              ["red", "No-show"],
+              ["gray", "Cancelled"],
+            ] as const
+          ).map(([tone, label]) => (
+            <span key={label} className="flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-full ${dot(tone)}`} /> {label}
+            </span>
+          ))}
+          {mode === "timeline" && (
+            <>
+              <span className="h-3 w-px bg-ink/10" aria-hidden />
+              <span className="flex items-center gap-1.5"><span className="h-3 w-4 rounded-sm bg-[repeating-linear-gradient(135deg,rgba(43,26,16,0.07)_0_4px,transparent_4px_8px)] ring-1 ring-ink/10" /> Branch closed</span>
+            </>
+          )}
+        </div>
+      )}
+
       {visits && mode === "timeline" && (
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div ref={scroller} className="max-h-[calc(100dvh-12rem)] overflow-auto rounded-2xl bg-white shadow-sm [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
-            <div className="flex min-w-max">
+            <div className="flex min-w-full">
               {/* Hours */}
               <div className="sticky left-0 z-20 w-16 shrink-0 border-r border-ink/5 bg-white">
                 <div className="sticky top-0 z-10 h-16 border-b border-ink/5 bg-white" />
                 <div className="relative" style={{ height }}>
                   {hours.map((h) => (
-                    <span key={h} className={`absolute right-2 text-[11px] font-medium text-ink/40 ${h === range.start ? "translate-y-0.5" : "-translate-y-1/2"}`} style={{ top: (h - range.start) * PX_PER_MIN }}>
+                    <span key={h} className={`absolute right-2 text-[11px] font-semibold text-ink/50 ${h === range.start ? "translate-y-0.5" : "-translate-y-1/2"}`} style={{ top: (h - range.start) * PX_PER_MIN }}>
                       {formatTime(h).replace(":00", "")}
                     </span>
                   ))}
@@ -264,14 +299,17 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
                 return (
                   <div
                     key={b.id}
-                    className={`shrink-0 border-r border-ink/5 transition-colors ${dragging && over === b.id ? "bg-[#fff8e6]" : ""}`}
-                    style={{ width: `max(17rem, ${maxLanes * 8.5}rem)` }}
+                    className={`min-w-0 flex-1 border-r border-ink/5 transition-colors ${dragging && over === b.id ? "bg-[#fff8e6]" : ""}`}
+                    style={{ minWidth: `max(17rem, ${maxLanes * 8.5}rem)` }}
                   >
-                    <div className="sticky top-0 z-10 h-16 border-b border-ink/5 bg-white/95 px-3 py-2 backdrop-blur">
-                      <p className="truncate font-semibold text-ink">{b.name}</p>
-                      <p className="flex items-center gap-2 text-xs text-ink/50">
-                        <span className="flex items-center gap-1"><span className={`h-2 w-2 rounded-full ${KIND_STYLE.walk_in.dot}`} />{walkIns} walk-in</span>
-                        <span className="flex items-center gap-1"><span className={`h-2 w-2 rounded-full ${KIND_STYLE.booking.dot}`} />{list.length - walkIns} booking</span>
+                    <div className="sticky top-0 z-10 h-16 border-b border-ink/5 bg-white px-3 py-2">
+                      <p className="flex items-baseline justify-between gap-2">
+                        <span className="truncate font-semibold text-ink">{b.name}</span>
+                        <span className="shrink-0 text-[11px] font-medium text-ink/45">{formatTime(open)} – {formatTime(close)}</span>
+                      </p>
+                      <p className="mt-0.5 flex items-center gap-2 text-xs text-ink/55">
+                        <span className="flex items-center gap-1"><span className={`h-2 w-2 rounded-full ${KIND_STYLE.booking.dot}`} />{list.length - walkIns} booking{list.length - walkIns === 1 ? "" : "s"}</span>
+                        <span className="flex items-center gap-1"><span className={`h-2 w-2 rounded-full ${KIND_STYLE.walk_in.dot}`} />{walkIns} walk-in{walkIns === 1 ? "" : "s"}</span>
                       </p>
                     </div>
                     <div ref={columnRef(b.id)} className="relative" style={{ height }}>
@@ -287,15 +325,33 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
                           </span>
                         </div>
                       )}
-                      {/* Closed hours shaded */}
-                      <div className="absolute inset-x-0 top-0 bg-ink/[0.035]" style={{ height: Math.max(0, (open - range.start) * PX_PER_MIN) }} />
-                      <div className="absolute inset-x-0 bottom-0 bg-ink/[0.035]" style={{ height: Math.max(0, (range.end - close) * PX_PER_MIN) }} />
+                      {/* Closed hours: hatched and labelled */}
+                      {(
+                        [
+                          ["top", 0, Math.max(0, (open - range.start) * PX_PER_MIN)],
+                          ["bottom", (close - range.start) * PX_PER_MIN, Math.max(0, (range.end - close) * PX_PER_MIN)],
+                        ] as const
+                      ).map(([k, top, hgt]) =>
+                        hgt > 0 ? (
+                          <div
+                            key={k}
+                            className="absolute inset-x-0 flex items-center justify-center bg-[repeating-linear-gradient(135deg,rgba(43,26,16,0.05)_0_6px,transparent_6px_12px)]"
+                            style={{ top, height: hgt }}
+                          >
+                            {hgt >= 28 && <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink/40">Closed</span>}
+                          </div>
+                        ) : null
+                      )}
                       {hours.map((h) => (
-                        <div key={h} className="absolute inset-x-0 border-t border-ink/5" style={{ top: (h - range.start) * PX_PER_MIN }} />
+                        <div key={h} className="absolute inset-x-0 border-t border-ink/10" style={{ top: (h - range.start) * PX_PER_MIN }} />
+                      ))}
+                      {hours.slice(0, -1).map((h) => (
+                        <div key={`half-${h}`} className="absolute inset-x-0 border-t border-dashed border-ink/[0.06]" style={{ top: (h + 30 - range.start) * PX_PER_MIN }} />
                       ))}
                       {nowTop !== null && (
-                        <div className="absolute inset-x-0 z-10 border-t-2 border-red-500" style={{ top: nowTop }}>
+                        <div className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-red-500" style={{ top: nowTop }}>
                           <span className="absolute -left-1 -top-[5px] h-2 w-2 rounded-full bg-red-500" />
+                          <span className="absolute right-1 -top-[18px] rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">Now {formatTime(ctx.nowMinutes)}</span>
                         </div>
                       )}
                       {list.map((v) => {
@@ -304,6 +360,7 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
                         const h = Math.max(v.duration * PX_PER_MIN, 30);
                         const tall = h >= 64;
                         const movable = canMove(v);
+                        const inactive = v.status === "cancelled" || v.sessionStatus === "no_show";
                         return (
                           <button
                             key={v.id}
@@ -313,7 +370,7 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
                             title={`${formatTime(v.start)} ${v.clientName} — ${v.service}`}
                             className={`absolute flex flex-col justify-start overflow-hidden rounded-lg border-l-4 px-2 py-1 text-left shadow-sm transition hover:z-20 hover:shadow-md ${KIND_STYLE[v.kind].block} ${
                               selected === v.id ? "z-20 ring-2 ring-coral" : ""
-                            } ${v.status === "cancelled" ? "opacity-45" : ""} ${movable ? "cursor-grab touch-none active:cursor-grabbing" : ""} ${dragging?.id === v.id ? "opacity-40" : ""}`}
+                            } ${inactive ? "opacity-55 saturate-50" : ""} ${movable ? "cursor-grab touch-none active:cursor-grabbing" : "cursor-pointer"} ${dragging?.id === v.id ? "opacity-40" : ""}`}
                             style={{ top: top + 1, height: h - 2, left: `calc(${(v.lane / v.lanes) * 100}% + 4px)`, width: `calc(${100 / v.lanes}% - 8px)` }}
                           >
                             <span className="flex items-center justify-between gap-1">
@@ -321,14 +378,19 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
                                 {movable && <GripVertical className="-ml-1 h-3 w-3 shrink-0 text-ink/30" aria-hidden />}
                                 <span className="truncate">{v.clientName}</span>
                               </span>
-                              <span className={`h-2 w-2 shrink-0 rounded-full ${dot(s.tone)}`} title={s.label} />
+                              <span className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-bold ${TONE_CHIP[s.tone]}`}>{s.label}</span>
                             </span>
                             <span className="block truncate text-[11px] text-ink/60">
                               {formatTime(v.start)}–{formatTime(v.start + v.duration)}
                               {!tall && ` · ${v.service}`}
                             </span>
-                            {tall && <span className="block truncate text-[11px] text-ink/60">{v.service}</span>}
-                            {tall && v.staffName && <span className="block truncate text-[11px] text-ink/45">with {v.staffName}</span>}
+                            {tall && <span className="block truncate text-[11px] font-medium text-ink/70">{v.service}</span>}
+                            {tall && (
+                              <span className="mt-auto flex items-center gap-1 truncate text-[11px] text-ink/50">
+                                <UserRound className="h-3 w-3 shrink-0" aria-hidden /> {v.staffName ?? "Any staff"}
+                                {v.paid && <Wallet className="ml-auto h-3 w-3 shrink-0 text-green-600" aria-label="Paid" />}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
