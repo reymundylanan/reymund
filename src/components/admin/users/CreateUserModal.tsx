@@ -11,9 +11,12 @@ type Branch = { id: string; name: string };
 export default function CreateUserModal({
   onClose,
   onCreated,
+  initialRole = "front_desk",
 }: {
   onClose: () => void;
   onCreated?: () => void;
+  /** The tab it was opened from (Administrators / Front Desk). */
+  initialRole?: "admin" | "front_desk";
 }) {
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
@@ -21,7 +24,7 @@ export default function CreateUserModal({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [role, setRole] = useState<"admin" | "front_desk">("front_desk");
+  const [role, setRole] = useState<"admin" | "front_desk">(initialRole);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -77,7 +80,7 @@ export default function CreateUserModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="scrollbar-hidden max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-ink">Add New User</h2>
+          <h2 className="font-semibold text-ink">{role === "admin" ? "Add Administrator" : "Add Front Desk Account"}</h2>
           <button onClick={onClose} className="text-ink/40 hover:text-ink">
             <X className="h-5 w-5" />
           </button>

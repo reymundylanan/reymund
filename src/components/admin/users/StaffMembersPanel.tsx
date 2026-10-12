@@ -13,6 +13,7 @@ import { getUpcomingApprovedTransfers } from "@/lib/supabase/queries/branchTrans
 import { toDateKey } from "@/lib/supabase/queries/staffShifts";
 import { summarizeRatings } from "@/lib/reviews";
 import { logQueryError } from "@/lib/supabase/logQueryError";
+import { TABLE_HEAD, TABLE_ROW, TABLE_WRAP } from "@/components/admin/users/tableStyle";
 
 type Branch = { id: string; name: string };
 
@@ -268,10 +269,10 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
       ) : filtered.length === 0 && query.trim() ? (
         <p className="py-12 text-center text-sm text-ink/40">No staff members match your search.</p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-ink/10">
+        <div className={TABLE_WRAP}>
           <table className="w-full text-base">
             <thead>
-              <tr className="border-b border-ink/10 text-sm font-semibold uppercase text-ink/40">
+              <tr className={TABLE_HEAD}>
                 <th className="px-4 py-3 text-left">Staff</th>
                 <th className="px-4 py-3 text-left">Department</th>
                 <th className="px-4 py-3 text-left">Branch</th>
@@ -282,8 +283,8 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
             </thead>
             <tbody>
               {filtered.map((m) => (
-                <tr key={m.id} className="border-b border-ink/5 last:border-0">
-                  <td className="px-4 py-4">
+                <tr key={m.id} className={TABLE_ROW}>
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blush text-base font-bold text-coral-dark overflow-hidden">
                         {m.avatar_url
@@ -305,12 +306,12 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-4 text-ink/60">{m.department}</td>
-                  <td className="px-4 py-4 text-ink/60">
+                  <td className="px-4 py-3 text-ink/60">{m.department}</td>
+                  <td className="px-4 py-3 text-ink/60">
                     {(m.branches as { name: string } | null)?.name ?? <span className="text-ink/30">—</span>}
                   </td>
-                  <td className="px-4 py-4 text-ink/60">{m.phone ?? <span className="text-ink/30">—</span>}</td>
-                  <td className="px-4 py-4 text-ink/60">
+                  <td className="px-4 py-3 text-ink/60">{m.phone ?? <span className="text-ink/30">—</span>}</td>
+                  <td className="px-4 py-3 text-ink/60">
                     <button
                       type="button"
                       onClick={() => setReviewsTarget(m)}

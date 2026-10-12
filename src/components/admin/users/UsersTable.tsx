@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapPin, MoreHorizontal, Search, UserPlus, Users, ShieldCheck, UserCog, MonitorSmartphone, UserCircle } from "lucide-react";
+import { MapPin, MoreHorizontal, Plus, Search, Users, ShieldCheck, UserCog, MonitorSmartphone, UserCircle } from "lucide-react";
+import { TABLE_HEAD, TABLE_WRAP, TABLE_ROW } from "@/components/admin/users/tableStyle";
 import UserEditPanel from "@/components/admin/users/UserEditPanel";
 import ClientViewPanel from "@/components/admin/users/ClientViewPanel";
 import CreateUserModal from "@/components/admin/users/CreateUserModal";
@@ -49,7 +50,7 @@ export default function UsersTable({
   const [query, setQuery] = useState("");
   const [activeUser, setActiveUser] = useState<StaffUser | null>(null);
   const [activeClient, setActiveClient] = useState<ClientUser | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
+  const [showCreate, setShowCreate] = useState<"admin" | "front_desk" | null>(null);
 
   const [clients, setClients] = useState<ClientUser[]>([]);
   const [clientsLoaded, setClientsLoaded] = useState(false);
@@ -201,14 +202,6 @@ export default function UsersTable({
             Manage system users, assign roles, and control access permissions.
           </p>
         </div>
-        {!isClientsTab && !isStaffTab && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-full bg-coral px-5 py-2.5 text-base font-semibold text-white shadow-[0_8px_18px_-10px_rgba(168,137,48,0.9)] transition hover:bg-coral-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral-dark"
-          >
-            <UserPlus className="h-5 w-5" /> Add User
-          </button>
-        )}
       </div>
 
       {/* Stat cards */}
@@ -224,7 +217,7 @@ export default function UsersTable({
                 style={{ backgroundColor: card.iconBg, color: card.iconColor }}
               >
                 {card.icon}
-              </span>
+              </span>
             </div>
             <div>
               <p className="text-3xl font-semibold tabular-nums leading-none text-ink">
@@ -277,132 +270,144 @@ export default function UsersTable({
           <div className="mt-4">
             <StaffMembersPanel query={query} />
           </div>
-        ) : isClientsTab ? (
-          <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[40rem] text-left text-base">
-            <thead>
-              <tr className="text-sm text-ink/45 [&>th]:font-medium">
-                <th className="py-3">Client Profile</th>
-                <th className="py-3">Email</th>
-                <th className="py-3">Joined</th>
-                <th className="py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredClients.map((client) => (
-                <tr key={client.id} onClick={() => setActiveClient(client)} className="group cursor-pointer border-t border-[#f4ecd9] transition hover:bg-[#fffaf0]">
-                  <td className="py-4">
-                    <div className="flex items-center gap-3">
-                      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f3e7c4] text-base font-semibold text-[#7A5F14] shadow-sm ring-2 ring-white">
-                        {client.avatarUrl ? <Image src={client.avatarUrl} alt="" fill sizes="40px" className="object-cover" /> : client.fullName.charAt(0).toUpperCase()}
-                      </span>
-                      <p className="font-medium text-ink">{client.fullName}</p>
-                    </div>
-                  </td>
-                  <td className="py-4 text-ink/70">{client.email}</td>
-                  <td className="py-4 text-sm text-ink/55">{joined(client.createdAt)}</td>
-                  <td className="py-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveClient(client);
-                      }}
-                      aria-label={`Open ${client.fullName}`}
-                      className="rounded-full p-2 text-ink/40 transition group-hover:text-coral-dark hover:bg-blush"
-                    >
-                      <MoreHorizontal className="h-5 w-5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!clientsLoading && filteredClients.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-ink/40">
-                    No client accounts match this filter.
-                  </td>
-                </tr>
-              )}
-              {clientsLoading && (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-ink/40">
-                    Loading clients…
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table></div>
         ) : (
-          <div className="mt-2 overflow-x-auto"><table className="w-full min-w-[40rem] text-left text-base">
-            <thead>
-              <tr className="text-sm text-ink/45 [&>th]:font-medium">
-                <th className="py-3">User Profile</th>
-                <th className="py-3">Role</th>
-                <th className="py-3">Branch</th>
-                <th className="py-3">Joined</th>
-                <th className="py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((user) => (
-                <tr key={user.id} onClick={() => setActiveUser(user)} className="group cursor-pointer border-t border-[#f4ecd9] transition hover:bg-[#fffaf0]">
-                  <td className="py-4">
-                    <div className="flex items-center gap-3">
-                      <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f3e7c4] text-base font-semibold text-[#7A5F14] shadow-sm ring-2 ring-white">
-                        {user.avatarUrl ? (
-                          <Image src={user.avatarUrl} alt={user.fullName} fill sizes="40px" className="object-cover" />
-                        ) : (
-                          user.fullName.charAt(0)
-                        )}
-                      </span>
-                      <div>
-                        <p className="font-medium text-ink">{user.fullName}</p>
-                        <p className="text-sm text-ink/50">
-                          @{user.username ?? "—"}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-4">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleChip[user.role] ?? "bg-ink/5 text-ink/70"}`}>{roleLabels[user.role] ?? user.role}</span>
-                  </td>
-                  <td className="py-4 text-sm text-ink/70">
-                    {user.branchName ? (
-                      <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-coral-dark" /> {user.branchName}</span>
-                    ) : (
-                      <span className="text-ink/40">{user.role === "admin" ? "All branches" : "—"}</span>
-                    )}
-                  </td>
-                  <td className="py-4 text-sm text-ink/55">{joined(user.createdAt)}</td>
-                  <td className="py-4">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveUser(user);
-                      }}
-                      aria-label={`Manage ${user.fullName}`}
-                      className="rounded-full p-2 text-ink/40 transition group-hover:text-coral-dark hover:bg-blush"
-                    >
-                      <MoreHorizontal className="h-5 w-5" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-ink/40">
-                    No staff accounts match this filter.
-                  </td>
-                </tr>
+          <div className="mt-4">
+            {/* Same toolbar as the Staff tab: count on the left, Add on the right */}
+            <div className="mb-4 flex min-h-9 flex-wrap items-center justify-between gap-3">
+              <p className="text-base text-ink/50">
+                {isClientsTab
+                  ? `${clients.length} client${clients.length === 1 ? "" : "s"}`
+                  : tab === "Administrators"
+                    ? `${adminCount} administrator${adminCount === 1 ? "" : "s"}`
+                    : `${frontDeskCount} front desk account${frontDeskCount === 1 ? "" : "s"}`}
+                {query.trim() && <span className="text-ink/40"> · {isClientsTab ? filteredClients.length : filtered.length} match{(isClientsTab ? filteredClients.length : filtered.length) === 1 ? "" : "es"}</span>}
+              </p>
+              {!isClientsTab && (
+                <button
+                  onClick={() => setShowCreate(tab === "Administrators" ? "admin" : "front_desk")}
+                  className="flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark"
+                >
+                  <Plus className="h-4 w-4" /> {tab === "Administrators" ? "Add Admin" : "Add Front Desk"}
+                </button>
               )}
-            </tbody>
-          </table></div>
-        )}
+            </div>
 
-        {!isStaffTab && (
-          <p className="mt-4 text-sm text-ink/45">
-            {isClientsTab
-              ? `Showing ${filteredClients.length} of ${clients.length} client accounts`
-              : `Showing ${filtered.length} of ${users.length} staff accounts`}
-          </p>
+            {isClientsTab ? (
+              <div className={TABLE_WRAP}>
+                <table className="w-full min-w-[40rem] text-left text-base">
+                  <thead>
+                    <tr className={TABLE_HEAD}>
+                      <th className="px-4 py-3">Client</th>
+                      <th className="px-4 py-3">Email</th>
+                      <th className="px-4 py-3">Joined</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredClients.map((client) => (
+                      <tr key={client.id} onClick={() => setActiveClient(client)} className={TABLE_ROW}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f3e7c4] text-base font-semibold text-[#7A5F14] ring-2 ring-white">
+                              {client.avatarUrl ? <Image src={client.avatarUrl} alt="" fill sizes="40px" className="object-cover" /> : client.fullName.charAt(0).toUpperCase()}
+                            </span>
+                            <span className="font-medium text-ink">{client.fullName}</span>
+                            {client.isRestricted && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">Restricted</span>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-ink/70">{client.email}</td>
+                        <td className="px-4 py-3 text-sm text-ink/55">{joined(client.createdAt)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveClient(client);
+                            }}
+                            aria-label={`Open ${client.fullName}`}
+                            className="rounded-full p-2 text-ink/40 transition group-hover:text-coral-dark hover:bg-blush"
+                          >
+                            <MoreHorizontal className="h-5 w-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {!clientsLoading && filteredClients.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-10 text-center text-ink/40">{query.trim() ? "No clients match your search." : "No client accounts yet."}</td>
+                      </tr>
+                    )}
+                    {clientsLoading && (
+                      <tr>
+                        <td colSpan={4} className="py-10 text-center text-ink/40">Loading clients…</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className={TABLE_WRAP}>
+                <table className="w-full min-w-[44rem] text-left text-base">
+                  <thead>
+                    <tr className={TABLE_HEAD}>
+                      <th className="px-4 py-3">{tab === "Administrators" ? "Administrator" : "Front Desk"}</th>
+                      <th className="px-4 py-3">Email</th>
+                      <th className="px-4 py-3">Branch</th>
+                      <th className="px-4 py-3">Joined</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((user) => (
+                      <tr key={user.id} onClick={() => setActiveUser(user)} className={TABLE_ROW}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#f3e7c4] text-base font-semibold text-[#7A5F14] ring-2 ring-white">
+                              {user.avatarUrl ? <Image src={user.avatarUrl} alt={user.fullName} fill sizes="40px" className="object-cover" /> : user.fullName.charAt(0)}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="flex items-center gap-2 font-medium text-ink">
+                                {user.fullName}
+                                <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${roleChip[user.role] ?? "bg-ink/5 text-ink/70"}`}>{roleLabels[user.role] ?? user.role}</span>
+                              </p>
+                              <p className="text-sm text-ink/50">@{user.username ?? "—"}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="max-w-[16rem] truncate px-4 py-3 text-sm text-ink/70" title={user.email}>{user.email}</td>
+                        <td className="px-4 py-3 text-sm text-ink/70">
+                          {user.branchName ? (
+                            <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-coral-dark" /> {user.branchName}</span>
+                          ) : (
+                            <span className="text-ink/45">{user.role === "admin" ? "All branches" : "—"}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-ink/55">{joined(user.createdAt)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveUser(user);
+                            }}
+                            aria-label={`Manage ${user.fullName}`}
+                            className="rounded-full p-2 text-ink/40 transition group-hover:text-coral-dark hover:bg-blush"
+                          >
+                            <MoreHorizontal className="h-5 w-5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {filtered.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-10 text-center text-ink/40">
+                          {query.trim() ? "No accounts match your search." : tab === "Administrators" ? "No administrators yet." : "No front desk accounts yet."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
@@ -429,7 +434,8 @@ export default function UsersTable({
       )}
       {showCreate && (
         <CreateUserModal
-          onClose={() => setShowCreate(false)}
+          initialRole={showCreate}
+          onClose={() => setShowCreate(null)}
           onCreated={onRefresh}
         />
       )}
