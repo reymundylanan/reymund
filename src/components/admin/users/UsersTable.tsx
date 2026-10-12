@@ -35,8 +35,8 @@ type StatCard = {
   value: number;
   sub: string;
   icon: React.ReactNode;
-  iconBg: string;
-  iconColor: string;
+  /** The tab this card opens (none for the total). */
+  tab: string | null;
 };
 
 export default function UsersTable({
@@ -125,47 +125,13 @@ export default function UsersTable({
   const totalCount = adminCount + frontDeskCount + staffCount + clientsTotal;
 
   const statCards: StatCard[] = [
-    {
-      label: "Total Users",
-      value: totalCount,
-      sub: "Across all roles",
-      icon: <Users className="h-6 w-6" />,
-      iconBg: "#EDE9FE",
-      iconColor: "#7C3AED",
-    },
-    {
-      label: "Administrators",
-      value: adminCount,
-      sub: "All branches access",
-      icon: <ShieldCheck className="h-6 w-6" />,
-      iconBg: "#FFE4E6",
-      iconColor: "#E11D48",
-    },
-    {
-      label: "Staff / Therapists",
-      value: staffCount,
-      sub: "Assigned to branches",
-      icon: <UserCog className="h-6 w-6" />,
-      iconBg: "#DBEAFE",
-      iconColor: "#2563EB",
-    },
-    {
-      label: "Front Desk",
-      value: frontDeskCount,
-      sub: "Active accounts",
-      icon: <MonitorSmartphone className="h-6 w-6" />,
-      iconBg: "#FEF3C7",
-      iconColor: "#D97706",
-    },
-    {
-      label: "Customers",
-      value: clientsTotal,
-      sub: "Registered clients",
-      icon: <UserCircle className="h-6 w-6" />,
-      iconBg: "#DCFCE7",
-      iconColor: "#16A34A",
-    },
+    { label: "Total Users", value: totalCount, sub: "Across all roles", icon: <Users className="h-5 w-5" />, tab: null },
+    { label: "Administrators", value: adminCount, sub: "All branches access", icon: <ShieldCheck className="h-5 w-5" />, tab: "Administrators" },
+    { label: "Front Desk", value: frontDeskCount, sub: "Active accounts", icon: <MonitorSmartphone className="h-5 w-5" />, tab: "Front Desk" },
+    { label: "Staff / Therapists", value: staffCount, sub: "Assigned to branches", icon: <UserCog className="h-5 w-5" />, tab: "Staff" },
+    { label: "Customers", value: clientsTotal, sub: "Registered clients", icon: <UserCircle className="h-5 w-5" />, tab: "Clients" },
   ];
+  const tabCount: Record<string, number> = { Administrators: adminCount, "Front Desk": frontDeskCount, Staff: staffCount, Clients: clientsTotal };
 
   const isClientsTab = tab === "Clients";
   const isStaffTab = tab === "Staff";
@@ -204,30 +170,44 @@ export default function UsersTable({
         </div>
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        {statCards.map((card) => (
-          <div
-            key={card.label}
-            className="relative flex flex-col gap-4 overflow-hidden rounded-3xl bg-white p-5 shadow-[0_10px_30px_-22px_rgba(90,60,20,0.45)] ring-1 ring-[#efe3c6]"
-          >
-            <div className="flex items-center justify-between">
+      {/* Stat cards — click one to open its tab */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {statCards.map((card) => {
+          const active = card.tab === tab;
+          const body = (
+            <>
               <span
-                className="flex h-11 w-11 items-center justify-center rounded-2xl"
-                style={{ backgroundColor: card.iconBg, color: card.iconColor }}
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition ${
+                  active ? "bg-coral text-white" : card.tab ? "bg-[#f8efd9] text-coral-dark" : "bg-ink text-white"
+                }`}
               >
                 {card.icon}
               </span>
+              <span className="min-w-0 text-left">
+                <span className="block text-2xl font-semibold tabular-nums leading-none text-ink">{card.value.toLocaleString()}</span>
+                <span className="mt-1 block truncate text-sm font-medium text-ink/75">{card.label}</span>
+                <span className="block truncate text-xs text-ink/45">{card.sub}</span>
+              </span>
+            </>
+          );
+          const shell = `flex items-center gap-3 rounded-2xl bg-white p-4 shadow-[0_10px_30px_-24px_rgba(90,60,20,0.5)] ring-1 transition ${
+            active ? "ring-2 ring-coral" : "ring-[#efe3c6]"
+          }`;
+          return card.tab ? (
+            <button
+              key={card.label}
+              onClick={() => setTab(card.tab!)}
+              aria-pressed={active}
+              className={`${shell} hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-20px_rgba(90,60,20,0.55)]`}
+            >
+              {body}
+            </button>
+          ) : (
+            <div key={card.label} className={`${shell} bg-gradient-to-br from-white to-[#fbf4e4]`}>
+              {body}
             </div>
-            <div>
-              <p className="text-3xl font-semibold tabular-nums leading-none text-ink">
-                {card.value.toLocaleString()}
-              </p>
-              <p className="mt-2 text-sm font-medium text-ink/75">{card.label}</p>
-              <p className="mt-0.5 text-xs text-ink/45">{card.sub}</p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Table card */}
@@ -247,6 +227,7 @@ export default function UsersTable({
                 }`}
               >
                 {t}
+                <span className={`ml-1.5 rounded-full px-1.5 text-xs tabular-nums ${tab === t ? "bg-white/25" : "bg-ink/5 text-ink/45"}`}>{tabCount[t] ?? 0}</span>
               </button>
             ))}
           </div>
