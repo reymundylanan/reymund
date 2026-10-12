@@ -4,11 +4,13 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 
 export type DragItem = { kind: "staff" | "appointment" | "client" | "promo" | "service"; id: string };
 type Ghost = { item: DragItem; x: number; y: number; w: number; ox: number; oy: number };
+/** Where in the column the card would land: y of the card's top edge, from the column's top. */
+export type DropPoint = { key: string; top: number };
 
 /** Pointer-based drag (mouse, pen, finger) between board columns. Fingers drag
  * from a `[data-grip]` so the board still scrolls; a mouse drags the card.
  * Near the scroller's edges the board scrolls sideways while dragging. */
-export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void) {
+export function useCardDrag(onDrop: (item: DragItem, columnKey: string, at: DropPoint) => void) {
   const columns = useRef(new Map<string, HTMLElement>());
   const scroller = useRef<HTMLDivElement>(null);
   const pending = useRef<{ item: DragItem; x: number; y: number; el: HTMLElement; started: boolean } | null>(null);
@@ -17,6 +19,8 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void)
   const pointer = useRef({ x: 0, y: 0 });
   const [ghost, setGhost] = useState<Ghost | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  const [overPoint, setOverPoint] = useState<DropPoint | null>(null);
+  const grabY = useRef(0);
 
   const columnAt = (x: number, y: number) => {
     for (const [key, el] of columns.current) {
@@ -24,6 +28,15 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void)
       if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return key;
     }
     return null;
+  };
+  const pointIn = (key: string | null, y: number): DropPoint | null => {
+    const el = key ? columns.current.get(key) : null;
+    return key && el ? { key, top: y - grabY.current - el.getBoundingClientRect().top } : null;
+  };
+  const track = (x: number, y: number) => {
+    const key = columnAt(x, y);
+    setOver(key);
+    setOverPoint(pointIn(key, y));
   };
 
   const dragging = !!ghost;
@@ -38,12 +51,13 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void)
         const edge = 72;
         if (x < r.left + edge) el.scrollLeft -= Math.ceil((r.left + edge - x) / 6);
         else if (x > r.right - edge) el.scrollLeft += Math.ceil((x - (r.right - edge)) / 6);
-        setOver(columnAt(x, y));
+        track(x, y);
       }
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- track only reads refs and setters
   }, [dragging]);
 
   function cardProps(item: DragItem, enabled = true) {
@@ -53,7 +67,9 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void)
         if (e.button !== 0) return;
         justDragged.current = false;
         const target = e.target as HTMLElement;
-        if (target.closest("button, select, a, input, label")) return;
+        // Controls inside a card keep working (the card itself may be a button).
+        const control = target.closest("button, select, a, input, label");
+        if (control && control !== e.currentTarget) return;
         if (e.pointerType === "touch" && !target.closest("[data-grip]")) return;
         pending.current = { item, x: e.clientX, y: e.clientY, el: e.currentTarget, started: false };
         pointer.current = { x: e.clientX, y: e.clientY };
@@ -67,20 +83,23 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void)
           if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < 6) return;
           p.started = true;
           const r = p.el.getBoundingClientRect();
+          grabY.current = p.y - r.top;
           setGhost({ item: p.item, x: e.clientX, y: e.clientY, w: r.width, ox: p.x - r.left, oy: p.y - r.top });
         }
         setGhost((g) => (g ? { ...g, x: e.clientX, y: e.clientY } : g));
-        setOver(columnAt(e.clientX, e.clientY));
+        track(e.clientX, e.clientY);
       },
       onPointerUp(e: ReactPointerEvent<HTMLElement>) {
         const p = pending.current;
         pending.current = null;
         if (!p?.started) return;
         const to = columnAt(e.clientX, e.clientY);
+        const at = pointIn(to, e.clientY);
         setGhost(null);
         setOver(null);
+        setOverPoint(null);
         justDragged.current = true;
-        if (to) onDrop(p.item, to);
+        if (to && at) onDrop(p.item, to, at);
       },
       onClickCapture(e: React.MouseEvent) {
         if (!justDragged.current) return;
@@ -92,6 +111,7 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void)
         pending.current = null;
         setGhost(null);
         setOver(null);
+        setOverPoint(null);
       },
     };
   }
@@ -101,5 +121,5 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string) => void)
     else columns.current.delete(key);
   };
 
-  return { ghost, over, scroller, cardProps, columnRef, dragging: ghost?.item ?? null };
+  return { ghost, over, overPoint, scroller, cardProps, columnRef, dragging: ghost?.item ?? null };
 }

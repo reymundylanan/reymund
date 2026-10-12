@@ -64,14 +64,15 @@ export function Side({ label, tone, children }: { label: string; tone: "old" | "
 
 // ── Appointment move / reschedule ─────────────────────────────────────
 
-type ApptPreview = { appointment: Appointment; proposal: CheckResult | null; suggestions: Suggestion[]; channels: Channels };
-type Pick = { branchId: string; staffId: string | null; date: string; start: number };
+export type ApptPreview = { appointment: Appointment; proposal: CheckResult | null; suggestions: Suggestion[]; channels: Channels };
+export type Pick = { branchId: string; staffId: string | null; date: string; start: number };
 
 export function AppointmentPreview({
   ctx,
   appt,
   conflict,
   initialBranchId,
+  initialPick = null,
   onClose,
   onDone,
 }: {
@@ -79,13 +80,15 @@ export function AppointmentPreview({
   appt: Appointment;
   conflict: string | null;
   initialBranchId: string | null;
+  /** A slot chosen by dropping the card on a timeline — checked straight away. */
+  initialPick?: Pick | null;
   onClose: () => void;
   onDone: Done;
 }) {
   const [scope, setScope] = useState<string | null>(initialBranchId);
   const [data, setData] = useState<ApptPreview | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pick, setPick] = useState<Pick | null>(null);
+  const [pick, setPick] = useState<Pick | null>(initialPick);
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [checking, setChecking] = useState(false);
   const [manual, setManual] = useState(false);
@@ -97,19 +100,26 @@ export function AppointmentPreview({
   const branchName = (id: string) => ctx.branches.find((b) => b.id === id)?.name ?? "—";
   const staffName = (id: string | null) => (id ? ctx.staff.find((s) => s.id === id)?.name ?? "—" : "Any available");
 
+  // Visits further ahead than the usual two weeks still need their own day loaded.
+  const loadDate = initialPick?.date ?? appt.date;
   const loadSuggestions = useCallback(
     async (branchId: string | null) => {
       setLoading(true);
       setError(null);
       try {
-        const res = await postJson<ApptPreview>("/api/admin/multi-branch/preview", { type: "appointment", appointmentId: appt.id, branchId: branchId ?? undefined });
+        const res = await postJson<ApptPreview>("/api/admin/multi-branch/preview", {
+          type: "appointment",
+          appointmentId: appt.id,
+          branchId: branchId ?? undefined,
+          date: loadDate,
+        });
         setData(res);
       } catch (e) {
         setError((e as Error).message);
       }
       setLoading(false);
     },
-    [appt.id]
+    [appt.id, loadDate]
   );
 
   useEffect(() => {

@@ -114,7 +114,7 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
     return (
       <div className="space-y-3">
         {switcher}
-        <DayTimeline ctx={ctx} refreshKey={refreshKey} />
+        <DayTimeline ctx={ctx} refreshKey={refreshKey} onDone={onDone} />
       </div>
     );
   }
