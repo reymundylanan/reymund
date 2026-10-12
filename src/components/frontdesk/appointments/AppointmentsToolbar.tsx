@@ -82,7 +82,7 @@ export default function AppointmentsToolbar({
         </div>
       </div>
 
-      <div role="tablist" aria-label="Show" className="mt-5 flex w-fit max-w-full flex-wrap gap-1 rounded-full bg-[#f8f1df] p-1">
+      <div role="tablist" aria-label="Show" className="mt-5 flex w-fit max-w-full flex-wrap gap-1 rounded-full border border-[#e6d6ad] bg-[#fbf6ea] p-1">
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.key}
@@ -93,7 +93,7 @@ export default function AppointmentsToolbar({
             role="tab"
             aria-selected={statusFilter === f.key && !dateFilter}
             className={`rounded-full px-4 py-1.5 text-sm font-semibold transition ${
-              statusFilter === f.key && !dateFilter ? "bg-coral text-white shadow-sm" : "text-ink/60 hover:text-ink"
+              statusFilter === f.key && !dateFilter ? "bg-coral text-white shadow-sm" : "text-ink/80 hover:bg-white hover:text-ink"
             }`}
           >
             {f.label}
