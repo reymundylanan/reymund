@@ -6,6 +6,7 @@ import {
   proposeAt,
   findConflicts,
   formatTime,
+  freeStaffFor,
   openSlotCount,
   parseDuration,
   parseHours,
@@ -246,5 +247,27 @@ describe("client transfers", () => {
   it("never proposes a branch that does not offer the service", () => {
     const c = ctx({ services: [ctx().services[0]] });
     expect(proposeAt(c, appt({ date: TOMORROW }), "B")).toBeNull();
+  });
+});
+
+describe("automatic staff choice", () => {
+  it("lists qualified staff free for the whole slot, preferring the original person", () => {
+    const c = ctx({ appointments: [appt({ id: "x", professionalId: "angela", start: "14:30:00", duration: 60 })] });
+    // Angela is busy at 14:30; Bea is free; Nina is Nails (not qualified).
+    expect(freeStaffFor(c, req({ staffId: null }), "angela")).toEqual(["bea"]);
+    expect(freeStaffFor(ctx(), req({ staffId: null }), "angela")).toEqual(["angela", "bea"]);
+  });
+
+  it("rejects \"any available\" when nobody qualified is free", () => {
+    const c = ctx({
+      appointments: [
+        appt({ id: "x", professionalId: "angela", start: "14:00:00" }),
+        appt({ id: "y", professionalId: "bea", start: "14:00:00" }),
+      ],
+    });
+    const r = checkSlot(c, req({ staffId: null }));
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe("NO_STAFF");
+    expect(checkSlot(ctx(), req({ staffId: null })).ok).toBe(true);
   });
 });

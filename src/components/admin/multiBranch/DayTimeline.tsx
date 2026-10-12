@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Footprints, GripVertical, List, Move, Phone, Rows3, Scissors, UserRound, Wallet, X } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Columns3, Footprints, GripVertical, List, Move, Phone, Rows3, Scissors, UserRound, Wallet, X } from "lucide-react";
 import { addDays, branchHours, formatDay, formatTime, type Appointment, type Context } from "@/lib/multiBranch/engine";
 import { layoutLanes, visitState, type DayVisit } from "@/lib/multiBranch/day";
 import { Badge, Spinner, postJson } from "./ui";
 import { AppointmentPreview, type ApptPreview, type Done, type Pick } from "./TransferPreview";
 import { useCardDrag, type DragItem, type DropPoint } from "./useCardDrag";
+import { KANBAN_COLUMNS, kanbanColumn, planStatusChange, type KanbanColumn, type StatusAction } from "@/lib/multiBranch/kanban";
+import { createClient } from "@/lib/supabase/client";
+import { checkInClient, confirmAppointment, markArrived, updateSessionStatus } from "@/lib/supabase/queries/appointments";
+
+const NEXT_COLUMN: Partial<Record<KanbanColumn, KanbanColumn>> = { pending: "confirmed", confirmed: "checked_in", checked_in: "in_service", in_service: "completed" };
 
 type Kind = "all" | "walk_in" | "booking";
 const PX_PER_MIN = 1.5;
@@ -28,10 +33,12 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
   const [visits, setVisits] = useState<DayVisit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<Kind>("all");
-  const [mode, setMode] = useState<"timeline" | "list">("timeline");
+  const [mode, setMode] = useState<"timeline" | "kanban" | "list">("timeline");
+  const [statusMove, setStatusMove] = useState<{ visit: DayVisit; to: KanbanColumn; action: StatusAction; question: string } | null>(null);
+  const [applying, setApplying] = useState(false);
   const [showCancelled, setShowCancelled] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const [move, setMove] = useState<{ appt: Appointment; pick: Pick } | null>(null);
+  const [move, setMove] = useState<{ appt: Appointment; pick: Pick | null } | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   const [opening, setOpening] = useState(false);
 
@@ -77,21 +84,59 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
 
   // Dropped on a column: load the visit as the move tool sees it, then open
   // the move preview with that branch and time already chosen (and checked).
-  async function onDrop(item: DragItem, branchId: string, at: DropPoint) {
+  async function onDrop(item: DragItem, key: string, at: DropPoint) {
     const v = (visits ?? []).find((x) => x.id === item.id);
     if (!v) return;
+    if (key.startsWith("k:")) return askStatus(v, key.slice(2) as KanbanColumn);
+    const branchId = key;
     const start = snapStart(at);
     if (branchId === v.branchId && start === v.start) return;
+    await openMove(v, { branchId, start });
+  }
+
+  // Opens the move preview. With a slot (from a drop) it's checked straight
+  // away and the best free, qualified staff member is picked automatically.
+  async function openMove(v: DayVisit, slot: { branchId: string; start: number } | null) {
     setMoveError(null);
     setOpening(true);
     try {
       const res = await postJson<ApptPreview>("/api/admin/multi-branch/preview", { type: "appointment", appointmentId: v.id, date });
       const appt = res.appointment;
-      setMove({ appt, pick: { branchId, staffId: branchId === appt.branchId ? appt.professionalId : null, date, start } });
+      setSelected(null);
+      setMove({ appt, pick: slot ? { branchId: slot.branchId, staffId: null, date, start: slot.start } : null });
     } catch (e) {
       setMoveError((e as Error).message);
     }
     setOpening(false);
+  }
+
+  // Kanban: a status change is explained and confirmed before it's applied.
+  function askStatus(v: DayVisit, to: KanbanColumn) {
+    const plan = planStatusChange(kanbanColumn(v), to, { isToday: date === ctx.today, clientName: v.clientName });
+    if (!plan.ok) return setMoveError(plan.reason);
+    setMoveError(null);
+    setStatusMove({ visit: v, to, action: plan.action, question: plan.question });
+  }
+
+  async function applyStatus() {
+    if (!statusMove) return;
+    const { visit: v, action, to } = statusMove;
+    setApplying(true);
+    const sb = createClient();
+    const res =
+      action === "confirm"
+        ? await confirmAppointment(sb, v.id)
+        : action === "check_in"
+          ? await markArrived(sb, v.id)
+          : action === "start"
+            ? kanbanColumn(v) === "checked_in"
+              ? await updateSessionStatus(sb, v.id, "in_service")
+              : await checkInClient(sb, v.id)
+            : await updateSessionStatus(sb, v.id, "completed");
+    setApplying(false);
+    setStatusMove(null);
+    if (res.error) return setMoveError(res.error);
+    onDone(`${v.clientName} → ${KANBAN_COLUMNS.find((c) => c.key === to)?.label}.`, null);
   }
   const { ghost, over, overPoint, scroller, cardProps, columnRef, dragging } = useCardDrag(onDrop);
   const draggingVisit = dragging ? ((visits ?? []).find((x) => x.id === dragging.id) ?? null) : null;
@@ -148,7 +193,8 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
           <div className="flex rounded-full bg-cream p-1">
             {(
               [
-                ["timeline", "Timeline", Rows3],
+                ["timeline", "Calendar", Rows3],
+                ["kanban", "Kanban", Columns3],
                 ["list", "List", List],
               ] as const
             ).map(([m, label, Icon]) => (
@@ -174,10 +220,12 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
           </button>
         </p>
       )}
-      {visits && mode === "timeline" && date >= ctx.today && (
+      {visits && mode !== "list" && (mode === "kanban" || date >= ctx.today) && (
         <p className="flex flex-wrap items-center gap-1.5 px-1 text-xs text-ink/50">
           <Move className="h-3.5 w-3.5 text-coral-dark" />
-          Drag a booking or walk-in to another branch or time to move it — you&apos;ll see a check before anything changes.
+          {mode === "kanban"
+            ? "Drag a card to the next status (or open it and use “Next step”) — you’ll confirm before anything changes."
+            : "Drag a booking or walk-in to another branch or time to move it — GlowSync picks free staff and checks everything before you confirm."}
           {opening && (
             <span className="ml-1 flex items-center gap-1 text-coral-dark">
               <Spinner /> Checking…
@@ -300,11 +348,11 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
           {move ? (
             <div className="w-full lg:w-[26rem]">
               <AppointmentPreview
-                key={`${move.appt.id}-${move.pick.branchId}-${move.pick.start}`}
+                key={`${move.appt.id}-${move.pick?.branchId ?? ""}-${move.pick?.start ?? ""}`}
                 ctx={ctx}
                 appt={move.appt}
                 conflict={null}
-                initialBranchId={move.pick.branchId}
+                initialBranchId={move.pick?.branchId ?? null}
                 initialPick={move.pick}
                 onClose={() => setMove(null)}
                 onDone={(text, logId) => {
@@ -314,7 +362,16 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
               />
             </div>
           ) : (
-            chosen && <VisitDetails visit={chosen} branchName={branchName(chosen.branchId)} onClose={() => setSelected(null)} />
+            chosen && (
+              <VisitDetails
+                visit={chosen}
+                branchName={branchName(chosen.branchId)}
+                onClose={() => setSelected(null)}
+                onMove={canMove(chosen) ? () => openMove(chosen, null) : undefined}
+                onNext={NEXT_COLUMN[kanbanColumn(chosen)] ? () => askStatus(chosen, NEXT_COLUMN[kanbanColumn(chosen)]!) : undefined}
+                nextLabel={KANBAN_COLUMNS.find((c) => c.key === NEXT_COLUMN[kanbanColumn(chosen)])?.label}
+              />
+            )
           )}
         </div>
       )}
@@ -330,6 +387,120 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
         </div>
       )}
 
+
+      {visits && mode === "kanban" && (
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div ref={scroller} className="overflow-x-auto pb-2 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
+            <div className="flex min-w-max gap-3">
+              {KANBAN_COLUMNS.filter((c) => c.key !== "closed" || showCancelled).map((col) => {
+                const cards = shown.filter((v) => kanbanColumn(v) === col.key).sort((a, b) => a.start - b.start);
+                const isOver = !!dragging && over === `k:${col.key}`;
+                return (
+                  <section
+                    key={col.key}
+                    aria-label={col.label}
+                    className={`flex w-64 shrink-0 flex-col rounded-2xl border bg-white/70 transition ${isOver ? "border-coral bg-[#fff8e6] shadow-md" : "border-ink/5"}`}
+                  >
+                    <header className="flex items-center justify-between rounded-t-2xl border-b border-ink/5 bg-white px-3 py-2.5">
+                      <h3 className="text-sm font-semibold text-ink">{col.label}</h3>
+                      <span className="rounded-full bg-ink/5 px-2 text-xs font-semibold text-ink/60">{cards.length}</span>
+                    </header>
+                    <div ref={columnRef(`k:${col.key}`)} className="max-h-[calc(100dvh-16rem)] min-h-40 flex-1 space-y-2 overflow-y-auto p-2">
+                      {cards.map((v) => {
+                        const s = visitState(v);
+                        const movable = col.key !== "closed";
+                        return (
+                          <button
+                            key={v.id}
+                            {...cardProps({ kind: "appointment", id: v.id }, movable)}
+                            data-grip={movable ? "" : undefined}
+                            onClick={() => setSelected(v.id === selected ? null : v.id)}
+                            className={`block w-full rounded-xl border-l-4 bg-white p-2.5 text-left shadow-sm transition hover:shadow-md ${KIND_STYLE[v.kind].block} ${
+                              selected === v.id ? "ring-2 ring-coral" : ""
+                            } ${movable ? "cursor-grab touch-none active:cursor-grabbing" : "opacity-60"} ${dragging?.id === v.id ? "opacity-40" : ""}`}
+                          >
+                            <span className="flex items-center justify-between gap-1">
+                              <span className="flex min-w-0 items-center gap-0.5 text-sm font-bold text-ink">
+                                {movable && <GripVertical className="-ml-1 h-3.5 w-3.5 shrink-0 text-ink/30" aria-hidden />}
+                                <span className="truncate">{v.clientName}</span>
+                              </span>
+                              <span className={`h-2 w-2 shrink-0 rounded-full ${dot(s.tone)}`} title={s.label} />
+                            </span>
+                            <span className="mt-0.5 block text-xs text-ink/60">
+                              {formatTime(v.start)}–{formatTime(v.start + v.duration)} · {branchName(v.branchId)}
+                            </span>
+                            <span className="mt-0.5 block truncate text-xs text-ink/55" title={v.service}>{v.service}</span>
+                            <span className="mt-1.5 flex flex-wrap items-center gap-1">
+                              <span className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${KIND_STYLE[v.kind].chip}`}>
+                                {v.kind === "walk_in" ? <Footprints className="h-3 w-3" /> : <CalendarDays className="h-3 w-3" />}
+                                {KIND_STYLE[v.kind].label}
+                              </span>
+                              <span className="truncate text-[11px] text-ink/45">{v.staffName ?? "Any staff"}</span>
+                              {v.paid && <Wallet className="h-3 w-3 text-green-600" aria-label="Paid" />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                      {cards.length === 0 && <p className="rounded-xl border-2 border-dashed border-ink/10 py-6 text-center text-xs text-ink/35">Nothing here</p>}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+          {chosen && (
+            <VisitDetails
+              visit={chosen}
+              branchName={branchName(chosen.branchId)}
+              onClose={() => setSelected(null)}
+              onMove={canMove(chosen) ? () => openMove(chosen, null) : undefined}
+              onNext={NEXT_COLUMN[kanbanColumn(chosen)] ? () => askStatus(chosen, NEXT_COLUMN[kanbanColumn(chosen)]!) : undefined}
+              nextLabel={KANBAN_COLUMNS.find((c) => c.key === NEXT_COLUMN[kanbanColumn(chosen)])?.label}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Move preview opened from the Kanban or List (Calendar shows it beside the timeline) */}
+      {move && mode !== "timeline" && (
+        <div className="fixed inset-0 z-[90] flex items-start justify-center overflow-y-auto bg-ink/40 p-4" onClick={() => setMove(null)}>
+          <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <AppointmentPreview
+              key={move.appt.id}
+              ctx={ctx}
+              appt={move.appt}
+              conflict={null}
+              initialBranchId={null}
+              initialPick={null}
+              onClose={() => setMove(null)}
+              onDone={(text, logId) => {
+                setMove(null);
+                onDone(text, logId);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Status change confirmation */}
+      {statusMove && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-ink/40 p-4" onClick={() => !applying && setStatusMove(null)}>
+          <div role="dialog" aria-label="Confirm status change" className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-coral-dark">
+              {KANBAN_COLUMNS.find((c) => c.key === kanbanColumn(statusMove.visit))?.label} → {KANBAN_COLUMNS.find((c) => c.key === statusMove.to)?.label}
+            </p>
+            <p className="mt-2 text-sm text-ink">{statusMove.question}</p>
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setStatusMove(null)} disabled={applying} className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70">
+                Cancel
+              </button>
+              <button onClick={applyStatus} disabled={applying} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                {applying && <Spinner />} Yes, update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {visits && mode === "list" && (
         <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
@@ -397,7 +568,22 @@ function dot(tone: ReturnType<typeof visitState>["tone"]) {
   return { green: "bg-green-500", blue: "bg-blue-500", amber: "bg-amber-500", red: "bg-red-500", gray: "bg-ink/30" }[tone];
 }
 
-function VisitDetails({ visit: v, branchName, onClose }: { visit: DayVisit; branchName: string; onClose: () => void }) {
+function VisitDetails({
+  visit: v,
+  branchName,
+  onClose,
+  onMove,
+  onNext,
+  nextLabel,
+}: {
+  visit: DayVisit;
+  branchName: string;
+  onClose: () => void;
+  /** Keyboard-friendly alternative to dragging. */
+  onMove?: () => void;
+  onNext?: () => void;
+  nextLabel?: string;
+}) {
   const s = visitState(v);
   return (
     <aside className="h-fit w-full rounded-2xl bg-white p-4 shadow-sm lg:sticky lg:top-4 lg:w-72">
@@ -424,6 +610,20 @@ function VisitDetails({ visit: v, branchName, onClose }: { visit: DayVisit; bran
         {v.paid && <Badge tone="green"><Wallet className="h-3 w-3" /> Paid</Badge>}
         {v.code && <Badge tone="gray">#{v.code}</Badge>}
       </div>
+      {(onMove || onNext) && (
+        <div className="mt-4 space-y-2 border-t border-ink/5 pt-3">
+          {onNext && nextLabel && (
+            <button onClick={onNext} className="flex w-full items-center justify-center gap-1.5 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
+              Next step: {nextLabel} <ArrowRight className="h-4 w-4" />
+            </button>
+          )}
+          {onMove && (
+            <button onClick={onMove} className="flex w-full items-center justify-center gap-1.5 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/75 hover:border-coral hover:text-coral-dark">
+              <Move className="h-4 w-4" /> Move branch or time…
+            </button>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

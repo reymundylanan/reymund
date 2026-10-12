@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkSlot, checkStaffTransfer, suggestAlternatives, toMinutes } from "@/lib/multiBranch/engine";
+import { checkSlot, checkStaffTransfer, freeStaffFor, suggestAlternatives, toMinutes } from "@/lib/multiBranch/engine";
 import { loadContext } from "@/lib/multiBranch/load";
 import { requireAdmin } from "@/lib/multiBranch/server";
 import { clientChannels } from "@/lib/multiBranch/channels";
@@ -33,9 +33,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "That appointment is no longer upcoming (it may have been cancelled or completed)." }, { status: 404 });
   }
 
-  const proposal =
+  const slot =
     body.branchId && body.date && body.start
-      ? checkSlot(ctx, {
+      ? {
           branchId: body.branchId,
           staffId: body.staffId ?? null,
           date: body.date,
@@ -44,8 +44,12 @@ export async function POST(request: Request) {
           departments: appt.departments,
           services: body.branchId === appt.branchId ? [] : appt.services,
           excludeAppointmentId: appt.id,
-        })
+        }
       : null;
+  const proposal = slot ? checkSlot(ctx, slot) : null;
+  // Who could take it at that time (qualified, free for the whole service) —
+  // their original staff first, so the preview can pick one automatically.
+  const staffOptions = slot ? freeStaffFor(ctx, { ...slot, staffId: null }, appt.professionalId) : [];
 
   // Dropped on one branch: that branch's options over a week; otherwise all branches, 3 days.
   const oneBranch = !!body.branchId && !body.start;
@@ -58,6 +62,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     appointment: appt,
     proposal,
+    staffOptions,
     suggestions,
     channels: await clientChannels(gate.admin, appt.clientId),
   });

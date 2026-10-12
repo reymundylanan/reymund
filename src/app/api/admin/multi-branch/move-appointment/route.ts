@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkSlot, suggestAlternatives, toMinutes } from "@/lib/multiBranch/engine";
+import { checkSlot, freeStaffFor, suggestAlternatives, toMinutes } from "@/lib/multiBranch/engine";
 import { loadContext } from "@/lib/multiBranch/load";
 import { fail, requireAdmin, rpcFailure } from "@/lib/multiBranch/server";
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   const appt = ctx.appointments.find((a) => a.id === body.appointmentId);
   if (!appt) return NextResponse.json({ error: "That appointment is no longer upcoming." }, { status: 404 });
 
-  const check = checkSlot(ctx, {
+  const slot = {
     branchId: body.branchId,
     staffId: body.staffId,
     date: body.date,
@@ -31,7 +31,10 @@ export async function POST(request: Request) {
     departments: appt.departments,
     services: body.branchId === appt.branchId ? [] : appt.services,
     excludeAppointmentId: appt.id,
-  });
+  };
+  // No one chosen: assign the best qualified person who's free (never "nobody").
+  if (!slot.staffId) slot.staffId = freeStaffFor(ctx, slot, appt.professionalId)[0] ?? null;
+  const check = checkSlot(ctx, slot);
   if (!check.ok) {
     return NextResponse.json(
       { error: check.reasons.join(" "), code: check.code, check, suggestions: suggestAlternatives(ctx, appt, { days: 3, limit: 9 }) },
@@ -42,7 +45,7 @@ export async function POST(request: Request) {
   const { data, error } = await gate.supabase.rpc("admin_move_appointment", {
     p_appointment_id: appt.id,
     p_branch_id: body.branchId,
-    p_professional_id: body.staffId,
+    p_professional_id: slot.staffId,
     p_date: body.date,
     p_start: `${body.start.slice(0, 5)}:00`,
     p_reason: body.reason.trim(),

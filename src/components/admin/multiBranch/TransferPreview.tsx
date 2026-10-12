@@ -64,7 +64,7 @@ export function Side({ label, tone, children }: { label: string; tone: "old" | "
 
 // ── Appointment move / reschedule ─────────────────────────────────────
 
-export type ApptPreview = { appointment: Appointment; proposal: CheckResult | null; suggestions: Suggestion[]; channels: Channels };
+export type ApptPreview = { appointment: Appointment; proposal: CheckResult | null; staffOptions?: string[]; suggestions: Suggestion[]; channels: Channels };
 export type Pick = { branchId: string; staffId: string | null; date: string; start: number };
 
 export function AppointmentPreview({
@@ -90,6 +90,9 @@ export function AppointmentPreview({
   const [loading, setLoading] = useState(true);
   const [pick, setPick] = useState<Pick | null>(initialPick);
   const [check, setCheck] = useState<CheckResult | null>(null);
+  // Qualified staff free for the proposed slot (best first), and how the current one was chosen.
+  const [staffOptions, setStaffOptions] = useState<string[]>([]);
+  const [autoStaff, setAutoStaff] = useState(false);
   const [checking, setChecking] = useState(false);
   const [manual, setManual] = useState(false);
   const [reason, setReason] = useState(conflict ?? "");
@@ -142,7 +145,18 @@ export function AppointmentPreview({
       date: pick.date,
       start: toTime(pick.start),
     })
-      .then((res) => n === seq.current && setCheck(res.proposal))
+      .then((res) => {
+        if (n !== seq.current) return;
+        const options = res.staffOptions ?? [];
+        setStaffOptions(options);
+        // Dropped without a person: take the best free, qualified one (their original staff if possible).
+        if (!pick.staffId && options[0]) {
+          setAutoStaff(true);
+          setPick({ ...pick, staffId: options[0] });
+          return;
+        }
+        setCheck(res.proposal);
+      })
       .catch((e) => n === seq.current && setError((e as Error).message))
       .finally(() => n === seq.current && setChecking(false));
   }, [pick, appt.id]);
@@ -203,7 +217,35 @@ export function AppointmentPreview({
                 </p>
               )}
               <p>{formatDay(pick.date, ctx.today)} · {formatTime(pick.start)}–{formatTime(pick.start + appt.duration)}</p>
-              <p className="text-ink/60">{staffName(pick.staffId)}</p>
+              {staffOptions.length > 0 || pick.staffId ? (
+                <label className="mt-1 block text-xs font-medium text-ink/55">
+                  Staff
+                  <select
+                    value={pick.staffId ?? ""}
+                    onChange={(e) => {
+                      setAutoStaff(false);
+                      setConfirming(false);
+                      setPick({ ...pick, staffId: e.target.value || null });
+                    }}
+                    className="mt-0.5 w-full rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm text-ink"
+                  >
+                    {pick.staffId && !staffOptions.includes(pick.staffId) && <option value={pick.staffId}>{staffName(pick.staffId)}</option>}
+                    {staffOptions.map((id) => (
+                      <option key={id} value={id}>
+                        {staffName(id)}
+                        {id === appt.professionalId ? " (original)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {autoStaff && pick.staffId && (
+                    <span className="mt-0.5 block text-[11px] text-green-700">
+                      {pick.staffId === appt.professionalId ? "Kept their original staff — free for the full service." : "Auto-selected: qualified and free for the full service."}
+                    </span>
+                  )}
+                </label>
+              ) : (
+                <p className="text-ink/60">{checking ? "Finding available staff…" : "No qualified staff free at this time"}</p>
+              )}
               <p className="text-ink/60">Same service · {appt.duration} min (not shortened)</p>
             </>
           ) : (

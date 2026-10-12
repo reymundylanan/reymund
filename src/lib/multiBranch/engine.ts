@@ -227,7 +227,11 @@ export function checkSlot(ctx: Context, req: SlotRequest): CheckResult {
   const missing = missingServices(ctx, req.branchId, req.services);
   if (missing.length) fail("serviceAvailable", "SERVICE_UNAVAILABLE", `${branch?.name ?? "This branch"} doesn't offer ${missing.join(", ")}.`);
 
-  if (req.staffId) {
+  if (!req.staffId) {
+    // "Any available" still needs someone: a qualified person free for the whole service.
+    if (reasons.length === 0 && freeStaffFor(ctx, req).length === 0)
+      fail("staffAvailable", "NO_STAFF", `No qualified staff member at ${branch?.name ?? "this branch"} is free for the full ${req.duration} min at ${formatTime(req.start)}.`);
+  } else {
     const staff = ctx.staff.find((s) => s.id === req.staffId);
     const where = presence(ctx, req.staffId, req.branchId, req.date);
     if (!staff || !where) {
@@ -272,6 +276,16 @@ export function checkSlot(ctx: Context, req: SlotRequest): CheckResult {
 }
 
 // ── Finding open slots ──
+
+/** Qualified staff free for the whole slot, best first: the preferred person
+ * (e.g. the client's original staff), then the least busy that day. */
+export function freeStaffFor(ctx: Context, req: SlotRequest, preferId: string | null = null): string[] {
+  const busy = (id: string) => activeAppointmentsOf(ctx, id, req.date, req.excludeAppointmentId).length;
+  return candidateStaff(ctx, req.branchId, req.date, req.departments)
+    .filter((s) => checkSlot(ctx, { ...req, staffId: s.id }).ok)
+    .sort((a, b) => (a.id === preferId ? -1 : b.id === preferId ? 1 : busy(a.id) - busy(b.id)))
+    .map((s) => s.id);
+}
 
 /** Staff who could do this booking at the branch on that date (qualified, present). */
 export function candidateStaff(ctx: Context, branchId: string, date: string, departments: string[]): Staff[] {
