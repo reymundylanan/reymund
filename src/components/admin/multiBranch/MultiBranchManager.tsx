@@ -44,6 +44,7 @@ import { AppointmentPreview, StaffPreview } from "./TransferPreview";
 import ServicesPanel from "./ServicesPanel";
 import HistoryPanel from "./HistoryPanel";
 import ClientsBoard from "./ClientsBoard";
+import StatCard from "@/components/StatCard";
 import PromosPanel from "./PromosPanel";
 import { AppointmentDetails, StaffDetails } from "./StaffDetails";
 import { Spinner, TONE, postJson, type Tone } from "./ui";
@@ -373,13 +374,13 @@ export default function MultiBranchManager() {
 
       {/* Summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-        <SummaryCard icon={Building2} label="Total branches" value={summary ? `${summary.activeBranches}/${summary.branches}` : "—"} hint="open / all" tone="gray" />
-        <SummaryCard icon={UserCheck} label="Staff available" value={summary?.available} tone="green" />
-        <SummaryCard icon={Users} label={date === ctx?.today ? "Staff in service" : "Staff with bookings"} value={summary?.busy} tone="blue" />
-        <SummaryCard icon={CalendarClock} label="Open 1-hr slots" value={summary?.slots} tone="green" />
-        <SummaryCard icon={AlertTriangle} label="Need rescheduling" value={summary?.needs} tone={summary?.needs ? "red" : "gray"} onClick={() => { setView("board"); setLower("needs"); document.getElementById("mb-lower")?.scrollIntoView({ behavior: "smooth" }); }} />
-        <SummaryCard icon={ArrowLeftRight} label="Pending staff transfers" value={summary?.pending} tone={summary?.pending ? "amber" : "gray"} />
-        <SummaryCard icon={Footprints} label="Pending walk-in transfers" value={summary?.pendingWalkins} tone={summary?.pendingWalkins ? "amber" : "gray"} />
+        <SummaryCard icon={Building2} label="Branches" value={summary ? `${summary.activeBranches}/${summary.branches}` : "—"} hint="Open / all" tone="gray" />
+        <SummaryCard icon={UserCheck} label="Staff available" value={summary?.available} hint="Free to take clients" tone="green" />
+        <SummaryCard icon={Users} label={date === ctx?.today ? "Staff in service" : "Staff with bookings"} value={summary?.busy} hint={date === ctx?.today ? "Serving clients now" : "Booked that day"} tone="blue" />
+        <SummaryCard icon={CalendarClock} label="Open 1-hr slots" value={summary?.slots} hint="Across all branches" tone="green" />
+        <SummaryCard icon={AlertTriangle} label="Need rescheduling" value={summary?.needs} hint={summary?.needs ? "Tap to review" : "All clear"} tone={summary?.needs ? "red" : "gray"} onClick={() => { setView("board"); setLower("needs"); document.getElementById("mb-lower")?.scrollIntoView({ behavior: "smooth" }); }} />
+        <SummaryCard icon={ArrowLeftRight} label="Staff transfers" value={summary?.pending} hint="Waiting for approval" tone={summary?.pending ? "amber" : "gray"} />
+        <SummaryCard icon={Footprints} label="Walk-in transfers" value={summary?.pendingWalkins} hint="Waiting at a branch" tone={summary?.pendingWalkins ? "amber" : "gray"} />
       </div>
 
       {/* View switch + filters */}
@@ -703,17 +704,7 @@ function SummaryCard({
   tone: Tone;
   onClick?: () => void;
 }) {
-  const Tag = onClick ? "button" : "div";
-  return (
-    <Tag onClick={onClick} className={`rounded-2xl border border-ink/5 bg-white p-3 text-left shadow-sm ${onClick ? "transition hover:border-coral/40" : ""}`}>
-      <span className={`mb-2 grid h-8 w-8 place-items-center rounded-xl ${TONE[tone].badge}`}>
-        <Icon className="h-4 w-4" />
-      </span>
-      <p className="text-xl font-bold text-ink">{value ?? "—"}</p>
-      <p className="text-xs text-ink/50">
-        {label}
-        {hint && <span className="text-ink/35"> · {hint}</span>}
-      </p>
-    </Tag>
-  );
+  // Same summary box as every other page; colour only where it needs attention.
+  const statTone = tone === "red" ? "alert" : tone === "amber" ? "warn" : tone === "green" ? "good" : "default";
+  return <StatCard icon={Icon} label={label} value={value ?? "—"} note={hint} tone={statTone} onClick={onClick} />;
 }

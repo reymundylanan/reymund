@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Star } from "lucide-react";
+import { ArrowLeft, Award, Coins, Star, TrendingUp } from "lucide-react";
 import PhotoLightbox from "@/components/reviews/PhotoLightbox";
 import { reviewerName } from "@/lib/reviews";
 import { formatAppointmentDate } from "@/lib/appointmentFormat";
@@ -21,6 +21,7 @@ import {
 } from "@/lib/supabase/queries/adminRewards";
 import EvaluationCard from "./EvaluationCard";
 import RedemptionAdmin from "./RedemptionAdmin";
+import StatCard from "@/components/StatCard";
 
 type Stats = Awaited<ReturnType<typeof getRewardStats>>;
 
@@ -169,19 +170,10 @@ export default function RewardsManager({
         <ArrowLeft className="h-4 w-4" /> Back to reviews
       </Link>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-ink/40">Points issued this month</p>
-          <p className="mt-1 text-xl font-semibold text-ink">{stats.pointsThisMonth}</p>
-        </div>
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-ink/40">Reviews rewarded</p>
-          <p className="mt-1 text-xl font-semibold text-ink">{stats.reviewsRewarded}</p>
-        </div>
-        <div className="rounded-2xl bg-white p-4 shadow-sm">
-          <p className="text-xs font-semibold uppercase text-ink/40">Average points</p>
-          <p className="mt-1 text-xl font-semibold text-ink">{stats.averagePoints}</p>
-        </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard icon={Coins} label="Points issued" value={stats.pointsThisMonth} note="This month" />
+        <StatCard icon={Award} label="Reviews rewarded" value={stats.reviewsRewarded} note="Earned GlowPoints" />
+        <StatCard icon={TrendingUp} label="Average points" value={stats.averagePoints} note="Per rewarded review" />
       </div>
 
       <section className="rounded-2xl bg-white p-4 shadow-sm">

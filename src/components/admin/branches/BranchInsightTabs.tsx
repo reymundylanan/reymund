@@ -9,6 +9,7 @@ import { loadReportData } from "@/lib/supabase/queries/reportData";
 import { apptState, buildReport, peso } from "@/lib/reports/builders";
 import type { ReportData, ReportFilters, ReportSection } from "@/lib/reports/model";
 import { formatCell } from "@/lib/reports/export";
+import StatCard from "@/components/StatCard";
 
 const todayKey = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 function addDays(key: string, n: number) {
@@ -47,16 +48,8 @@ function Card({ title, children, action }: { title: string; children: React.Reac
   );
 }
 
-function Stat({ icon: I, label, value, note }: { icon: typeof Star; label: string; value: string; note?: string }) {
-  return (
-    <div className="rounded-xl border border-nude/70 bg-cream p-4">
-      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-ink/55">
-        <I className="h-4 w-4 text-coral-dark" /> {label}
-      </p>
-      <p className="mt-1.5 text-2xl font-semibold text-ink">{value}</p>
-      {note && <p className="mt-0.5 text-xs text-ink/55">{note}</p>}
-    </div>
-  );
+function Stat({ icon, label, value, note }: { icon: typeof Star; label: string; value: string; note?: string }) {
+  return <StatCard icon={icon} label={label} value={value} note={note} />;
 }
 
 function Loading({ error }: { error: string | null }) {
@@ -451,11 +444,8 @@ export function BranchAnalyticsTab({ branchId }: { branchId: string }) {
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[...view.sales.summary.slice(0, 2), ...view.appts.summary.slice(0, 2)].map((s) => (
-              <div key={s.label} className="rounded-xl border border-nude/70 bg-white p-4 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-ink/55">{s.label}</p>
-                <p className="mt-1.5 text-2xl font-semibold text-ink">{s.value}</p>
-              </div>
+            {[...view.sales.summary.slice(0, 2), ...view.appts.summary.slice(0, 2)].map((s, i) => (
+              <StatCard key={s.label} icon={i < 2 ? Wallet : CalendarCheck} label={s.label} value={s.value} note={i < 2 ? "Sales in this period" : "Appointments in this period"} />
             ))}
           </div>
 

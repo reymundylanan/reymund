@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Star } from "lucide-react";
+import { Bell, Building2, Scissors, Star, UserRound } from "lucide-react";
 import GlowMascot from "@/components/GlowMascot";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -16,6 +16,7 @@ import {
 } from "@/lib/supabase/queries/adminReviews";
 import ReviewDetailPanel from "./ReviewDetailPanel";
 import ReviewAssistantPanel from "./ReviewAssistantPanel";
+import StatCard from "@/components/StatCard";
 
 type Stats = Awaited<ReturnType<typeof getAdminReviewStats>>;
 type Options = { staff: { id: string; name: string }[]; branches: { id: string; name: string }[]; services: { id: string; name: string }[] };
@@ -132,20 +133,31 @@ export default function ReviewsManager({
           }}
         />
       )}
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {(["service", "staff", "branch"] as const).map((t) => (
-          <div key={t} className="rounded-2xl bg-white p-4 shadow-sm">
-            <p className="text-xs font-semibold uppercase text-ink/40">{TYPE_LABEL[t]}</p>
-            <p className="mt-1 flex items-center gap-1 text-xl font-semibold text-ink">
-              <Star className="h-4 w-4 fill-gold text-gold" /> {stats.byType[t].average}
-            </p>
-            <p className="text-xs text-ink/40">{stats.byType[t].count} visible</p>
-          </div>
+          <StatCard
+            key={t}
+            icon={t === "service" ? Scissors : t === "staff" ? UserRound : Building2}
+            label={`${TYPE_LABEL[t]} rating`}
+            value={
+              <span className="inline-flex items-center gap-1.5">
+                {stats.byType[t].average} <Star className="h-5 w-5 fill-gold text-gold" />
+              </span>
+            }
+            note={`From ${stats.byType[t].count} visible review${stats.byType[t].count === 1 ? "" : "s"}`}
+            active={filters.type === t}
+            onClick={() => apply({ ...filters, page: undefined, type: filters.type === t ? undefined : t })}
+          />
         ))}
-        <button onClick={() => apply({ ...filters, page: undefined, status: "new" })} className="rounded-2xl bg-white p-4 text-left shadow-sm">
-          <p className="text-xs font-semibold uppercase text-ink/40">New</p>
-          <p className="mt-1 text-xl font-semibold text-coral-dark">{stats.newCount}</p>
-        </button>
+        <StatCard
+          icon={Bell}
+          label="New reviews"
+          value={stats.newCount}
+          note={stats.newCount ? "Not seen yet — tap to show them" : "You're all caught up"}
+          tone={stats.newCount ? "warn" : "default"}
+          active={filters.status === "new"}
+          onClick={() => apply({ ...filters, page: undefined, status: filters.status === "new" ? undefined : "new" })}
+        />
       </div>
 
       <div className="rounded-2xl bg-white p-4 shadow-sm">

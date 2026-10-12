@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MapPin, MoreHorizontal, Plus, Search, Users, ShieldCheck, UserCog, MonitorSmartphone, UserCircle } from "lucide-react";
 import { TABLE_HEAD, TABLE_WRAP, TABLE_ROW } from "@/components/admin/users/tableStyle";
+import StatCard from "@/components/StatCard";
 import UserEditPanel from "@/components/admin/users/UserEditPanel";
 import ClientViewPanel from "@/components/admin/users/ClientViewPanel";
 import CreateUserModal from "@/components/admin/users/CreateUserModal";
@@ -34,7 +35,7 @@ type StatCard = {
   label: string;
   value: number;
   sub: string;
-  icon: React.ReactNode;
+  icon: typeof Users;
   /** The tab this card opens (none for the total). */
   tab: string | null;
 };
@@ -125,11 +126,11 @@ export default function UsersTable({
   const totalCount = adminCount + frontDeskCount + staffCount + clientsTotal;
 
   const statCards: StatCard[] = [
-    { label: "Total Users", value: totalCount, sub: "Across all roles", icon: <Users className="h-[18px] w-[18px]" />, tab: null },
-    { label: "Administrators", value: adminCount, sub: "All branches access", icon: <ShieldCheck className="h-[18px] w-[18px]" />, tab: "Administrators" },
-    { label: "Front Desk", value: frontDeskCount, sub: "Active accounts", icon: <MonitorSmartphone className="h-[18px] w-[18px]" />, tab: "Front Desk" },
-    { label: "Staff / Therapists", value: staffCount, sub: "Assigned to branches", icon: <UserCog className="h-[18px] w-[18px]" />, tab: "Staff" },
-    { label: "Customers", value: clientsTotal, sub: "Registered clients", icon: <UserCircle className="h-[18px] w-[18px]" />, tab: "Clients" },
+    { label: "Total Users", value: totalCount, sub: "Across all roles", icon: Users, tab: null },
+    { label: "Administrators", value: adminCount, sub: "All branches access", icon: ShieldCheck, tab: "Administrators" },
+    { label: "Front Desk", value: frontDeskCount, sub: "Active accounts", icon: MonitorSmartphone, tab: "Front Desk" },
+    { label: "Staff / Therapists", value: staffCount, sub: "Assigned to branches", icon: UserCog, tab: "Staff" },
+    { label: "Customers", value: clientsTotal, sub: "Registered clients", icon: UserCircle, tab: "Clients" },
   ];
 
   const isClientsTab = tab === "Clients";
@@ -171,42 +172,18 @@ export default function UsersTable({
 
       {/* Stat cards — click one to open its tab */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {statCards.map((card) => {
-          const active = card.tab === tab;
-          const body = (
-            <>
-              <span className="flex items-center gap-2.5">
-                <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition ${
-                    active ? "bg-coral text-white" : card.tab ? "bg-[#f8efd9] text-coral-dark" : "bg-ink text-white"
-                  }`}
-                >
-                  {card.icon}
-                </span>
-                <span className="truncate text-sm font-semibold text-ink">{card.label}</span>
-              </span>
-              <span className="mt-3 block text-3xl font-semibold tabular-nums leading-none text-ink">{card.value.toLocaleString()}</span>
-              <span className="mt-1.5 block truncate text-xs font-medium text-ink/60">{card.sub}</span>
-            </>
-          );
-          const shell = `flex flex-col items-start text-left rounded-2xl bg-white p-4 shadow-[0_10px_30px_-24px_rgba(90,60,20,0.5)] ring-1 transition ${
-            active ? "ring-2 ring-coral" : "ring-[#efe3c6]"
-          }`;
-          return card.tab ? (
-            <button
-              key={card.label}
-              onClick={() => setTab(card.tab!)}
-              aria-pressed={active}
-              className={`${shell} hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-20px_rgba(90,60,20,0.55)]`}
-            >
-              {body}
-            </button>
-          ) : (
-            <div key={card.label} className={`${shell} bg-gradient-to-br from-white to-[#fbf4e4]`}>
-              {body}
-            </div>
-          );
-        })}
+        {statCards.map((card) => (
+          <StatCard
+            key={card.label}
+            icon={card.icon}
+            label={card.label}
+            value={card.value.toLocaleString()}
+            note={card.sub}
+            tone={card.tab ? "default" : "dark"}
+            active={card.tab === tab}
+            onClick={card.tab ? () => setTab(card.tab!) : undefined}
+          />
+        ))}
       </div>
 
       {/* Table card */}

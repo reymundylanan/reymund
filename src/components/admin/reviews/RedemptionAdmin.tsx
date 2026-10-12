@@ -22,6 +22,8 @@ import {
   type VouchersResult,
   type OptionInput,
 } from "@/lib/supabase/queries/adminVouchers";
+import { BadgePercent, Coins, Ticket } from "lucide-react";
+import StatCard from "@/components/StatCard";
 
 type Settings = { maxPerBooking: number; enabled: boolean };
 type Client = { id: string; name: string; balance: number };
@@ -310,7 +312,6 @@ export default function RedemptionAdmin() {
   const pages = vouchers ? Math.max(1, Math.ceil(vouchers.total / VOUCHER_PAGE_SIZE)) : 1;
   const optInvalid = optForm ? validateOption(optForm) : null;
   const tile = "rounded-2xl bg-white p-4 shadow-sm";
-  const tileLabel = "text-xs font-semibold uppercase text-ink/40";
 
   return (
     <div className="space-y-6">
@@ -329,19 +330,10 @@ export default function RedemptionAdmin() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className={tile}>
-              <p className={tileLabel}>Points redeemed this month</p>
-              <p className="mt-1 text-xl font-semibold text-ink">{stats.stats.pointsRedeemedThisMonth.toLocaleString("en-PH")}</p>
-            </div>
-            <div className={tile}>
-              <p className={tileLabel}>Active vouchers</p>
-              <p className="mt-1 text-xl font-semibold text-ink">{stats.stats.activeVouchers}</p>
-            </div>
-            <div className={tile}>
-              <p className={tileLabel}>Discounts given this month</p>
-              <p className="mt-1 text-xl font-semibold text-ink">{peso(stats.stats.discountsThisMonth)}</p>
-            </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatCard icon={Coins} label="Points redeemed" value={stats.stats.pointsRedeemedThisMonth.toLocaleString("en-PH")} note="This month" />
+            <StatCard icon={Ticket} label="Active vouchers" value={stats.stats.activeVouchers} note="Ready to use at the front desk" />
+            <StatCard icon={BadgePercent} label="Discounts given" value={peso(stats.stats.discountsThisMonth)} note="This month" />
           </div>
         )}
       </section>
