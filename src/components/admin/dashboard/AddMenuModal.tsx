@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Trash2, Upload, X } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 type MenuPhoto = { id: string; image_url: string; storage_path: string };
 
@@ -23,7 +24,7 @@ export default function AddMenuModal({ onClose }: { onClose: () => void }) {
       .is("branch_id", null)
       .eq("category", "menu")
       .order("created_at", { ascending: false });
-    if (loadError) console.error("[add-menu] load error:", loadError.message);
+    if (loadError) logQueryError("add-menu load", loadError);
     setPhotos((data as MenuPhoto[]) ?? []);
   }
 

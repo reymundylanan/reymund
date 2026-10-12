@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import type { adminBranches } from "@/lib/adminData";
 import { branchServiceCategories } from "@/lib/data";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 
 type Branch = (typeof adminBranches)[number];
 
@@ -1759,7 +1760,7 @@ function GalleryTab({ branchUuid }: { branchUuid: string | null }) {
       .select("id, image_url, storage_path")
       .eq("branch_id", uuid)
       .order("created_at", { ascending: false });
-    if (error) console.error("[gallery] load error:", error.message);
+    if (error) logQueryError("gallery load", error);
     setPhotos((data as GalleryPhoto[]) ?? []);
   }
 

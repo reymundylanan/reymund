@@ -4,6 +4,7 @@ import ServicesHero from "@/components/services/ServicesHero";
 import ServiceCatalog, { type DbService } from "@/components/services/ServiceCatalog";
 import MottoBanner from "@/components/services/MottoBanner";
 import { createClient } from "@/lib/supabase/server";
+import { logQueryError } from "@/lib/supabase/logQueryError";
 import { getServicePhotoThumbs, getServiceReviewSummaries } from "@/lib/supabase/queries/serviceReviews";
 import { signPublicReviewPhotos } from "@/lib/supabase/reviewPhotoUrls";
 import { getServiceMediaMap } from "@/lib/serviceMedia";
@@ -18,7 +19,7 @@ async function fetchServices(): Promise<DbService[]> {
     .eq("name", "One Cecilia Center")
     .maybeSingle();
 
-  if (branchErr) { console.error("[services] branch error:", branchErr.message); return []; }
+  if (branchErr) { logQueryError("services branch", branchErr); return []; }
   if (!branchRow?.id) { console.error("[services] branch not found"); return []; }
 
   const { data, error } = await supabase
@@ -29,7 +30,7 @@ async function fetchServices(): Promise<DbService[]> {
     .order("category")
     .order("name");
 
-  if (error) { console.error("[services] fetch error:", error.message); return []; }
+  if (error) { logQueryError("services", error); return []; }
   return (data ?? []) as DbService[];
 }
 
