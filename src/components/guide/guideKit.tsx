@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Fredoka, Nunito } from "next/font/google";
 
 // Shared pieces of GlowSync AI's speech bubbles (Services guide, Meet the Team).
@@ -26,6 +26,28 @@ function subscribeWide(cb: () => void) {
 export function useMascotSize(): number {
   const wide = useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches, () => false);
   return wide ? MASCOT_DESKTOP : MASCOT_PHONE;
+}
+
+/** Like the Services guide: when the guide's spot moves to another card it
+ * glides there (`.guide-fly`), wiggling, with the text hidden until it lands.
+ * Call `note(pos)` whenever the position is (re)measured. */
+export function useGuideTravel(ms = 900) {
+  const [moving, setMoving] = useState(false);
+  const last = useRef<{ left: number; top: number } | null>(null);
+  const timer = useRef(0);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const note = useCallback(
+    (p: { left: number; top: number } | null) => {
+      const prev = last.current;
+      last.current = p;
+      if (!p || !prev || (Math.abs(prev.left - p.left) < 3 && Math.abs(prev.top - p.top) < 3)) return;
+      setMoving(true);
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setMoving(false), ms);
+    },
+    [ms]
+  );
+  return { moving, note };
 }
 
 /** Types its text out like the mascot is speaking. Remount (key) to replay. */

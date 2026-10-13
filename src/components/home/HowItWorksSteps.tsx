@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarClock, CalendarPlus, CreditCard, MapPin, Sparkles } from "lucide-react";
-import { GUIDE_FONTS, MASCOT_DESKTOP, TypeText, useMascotSize } from "@/components/guide/guideKit";
+import { GUIDE_FONTS, useGuideTravel, MASCOT_DESKTOP, TypeText, useMascotSize } from "@/components/guide/guideKit";
 import { PlayfulMascot } from "@/components/guide/MascotPlay";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchServiceCategories } from "@/lib/data";
@@ -70,9 +70,10 @@ export default function HowItWorksSteps() {
   const [pos, setPos] = useState<{ left: number; top: number; arrow: number; width: number } | null>(null);
   const [reply, setReply] = useState(0);
 
+  const { moving, note: notePos } = useGuideTravel();
   const place = useCallback(() => {
     const grid = gridRef.current;
-    if (!grid || active == null) return setPos(null);
+    if (!grid || active == null) return notePos(null), setPos(null);
     const card = grid.querySelector<HTMLElement>(`[data-step="${active}"]`);
     if (!card) return setPos(null);
     const g = grid.getBoundingClientRect();
@@ -80,8 +81,10 @@ export default function HowItWorksSteps() {
     const width = Math.min(mascotSize === MASCOT_DESKTOP ? PANEL_W : 440, g.width);
     const centre = c.left - g.left + c.width / 2;
     const left = Math.max(0, Math.min(centre - width / 2, g.width - width));
-    setPos({ left, top: c.bottom - g.top + 10, arrow: centre - left, width });
-  }, [active, mascotSize]);
+    const next = { left, top: c.bottom - g.top + 10, arrow: centre - left, width };
+    notePos(next);
+    setPos(next);
+  }, [active, mascotSize, notePos]);
 
   useLayoutEffect(() => {
     const id = requestAnimationFrame(place);
@@ -192,13 +195,13 @@ export default function HowItWorksSteps() {
             onPointerLeave={closeSoon}
             role="dialog"
             aria-label={`GlowSync AI explains step ${active + 1}`}
-            className={`absolute z-30 ${GUIDE_FONTS}`}
-            style={{ left: pos.left, top: pos.top, width: pos.width }}
+            className={`guide-fly absolute left-0 top-0 z-30 ${GUIDE_FONTS}`}
+            style={{ transform: `translate(${pos.left}px, ${pos.top}px)`, width: pos.width }}
           >
-            <span aria-hidden className="absolute -top-1.5 h-4 w-4 rotate-45 rounded-sm bg-[#f6dc8e]" style={{ left: pos.arrow - 8 }} />
-            <div key={`${active}-${reply}`} className="guide-bubble glowy-pop">
+            <span aria-hidden className="absolute -top-1.5 h-4 w-4 rotate-45 rounded-sm bg-[#f6dc8e] transition-[left] duration-700 ease-out" style={{ left: pos.arrow - 8 }} />
+            <div className="guide-bubble glowy-pop">
               <div className="guide-bubble-inner flex gap-3 p-4">
-                <div className="relative shrink-0 self-end">
+                <div className={`relative shrink-0 self-end ${moving ? "guide-moving" : ""}`}>
                   <PlayfulMascot
                     size={mascotSize}
                     pose="present"
@@ -209,14 +212,14 @@ export default function HowItWorksSteps() {
                     }}
                   />
                 </div>
-                <div className="min-w-0 flex-1 space-y-2">
+                <div className={`min-w-0 flex-1 space-y-2 transition-opacity duration-300 ${moving ? "opacity-0" : "opacity-100"}`}>
                   <p className="guide-rise flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">
                     <span aria-hidden className="guide-live-dot" />
                     GlowSync AI · Step {active + 1} of {STEPS.length}
                   </p>
                   <p className="guide-rise guide-display guide-title text-[19px] leading-tight">{step.hook}</p>
                   <p className="guide-rise text-[14px] font-semibold leading-relaxed text-ink/85">
-                    <TypeText key={`${active}-${reply}`} text={step.explain} />
+                    <TypeText key={`${active}-${reply}-${moving ? 1 : 0}`} text={step.explain} />
                   </p>
                   <p className="guide-rise rounded-2xl bg-[#fff6e6] px-3 py-2 text-[13px] leading-snug text-ink/75 ring-1 ring-[#f1dfb6]">
                     <span className="guide-display font-semibold text-[#a97c1c]">Tip:</span> {step.tip}
