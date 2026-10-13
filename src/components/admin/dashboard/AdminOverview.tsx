@@ -66,30 +66,62 @@ function Empty({ children }: { children: ReactNode }) {
 
 function Kpis({ k }: { k: Data["kpis"] }) {
   const change = k.revenue.vsYesterday;
-  const cards: { label: string; icon: Icon; value: string; note: string; href: string }[] = [
+  // Short labels and notes so every box stays on one line; the full detail is in the tooltip.
+  const shortBranch = (n: string) => n.replace(/\s+(Center|Centre|Mall|Branch|Pagadian)$/i, "");
+  const cards: { label: string; icon: Icon; value: string; note: string; href: string; title: string }[] = [
     {
-      label: "Today's Appointments",
+      label: "Appointments",
       icon: CalendarDays,
       value: String(k.appointments.total),
-      note: `${k.appointments.upcoming} Upcoming • ${k.appointments.completed} Completed • ${k.appointments.cancelled} Cancelled`,
+      note: `${k.appointments.upcoming} upcoming · ${k.appointments.completed} done`,
+      title: `Today: ${k.appointments.upcoming} upcoming, ${k.appointments.completed} completed, ${k.appointments.cancelled} cancelled`,
       href: "/admin/multi-branch",
     },
     {
-      label: "Revenue (This Month)",
+      label: "Revenue",
       icon: CircleDollarSign,
       value: pesoShort(k.revenue.month),
-      note: `Today ${pesoShort(k.revenue.today)}${change !== null ? ` • ${change >= 0 ? "+" : ""}${change}% vs. yesterday` : ""}`,
+      note: `This month · ${pesoShort(k.revenue.today)} today`,
+      title: `This month ${pesoShort(k.revenue.month)}; today ${pesoShort(k.revenue.today)}${change !== null ? ` (${change >= 0 ? "+" : ""}${change}% vs. yesterday)` : ""}`,
       href: "/admin/payments",
     },
-    { label: "Total Clients", icon: Users, value: k.clients.total.toLocaleString(), note: `${k.clients.returning} Returning • ${k.clients.newThisMonth} New this month`, href: "/admin/users" },
-    { label: "Active Staff", icon: UserCheck, value: `${k.staff.onDuty} / ${k.staff.scheduled}`, note: `${k.staff.onDuty} On Duty • ${k.staff.notCheckedIn} Not Checked In`, href: "/admin/users" },
-    { label: "Branches", icon: Building2, value: String(k.branches.count), note: k.branches.names.join(" • ") || "—", href: "/admin/branches" },
-    { label: "Services", icon: Flower2, value: String(k.services.total), note: `${k.services.active} Available • ${k.services.inactive} Unavailable`, href: "/admin/branches" },
+    {
+      label: "Clients",
+      icon: Users,
+      value: k.clients.total.toLocaleString(),
+      note: `${k.clients.returning} returning · ${k.clients.newThisMonth} new`,
+      title: `${k.clients.returning} returning, ${k.clients.newThisMonth} new this month`,
+      href: "/admin/users",
+    },
+    {
+      label: "Staff on duty",
+      icon: UserCheck,
+      value: `${k.staff.onDuty} / ${k.staff.scheduled}`,
+      note: `${k.staff.notCheckedIn} not checked in`,
+      title: `${k.staff.onDuty} on duty, ${k.staff.notCheckedIn} not checked in today`,
+      href: "/admin/users",
+    },
+    {
+      label: "Branches",
+      icon: Building2,
+      value: String(k.branches.count),
+      note: k.branches.names.map(shortBranch).join(" · ") || "—",
+      title: k.branches.names.join(", "),
+      href: "/admin/branches",
+    },
+    {
+      label: "Services",
+      icon: Flower2,
+      value: String(k.services.total),
+      note: k.services.inactive ? `${k.services.active} available · ${k.services.inactive} off` : `${k.services.active} available`,
+      title: `${k.services.active} available, ${k.services.inactive} unavailable`,
+      href: "/admin/branches",
+    },
   ];
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
       {cards.map((c) => (
-        <StatCard key={c.label} icon={c.icon} label={c.label} value={c.value} note={c.note} href={c.href} title={c.note} />
+        <StatCard key={c.label} icon={c.icon} label={c.label} value={c.value} note={c.note} href={c.href} title={c.title} />
       ))}
     </div>
   );
