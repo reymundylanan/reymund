@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 
@@ -14,6 +12,7 @@ const ICON_TONE: Record<StatTone, string> = {
 };
 
 /**
+ * Works in server and client components (no hooks).
  * One summary box for every admin / front-desk page: icon + label, a big
  * number, and a short note. Clickable when it opens or filters something;
  * `active` outlines the one that's currently applied.

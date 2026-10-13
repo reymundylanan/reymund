@@ -1,24 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { getAdminOverview } from "@/lib/supabase/queries/adminOverview";
 import AdminOverview from "@/components/admin/dashboard/AdminOverview";
-import DateTimeChips from "@/components/admin/dashboard/DateTimeChips";
+import WelcomeBanner from "@/components/admin/dashboard/WelcomeBanner";
 import CommandCenter from "@/components/admin/dashboard/CommandCenter";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   const supabase = await createClient();
-  const data = await getAdminOverview(supabase);
+  const [data, { data: auth }] = await Promise.all([getAdminOverview(supabase), supabase.auth.getUser()]);
+  const { data: me } = auth.user ? await supabase.from("profiles").select("full_name").eq("id", auth.user.id).maybeSingle() : { data: null };
+  const firstName = (me?.full_name ?? "").trim().split(/\s+/)[0] || null;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold text-ink">Dashboard</h1>
-          <p className="text-sm text-taupe">Here&apos;s what&apos;s happening with your business today.</p>
-        </div>
-        <DateTimeChips />
-      </div>
+      <WelcomeBanner firstName={firstName} data={data} />
 
       <AdminOverview data={data} />
 

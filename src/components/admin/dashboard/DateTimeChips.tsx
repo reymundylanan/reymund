@@ -5,7 +5,7 @@ import { CalendarDays, Clock } from "lucide-react";
 
 /** Date + live time chips for the Admin Dashboard header (rendered after
  * mount so server and browser clocks can't mismatch). */
-export default function DateTimeChips() {
+export default function DateTimeChips({ variant = "plain" }: { variant?: "plain" | "glass" }) {
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
     const tick = () => setNow(new Date());
@@ -17,7 +17,10 @@ export default function DateTimeChips() {
     };
   }, []);
   if (!now) return null;
-  const chip = "flex items-center gap-2 rounded-full border border-nude bg-white px-4 py-2 text-sm text-ink/70 shadow-sm";
+  const chip =
+    variant === "glass"
+      ? "flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-4 py-2 text-sm text-white backdrop-blur [&>svg]:text-champagne"
+      : "flex items-center gap-2 rounded-full border border-nude bg-white px-4 py-2 text-sm text-ink/70 shadow-sm";
   return (
     <div className="flex flex-wrap gap-2">
       <span className={chip}>
