@@ -20,7 +20,7 @@ import type { AdminOverview as Data } from "@/lib/supabase/queries/adminOverview
 import { dayLabel, donutSegments, niceMax, pesoShort } from "@/lib/adminOverview";
 import { formatAppointmentTime } from "@/lib/appointmentFormat";
 import { promoImage } from "@/lib/promoImage";
-import StatCard from "@/components/StatCard";
+import StatCard, { type StatTint } from "@/components/StatCard";
 
 // Spa palette: sage for good, gold for in progress, dusty rose for attention.
 const SPA = { sage: "#8FA98A", sageSoft: "#E6EDE2", gold: "#C9A44A", goldSoft: "#F6ECD2", rose: "#C98E92", roseSoft: "#F6E3E3", taupe: "#B9A795" };
@@ -68,9 +68,10 @@ function Kpis({ k }: { k: Data["kpis"] }) {
   const change = k.revenue.vsYesterday;
   // Short labels and notes so every box stays on one line; the full detail is in the tooltip.
   const shortBranch = (n: string) => n.replace(/\s+(Center|Centre|Mall|Branch|Pagadian)$/i, "");
-  const cards: { label: string; icon: Icon; value: string; note: string; href: string; title: string }[] = [
+  const cards: { label: string; icon: Icon; value: string; note: string; href: string; title: string; tint: StatTint }[] = [
     {
       label: "Appointments",
+      tint: "white",
       icon: CalendarDays,
       value: String(k.appointments.total),
       note: `${k.appointments.upcoming} upcoming · ${k.appointments.completed} done`,
@@ -79,6 +80,7 @@ function Kpis({ k }: { k: Data["kpis"] }) {
     },
     {
       label: "Revenue",
+      tint: "gold",
       icon: CircleDollarSign,
       value: pesoShort(k.revenue.month),
       note: `This month · ${pesoShort(k.revenue.today)} today`,
@@ -87,6 +89,7 @@ function Kpis({ k }: { k: Data["kpis"] }) {
     },
     {
       label: "Clients",
+      tint: "peach",
       icon: Users,
       value: k.clients.total.toLocaleString(),
       note: `${k.clients.returning} returning · ${k.clients.newThisMonth} new`,
@@ -95,6 +98,7 @@ function Kpis({ k }: { k: Data["kpis"] }) {
     },
     {
       label: "Staff on duty",
+      tint: "sage",
       icon: UserCheck,
       value: `${k.staff.onDuty} / ${k.staff.scheduled}`,
       note: `${k.staff.notCheckedIn} not checked in`,
@@ -103,6 +107,7 @@ function Kpis({ k }: { k: Data["kpis"] }) {
     },
     {
       label: "Branches",
+      tint: "cream",
       icon: Building2,
       value: String(k.branches.count),
       note: k.branches.names.map(shortBranch).join(" · ") || "—",
@@ -111,6 +116,7 @@ function Kpis({ k }: { k: Data["kpis"] }) {
     },
     {
       label: "Services",
+      tint: "rose",
       icon: Flower2,
       value: String(k.services.total),
       note: k.services.inactive ? `${k.services.active} available · ${k.services.inactive} off` : `${k.services.active} available`,
@@ -121,7 +127,7 @@ function Kpis({ k }: { k: Data["kpis"] }) {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
       {cards.map((c) => (
-        <StatCard key={c.label} icon={c.icon} label={c.label} value={c.value} note={c.note} href={c.href} title={c.title} />
+        <StatCard key={c.label} icon={c.icon} label={c.label} value={c.value} note={c.note} href={c.href} title={c.title} tint={c.tint} />
       ))}
     </div>
   );

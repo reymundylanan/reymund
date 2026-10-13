@@ -1,7 +1,20 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 
 export type StatTone = "default" | "dark" | "good" | "warn" | "alert";
+/** A soft background for the whole box (spa palette). */
+export type StatTint = "white" | "cream" | "gold" | "sage" | "peach" | "rose" | "lilac";
+
+const TINT: Record<StatTint, string> = {
+  white: "bg-white",
+  cream: "bg-gradient-to-br from-white to-[#fbf4e4]",
+  gold: "bg-gradient-to-br from-[#fffaf0] to-[#f8edd2]",
+  sage: "bg-gradient-to-br from-[#fbfcf8] to-[#e9efe4]",
+  peach: "bg-gradient-to-br from-[#fffaf5] to-[#f9e8d9]",
+  rose: "bg-gradient-to-br from-[#fffafa] to-[#f6e4e4]",
+  lilac: "bg-gradient-to-br from-[#fdfbff] to-[#efe8f4]",
+};
 
 const ICON_TONE: Record<StatTone, string> = {
   default: "bg-[#f8efd9] text-coral-dark",
@@ -23,6 +36,7 @@ export default function StatCard({
   value,
   note,
   tone = "default",
+  tint = "white",
   active = false,
   onClick,
   href,
@@ -33,6 +47,7 @@ export default function StatCard({
   value: ReactNode;
   note?: ReactNode;
   tone?: StatTone;
+  tint?: StatTint;
   active?: boolean;
   onClick?: () => void;
   href?: string;
@@ -46,13 +61,14 @@ export default function StatCard({
         >
           <Icon className="h-[18px] w-[18px]" />
         </span>
-        <span className="line-clamp-2 min-w-0 text-sm font-semibold leading-tight text-ink">{label}</span>
+        <span className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-tight text-ink">{label}</span>
+        {href && <ChevronRight className="h-4 w-4 shrink-0 text-ink/25 transition group-hover:translate-x-0.5 group-hover:text-coral-dark" aria-hidden />}
       </span>
       <span className="mt-3 block text-3xl font-semibold tabular-nums leading-none text-ink">{value ?? "—"}</span>
       {note != null && note !== "" && <span className="mt-1.5 line-clamp-2 w-full text-xs font-medium leading-snug text-ink/60">{note}</span>}
     </>
   );
-  const shell = `flex min-w-0 flex-col items-start rounded-2xl bg-white p-4 text-left shadow-[0_10px_30px_-24px_rgba(90,60,20,0.5)] ring-1 transition ${
+  const shell = `group flex min-w-0 flex-col items-start rounded-2xl ${TINT[tint]} p-4 text-left shadow-[0_10px_30px_-24px_rgba(90,60,20,0.5)] ring-1 transition ${
     active ? "ring-2 ring-coral" : "ring-[#efe3c6]"
   }`;
   const interactive = `${shell} hover:-translate-y-0.5 hover:shadow-[0_14px_30px_-20px_rgba(90,60,20,0.55)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral`;

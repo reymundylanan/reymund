@@ -20,6 +20,7 @@ import {
   UsersRound,
   Wallet,
 } from "lucide-react";
+import StatCard, { type StatTint, type StatTone } from "@/components/StatCard";
 import {
   formatClock,
   formatElapsed,
@@ -64,7 +65,7 @@ function Avatar({ name, url, size = 36 }: { name: string; url?: string | null; s
 
 function SectionIcon({ icon: IconCmp }: { icon: Icon }) {
   return (
-    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blush">
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f8efd9]">
       <IconCmp className="h-4.5 w-4.5 text-coral-dark" />
     </span>
   );
@@ -86,12 +87,12 @@ function Card({
   className?: string;
 }) {
   return (
-    <section className={`flex flex-col rounded-2xl border border-ink/5 bg-white p-5 shadow-sm ${className}`}>
+    <section className={`flex min-w-0 flex-col rounded-3xl bg-white p-5 shadow-[0_14px_34px_-26px_rgba(90,60,20,0.55)] ring-1 ring-[#efe3c6] ${className}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <SectionIcon icon={icon} />
           <div>
-            <h2 className="font-semibold text-ink">{title}</h2>
+            <h2 className="font-display text-[17px] font-semibold text-ink">{title}</h2>
             {subtitle && <p className="text-xs text-ink/50">{subtitle}</p>}
           </div>
         </div>
@@ -111,19 +112,19 @@ function ViewLink({ href, children }: { href: string; children: ReactNode }) {
 }
 
 function Empty({ children }: { children: ReactNode }) {
-  return <p className="flex h-full min-h-24 items-center justify-center rounded-xl bg-blush/40 px-4 text-center text-sm text-ink/40">{children}</p>;
+  return <p className="flex h-full min-h-24 items-center justify-center gap-2 rounded-2xl bg-[#fbf6ea] px-4 text-center text-sm text-ink/45"><Flower2 className="h-4 w-4 shrink-0 text-champagne" /> {children}</p>;
 }
 
-const ROW = "flex items-center gap-3 rounded-xl border border-ink/5 p-3 transition hover:border-coral/40 hover:bg-blush/40";
+const ROW = "flex items-center gap-3 rounded-2xl border border-[#f1e4c4] p-3 transition hover:border-coral/40 hover:bg-[#fffaf0]";
 
 const BADGE: Record<string, string> = {
-  Upcoming: "bg-blue-50 text-blue-600",
-  Confirmed: "bg-amber-50 text-amber-700",
-  Waiting: "bg-amber-50 text-amber-700",
-  "In Service": "bg-green-50 text-green-700",
-  Completed: "bg-ink/5 text-ink/60",
-  Cancelled: "bg-ink/5 text-ink/40",
-  "No Show": "bg-red-50 text-red-600",
+  Upcoming: "bg-[#F6ECD2] text-[#8A6A1C]",
+  Confirmed: "bg-[#F6ECD2] text-[#8A6A1C] ring-1 ring-[#e6cf94]",
+  Waiting: "bg-[#F9E8D9] text-[#94602F]",
+  "In Service": "bg-[#E6EDE2] text-[#4F6B4A]",
+  Completed: "bg-[#E6EDE2] text-[#4F6B4A]",
+  Cancelled: "bg-ink/5 text-ink/45",
+  "No Show": "bg-[#F6E3E3] text-[#9A5257]",
 };
 
 function Badge({ label }: { label: string }) {
@@ -133,9 +134,9 @@ function Badge({ label }: { label: string }) {
 }
 
 const STAFF_STATE: Record<StaffState, { label: string; pill: string; dot: string }> = {
-  available: { label: "Available", pill: "bg-green-50 text-green-700", dot: "bg-green-500" },
-  in_service: { label: "In Service", pill: "bg-blue-50 text-blue-700", dot: "bg-blue-500" },
-  on_break: { label: "On Break", pill: "bg-amber-50 text-amber-700", dot: "bg-amber-400" },
+  available: { label: "Available", pill: "bg-[#E6EDE2] text-[#4F6B4A]", dot: "bg-[#8FA98A]" },
+  in_service: { label: "In Service", pill: "bg-[#F6ECD2] text-[#8A6A1C]", dot: "bg-[#C9A44A]" },
+  on_break: { label: "On Break", pill: "bg-[#F9E8D9] text-[#94602F]", dot: "bg-[#E0A872]" },
   not_checked_in: { label: "Not Checked In", pill: "bg-ink/5 text-ink/50", dot: "bg-ink/25" },
   out: { label: "Checked Out", pill: "bg-ink/5 text-ink/50", dot: "bg-ink/40" },
   off: { label: "Day Off", pill: "bg-ink/5 text-ink/40", dot: "bg-ink/15" },
@@ -159,87 +160,71 @@ function duration(minutes: number) {
 // ── 1. Overview ────────────────────────────────────────────────────────
 
 export function OverviewCards({ ops }: { ops: Ops }) {
-  const cards: { label: string; icon: Icon; tint: string; iconTint: string; value: string; note: string; href: string }[] = [
+  // Short labels and notes so each box stays on one line; detail on hover.
+  const cards: { label: string; icon: Icon; tint: StatTint; tone?: StatTone; value: string; note: string; title: string; href: string }[] = [
     {
-      label: "Today's Appointments",
+      label: "Appointments",
       icon: CalendarDays,
-      tint: "bg-white",
-      iconTint: "bg-blush text-coral-dark",
+      tint: "white",
       value: `${ops.appointments.total}`,
-      note: [`${ops.appointments.upcoming} Upcoming`, `${ops.appointments.completed} Completed`, `${ops.appointments.cancelled} Cancelled`].join(" • "),
+      note: `${ops.appointments.upcoming} upcoming · ${ops.appointments.completed} done`,
+      title: `${ops.appointments.upcoming} upcoming, ${ops.appointments.completed} completed, ${ops.appointments.cancelled} cancelled`,
       href: "/frontdesk/appointments",
     },
     {
-      label: "Walk-Ins",
+      label: "Walk-ins",
       icon: UserRound,
-      tint: "bg-blue-50/40",
-      iconTint: "bg-blue-50 text-blue-600",
+      tint: "peach",
       value: `${ops.walkins.total}`,
-      note: [`${ops.walkins.waiting} Waiting`, `${ops.walkins.inService} In Service`, `${ops.walkins.completed} Completed`].join(" • "),
+      note: `${ops.walkins.waiting} waiting · ${ops.walkins.inService} in service`,
+      title: `${ops.walkins.waiting} waiting, ${ops.walkins.inService} in service, ${ops.walkins.completed} completed`,
       href: "/frontdesk/walk-ins",
     },
     {
-      label: "Staff On Duty",
+      label: "On duty",
       icon: UserCheck,
-      tint: "bg-green-50/40",
-      iconTint: "bg-green-50 text-green-600",
+      tint: "sage",
+      tone: "good",
       value: `${ops.staff.onDuty} / ${ops.staff.scheduled}`,
-      note: [`${ops.staff.available} Available`, `${ops.staff.inService} In Service`].join(" • "),
+      note: `${ops.staff.available} free · ${ops.staff.inService} busy`,
+      title: `${ops.staff.available} available, ${ops.staff.inService} in service`,
       href: "/frontdesk/staff",
     },
     {
-      label: "Staff Scheduled",
+      label: "Scheduled",
       icon: CalendarCheck,
-      tint: "bg-indigo-50/40",
-      iconTint: "bg-indigo-50 text-indigo-600",
+      tint: "lilac",
       value: `${ops.staff.scheduled}`,
-      note: [`${ops.staff.checkedIn} Checked In`, `${ops.staff.notCheckedIn} Not Checked In`].join(" • "),
+      note: `${ops.staff.notCheckedIn} not checked in`,
+      title: `${ops.staff.checkedIn} checked in, ${ops.staff.notCheckedIn} not checked in`,
       href: "/frontdesk/staff",
     },
     {
-      label: "Pending Payments",
+      label: "To verify",
       icon: CreditCard,
-      tint: "bg-red-50/40",
-      iconTint: "bg-red-50 text-red-500",
+      tint: "rose",
+      tone: ops.payments.count ? "alert" : "default",
       value: peso(ops.payments.total),
-      note: `${ops.payments.count} Awaiting Verification`,
+      note: `${ops.payments.count} GCash payment${ops.payments.count === 1 ? "" : "s"}`,
+      title: `${ops.payments.count} payment${ops.payments.count === 1 ? "" : "s"} awaiting verification`,
       href: "/frontdesk/payments",
     },
     {
-      label: "Clients Today",
+      label: "Clients today",
       icon: UsersRound,
-      tint: "bg-sky-50/40",
-      iconTint: "bg-sky-50 text-sky-600",
+      tint: "gold",
       value: `${ops.clients.total}`,
-      note: [`${ops.clients.returning} Returning`, `${ops.clients.new} New`].join(" • "),
+      note: `${ops.clients.returning} returning · ${ops.clients.new} new`,
+      title: `${ops.clients.returning} returning, ${ops.clients.new} new`,
       href: "/frontdesk/clients",
     },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-      {cards.map((c) => {
-        const IconCmp = c.icon;
-        return (
-          <Link
-            key={c.label}
-            href={c.href}
-            className={`group flex flex-col rounded-2xl border border-ink/5 p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-coral/40 hover:shadow-md ${c.tint}`}
-          >
-            <span className="flex items-center justify-between gap-2">
-              <span className="flex min-w-0 items-center gap-2 text-[13px] font-semibold text-ink">
-                <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${c.iconTint}`}>
-                  <IconCmp className="h-3.5 w-3.5" />
-                </span>
-                <span className="truncate" title={c.label}>{c.label}</span>
-              </span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-ink/25 transition group-hover:text-coral-dark" />
-            </span>
-            <span className="mt-3 text-3xl font-semibold text-ink">{c.value}</span>
-            <span className="mt-2 text-[11px] text-ink/50">{c.note}</span>
-          </Link>
-        );
-      })}
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
+      {cards.map((c) => (
+        <StatCard key={c.label} icon={c.icon} label={c.label} value={c.value} note={c.note} title={c.title} href={c.href} tint={c.tint} tone={c.tone} />
+      ))}
     </div>
   );
 }
