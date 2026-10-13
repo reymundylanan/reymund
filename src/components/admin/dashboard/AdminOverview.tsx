@@ -32,7 +32,7 @@ function Card({ title, icon: I, href, action, children, className = "" }: { titl
   return (
     <section className={`flex min-w-0 flex-col rounded-3xl bg-white p-5 shadow-[0_14px_34px_-26px_rgba(90,60,20,0.55)] ring-1 ring-[#efe3c6] ${className}`}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2.5 font-display text-[17px] font-semibold text-ink">
+        <h2 className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-ink">
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#f8efd9] text-coral-dark">
             <I className="h-4 w-4" />
           </span>

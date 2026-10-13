@@ -92,7 +92,7 @@ function Card({
         <div className="flex items-center gap-3">
           <SectionIcon icon={icon} />
           <div>
-            <h2 className="font-display text-[17px] font-semibold text-ink">{title}</h2>
+            <h2 className="text-base font-semibold tracking-tight text-ink">{title}</h2>
             {subtitle && <p className="text-xs text-ink/50">{subtitle}</p>}
           </div>
         </div>
