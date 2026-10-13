@@ -206,7 +206,7 @@ export function AppointmentPreview({
 
   const start = toMinutes(appt.start);
   const destBranch = pick ? ctx.branches.find((b) => b.id === pick.branchId) : null;
-  const canConfirm = !!pick && !!check?.ok && !checking && reason.trim().length > 0;
+  const canConfirm = !!pick && !!check?.ok && !checking;
 
   // Alternatives open by themselves when there's no slot yet or the chosen one fails.
   const altsOpen = showAlts || !pick || (!!check && !check.ok && !checking);
@@ -385,12 +385,12 @@ export function AppointmentPreview({
 
       {/* Reason + notice */}
       <label className="mt-4 block">
-        <span className="text-sm font-medium text-ink/70">Reason for the change *</span>
+        <span className="text-sm font-medium text-ink/70">Reason for the change <span className="font-normal text-ink/45">(optional)</span></span>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={2}
-          placeholder="e.g. Ms. Raquel is unavailable at 9:00 AM"
+          placeholder="Leave empty to use “Rescheduled by Admin”"
           className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm focus:border-coral focus:outline-none"
         />
       </label>
@@ -422,7 +422,7 @@ export function AppointmentPreview({
           <button
             onClick={() => setConfirming(true)}
             disabled={!canConfirm}
-            title={!pick ? "Choose a time first" : !check?.ok ? "Every check must pass" : !reason.trim() ? "Add a reason" : undefined}
+            title={!pick ? "Choose a time first" : !check?.ok ? "Every check must pass" : undefined}
             className="flex-1 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
           >
             Confirm move

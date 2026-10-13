@@ -14,9 +14,8 @@ export async function POST(request: Request) {
   if (!body.appointmentId || !body.branchId || !/^\d{4}-\d{2}-\d{2}$/.test(body.date ?? "") || !/^\d{2}:\d{2}/.test(body.start ?? "")) {
     return NextResponse.json({ error: "Missing branch, date or time." }, { status: 400 });
   }
-  if (!body.reason?.trim()) {
-    return NextResponse.json({ error: "Please give a reason for the change.", code: "REASON_REQUIRED" }, { status: 400 });
-  }
+  // The reason is optional; the history and the client notice still say why.
+  const reason = body.reason?.trim() || "Rescheduled by Admin";
 
   const ctx = await loadContext(gate.admin, { date: body.date });
   const appt = ctx.appointments.find((a) => a.id === body.appointmentId);
@@ -48,7 +47,7 @@ export async function POST(request: Request) {
     p_professional_id: slot.staffId,
     p_date: body.date,
     p_start: `${body.start.slice(0, 5)}:00`,
-    p_reason: body.reason.trim(),
+    p_reason: reason,
     p_validation: { ...check.checks, checkedAt: new Date().toISOString() },
   });
   if (error) {
