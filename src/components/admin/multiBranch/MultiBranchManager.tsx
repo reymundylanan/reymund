@@ -373,11 +373,10 @@ export default function MultiBranchManager() {
       {error && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
 
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <SummaryCard icon={Building2} label="Branches" value={summary ? `${summary.activeBranches}/${summary.branches}` : "—"} hint="Open / all" tone="gray" />
         <SummaryCard icon={UserCheck} label="Staff available" value={summary?.available} hint="Free to take clients" tone="green" />
         <SummaryCard icon={Users} label={date === ctx?.today ? "Staff in service" : "Staff with bookings"} value={summary?.busy} hint={date === ctx?.today ? "Serving clients now" : "Booked that day"} tone="blue" />
-        <SummaryCard icon={CalendarClock} label="Open 1-hr slots" value={summary?.slots} hint="Across all branches" tone="green" />
         <SummaryCard icon={AlertTriangle} label="Need rescheduling" value={summary?.needs} hint={summary?.needs ? "Tap to review" : "All clear"} tone={summary?.needs ? "red" : "gray"} onClick={() => { setView("board"); setLower("needs"); document.getElementById("mb-lower")?.scrollIntoView({ behavior: "smooth" }); }} />
         <SummaryCard icon={ArrowLeftRight} label="Staff transfers" value={summary?.pending} hint="Waiting for approval" tone={summary?.pending ? "amber" : "gray"} />
         <SummaryCard icon={Footprints} label="Walk-in transfers" value={summary?.pendingWalkins} hint="Waiting at a branch" tone={summary?.pendingWalkins ? "amber" : "gray"} />
