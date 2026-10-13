@@ -47,10 +47,10 @@ export default function StatCard({
         >
           <Icon className="h-[18px] w-[18px]" />
         </span>
-        <span className="min-w-0 truncate text-sm font-semibold text-ink">{label}</span>
+        <span className="line-clamp-2 min-w-0 text-sm font-semibold leading-tight text-ink">{label}</span>
       </span>
       <span className="mt-3 block text-3xl font-semibold tabular-nums leading-none text-ink">{value ?? "—"}</span>
-      {note != null && note !== "" && <span className="mt-1.5 block w-full truncate text-xs font-medium text-ink/60">{note}</span>}
+      {note != null && note !== "" && <span className="mt-1.5 line-clamp-2 w-full text-xs font-medium leading-snug text-ink/60">{note}</span>}
     </>
   );
   const shell = `flex min-w-0 flex-col items-start rounded-2xl bg-white p-4 text-left shadow-[0_10px_30px_-24px_rgba(90,60,20,0.5)] ring-1 transition ${
