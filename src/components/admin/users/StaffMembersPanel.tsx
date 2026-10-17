@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeftRight, Camera, CalendarOff, MoreHorizontal, Pencil, Plus, Star, Trash2, X } from "lucide-react";
+import PhoneInput from "@/components/PhoneInput";
+import { isPhMobile, phMobileDigits, PH_MOBILE_HINT } from "@/lib/phMobile";
 import StaffRatingBlock from "@/components/staff/StaffRatingBlock";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
@@ -186,6 +188,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!isPhMobile(form.phone)) { setMsg(PH_MOBILE_HINT); return; }
     setSaving(true);
     setMsg(null);
 
@@ -206,7 +209,7 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
       full_name: form.full_name.trim(),
       department: form.department,
       branch_id: form.branch_id || null,
-      phone: form.phone.trim() || null,
+      phone: phMobileDigits(form.phone) || null,
       avatar_url: avatar_url || null,
     };
 
@@ -464,23 +467,9 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
               </div>
               <div>
                 <label className="text-xs font-medium uppercase text-ink/40">Phone Number</label>
-                <input
-                  required
-                  type="tel"
+                <PhoneInput
                   value={form.phone}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, "").slice(0, 12);
-                    let formatted = digits;
-                    if (digits.startsWith("63")) {
-                      const rest = digits.slice(2);
-                      formatted = "+63 " + [rest.slice(0,3), rest.slice(3,6), rest.slice(6,10)].filter(Boolean).join(" ");
-                    } else if (digits.startsWith("0")) {
-                      const rest = digits.slice(1);
-                      formatted = "0" + [rest.slice(0,3), rest.slice(3,6), rest.slice(6,10)].filter(Boolean).join(" ");
-                    }
-                    setForm({ ...form, phone: formatted.trim() });
-                  }}
-                  placeholder="+63 9XX XXX XXXX"
+                  onChange={(phone) => setForm({ ...form, phone })}
                   className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
                 />
               </div>

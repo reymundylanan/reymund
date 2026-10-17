@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowRight, Car, Check, CheckCircle2, Clock, MapPin, Phone, Search, Sparkles, UserRound, X } from "lucide-react";
+import PhoneInput from "@/components/PhoneInput";
+import { phMobileDigits, phMobileError, PH_MOBILE_HINT } from "@/lib/phMobile";
 import type { OptionView } from "@/lib/multiBranch/walkinServer";
 import type { HairSize, WalkinService } from "@/lib/multiBranch/walkin";
 
@@ -144,6 +146,7 @@ export default function WalkinTransferModal({
 
   async function confirm() {
     if (!chosen) return;
+    if (!clientId && phMobileError(phone, { optional: true })) return setError(PH_MOBILE_HINT);
     setSaving(true);
     setError(null);
     try {
@@ -151,7 +154,7 @@ export default function WalkinTransferModal({
         transferId: savedId,
         clientId,
         walkinName: name,
-        walkinPhone: phone || null,
+        walkinPhone: phMobileDigits(phone) || null,
         services,
         duration,
         originPrice,
@@ -181,7 +184,7 @@ export default function WalkinTransferModal({
         status,
         clientId,
         walkinName: name,
-        walkinPhone: phone || null,
+        walkinPhone: phMobileDigits(phone) || null,
         services,
         duration,
         originPrice,
@@ -256,7 +259,7 @@ export default function WalkinTransferModal({
                 </label>
                 <label className="text-xs font-medium text-ink/60">
                   Mobile
-                  <input value={phone} onChange={(e) => setPhone(e.target.value)} disabled={!!clientId} className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm text-ink disabled:bg-ink/5" />
+                  <PhoneInput value={phone} onChange={setPhone} optional disabled={!!clientId} className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm text-ink disabled:bg-ink/5" />
                 </label>
               </div>
 

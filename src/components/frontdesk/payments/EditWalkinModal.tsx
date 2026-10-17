@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { ChevronRight, X } from "lucide-react";
+import PhoneInput from "@/components/PhoneInput";
+import { isPhMobile, phMobileDigits } from "@/lib/phMobile";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { getBusyProfessionalIds } from "@/lib/supabase/queries/availability";
@@ -168,7 +170,7 @@ export default function EditWalkinModal({
     setServiceId(nextSvc?.id ?? "");
   }
 
-  const canSave = fullName.trim().length > 0 && mobileNumber.trim().length >= 7 && !!serviceId && !!therapistId;
+  const canSave = fullName.trim().length > 0 && isPhMobile(mobileNumber) && !!serviceId && !!therapistId;
 
   async function handleSave() {
     if (!selectedService || !therapistId) return;
@@ -184,7 +186,7 @@ export default function EditWalkinModal({
       startTime: `${startTime}:00`,
       durationMinutes: parseDurationMinutes(selectedService.duration),
       walkinName: fullName.trim(),
-      walkinPhone: mobileNumber.trim(),
+      walkinPhone: phMobileDigits(mobileNumber),
       additionalCharges: Number(additionalCharges) || 0,
       scheduledDate: walkin.scheduled_date,
     });
@@ -221,9 +223,9 @@ export default function EditWalkinModal({
 
             <div>
               <label className="text-xs font-medium text-ink/60">Mobile Number</label>
-              <input
+              <PhoneInput
                 value={mobileNumber}
-                onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                onChange={setMobileNumber}
                 className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
               />
             </div>

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CalendarPlus, Search, X } from "lucide-react";
+import PhoneInput from "@/components/PhoneInput";
+import { isPhMobile, phMobileDigits, PH_MOBILE_HINT } from "@/lib/phMobile";
 import { createClient } from "@/lib/supabase/client";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 import { isProfessionalFreeNow } from "@/lib/supabase/queries/availability";
@@ -84,7 +86,7 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
     setError(null);
     const clientName = linked?.fullName ?? name.trim();
     if (!clientName) return setError("Enter the client's name, or pick their account.");
-    if (!linked && phone.replace(/\D/g, "").length < 10) return setError("Enter the guest's mobile number (10+ digits) so the spa can reach them.");
+    if (!linked && !isPhMobile(phone)) return setError(`Guest's mobile number: ${PH_MOBILE_HINT}`);
     if (chosen.length === 0) return setError("Choose at least one service.");
     if (!date || !time) return setError("Choose the date and time.");
     const start = new Date(`${date}T${time}:00+08:00`);
@@ -106,7 +108,7 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
       branch_id: branchId,
       client_id: linked?.id ?? null,
       walkin_name: linked ? null : clientName.slice(0, 80),
-      walkin_phone: linked ? null : phone.trim().slice(0, 30),
+      walkin_phone: linked ? null : phMobileDigits(phone),
       professional_id: staffId || null,
       service_id: chosen[0].id,
       appointment_type: "solo",
@@ -159,7 +161,7 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
             {!linked && (
               <label className="mt-3 block text-sm font-medium text-ink/80">
                 Mobile number (guest)
-                <input value={phone} onChange={(e) => setPhone(e.target.value.slice(0, 20))} placeholder="09XX XXX XXXX" className={field} />
+                <PhoneInput value={phone} onChange={setPhone} className={field} />
               </label>
             )}
           </div>

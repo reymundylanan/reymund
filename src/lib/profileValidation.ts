@@ -6,7 +6,7 @@ export type ProfileForm = Record<ProfileField, string>;
 
 export const PROFILE_MESSAGES = {
   fullName: "Enter your full name (2–80 letters).",
-  phone: "Enter a valid PH mobile number, e.g. 0917 123 4567.",
+  phone: "Enter an 11-digit PH mobile number starting with 09, e.g. 0917 123 4567.",
   gender: "Choose a gender option.",
   address: "Enter your address (5–200 characters).",
   photo: "Use a JPG, PNG or WebP image up to 5 MB.",

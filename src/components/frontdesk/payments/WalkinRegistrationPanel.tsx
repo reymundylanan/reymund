@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { ArrowLeftRight, Check, ChevronRight, UserPlus2 } from "lucide-react";
+import PhoneInput from "@/components/PhoneInput";
+import { phMobileDigits, phMobileError } from "@/lib/phMobile";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { toDateKey } from "@/lib/supabase/queries/staffShifts";
@@ -222,7 +224,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
   // A linked client's number comes from their account when left blank.
   const canProceed =
     fullName.trim().length > 0 &&
-    (linked !== null || mobileNumber.trim().length >= 7) &&
+    phMobileError(mobileNumber, { optional: linked !== null }) === null &&
     selectedServices.length > 0 &&
     needsSize.length === 0 &&
     !!therapistId;
@@ -281,7 +283,7 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
       startTime,
       durationMinutes,
       walkinName: fullName.trim(),
-      walkinPhone: mobileNumber.trim(),
+      walkinPhone: phMobileDigits(mobileNumber),
       // The bill reads the total from here (see walkinQuotedAmount).
       notes: `${selectedServices.map(lineName).join(", ")} with ${therapist.full_name} — ₱${totalPrice.toLocaleString()}.00`,
     });
@@ -353,10 +355,10 @@ export default function WalkinRegistrationPanel({ onRegistered }: { onRegistered
               Mobile Number
               {linked && <span className="font-normal text-ink/40"> (optional — uses the number on their account)</span>}
             </label>
-            <input
+            <PhoneInput
               value={mobileNumber}
-              onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 11))}
-              placeholder="0917XXXXXXX"
+              onChange={setMobileNumber}
+              optional={linked !== null}
               className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
             />
           </div>

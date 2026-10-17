@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { CheckCircle2, Send } from "lucide-react";
+import PhoneInput from "@/components/PhoneInput";
+import { phMobileDigits, phMobileError, PH_MOBILE_HINT } from "@/lib/phMobile";
 import { createClient } from "@/lib/supabase/client";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 
@@ -35,6 +37,7 @@ export default function FeedbackForm() {
     setError(null);
     if (!shownName.trim()) return setError("Please enter your name.");
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setError("Please enter a valid email, or leave it blank.");
+    if (phMobileError(phone, { optional: true })) return setError(`Phone: ${PH_MOBILE_HINT} Or leave it blank.`);
     if (message.trim().length < 5) return setError("Please write a little more in your message.");
     setSending(true);
     const { error: insertError } = await createClient()
@@ -43,7 +46,7 @@ export default function FeedbackForm() {
         client_id: user?.role === "customer" ? user.id : null,
         name: shownName.trim().slice(0, 80),
         email: email.trim() || null,
-        phone: phone.trim() || null,
+        phone: phMobileDigits(phone) || null,
         topic,
         message: message.trim().slice(0, 2000),
       });
@@ -88,7 +91,7 @@ export default function FeedbackForm() {
         </label>
         <label className="text-sm font-medium text-ink/80">
           Phone <span className="text-ink/45">(optional)</span>
-          <input value={phone} onChange={(e) => setPhone(e.target.value.slice(0, 30))} className={field} autoComplete="tel" />
+          <PhoneInput value={phone} onChange={setPhone} optional className={field} />
         </label>
       </div>
       <label className="block text-sm font-medium text-ink/80">

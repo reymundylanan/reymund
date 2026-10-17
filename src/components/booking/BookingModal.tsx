@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Clock, Gift, Hourglass, MapPin, Phone, Star, Upload, X } from "lucide-react";
+import PhoneInput from "@/components/PhoneInput";
+import { isPhMobile, phMobileDigits, PH_MOBILE_HINT } from "@/lib/phMobile";
+import { normalizePhone } from "@/lib/profileValidation";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -158,11 +161,6 @@ function formatDate(date: Date) {
     month: "long",
     day: "numeric",
   });
-}
-
-function formatPhoneInput(digits: string) {
-  const d = digits.slice(0, 10);
-  return [d.slice(0, 3), d.slice(3, 6), d.slice(6, 10)].filter(Boolean).join(" ");
 }
 
 function generateTimeSlots(startHour: number, endHour: number): string[] {
@@ -859,7 +857,7 @@ export default function BookingModal({
       if (contactPhone.trim()) {
         await supabase
           .from("profiles")
-          .update({ phone: `+63 ${formatPhoneInput(contactPhone)}` })
+          .update({ phone: normalizePhone(contactPhone) ?? phMobileDigits(contactPhone) })
           .eq("id", authData.user.id);
       }
 
@@ -1644,17 +1642,11 @@ export default function BookingModal({
                 <label className="text-sm font-medium uppercase text-ink/40">
                   Contact Number <span className="text-red-500">*</span>
                 </label>
-                <div className="mt-1 flex items-center gap-2 rounded-lg border border-ink/15 px-3 py-2.5 transition-colors focus-within:border-coral focus-within:ring-2 focus-within:ring-coral/20">
-                  <span className="text-base text-ink/50">+63</span>
-                  <input
-                    value={formatPhoneInput(contactPhone)}
-                    onChange={(e) =>
-                      setContactPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
-                    }
-                    placeholder="9XX XXX XXXX"
-                    className="w-full text-base outline-none"
-                  />
-                </div>
+                <PhoneInput
+                  value={contactPhone}
+                  onChange={setContactPhone}
+                  className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2.5 text-base outline-none transition-colors focus:border-coral focus:ring-2 focus:ring-coral/20"
+                />
                 <p className="mt-1 text-sm text-ink/40">
                   So the branch can reach you about this appointment.
                 </p>
@@ -2057,7 +2049,8 @@ export default function BookingModal({
 
           {step === "confirm" && (
             <button
-              disabled={contactPhone.trim().length < 7}
+              disabled={!isPhMobile(contactPhone)}
+              title={isPhMobile(contactPhone) ? undefined : PH_MOBILE_HINT}
               onClick={() =>
                 setStep(appointmentType === "group" ? "checkout" : "payment-choice")
               }
