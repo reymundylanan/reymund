@@ -30,6 +30,9 @@ export default function LoginCard({
       options: {
         // The callback saves Terms acceptance and the offers choice (066).
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}&consent=1${offers ? "&offers=1" : ""}`,
+        // Always show Google's account chooser (with "Use another account"),
+        // so the account open in Chrome is never used without asking.
+        queryParams: provider === "google" ? { prompt: "select_account" } : undefined,
       },
     });
 
@@ -52,6 +55,9 @@ export default function LoginCard({
         <GoogleIcon className="h-5 w-5" />
         {loadingProvider === "google" ? "Redirecting..." : "Continue with Google"}
       </button>
+      <p className="-mt-3 text-center text-[11px] leading-snug text-ink/50">
+        You&apos;ll pick which Google account to use. Not yours? Choose <b className="font-semibold">Use another account</b> — no need to sign out of Chrome.
+      </p>
 
       <button
         type="button"

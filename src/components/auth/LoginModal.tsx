@@ -7,7 +7,7 @@ import LoginCard from "@/components/auth/LoginCard";
 import StaffLoginForm from "@/components/auth/StaffLoginForm";
 import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 
-export default function LoginModal({ onClose }: { onClose: () => void }) {
+export default function LoginModal({ onClose, notice = null }: { onClose: () => void; notice?: string | null }) {
   const [offers, setOffers] = useState(false);
   // "Forgot password?" swaps the login options for the reset form.
   const [forgot, setForgot] = useState(false);
@@ -32,6 +32,11 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="px-8 py-8">
+          {notice && (
+            <p role="alert" className="mb-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+              {notice}
+            </p>
+          )}
           {forgot ? (
             <ForgotPasswordForm onBack={() => setForgot(false)} />
           ) : (
