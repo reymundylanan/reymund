@@ -42,8 +42,9 @@ export default async function AdminNotificationsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-ink">Notifications</h1>
-        <p className="text-sm text-ink/50">Send an announcement to your clients by email and Messenger.</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-coral-dark">Client communication</p>
+        <h1 className="mt-1 text-2xl font-semibold text-ink">Notifications</h1>
+        <p className="text-sm text-ink/55">Send news and promos to clients, manage the website announcement bar, and read client feedback.</p>
       </div>
       <NotificationsManager
         initialRecipientCount={recipientCount}

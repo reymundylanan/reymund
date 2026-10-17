@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Inbox, Mail, Phone } from "lucide-react";
+import { CheckCheck, Inbox, Mail, Phone } from "lucide-react";
+import { CARD, CardHeader } from "./ui";
 import { createClient } from "@/lib/supabase/client";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 
@@ -74,59 +75,93 @@ export default function FeedbackInbox() {
   const shown = showRead ? items : items.filter((f) => !f.read_at);
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-semibold text-ink">
-          <Inbox className="h-5 w-5 text-coral-dark" /> Client Feedback
-          {unread > 0 && <span className="rounded-full bg-coral px-2 py-0.5 text-xs font-semibold text-white">{unread} new</span>}
-        </h2>
-        <label className="flex items-center gap-2 text-sm text-ink/60">
-          <input type="checkbox" checked={showRead} onChange={(e) => setShowRead(e.target.checked)} /> Show read
-        </label>
-      </div>
-      <p className="mt-1 text-sm text-ink/50">Messages sent from the website&apos;s Submit Feedback page.</p>
+    <section className={CARD}>
+      <CardHeader
+        icon={Inbox}
+        title="Client Feedback"
+        subtitle="Messages sent from the website's Submit Feedback page."
+        badge={unread > 0 && <span className="rounded-full bg-coral px-2 py-0.5 text-xs font-semibold text-white">{unread} new</span>}
+        right={
+          <div role="tablist" aria-label="Show" className="flex rounded-full bg-cream p-1 text-sm">
+            {([[false, `Unread${unread ? ` (${unread})` : ""}`], [true, `All (${items.length})`]] as const).map(([v, label]) => (
+              <button
+                key={label}
+                role="tab"
+                aria-selected={showRead === v}
+                onClick={() => setShowRead(v)}
+                className={`rounded-full px-3.5 py-1.5 font-semibold transition ${showRead === v ? "bg-white text-ink shadow-sm" : "text-ink/50 hover:text-ink"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
-      <div className="mt-4 divide-y divide-ink/5">
+      <div className="mt-5">
         {loading ? (
-          <p className="py-3 text-sm text-ink/50">Loading…</p>
+          <p className="text-sm text-ink/50">Loading…</p>
         ) : missing ? (
-          <p className="py-3 text-sm text-amber-700">Apply migration 062 to start receiving feedback.</p>
+          <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Apply migration 062 to start receiving feedback.</p>
         ) : shown.length === 0 ? (
-          <p className="py-3 text-sm text-ink/50">{items.length ? "No unread feedback." : "No feedback yet."}</p>
+          <div className="flex flex-col items-center gap-2 rounded-2xl bg-cream/60 px-4 py-8 text-center">
+            <span className="grid h-11 w-11 place-items-center rounded-full bg-white text-coral-dark shadow-sm"><CheckCheck className="h-5 w-5" /></span>
+            <p className="text-sm font-medium text-ink/70">{items.length ? "All caught up — no unread feedback." : "No feedback yet."}</p>
+            {items.length > 0 && !showRead && (
+              <button type="button" onClick={() => setShowRead(true)} className="text-xs font-semibold text-coral-dark hover:underline">
+                See all {items.length}
+              </button>
+            )}
+          </div>
         ) : (
-          shown.map((f) => (
-            <div key={f.id} className={`py-4 ${f.read_at ? "opacity-70" : ""}`}>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-ink">
-                  {f.name}{" "}
-                  <span className={`ml-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${f.topic === "complaint" ? "bg-red-50 text-red-600" : "bg-skin text-coral-dark"}`}>
-                    {TOPIC_LABEL[f.topic] ?? f.topic}
-                  </span>
-                </p>
-                <span className="text-xs text-ink/45">
-                  {new Date(f.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-                </span>
-              </div>
-              <p className="mt-1.5 whitespace-pre-wrap text-sm text-ink/80">{f.message}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-4 text-xs text-ink/55">
-                {f.email && (
-                  <a href={`mailto:${f.email}`} className="flex items-center gap-1 hover:text-coral-dark">
-                    <Mail className="h-3.5 w-3.5" /> {f.email}
-                  </a>
+          <ul className="space-y-3">
+            {shown.map((f) => (
+              <li key={f.id} className={`rounded-2xl border p-4 transition ${f.read_at ? "border-ink/10 bg-white opacity-75" : "border-[#efd9a6] bg-[#fffaf0]"}`}>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#f8efd9] text-sm font-semibold text-coral-dark">
+                      {f.name.trim().charAt(0).toUpperCase() || "?"}
+                    </span>
+                    <div>
+                      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
+                        {f.name}
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${f.topic === "complaint" ? "bg-red-50 text-red-600" : "bg-[#fbf3dc] text-[#8A6A1C]"}`}>
+                          {TOPIC_LABEL[f.topic] ?? f.topic}
+                        </span>
+                      </p>
+                      <p className="text-xs text-ink/45">
+                        {new Date(f.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleRead(f)}
+                    className="rounded-full border border-ink/10 bg-white px-3 py-1 text-xs font-semibold text-ink/65 hover:border-coral hover:text-coral-dark"
+                  >
+                    {f.read_at ? "Mark unread" : "Mark as read"}
+                  </button>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink/80">{f.message}</p>
+                {(f.email || f.phone) && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                    {f.email && (
+                      <a href={`mailto:${f.email}`} className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-ink/65 ring-1 ring-ink/10 hover:text-coral-dark">
+                        <Mail className="h-3.5 w-3.5" /> {f.email}
+                      </a>
+                    )}
+                    {f.phone && (
+                      <a href={`tel:${f.phone.replace(/\s/g, "")}`} className="flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-ink/65 ring-1 ring-ink/10 hover:text-coral-dark">
+                        <Phone className="h-3.5 w-3.5" /> {f.phone}
+                      </a>
+                    )}
+                  </div>
                 )}
-                {f.phone && (
-                  <a href={`tel:${f.phone.replace(/\s/g, "")}`} className="flex items-center gap-1 hover:text-coral-dark">
-                    <Phone className="h-3.5 w-3.5" /> {f.phone}
-                  </a>
-                )}
-                <button type="button" onClick={() => toggleRead(f)} className="font-semibold text-coral-dark hover:underline">
-                  {f.read_at ? "Mark unread" : "Mark as read"}
-                </button>
-              </div>
-            </div>
-          ))
+              </li>
+            ))}
+          </ul>
         )}
       </div>
-    </div>
+    </section>
   );
 }
