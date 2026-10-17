@@ -81,9 +81,14 @@ function isOpenNow(hours: string, now: Date): boolean {
 type SpaPackage = {
   id: string;
   badge: string;
+  title: string | null;
   price: number;
   description: string;
 };
+
+/** "Premium" / "Basic" (the promo's title); the badge is often just "SPA PKG". */
+const spaPackageName = (pkg: SpaPackage) => (pkg.title && !/^spa package$/i.test(pkg.title.trim()) ? pkg.title.trim() : pkg.badge);
+const spaPackageService = (pkg: SpaPackage) => ({ id: pkg.id, name: `${spaPackageName(pkg)} Spa Package`, category: "Spa Package", department: "Spa", duration: "3 hrs", price: pkg.price });
 
 type DbService = {
   id: string;
@@ -255,20 +260,27 @@ export default function BookingModal({
   // "Book Now" on a service: it's pre-added once the client picks a branch.
   const preselect = !isPromo && service.preselect ? service : null;
   const preselectBranch = preselect?.branchId && branchContacts.some((b) => b.id === preselect.branchId) ? preselect.branchId : null;
-  const [step, setStep] = useState<Step>(isPromo ? "promo" : preselect ? (preselectBranch ? "services" : "branch") : "type");
+  // Spa Party from the Services page: straight to its packages (branch first, unless only one offers it).
+  const party = !isPromo && service.group ? service : null;
+  const partyBranch = party?.branchId && branchContacts.some((b) => b.id === party.branchId) ? party.branchId : null;
+  const [step, setStep] = useState<Step>(
+    isPromo ? "promo" : party ? (partyBranch ? "services" : "branch") : preselect ? (preselectBranch ? "services" : "branch") : "type"
+  );
   // Only one branch offers it: pick that branch straight away.
   const [branchId, setBranchId] = useState<string | null>(() =>
-    promoOptions?.length === 1 ? branchContacts.find((b) => b.name === promoOptions[0].branchName)?.id ?? null : preselectBranch
+    promoOptions?.length === 1 ? branchContacts.find((b) => b.name === promoOptions[0].branchName)?.id ?? null : partyBranch ?? preselectBranch
   );
   // Which branch the service was already pre-added for (so removing it sticks).
   const preselectedFor = useRef<string | null>(null);
+  // "Book this party" on the Services page: select that package once it loads.
+  const partyPicked = useRef(false);
   // "Book with Ms. X": choose that professional once, when they fit the booking.
   const preselectedStaff = useRef(false);
   const [preselectNote, setPreselectNote] = useState<string | null>(null);
   const [promoId, setPromoId] = useState<string | null>(promoOptions?.[0]?.id ?? null);
   const [promoLength, setPromoLength] = useState<PromoLength | null>(null);
   const promo = isPromo ? promoOptions!.find((p) => p.id === promoId) ?? promoOptions![0] : null;
-  const [appointmentType, setAppointmentType] = useState<AppointmentType>("solo");
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>(party ? "group" : "solo");
   const [, setPayLater] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [selectedServices, setSelectedServices] = useState<BranchService[]>([]);
@@ -358,11 +370,19 @@ export default function BookingModal({
       if (appointmentType === "group") {
         const { data: promos } = await supabase
           .from("branch_promotions")
-          .select("id, badge, price, description")
+          .select("id, badge, title, price, description")
           .eq("branch_id", uuid)
           .eq("category", "Spa Package")
           .order("price");
-        setSpaPackages((promos ?? []) as SpaPackage[]);
+        const list = (promos ?? []) as SpaPackage[];
+        setSpaPackages(list);
+        if (party && !partyPicked.current) {
+          partyPicked.current = true;
+          const pick =
+            list.find((p) => Number(p.price) === party.price && `${spaPackageName(p)} Spa Package` === party.name) ??
+            list.find((p) => Number(p.price) === party.price);
+          if (pick) setSelectedServices([spaPackageService(pick)]);
+        }
         setServicesLoading(false);
         return;
       }
@@ -1097,11 +1117,11 @@ export default function BookingModal({
                     return (
                       <button
                         key={pkg.id}
-                        onClick={() => setSelectedServices([{ id: pkg.id, name: `${pkg.badge} Spa Package`, category: "Spa Package", department: "Spa", duration: "3 hrs", price: pkg.price }])}
+                        onClick={() => setSelectedServices([spaPackageService(pkg)])}
                         className={`w-full rounded-2xl border p-5 text-left transition ${isSelected ? "border-coral bg-blush" : "border-ink/10 hover:border-coral/50"}`}
                       >
                         <div className="flex items-center justify-between">
-                          <span className={`rounded-full border px-3 py-0.5 text-xs font-bold tracking-wider ${isSelected ? "border-coral text-coral-dark" : "border-gold text-gold"}`}>{pkg.badge}</span>
+                          <span className={`rounded-full border px-3 py-0.5 text-xs font-bold tracking-wider ${isSelected ? "border-coral text-coral-dark" : "border-gold text-gold"}`}>{spaPackageName(pkg)}</span>
                           <span className="text-xl font-bold text-ink">Php {pkg.price.toLocaleString()}</span>
                         </div>
                         {inclusions.length > 0 && (

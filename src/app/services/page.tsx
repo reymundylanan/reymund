@@ -9,6 +9,8 @@ import { getServicePhotoThumbs, getServiceReviewSummaries } from "@/lib/supabase
 import { signPublicReviewPhotos } from "@/lib/supabase/reviewPhotoUrls";
 import { getServiceMediaMap } from "@/lib/serviceMedia";
 import { getActivePromotions } from "@/lib/supabase/queries/publicContent";
+import { getSpaPartyPackages } from "@/lib/supabase/queries/spaParty";
+import SpaPartySection from "@/components/services/SpaPartySection";
 
 async function fetchServices(): Promise<DbService[]> {
   const supabase = await createClient();
@@ -40,7 +42,7 @@ export default async function ServicesPage() {
   const services = await fetchServices();
   // Rating + a recent review quote per service (same service name at any branch).
   const supabase = await createClient();
-  const [ratings, promos, photos, media] = await Promise.all([
+  const [ratings, promos, photos, media, party] = await Promise.all([
     getServiceReviewSummaries(supabase, services.map((s) => ({ id: s.id, name: s.name }))),
     // Active promos, so the GlowSync guide can mention them on the right cards.
     getActivePromotions(supabase, 30),
@@ -48,6 +50,8 @@ export default async function ServicesPage() {
     getServicePhotoThumbs(supabase, signPublicReviewPhotos, services.map((s) => ({ id: s.id, name: s.name }))),
     // The spa's own photos and videos of each service (Admin → Branches & Services).
     getServiceMediaMap(supabase, services.map((s) => ({ id: s.id, name: s.name }))),
+    // Group packages (Admin → Promotions → Spa Packages).
+    getSpaPartyPackages(supabase),
   ]);
 
   return (
@@ -62,6 +66,7 @@ export default async function ServicesPage() {
           media={media}
           promos={promos.map((p) => ({ id: p.id, title: p.title, price: p.price, validUntil: p.validUntil, category: p.category }))}
         />
+        <SpaPartySection packages={party} />
         <MottoBanner />
       </main>
       <Footer />

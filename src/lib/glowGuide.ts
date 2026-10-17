@@ -189,3 +189,38 @@ export function categoryFacts(category: string, services: GuideService[], promos
     },
   };
 }
+
+// ── Spa Party (group packages, Services page) ──
+
+export type GuidePartyPackage = { key: string; tier: string; price: number; inclusions: string[]; branches: string[] };
+
+const partyWhere = (branches: string[]) => (branches.length === 1 ? `only at ${branches[0]}` : branches.length ? `at ${branches.join(" and ")}` : "");
+
+/** One Spa Party package card. */
+export function spaPackageFacts(p: GuidePartyPackage, all: GuidePartyPackage[]): GuideFacts {
+  const where = partyWhere(p.branches);
+  const others = all.filter((x) => x.key !== p.key);
+  const top = others.length > 0 && all.every((x) => x.price <= p.price);
+  return {
+    id: `party:${p.key}`,
+    kind: "service",
+    title: `${p.tier} Spa Package`,
+    category: "Spa Party",
+    reaction: top ? "🥂" : "🎉",
+    hook: top ? "Want the full celebration?" : "A party for your group?",
+    mood: top ? "excited" : "hands",
+    intro: `This is our ${p.tier} Spa Party package${where ? `, ${where}` : ""}.`,
+    why: p.inclusions.length ? `Includes ${p.inclusions.slice(0, 3).join(", ")}${p.inclusions.length > 3 ? " and more" : ""}.` : "Treatments for your group and the spa all to yourselves.",
+    meta: [peso(p.price), "3 hours", where ? where.replace(/^only at /, "Only at ") : ""].filter(Boolean),
+    promo: null,
+    answers: {
+      price: `The ${p.tier} package is ${peso(p.price)} for the whole group, paid in full to confirm your date.`,
+      duration: "You get 3 hours of exclusive use of the spa area.",
+      benefits: p.inclusions.length ? `It includes: ${p.inclusions.join(", ")}.` : "Treatments for your group and the spa all to yourselves.",
+      promotions: "It's already a special group price — no extra promo needed.",
+      compare: others.length
+        ? others.map((o) => `${o.tier} is ${peso(o.price)}${o.inclusions.length !== p.inclusions.length ? ` with ${o.inclusions.length} inclusions` : ""}`).join("; ") + ` — this one has ${p.inclusions.length}.`
+        : "It's our only Spa Party package right now.",
+    },
+  };
+}

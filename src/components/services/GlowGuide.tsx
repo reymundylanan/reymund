@@ -80,11 +80,15 @@ export default function GlowGuide({
   items,
   onBook,
   onDetails,
+  hoverOnly = false,
 }: {
   containerRef: RefObject<HTMLElement | null>;
   items: GuideFacts[];
   onBook: (item: GuideFacts) => void;
   onDetails: (item: GuideFacts) => void;
+  /** Desktop: only show while the pointer is on a card or the guide itself
+   * (few, large cards — so it never sits over the other one). */
+  hoverOnly?: boolean;
 }) {
   const { isOpen: bookingOpen } = useBooking();
   const { open: openLogin } = useLoginModal();
@@ -122,6 +126,9 @@ export default function GlowGuide({
   const { emote, burst } = play;
 
   const hovering = useRef(false);
+  // hoverOnly: is the pointer on a card or the guide right now?
+  const [present, setPresent] = useState(false);
+  const leaveTimer = useRef(0);
 
   const itemsKey = items.map((i) => i.id).join("|");
   const [lastKey, setLastKey] = useState(itemsKey);
@@ -267,11 +274,14 @@ export default function GlowGuide({
       const target = e.target as HTMLElement;
       if (target.closest("[data-guide-ui]")) {
         hovering.current = true;
+        window.clearTimeout(leaveTimer.current);
         return;
       }
       const card = target.closest<HTMLElement>("[data-guide-id]");
       if (!card) return;
       hovering.current = true;
+      window.clearTimeout(leaveTimer.current);
+      if (hoverOnly) setPresent(true);
       if (locked || chatOpen) return;
       const i = items.findIndex((it) => it.id === card.dataset.guideId);
       if (i >= 0 && items[i].id !== item?.id) goTo(i);
@@ -293,6 +303,11 @@ export default function GlowGuide({
       if (from && !to) {
         hovering.current = false;
         pausedUntil.current = Date.now() + HOVER_RESUME_MS;
+        // A moment's grace, so crossing from a card onto the bubble doesn't flicker.
+        if (hoverOnly) {
+          window.clearTimeout(leaveTimer.current);
+          leaveTimer.current = window.setTimeout(() => setPresent(false), 250);
+        }
       }
     };
     c.addEventListener("pointerover", over);
@@ -303,7 +318,9 @@ export default function GlowGuide({
       c.removeEventListener("pointerout", out);
       c.removeEventListener("click", click);
     };
-  }, [containerRef, wide, minimized, items, item, goTo, locked, chatOpen]);
+  }, [containerRef, wide, minimized, items, item, goTo, locked, chatOpen, hoverOnly]);
+
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), []);
 
   /** Tap: the body tucks into the head and springs back with hearts.
    *  Three quick taps: a twirl with sparkles. Either way, its questions open. */
@@ -623,17 +640,20 @@ export default function GlowGuide({
   const bubbleX = side === "right" ? mascotX + MASCOT_W - TUCK : Math.max(mascotX + TUCK - BUBBLE_W, 0);
   const bubbleY = Math.max(card.top, 0);
   const follow = { transitionDelay: `${ARRIVE_MS}ms` };
+  // hoverOnly: tucked away (and click-through) unless pointed at or being asked something.
+  const away = hoverOnly && !present && mode !== "ask" && !asking;
+  const fade = away ? "pointer-events-none !opacity-0" : "";
 
   return (
     <>
-      <span aria-hidden className="guide-fly pointer-events-none absolute left-0 top-0 z-20" style={{ transform: `translate(${arrowX}px, ${arrowY}px)` }}>
+      <span aria-hidden className={`guide-fly pointer-events-none absolute left-0 top-0 z-20 ${fade}`} style={{ transform: `translate(${arrowX}px, ${arrowY}px)` }}>
         <span className="guide-arrow flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-b from-[#f3d98b] to-[#c9a24a] text-white shadow-md ring-2 ring-white">
           <ArrowDown className="h-4 w-4" strokeWidth={3} />
         </span>
       </span>
 
       <div
-        className={`guide-fly absolute left-0 top-0 z-30 ${moving ? "pointer-events-none opacity-0" : "opacity-100"}`}
+        className={`guide-fly absolute left-0 top-0 z-30 ${moving ? "pointer-events-none opacity-0" : "opacity-100"} ${fade}`}
         style={{ transform: `translate(${bubbleX}px, ${bubbleY}px)`, width: BUBBLE_W, ...follow }}
       >
         <div key={`${item.id}-${mode}-${greeting}`} data-guide-ui className={`guide-bubble glowy-pop ${GUIDE_FONTS}`}>
@@ -651,7 +671,7 @@ export default function GlowGuide({
         onPointerMove={play.rub}
         onPointerEnter={play.hover}
         aria-label="Ask GlowSync AI about this service"
-        className="guide-fly absolute left-0 top-0 z-40 rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a]"
+        className={`guide-fly absolute left-0 top-0 z-40 rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a] ${fade}`}
         style={{ transform: `translate(${mascotX}px, ${mascotY}px)`, ...follow }}
       >
         <SpringDrag onLand={giggle}>{(dragged) => mascot(MASCOT, side === "right", dragged)}</SpringDrag>

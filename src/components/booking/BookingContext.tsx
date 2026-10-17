@@ -18,6 +18,8 @@ export type BookableService = {
   branchId?: string;
   /** "Book with Ms. X" (Meet the Team): pick this professional when they can do the chosen services. */
   staffId?: string;
+  /** Spa Party (Services page): go straight to the group packages. */
+  group?: boolean;
 };
 
 type BookingContextValue = {
