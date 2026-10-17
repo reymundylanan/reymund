@@ -795,30 +795,31 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
       {/* Services tab */}
       {activeTab === "Services" && (
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-semibold text-ink">Services ({filtered.length})</h3>
-              <p className="text-base text-ink/50">Manage services offered in this branch</p>
+              <p className="text-sm text-ink/50">Manage services offered in this branch</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={filterCat}
                 onChange={(e) => setFilterCat(e.target.value)}
-                className="rounded-full border border-ink/15 px-6 py-3 text-lg text-ink/70 outline-none focus:border-coral"
+                aria-label="Category"
+                className="rounded-full border border-ink/15 bg-white px-4 py-2.5 text-sm text-ink/70 outline-none focus:border-coral"
               >
                 {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
               </select>
-              <div className="flex items-center gap-2 rounded-full border border-ink/10 px-6 py-3">
-                <svg className="h-5 w-5 text-ink/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <div className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2.5 focus-within:border-coral">
+                <svg className="h-4 w-4 text-ink/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 <input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search service..."
-                  className="w-48 text-lg outline-none placeholder:text-ink/40"
+                  className="w-44 text-sm outline-none placeholder:text-ink/40"
                 />
               </div>
-              <button onClick={openAdd} className="flex items-center gap-2 rounded-full bg-coral px-6 py-3 text-lg font-semibold text-white hover:bg-coral-dark">
-                <Plus className="h-5 w-5" /> Add Service
+              <button onClick={openAdd} className="flex items-center gap-1.5 rounded-full bg-coral px-5 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark">
+                <Plus className="h-4 w-4" /> Add Service
               </button>
             </div>
           </div>
@@ -833,145 +834,118 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
             {!loadingServices && grouped.length === 0 && services.length > 0 && (
               <p className="py-8 text-center text-sm text-ink/40">No services match your search.</p>
             )}
-            {grouped.map((group) => {
-              const groupHasDesc = group.rows.some((r) => r.description);
-              const groupHasBenefits = group.rows.some((r) => r.benefits);
-              return (
-              <div key={group.label}>
-                <table className="w-full text-base">
+            {grouped.map((group) => (
+              <section key={group.label} className="min-w-[1080px]">
+                <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-ink">
+                  {group.label}
+                  <span className="rounded-full bg-cream px-2 text-xs font-medium text-ink/55">{group.rows.length}</span>
+                </h4>
+                {/* Same column widths in every group, so the columns line up down the page. */}
+                <table className="w-full table-fixed text-sm">
+                  <colgroup>
+                    <col className="w-[18%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[17%]" />
+                    <col className="w-[17%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[6%]" />
+                  </colgroup>
                   <thead>
-                    <tr className="border-b border-ink/10 text-base font-semibold uppercase text-ink/40">
-                      <th className="pb-3 text-left">Service</th>
-                      <th className="pb-3 text-left">Department</th>
-                      <th className="pb-3 text-left">Category</th>
-                      {groupHasDesc && <th className="pb-3 text-left">Description</th>}
-                      {groupHasBenefits && <th className="pb-3 text-left">Benefits</th>}
-                      <th className="pb-3 text-left">Duration</th>
-                      <th className="pb-3 text-left">{filterCat === "All Categories" || ["Premium Treatments", "Laser Services", "Cocktail Drips", "Slimming Services"].includes(group.label) ? "Per Session" : "Price"}</th>
-                      <th className="pb-3 text-right">Actions</th>
+                    <tr className="bg-cream/70 text-left text-[11px] font-semibold uppercase tracking-wider text-ink/50">
+                      <th className="rounded-l-xl px-3 py-2.5">Service</th>
+                      <th className="px-3 py-2.5">Department</th>
+                      <th className="px-3 py-2.5">Category</th>
+                      <th className="px-3 py-2.5">Description</th>
+                      <th className="px-3 py-2.5">Benefits</th>
+                      <th className="px-3 py-2.5">Duration</th>
+                      <th className="px-3 py-2.5">{filterCat === "All Categories" || ["Premium Treatments", "Laser Services", "Cocktail Drips", "Slimming Services"].includes(group.label) ? "Per Session" : "Price"}</th>
+                      <th className="rounded-r-xl px-3 py-2.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {group.rows.map((svc) => (
-                      <tr key={svc.id} className="border-b border-ink/5 last:border-0">
-                        <td className="py-4 max-w-[260px]">
-                          <p className="font-semibold text-ink">{svc.name}</p>
-                          {svc.hairOptions && (
-                            <p className="text-sm text-ink/50 mt-0.5">
-                              {svc.hairOptions.type}{svc.hairOptions.subType ? ` · ${svc.hairOptions.subType}` : ""}
-                            </p>
-                          )}
-                          {svc.browsType && (
-                            <p className="text-sm text-ink/50 mt-0.5">{svc.browsType}</p>
-                          )}
-                          {svc.bodyWellnessType && (
-                            <p className="text-sm text-ink/50 mt-0.5">{svc.bodyWellnessType}</p>
-                          )}
-                          {svc.facialOptions?.isPremium && (
-                            <p className="text-sm text-ink/50 mt-0.5">Premium Facial Treatment</p>
-                          )}
-                          {svc.facialOptions?.hasAddons && (
-                            <p className="text-sm text-ink/50 mt-0.5">Add On</p>
-                          )}
-                          {svc.addons && svc.addons.length > 0 && (
-                            <p className="text-sm text-ink/50 mt-0.5">Add On</p>
-                          )}
-                          {svc.laserType && (
-                            <p className="text-sm text-ink/50 mt-0.5">{svc.laserType}</p>
-                          )}
-                          {svc.slimmingType && (
-                            <p className="text-sm text-ink/50 mt-0.5">{svc.slimmingType}</p>
-                          )}
-                          {svc.nonSurgicalType && (
-                            <p className="text-sm text-ink/50 mt-0.5">{svc.nonSurgicalType}</p>
-                          )}
-                          {svc.doctorType && (
-                            <p className="text-sm text-ink/50 mt-0.5">{svc.doctorType}</p>
-                          )}
-                          {svc.cocktailType && (
-                            <p className="text-sm text-ink/50 mt-0.5">{svc.cocktailType}</p>
+                    {group.rows.map((svc) => {
+                      const tags = [
+                        svc.hairOptions && `${svc.hairOptions.type}${svc.hairOptions.subType ? ` · ${svc.hairOptions.subType}` : ""}`,
+                        svc.browsType,
+                        svc.bodyWellnessType,
+                        svc.facialOptions?.isPremium && "Premium Facial Treatment",
+                        (svc.facialOptions?.hasAddons || (svc.addons && svc.addons.length > 0)) && "Add On",
+                        svc.laserType,
+                        svc.slimmingType,
+                        svc.nonSurgicalType,
+                        svc.doctorType,
+                        svc.cocktailType,
+                      ].filter((t): t is string => !!t);
+                      return (
+                      <tr key={svc.id} className="border-b border-ink/5 align-top transition-colors last:border-0 hover:bg-cream/40">
+                        <td className="px-3 py-3.5">
+                          <p className="font-semibold leading-snug text-ink">{svc.name}</p>
+                          {[...new Set(tags)].map((t) => (
+                            <p key={t} className="mt-0.5 text-xs text-ink/50">{t}</p>
+                          ))}
+                        </td>
+                        <td className="px-3 py-3.5 text-ink/65">{svc.department}</td>
+                        <td className="px-3 py-3.5 text-ink/80">{svc.category}</td>
+                        <td className="px-3 py-3.5">
+                          {svc.description ? (
+                            <p title={svc.description} className="line-clamp-2 text-xs leading-relaxed text-ink/55">{svc.description}</p>
+                          ) : (
+                            <span className="text-ink/25">—</span>
                           )}
                         </td>
-                        <td className="py-4 text-ink/60">{svc.department}</td>
-                        <td className="py-4 font-semibold text-ink">{svc.category}</td>
-                        {groupHasDesc && (
-                          <td className="py-4 max-w-[200px]">
-                            {svc.description && <p className="text-sm text-ink/50 leading-snug line-clamp-2">{svc.description}</p>}
-                          </td>
-                        )}
-                        {groupHasBenefits && (
-                          <td className="py-4 max-w-[200px]">
-                            {svc.benefits && <p className="text-sm text-ink/50 leading-snug line-clamp-2">{svc.benefits}</p>}
-                          </td>
-                        )}
-                        <td className="py-4">
+                        <td className="px-3 py-3.5">
+                          {svc.benefits ? (
+                            <p title={svc.benefits} className="line-clamp-2 text-xs leading-relaxed text-ink/55">{svc.benefits}</p>
+                          ) : (
+                            <span className="text-ink/25">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3.5">
                           <span className="flex items-center gap-1.5 text-ink/60">
-                            <Clock className="h-4 w-4 shrink-0" />
-                            {svc.duration || <span className="text-ink/30">—</span>}
+                            <Clock className="h-3.5 w-3.5 shrink-0 text-ink/40" />
+                            {svc.duration || <span className="text-ink/25">—</span>}
                           </span>
                         </td>
-                        <td className="py-4 text-sm text-ink">
+                        <td className="px-3 py-3.5 text-ink">
                           {svc.hairOptions?.prices ? (
-                            <div className="space-y-0.5">
-                              <div className="flex gap-2"><span className="w-16 text-sm text-ink/40">Short</span><span className="text-sm font-semibold">₱{svc.hairOptions.prices.short || "—"}</span></div>
-                              <div className="flex gap-2"><span className="w-16 text-sm text-ink/40">Medium</span><span className="text-sm font-semibold">₱{svc.hairOptions.prices.medium || "—"}</span></div>
-                              <div className="flex gap-2"><span className="w-16 text-sm text-ink/40">Long</span><span className="text-sm font-semibold">₱{svc.hairOptions.prices.long || "—"}</span></div>
-                            </div>
-                          ) : svc.category === "Premium Treatments" ? (
-                            <div className="space-y-0.5">
-                              <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">Per Session</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
-                              {svc.price5 != null && <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">2+1</span><span className="text-sm font-semibold">₱{svc.price5.toLocaleString()}.00</span></div>}
-                            </div>
+                            <PriceLines rows={[["Short", svc.hairOptions.prices.short], ["Medium", svc.hairOptions.prices.medium], ["Long", svc.hairOptions.prices.long]]} />
+                          ) : svc.category === "Premium Treatments" || svc.category === "Slimming Services" ? (
+                            <PriceLines rows={[["Per Session", svc.price1], ...(svc.price5 != null ? [["2+1", svc.price5] as PriceLine] : [])]} />
                           ) : svc.category === "Non-Surgical Liposuction" && svc.nonSurgicalType === "Add On" ? (
-                            <div className="space-y-0.5">
-                              <span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}{svc.price5 != null ? ` – ₱${svc.price5.toLocaleString()}` : ""}</span>
-                            </div>
-                          ) : svc.category === "Slimming Services" ? (
-                            <div className="space-y-0.5">
-                              <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">Per Session</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
-                              {svc.price5 != null && <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">2+1</span><span className="text-sm font-semibold">₱{svc.price5.toLocaleString()}.00</span></div>}
-                            </div>
+                            <span className="font-semibold tabular-nums">₱{svc.price1.toLocaleString()}{svc.price5 != null ? ` – ₱${svc.price5.toLocaleString()}` : ""}</span>
                           ) : svc.category === "Cocktail Drips" ? (
-                            <div className="space-y-0.5">
-                              <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">{svc.cocktailType === "Add On" ? "Price" : "Per Session"}</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
-                              {svc.price5 != null && <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">5+2</span><span className="text-sm font-semibold">₱{svc.price5.toLocaleString()}.00</span></div>}
-                            </div>
+                            <PriceLines rows={[[svc.cocktailType === "Add On" ? "Price" : "Per Session", svc.price1], ...(svc.price5 != null ? [["5+2", svc.price5] as PriceLine] : [])]} />
                           ) : svc.category === "Laser Services" ? (
-                            <div className="space-y-0.5">
-                              {svc.laserType === "Laser Treatment" ? (
-                                <div className="flex gap-2"><span className="w-24 text-sm text-ink/40">Per Body Area</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
-                              ) : (
-                                <>
-                                  <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">Per Session</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
-                                  {svc.price5 != null && <div className="flex gap-2"><span className="w-20 text-sm text-ink/40">4+1</span><span className="text-sm font-semibold">₱{svc.price5.toLocaleString()}.00</span></div>}
-                                </>
-                              )}
-                            </div>
+                            svc.laserType === "Laser Treatment" ? (
+                              <PriceLines rows={[["Per Body Area", svc.price1]]} />
+                            ) : (
+                              <PriceLines rows={[["Per Session", svc.price1], ...(svc.price5 != null ? [["4+1", svc.price5] as PriceLine] : [])]} />
+                            )
                           ) : svc.category === "Doctor's Procedure" && svc.doctorType === "Non-Surgical Augmentation" ? (
-                            <div className="space-y-0.5">
-                              <div className="flex gap-2"><span className="text-sm text-ink/40">Starts at:</span><span className="text-sm font-semibold">₱{svc.price1.toLocaleString()}.00</span></div>
-                            </div>
+                            <PriceLines rows={[["Starts at", svc.price1]]} />
                           ) : (
-                            <span className="font-semibold">₱{svc.price1.toLocaleString()}.00</span>
+                            <span className="font-semibold tabular-nums">₱{svc.price1.toLocaleString()}.00</span>
                           )}
                         </td>
-                        <td className="py-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <button onClick={() => openEdit(svc)} className="rounded-lg p-2.5 text-ink/40 hover:bg-blush hover:text-coral-dark">
-                              <Pencil className="h-6 w-6" />
+                        <td className="px-3 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            <button onClick={() => openEdit(svc)} aria-label={`Edit ${svc.name}`} title="Edit" className="rounded-lg p-2 text-ink/40 hover:bg-blush hover:text-coral-dark">
+                              <Pencil className="h-4 w-4" />
                             </button>
-                            <button onClick={() => handleDelete(svc.id, svc.name)} className="rounded-lg p-2.5 text-ink/40 hover:bg-red-50 hover:text-red-500">
-                              <Trash2 className="h-6 w-6" />
+                            <button onClick={() => handleDelete(svc.id, svc.name)} aria-label={`Delete ${svc.name}`} title="Delete" className="rounded-lg p-2 text-ink/40 hover:bg-red-50 hover:text-red-500">
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
-              </div>
-              );
-            })}
+              </section>
+            ))}
           </div>
         </div>
       )}
@@ -1862,6 +1836,26 @@ function GalleryTab({ branchUuid }: { branchUuid: string | null }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+type PriceLine = [label: string, value: number | string | null | undefined];
+
+/** Price rows in the services table: small label left, amount right, aligned. */
+function PriceLines({ rows }: { rows: PriceLine[] }) {
+  const peso = (v: PriceLine[1]) => {
+    const n = typeof v === "number" ? v : Number(String(v ?? "").replace(/[^\d.]/g, ""));
+    return v === null || v === undefined || v === "" || Number.isNaN(n) ? "—" : `₱${n.toLocaleString()}.00`;
+  };
+  return (
+    <div className="space-y-0.5">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex items-baseline justify-between gap-2">
+          <span className="whitespace-nowrap text-[11px] text-ink/45">{label}</span>
+          <span className="whitespace-nowrap font-semibold tabular-nums">{peso(value)}</span>
+        </div>
+      ))}
     </div>
   );
 }
