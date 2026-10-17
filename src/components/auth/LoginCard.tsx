@@ -45,17 +45,17 @@ export default function LoginCard({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <button
         type="button"
         onClick={() => handleOAuth("google")}
         disabled={loadingProvider !== null}
-        className="flex w-full items-center justify-center gap-3 rounded-full border border-ink/15 py-3 text-sm font-medium text-ink hover:bg-blush disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-3 rounded-full border border-[#e8dcc0] bg-white py-3 text-sm font-semibold text-ink shadow-[0_6px_18px_-14px_rgba(90,60,20,0.6)] transition hover:-translate-y-0.5 hover:border-coral/60 hover:bg-[#fffaf0] disabled:translate-y-0 disabled:opacity-50"
       >
         <GoogleIcon className="h-5 w-5" />
         {loadingProvider === "google" ? "Redirecting..." : "Continue with Google"}
       </button>
-      <p className="-mt-3 text-center text-[11px] leading-snug text-ink/50">
+      <p className="-mt-2 px-2 text-center text-[11px] leading-snug text-ink/50">
         You&apos;ll pick which Google account to use. Not yours? Choose <b className="font-semibold">Use another account</b> — no need to sign out of Chrome.
       </p>
 
@@ -63,13 +63,13 @@ export default function LoginCard({
         type="button"
         onClick={() => handleOAuth("facebook")}
         disabled={loadingProvider !== null}
-        className="flex w-full items-center justify-center gap-3 rounded-full border border-ink/15 py-3 text-sm font-medium text-ink hover:bg-blush disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-3 rounded-full border border-[#e8dcc0] bg-white py-3 text-sm font-semibold text-ink shadow-[0_6px_18px_-14px_rgba(90,60,20,0.6)] transition hover:-translate-y-0.5 hover:border-coral/60 hover:bg-[#fffaf0] disabled:translate-y-0 disabled:opacity-50"
       >
         <FacebookCircleIcon className="h-5 w-5" />
         {loadingProvider === "facebook" ? "Redirecting..." : "Continue with Facebook"}
       </button>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{error}</p>}
     </div>
   );
 }

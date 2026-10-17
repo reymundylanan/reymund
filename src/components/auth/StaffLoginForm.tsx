@@ -3,7 +3,7 @@
 import { signOutSafely } from "@/lib/auth/signOut";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2, Lock, LogIn, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { recordLoginConsent } from "@/lib/auth/consent";
 
@@ -85,18 +85,24 @@ export default function StaffLoginForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="text-sm font-medium text-ink">Username</label>
-        <input
-          type="text"
-          required
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="mt-1.5 w-full rounded-lg border border-ink/15 px-4 py-2.5 text-sm outline-none focus:border-coral"
-        />
+        <label htmlFor="staff-username" className="text-sm font-medium text-ink/80">Username</label>
+        <div className="relative mt-1.5">
+          <User className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35" />
+          <input
+            id="staff-username"
+            type="text"
+            required
+            autoComplete="username"
+            placeholder="Your username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="w-full rounded-xl border border-[#e8dcc0] bg-white py-3 pl-10 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-coral focus:ring-2 focus:ring-coral/15 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white] [&:-webkit-autofill]:[-webkit-text-fill-color:#2b1a10] pr-4"
+          />
+        </div>
       </div>
       <div>
         <div className="flex items-baseline justify-between gap-2">
-          <label className="text-sm font-medium text-ink">Password</label>
+          <label htmlFor="staff-password" className="text-sm font-medium text-ink/80">Password</label>
           {onForgot && (
             <button type="button" onClick={onForgot} className="text-xs font-semibold text-coral-dark hover:underline">
               Forgot password?
@@ -104,36 +110,37 @@ export default function StaffLoginForm({
           )}
         </div>
         <div className="relative mt-1.5">
+          <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35" />
           <input
+            id="staff-password"
             type={showPassword ? "text" : "password"}
             required
+            autoComplete="current-password"
+            placeholder="Your password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-ink/15 px-4 py-2.5 pr-10 text-sm outline-none focus:border-coral"
+            className="w-full rounded-xl border border-[#e8dcc0] bg-white py-3 pl-10 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-coral focus:ring-2 focus:ring-coral/15 [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_white] [&:-webkit-autofill]:[-webkit-text-fill-color:#2b1a10] pr-11"
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? "Hide password" : "Show password"}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/40 hover:text-ink"
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-ink/40 hover:bg-cream hover:text-ink"
           >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-2.5 text-sm text-red-700">{error}</p>}
 
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-full bg-coral py-3 text-sm font-bold uppercase tracking-wide text-white hover:bg-coral-dark disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(168,132,58,0.9)] transition hover:bg-coral-dark disabled:opacity-50"
       >
-        {loading ? "Signing in..." : "Login"}
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
+        {loading ? "Signing in..." : "Log in"}
       </button>
     </form>
   );
