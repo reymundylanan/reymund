@@ -51,9 +51,13 @@ export default async function AdminNotificationsPage() {
         promos={promos}
         messenger={{ configured: messengerConfigured, missing: missingMessengerEnv(), ...audience, ...dispatch }}
         messengerResults={messengerResults}
+        between={
+          <>
+            <AnnouncementCard />
+            <FeedbackInbox />
+          </>
+        }
       />
-      <AnnouncementCard />
-      <FeedbackInbox />
     </div>
   );
 }

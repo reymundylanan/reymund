@@ -44,7 +44,7 @@ export default function AnnouncementCard() {
       ) : (
         <div className="mt-4 space-y-3">
           <label className="flex items-center gap-2 text-sm font-medium text-ink/80">
-            <input type="checkbox" checked={a.enabled} onChange={(e) => setA({ ...a, enabled: e.target.checked })} className="h-4 w-4 accent-coral" />
+            <input type="checkbox" checked={a.enabled} onChange={(e) => { setA({ ...a, enabled: e.target.checked }); setMsg(null); }} className="h-4 w-4 accent-coral" />
             Show the announcement bar
           </label>
           <label className="block text-sm font-medium text-ink/70">

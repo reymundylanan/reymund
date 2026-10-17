@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ImagePlus, MessageCircle, Send, X } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { ChevronDown, History, ImagePlus, MessageCircle, Send, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { NotificationBroadcast, PromoOption } from "@/lib/supabase/queries/notificationBroadcasts";
 import type { DispatchStatus, MessengerResults } from "@/lib/supabase/queries/messenger";
@@ -29,12 +29,15 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 export default function NotificationsManager({
   initialRecipientCount,
   initialHistory,
+  between,
   promos,
   messenger,
   messengerResults,
 }: {
   initialRecipientCount: number;
   initialHistory: NotificationBroadcast[];
+  /** Shown between Compose and the (collapsible) history. */
+  between?: ReactNode;
   promos: PromoOption[];
   messenger: MessengerInfo;
   messengerResults: Record<string, MessengerResults>;
@@ -303,9 +306,23 @@ export default function NotificationsManager({
         </div>
       </div>
 
-      <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <h2 className="font-semibold text-ink">Broadcast History</h2>
-        <div className="mt-4 divide-y divide-ink/5">
+      {/* Other cards (announcement, feedback) sit between Compose and the history. */}
+      {between}
+
+      <details className="group rounded-2xl bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl p-6 hover:bg-cream/40 [&::-webkit-details-marker]:hidden">
+          <span>
+            <span className="flex items-center gap-2 font-semibold text-ink">
+              <History className="h-4 w-4 text-coral-dark" /> Broadcast History
+              <span className="rounded-full bg-cream px-2 text-xs font-medium text-ink/55">{history.length}</span>
+            </span>
+            <span className="mt-0.5 block text-sm text-ink/50">
+              {history[0] ? `Last sent ${formatRelative(history[0].created_at)} — ${history[0].subject}` : "No broadcasts sent yet."}
+            </span>
+          </span>
+          <ChevronDown className="h-5 w-5 shrink-0 text-ink/40 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="divide-y divide-ink/5 px-6 pb-4">
           {history.length === 0 ? (
             <p className="py-3 text-sm text-ink/50">No broadcasts sent yet.</p>
           ) : (
@@ -342,7 +359,7 @@ export default function NotificationsManager({
             })
           )}
         </div>
-      </div>
+      </details>
 
       {confirming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
