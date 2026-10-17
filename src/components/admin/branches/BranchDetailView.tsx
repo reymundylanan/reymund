@@ -11,6 +11,7 @@ import { BranchAnalyticsTab, BranchOverviewTab, BranchReviewsTab, BranchTodaySta
 import {
   BarChart2,
   Calendar,
+  Camera,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -30,6 +31,8 @@ import {
 import type { adminBranches } from "@/lib/adminData";
 import { branchServiceCategories } from "@/lib/data";
 import { logQueryError } from "@/lib/supabase/logQueryError";
+import { getServiceMediaMap, type ServiceMediaItem } from "@/lib/serviceMedia";
+import { getServiceImage } from "@/lib/serviceImage";
 
 type Branch = (typeof adminBranches)[number];
 
@@ -180,6 +183,23 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
   const [activeTab, setActiveTab] = useState("Overview");
   const [now, setNow] = useState(new Date());
   const [services, setServices] = useState<ServiceRow[]>([]);
+  // Photos per service (shown on the public Services page); the first is the card picture.
+  const [media, setMedia] = useState<Record<string, ServiceMediaItem[]>>({});
+  const [photosFor, setPhotosFor] = useState<ServiceRow | null>(null);
+  const mediaKey = services.map((s) => s.id).join("|");
+  useEffect(() => {
+    if (!services.length) return;
+    let alive = true;
+    getServiceMediaMap(createClient(), services.map((s) => ({ id: s.id, name: s.name }))).then((m) => alive && setMedia(m));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when the list of services changes
+  }, [mediaKey]);
+  async function closePhotos() {
+    setPhotosFor(null);
+    setMedia(await getServiceMediaMap(createClient(), services.map((s) => ({ id: s.id, name: s.name }))));
+  }
   const [branchUuid, setBranchUuid] = useState<string | null>(null);
   const [loadingServices, setLoadingServices] = useState(true);
   const [staffMembers, setStaffMembers] = useState<{ id: string; fullName: string; department: string; phone: string | null; avatarUrl: string | null }[]>([]);
@@ -881,10 +901,15 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                       return (
                       <tr key={svc.id} className="border-b border-ink/5 align-top transition-colors last:border-0 hover:bg-cream/40">
                         <td className="px-3 py-3.5">
-                          <p className="font-semibold leading-snug text-ink">{svc.name}</p>
-                          {[...new Set(tags)].map((t) => (
-                            <p key={t} className="mt-0.5 text-xs text-ink/50">{t}</p>
-                          ))}
+                          <div className="flex items-start gap-3">
+                            <ServiceThumb items={media[svc.id]} fallback={getServiceImage(svc.category)} name={svc.name} onClick={() => setPhotosFor(svc)} />
+                            <div className="min-w-0">
+                              <p className="font-semibold leading-snug text-ink">{svc.name}</p>
+                              {[...new Set(tags)].map((t) => (
+                                <p key={t} className="mt-0.5 text-xs text-ink/50">{t}</p>
+                              ))}
+                            </div>
+                          </div>
                         </td>
                         <td className="px-3 py-3.5 text-ink/65">{svc.department}</td>
                         <td className="px-3 py-3.5 text-ink/80">{svc.category}</td>
@@ -946,6 +971,33 @@ export default function BranchDetailView({ branch, onBack }: { branch: Branch; o
                 </table>
               </section>
             ))}
+          </div>
+        </div>
+      )}
+
+      {photosFor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" role="dialog" aria-modal="true" aria-label={`Photos of ${photosFor.name}`}>
+          <div className="flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-3 border-b border-[#f1e4c4] px-6 py-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-coral-dark">Service photos</p>
+                <h3 className="text-lg font-semibold text-ink">{photosFor.name}</h3>
+                <p className="text-sm text-ink/55">
+                  Shown on the client Services page. The first photo is the card picture. Shared with {photosFor.name} at every branch.
+                </p>
+              </div>
+              <button onClick={closePhotos} aria-label="Close" className="rounded-full p-1.5 text-ink/40 hover:bg-blush hover:text-ink">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 py-5">
+              <ServiceMediaManager serviceId={photosFor.id} serviceName={photosFor.name} />
+            </div>
+            <div className="flex justify-end border-t border-[#f1e4c4] px-6 py-3">
+              <button onClick={closePhotos} className="rounded-full bg-coral px-6 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1857,5 +1909,32 @@ function PriceLines({ rows }: { rows: PriceLine[] }) {
         </div>
       ))}
     </div>
+  );
+}
+
+/** A service's card picture in the admin table: its first photo, or a dimmed
+ * category picture with a camera until one is added. Opens the photo manager. */
+function ServiceThumb({ items, fallback, name, onClick }: { items: ServiceMediaItem[] | undefined; fallback: string; name: string; onClick: () => void }) {
+  const first = items?.[0];
+  const count = items?.length ?? 0;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={count ? "Manage photos" : "Add photos for the Services page"}
+      aria-label={count ? `Manage photos of ${name}` : `Add photos for ${name}`}
+      className="group relative h-12 w-12 shrink-0 overflow-hidden rounded-xl ring-1 ring-[#e8dcc0] transition hover:ring-2 hover:ring-coral"
+    >
+      {first?.kind === "video" ? (
+        <video src={`${first.url}#t=0.5`} muted playsInline preload="metadata" className="h-full w-full object-cover" />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={first?.url ?? fallback} alt="" className={`h-full w-full object-cover ${first ? "" : "opacity-50 grayscale-[40%]"}`} />
+      )}
+      <span className={`absolute inset-0 grid place-items-center text-white transition ${first ? "bg-ink/40 opacity-0 group-hover:opacity-100" : "bg-ink/20"}`}>
+        <Camera className="h-4 w-4" />
+      </span>
+      {count > 1 && <span className="absolute bottom-0.5 right-0.5 rounded-full bg-black/60 px-1 text-[10px] font-semibold text-white">{count}</span>}
+    </button>
   );
 }
