@@ -5,11 +5,12 @@ import SectionHeading from "@/components/SectionHeading";
 import { createClient } from "@/lib/supabase/server";
 import { getActivePromotions } from "@/lib/supabase/queries/publicContent";
 import { promoImage } from "@/lib/promoImage";
+import { branchLabel, pickHomePromotions } from "@/lib/homePromos";
 
 /** Home → Active Promotions: the real promotions Admin creates per branch,
- * each with a photo matching its service type. */
+ * a varied random six on every visit (each deal once, categories mixed). */
 export default async function Promotions() {
-  const promos = await getActivePromotions(await createClient(), 6);
+  const promos = pickHomePromotions(await getActivePromotions(await createClient(), 300), 6);
 
   return (
     <section id="promotions" className="mx-auto max-w-7xl scroll-mt-28 px-6 py-20">
@@ -37,7 +38,7 @@ export default async function Promotions() {
 
               <div className="flex items-start justify-between gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-xs font-medium backdrop-blur">
-                  <Tag className="h-3.5 w-3.5" /> {promo.branchName}
+                  <Tag className="h-3.5 w-3.5" /> {branchLabel(promo.branchNames)}
                 </span>
                 {promo.badge && <span className="rounded-full bg-coral px-3 py-1 text-xs font-bold shadow-sm">{promo.badge}</span>}
               </div>
