@@ -211,17 +211,24 @@ function Arms({ pose }: { pose: MascotPose }) {
 
 // ── Face ────────────────────────────────────────────────────────────────
 
+/** Big, glossy anime-style eye: white, a dark purple iris and pupil, two shines. */
 function OvalEye({ cx, cy, sparkle }: { cx: number; cy: number; sparkle?: boolean }) {
   return (
     <g>
-      <ellipse cx={cx} cy={cy} rx="5.3" ry="7.6" fill="#ffffff" />
-      <ellipse cx={cx} cy={cy + 3.2} rx="4.2" ry="3" fill="#e6e0ff" opacity="0.55" />
-      <ellipse cx={cx - 1.6} cy={cy - 3} rx="1.7" ry="2.2" fill="#ffffff" />
-      <circle cx={cx + 1.7} cy={cy + 2.4} r="0.9" fill="#ffffff" />
+      <ellipse cx={cx} cy={cy} rx="5.8" ry="7.9" fill="#ffffff" />
+      {/* Iris and pupil sit a little low, which reads as cute */}
+      <ellipse cx={cx} cy={cy + 0.9} rx="4.5" ry="6.2" fill="url(#glowy-iris)" />
+      <ellipse cx={cx} cy={cy + 1.5} rx="2.5" ry="3.5" fill="#1a0b33" />
+      {/* Soft lilac glow along the bottom of the iris */}
+      <ellipse cx={cx} cy={cy + 5} rx="3.3" ry="1.5" fill="#c9a8ff" opacity="0.7" />
+      {/* Shines */}
+      <ellipse cx={cx - 1.7} cy={cy - 2.4} rx="2" ry="2.5" fill="#ffffff" />
+      <circle cx={cx + 1.9} cy={cy + 2.9} r="1" fill="#ffffff" />
+      <circle cx={cx + 2.2} cy={cy - 3.3} r="0.55" fill="#ffffff" opacity="0.9" />
       {sparkle && (
         <path
           className="glowy-twinkle"
-          d={`M${cx} ${cy - 3.6}l1.1 2.5 2.5 1.1-2.5 1.1-1.1 2.5-1.1-2.5-2.5-1.1 2.5-1.1z`}
+          d={`M${cx - 1.7} ${cy - 5.4}l1.1 2.5 2.5 1.1-2.5 1.1-1.1 2.5-1.1-2.5-2.5-1.1 2.5-1.1z`}
           fill="#f7d774"
         />
       )}
@@ -262,8 +269,11 @@ function Face({ face, blink, look, idleLook, talking }: { face: MascotFace; blin
         <>
           <ellipse cx="48.5" cy="49" rx="6.2" ry="8.4" fill="#ffffff" />
           <ellipse cx="71.5" cy="49" rx="6.2" ry="8.4" fill="#ffffff" />
-          <circle cx="46.5" cy="45.5" r="2" fill="#ffffff" stroke="#e6e0ff" strokeWidth="0.6" />
-          <circle cx="69.5" cy="45.5" r="2" fill="#ffffff" stroke="#e6e0ff" strokeWidth="0.6" />
+          {/* Small pupils: wide-eyed */}
+          <circle cx="48.5" cy="50" r="2.4" fill="#2a0f52" />
+          <circle cx="71.5" cy="50" r="2.4" fill="#2a0f52" />
+          <circle cx="47.6" cy="49" r="0.8" fill="#ffffff" />
+          <circle cx="70.6" cy="49" r="0.8" fill="#ffffff" />
         </>
       );
       break;
@@ -272,8 +282,11 @@ function Face({ face, blink, look, idleLook, talking }: { face: MascotFace; blin
         <>
           <ellipse cx="50" cy="46" rx="4.4" ry="6" fill="#ffffff" />
           <ellipse cx="73" cy="46" rx="4.4" ry="6" fill="#ffffff" />
-          <circle cx="49" cy="43.5" r="1.3" fill="#e6e0ff" />
-          <circle cx="72" cy="43.5" r="1.3" fill="#e6e0ff" />
+          {/* Looking up while thinking */}
+          <ellipse cx="51" cy="44" rx="2.9" ry="3.7" fill="url(#glowy-iris)" />
+          <ellipse cx="74" cy="44" rx="2.9" ry="3.7" fill="url(#glowy-iris)" />
+          <circle cx="50" cy="42.6" r="1.1" fill="#ffffff" />
+          <circle cx="73" cy="42.6" r="1.1" fill="#ffffff" />
         </>
       );
       break;
@@ -412,6 +425,12 @@ export default function GlowMascot({
         <radialGradient id="glowy-spec" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
           <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+        </radialGradient>
+        {/* Eye iris: deep purple, a touch lighter at the bottom */}
+        <radialGradient id="glowy-iris" cx="50%" cy="70%" r="70%">
+          <stop offset="0%" stopColor="#8b5cf6" />
+          <stop offset="45%" stopColor="#5b21b6" />
+          <stop offset="100%" stopColor="#2e1065" />
         </radialGradient>
         <radialGradient id="glowy-cheek" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor="#ff5f8f" />
