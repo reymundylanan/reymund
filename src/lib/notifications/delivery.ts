@@ -34,7 +34,7 @@ export function absoluteLink(siteUrl: string, linkPath: string): string {
 
 export function buttonLabel(kind: string): string {
   if (kind === "review_request") return "Rate your visit";
-  if (kind === "no_show" || kind === "cancelled") return "View booking";
+  if (kind === "no_show" || kind === "cancelled" || kind === "payment") return "View booking";
   return "View appointment";
 }
 
