@@ -4,11 +4,13 @@ import { loadContext } from "@/lib/multiBranch/load";
 import { requireAdmin } from "@/lib/multiBranch/server";
 import { clientChannels } from "@/lib/multiBranch/channels";
 import { clientTransferContext } from "@/lib/multiBranch/clientTransfer";
+import { branchMoveContext, planBranchMove } from "@/lib/multiBranch/branchMove";
 
 type Body =
   | { type: "appointment"; appointmentId: string; branchId?: string; staffId?: string | null; date?: string; start?: string }
   | { type: "staff"; staffId: string; toBranchId: string; kind: "temporary" | "permanent"; dates: string[] }
-  | { type: "client"; key: string; toBranchId: string };
+  | { type: "client"; key: string; toBranchId: string }
+  | { type: "branch"; fromBranchId: string; toBranchId: string };
 
 /** Dry run against live data: validation checklist + valid alternatives. Nothing is saved. */
 export async function POST(request: Request) {
@@ -20,6 +22,11 @@ export async function POST(request: Request) {
     const { client, bookings } = await clientTransferContext(gate.admin, body.key, body.toBranchId);
     if (!client) return NextResponse.json({ error: "That client could not be found." }, { status: 404 });
     return NextResponse.json({ client, bookings, channels: await clientChannels(gate.admin, client.clientId) });
+  }
+
+  if (body.type === "branch") {
+    const ctx = await branchMoveContext(gate.admin, body.fromBranchId);
+    return NextResponse.json({ items: planBranchMove(ctx, body.fromBranchId, body.toBranchId) });
   }
 
   if (body.type === "staff") {

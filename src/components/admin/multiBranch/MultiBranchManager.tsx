@@ -53,6 +53,8 @@ import StaffBoard from "./StaffBoard";
 import WalkinBoard from "./WalkinBoard";
 import DayTimeline from "./DayTimeline";
 import OverviewPanel, { type Tab } from "./OverviewPanel";
+import BranchMovePanel from "./BranchMovePanel";
+import { upcomingAt } from "@/lib/multiBranch/branchMove";
 import { AppointmentDetails, StaffDetails } from "./StaffDetails";
 import { Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
@@ -91,6 +93,8 @@ export default function MultiBranchManager() {
   const [lower, setLower] = useState<"needs" | "history" | "activity">("needs");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<Preview | null>(null);
+  // A closed branch whose bookings are being moved elsewhere.
+  const [branchMove, setBranchMove] = useState<string | null>(null);
   const [toast, setToast] = useState<{ text: string; logId?: string | null; tone?: Tone } | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
   // Card whose details panel is open (staff: with the branch column it was opened from).
@@ -358,6 +362,7 @@ export default function MultiBranchManager() {
     setHistoryKey((k) => k + 1);
   }
 
+  const closedWithBookings = ctx ? ctx.branches.filter((b) => !isBranchActive(b)).map((b) => ({ b, n: upcomingAt(ctx, b.id).length })).filter((x) => x.n > 0) : [];
   const openAppt = (a: Appointment, branchId: string | null = null) => setPreview({ kind: "appointment", id: a.id, branchId });
   const previewAppt = preview?.kind === "appointment" ? ctx?.appointments.find((a) => a.id === preview.id) : null;
   const previewStaff = preview?.kind === "staff" ? ctx?.staff.find((s) => s.id === preview.id) : null;
@@ -543,6 +548,7 @@ export default function MultiBranchManager() {
           pendingStaffTransfers={board?.pendingTransferRequests ?? 0}
           pendingWalkinTransfers={summary?.pendingWalkins ?? 0}
           onGo={setView}
+          onMoveBookings={setBranchMove}
         />
       ) : view === "staff" ? (
         <div className="space-y-3">
@@ -643,6 +649,15 @@ export default function MultiBranchManager() {
                     <p className="text-xs text-ink/50">{needs.length} booking{needs.length === 1 ? "" : "s"}{pendingWalkins.length ? ` · ${pendingWalkins.length} walk-in${pendingWalkins.length === 1 ? "" : "s"}` : ""}</p>
                   </div>
                 </header>
+                {closedWithBookings.map(({ b, n }) => (
+                  <div key={b.id} className="mt-3 rounded-xl bg-white p-3 ring-1 ring-red-200">
+                    <p className="text-sm font-semibold text-ink">{b.name} is closed</p>
+                    <p className="text-xs text-ink/55">{n} upcoming booking{n === 1 ? "" : "s"} still there.</p>
+                    <button onClick={() => setBranchMove(b.id)} className="mt-2 w-full rounded-full bg-coral px-3 py-1.5 text-xs font-semibold text-white hover:bg-coral-dark">
+                      Move them to an open branch
+                    </button>
+                  </div>
+                ))}
                 <Section title="Appointments">
                   {needs.map((a) => (
                     <AppointmentCard
@@ -772,6 +787,25 @@ export default function MultiBranchManager() {
           onReschedule={() => {
             const a = ctx.appointments.find((x) => x.id === detail.id)!;
             setDetail(null);
+            openAppt(a);
+          }}
+        />
+      )}
+
+      {ctx && branchMove && (
+        <BranchMovePanel
+          key={branchMove}
+          ctx={ctx}
+          fromBranchId={branchMove}
+          onClose={() => setBranchMove(null)}
+          onChanged={(text) => {
+            setToast({ text, tone: "green" });
+            load(true);
+            setHistoryKey((k) => k + 1);
+          }}
+          onReschedule={(a) => {
+            setBranchMove(null);
+            setView("transfers");
             openAppt(a);
           }}
         />

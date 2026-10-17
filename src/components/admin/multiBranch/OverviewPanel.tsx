@@ -1,7 +1,8 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, CalendarCheck, CircleCheck, Clock, Footprints, Hourglass, MapPin, UserCheck } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, ArrowRight, CalendarCheck, CircleCheck, Clock, Footprints, Hourglass, MapPin, UserCheck } from "lucide-react";
 import { branchHours, formatTime, isBranchActive, staffStatus, type Context } from "@/lib/multiBranch/engine";
+import { upcomingAt } from "@/lib/multiBranch/branchMove";
 
 export type Tab = "overview" | "staff" | "clients" | "services" | "appointments" | "walkins" | "transfers";
 
@@ -14,6 +15,7 @@ export default function OverviewPanel({
   pendingStaffTransfers,
   pendingWalkinTransfers,
   onGo,
+  onMoveBookings,
 }: {
   ctx: Context;
   date: string;
@@ -22,10 +24,18 @@ export default function OverviewPanel({
   pendingStaffTransfers: number;
   pendingWalkinTransfers: number;
   onGo: (tab: Tab) => void;
+  /** A closed branch: move its upcoming bookings to an open one. */
+  onMoveBookings: (branchId: string) => void;
 }) {
   const inBranch = (id: string) => branchId === "all" || id === branchId;
   const appts = ctx.appointments.filter((a) => a.date === date && inBranch(a.branchId));
   const pending = ctx.appointments.filter((a) => a.status === "pending" && a.date >= ctx.today && inBranch(a.branchId)).length;
+
+  // Closed branches that still have clients booked.
+  const stranded = ctx.branches
+    .filter((b) => !isBranchActive(b) && inBranch(b.id))
+    .map((b) => ({ b, n: upcomingAt(ctx, b.id).length }))
+    .filter((x) => x.n > 0);
 
   const todo = [
     { show: needs > 0, icon: AlertTriangle, tone: "bg-[#F6E3E3] text-[#9A5257]", text: `${needs} booking${needs === 1 ? " needs" : "s need"} a new time or branch`, tab: "transfers" as Tab, cta: "Resolve" },
@@ -39,7 +49,22 @@ export default function OverviewPanel({
       <section className="rounded-3xl bg-white p-5 shadow-[0_14px_34px_-26px_rgba(90,60,20,0.55)] ring-1 ring-[#efe3c6]">
         <h2 className="text-base font-semibold text-ink">Needs attention</h2>
         <p className="text-xs text-ink/50">Everything that&apos;s waiting on you, with a shortcut to fix it.</p>
-        {todo.length === 0 ? (
+        {stranded.length > 0 && (
+          <ul className="mt-4 space-y-2">
+            {stranded.map(({ b, n }) => (
+              <li key={b.id} className="flex items-center gap-3 rounded-2xl border border-[#e9c4c6] bg-[#fdf5f5] p-3">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#F6E3E3] text-[#9A5257]"><ArrowLeftRight className="h-4 w-4" /></span>
+                <span className="flex-1 text-sm text-ink/80">
+                  <b>{b.name}</b> is closed — {n} upcoming booking{n === 1 ? "" : "s"} to move
+                </span>
+                <button onClick={() => onMoveBookings(b.id)} className="flex items-center gap-1 rounded-full bg-coral px-3 py-1.5 text-xs font-semibold text-white hover:bg-coral-dark">
+                  Move <ArrowRight className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {todo.length === 0 && stranded.length === 0 ? (
           <p className="mt-4 flex items-center gap-2 rounded-2xl bg-[#E6EDE2] px-4 py-5 text-sm font-medium text-[#4F6B4A]">
             <CircleCheck className="h-5 w-5" /> All clear — nothing is waiting.
           </p>
@@ -96,6 +121,11 @@ export default function OverviewPanel({
                     </button>
                   ))}
                 </div>
+                {(stranded.find((x) => x.b.id === b.id)?.n ?? 0) > 0 && (
+                  <button onClick={() => onMoveBookings(b.id)} className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full bg-coral px-3 py-2 text-xs font-semibold text-white hover:bg-coral-dark">
+                    <ArrowLeftRight className="h-3.5 w-3.5" /> Move bookings to an open branch
+                  </button>
+                )}
                 {b.address && <p className="mt-2 flex items-start gap-1 text-[11px] text-ink/45"><MapPin className="mt-0.5 h-3 w-3 shrink-0" /> <span className="line-clamp-1">{b.address}</span></p>}
               </div>
             );
