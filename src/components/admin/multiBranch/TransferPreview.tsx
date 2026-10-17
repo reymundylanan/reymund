@@ -496,6 +496,7 @@ export function StaffPreview({
   ctx,
   staff,
   initialToBranchId,
+  drawer = false,
   date,
   onClose,
   onDone,
@@ -504,6 +505,7 @@ export function StaffPreview({
   ctx: Context;
   staff: Staff;
   initialToBranchId: string | null;
+  drawer?: boolean;
   date: string;
   onClose: () => void;
   onDone: Done;
@@ -566,7 +568,7 @@ export function StaffPreview({
   const canConfirm = !!result?.ok && !checking && (kind === "temporary" || reason.trim().length > 0);
 
   return (
-    <Panel title={`Transfer ${staff.name}`} onClose={onClose}>
+    <Panel title={`Transfer ${staff.name}`} onClose={onClose} drawer={drawer}>
       <div className="flex items-center gap-3">
         <Avatar name={staff.name} url={staff.avatarUrl} size={44} />
         <div className="min-w-0">

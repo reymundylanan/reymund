@@ -4,7 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowLeftRight,
-  Building2,
+  Bell,
+  CalendarCheck,
+  ChevronDown,
+  LayoutDashboard,
+  Plus,
   Footprints,
   CalendarClock,
   GripVertical,
@@ -15,8 +19,6 @@ import {
   Scissors,
   Search,
   UserCheck,
-  Tag,
-  UserCog,
   UserRound,
   Users,
   X,
@@ -46,6 +48,11 @@ import HistoryPanel from "./HistoryPanel";
 import ClientsBoard from "./ClientsBoard";
 import StatCard from "@/components/StatCard";
 import PromosPanel from "./PromosPanel";
+import Link from "next/link";
+import StaffBoard from "./StaffBoard";
+import WalkinBoard from "./WalkinBoard";
+import DayTimeline from "./DayTimeline";
+import OverviewPanel, { type Tab } from "./OverviewPanel";
 import { AppointmentDetails, StaffDetails } from "./StaffDetails";
 import { Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
@@ -76,7 +83,11 @@ export default function MultiBranchManager() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [view, setView] = useState<"board" | "clients" | "services" | "promos" | "accounts">("board");
+  const [view, setView] = useState<Tab>("overview");
+  // Sub-views kept from the old page: Promos under Services, Front desk accounts under Staff.
+  const [servicesSub, setServicesSub] = useState<"services" | "promos">("services");
+  const [staffSub, setStaffSub] = useState<"board" | "accounts">("board");
+  const [addOpen, setAddOpen] = useState(false);
   const [lower, setLower] = useState<"needs" | "history" | "activity">("needs");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -264,6 +275,21 @@ export default function MultiBranchManager() {
     };
   }, [ctx, date, columnData, board, walkins]);
 
+  // Header numbers: today's bookings and walk-ins still in progress, and what's waiting.
+  const glance = useMemo(() => {
+    const inBranch = (id: string) => filters.branch === "all" || id === filters.branch;
+    const list = (ctx?.appointments ?? []).filter((a) => a.date === date && inBranch(a.branchId) && a.sessionStatus !== "no_show");
+    return {
+      appointments: list.filter((a) => a.visitType !== "walk_in").length,
+      walkins: list.filter((a) => a.visitType === "walk_in" && !["completed", "paid", "no_show"].includes(a.sessionStatus ?? "")).length,
+    };
+  }, [ctx, date, filters.branch]);
+  const attention =
+    (board?.conflicts.length ?? 0) +
+    (board?.pendingTransferRequests ?? 0) +
+    (summary?.pendingWalkins ?? 0) +
+    (ctx?.appointments ?? []).filter((a) => a.status === "pending" && a.date >= (ctx?.today ?? "")).length;
+
   // ── Drag & drop ──
   const onDrop = useCallback(
     (item: DragItem, key: string) => {
@@ -340,132 +366,167 @@ export default function MultiBranchManager() {
 
   return (
     <div className="status-colors space-y-4">
-      {/* Title row */}
+      {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Multi-Branch</h1>
-          <p className="text-sm text-ink/50">
-            Manage branch operations, transfer staff, reassign services, and resolve appointment conflicts through one visual board.
-          </p>
+          <h1 className="text-2xl font-semibold text-ink">Multi-Branch Management</h1>
+          <p className="text-sm text-ink/55">Manage your branches, staff, clients, services, appointments, and walk-ins in one simple workspace.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={date}
-            min={ctx?.today}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-            aria-label="Board date"
-            className={field}
-          />
-          <button onClick={() => load(true)} aria-label="Refresh" className="grid h-10 w-10 place-items-center rounded-full border border-ink/10 bg-white text-ink/60 hover:border-coral hover:text-coral-dark">
-            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+        <div className="relative flex items-center gap-2">
+          <button
+            onClick={() => setView("overview")}
+            aria-label={`${attention} item${attention === 1 ? "" : "s"} need attention`}
+            title="Needs attention"
+            className="relative grid h-10 w-10 place-items-center rounded-full border border-ink/10 bg-white text-ink/60 hover:border-coral hover:text-coral-dark"
+          >
+            <Bell className="h-4 w-4" />
+            {attention > 0 && <span className="absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-coral px-1 text-[10px] font-bold text-white">{attention}</span>}
           </button>
+          <button
+            onClick={() => setAddOpen((o) => !o)}
+            aria-expanded={addOpen}
+            className="flex h-10 items-center gap-1.5 rounded-full bg-coral px-4 text-sm font-semibold text-white shadow-sm hover:bg-coral-dark"
+          >
+            <Plus className="h-4 w-4" /> Add New <ChevronDown className="h-3.5 w-3.5" />
+          </button>
+          {addOpen && (
+            <div className="absolute right-0 top-12 z-40 w-56 overflow-hidden rounded-2xl bg-white py-1 shadow-xl ring-1 ring-[#efe3c6]" onMouseLeave={() => setAddOpen(false)}>
+              {(
+                [
+                  ["/frontdesk/appointments?new=1", "Booking"],
+                  ["/frontdesk/walk-ins", "Walk-in client"],
+                  ["/admin/users", "Staff member"],
+                  ["/admin/branches", "Service or branch"],
+                ] as const
+              ).map(([href, label]) => (
+                <Link key={href} href={href} className="block px-4 py-2 text-sm text-ink/80 hover:bg-[#fbf6ea]">
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {board && !board.migrated && (
         <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          Apply database migration <b>075_multi_branch_management.sql</b> in Supabase to enable transfers and the history. Until then the board shows live data,
-          and confirming a change explains what&apos;s missing.
+          Apply database migration <b>075_multi_branch_management.sql</b> in Supabase to enable transfers and the history.
         </p>
       )}
       {error && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        <SummaryCard icon={Building2} label="Branches" value={summary ? `${summary.activeBranches}/${summary.branches}` : "—"} hint="Open / all" tone="gray" />
-        <SummaryCard icon={UserCheck} label="Staff available" value={summary?.available} hint="Free to take clients" tone="green" />
-        <SummaryCard icon={Users} label={date === ctx?.today ? "Staff in service" : "Staff with bookings"} value={summary?.busy} hint={date === ctx?.today ? "Serving clients now" : "Booked that day"} tone="blue" />
-        <SummaryCard icon={AlertTriangle} label="Need rescheduling" value={summary?.needs} hint={summary?.needs ? "Tap to review" : "All clear"} tone={summary?.needs ? "red" : "gray"} onClick={() => { setView("board"); setLower("needs"); document.getElementById("mb-lower")?.scrollIntoView({ behavior: "smooth" }); }} />
-        <SummaryCard icon={ArrowLeftRight} label="Staff transfers" value={summary?.pending} hint="Waiting for approval" tone={summary?.pending ? "amber" : "gray"} />
-        <SummaryCard icon={Footprints} label="Walk-in transfers" value={summary?.pendingWalkins} hint="Waiting at a branch" tone={summary?.pendingWalkins ? "amber" : "gray"} />
-      </div>
-
-      {/* View switch + filters */}
-      <div className="space-y-3 rounded-2xl bg-white p-3 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <div role="tablist" aria-label="View" className="scrollbar-hidden flex max-w-full overflow-x-auto rounded-full bg-cream p-1">
-            {(
-              [
-                ["board", "Staff", Users],
-                ["clients", "Clients", UserRound],
-                ["services", "Services", Scissors],
-                ["promos", "Promos", Tag],
-                ["accounts", "Front desk", UserCog],
-              ] as const
-            ).map(([k, label, Icon]) => (
-              <button
-                key={k}
-                role="tab"
-                aria-selected={view === k}
-                onClick={() => setView(k)}
-                className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-semibold transition ${view === k ? "bg-white text-ink shadow-sm" : "text-ink/50 hover:text-ink"}`}
-              >
-                <Icon className="h-4 w-4" /> {label}
-              </button>
-            ))}
-          </div>
-          {view === "board" && (
-            <label className="flex min-w-[14rem] flex-1 items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/50 focus-within:border-coral">
-              <Search className="h-4 w-4 shrink-0" />
-              <input
-                value={filters.q}
-                onChange={(e) => setFilters({ ...filters, q: e.target.value })}
-                placeholder="Staff, client, booking # or service"
-                className="w-full bg-transparent text-ink outline-none placeholder:text-ink/40"
-              />
-            </label>
+      {/* Branch · search · date */}
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 shadow-sm">
+        <select value={filters.branch} onChange={(e) => setFilters({ ...filters, branch: e.target.value })} aria-label="Branch" className={field}>
+          <option value="all">All branches</option>
+          {(ctx?.branches ?? []).map((b) => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
+        <label className="flex min-w-[14rem] flex-1 items-center gap-2 rounded-full border border-ink/10 px-4 py-2 text-sm text-ink/50 focus-within:border-coral">
+          <Search className="h-4 w-4 shrink-0" />
+          <input
+            value={filters.q}
+            onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+            placeholder="Search staff, clients, services, bookings or walk-ins"
+            className="w-full bg-transparent text-ink outline-none placeholder:text-ink/40"
+          />
+          {filters.q && (
+            <button onClick={() => setFilters({ ...filters, q: "" })} aria-label="Clear search" className="text-ink/40 hover:text-ink">
+              <X className="h-4 w-4" />
+            </button>
           )}
-        </div>
-        {view === "board" && ctx && (
-          <div className="flex flex-wrap items-center gap-2">
-            <select value={filters.branch} onChange={(e) => setFilters({ ...filters, branch: e.target.value })} aria-label="Branch" className={field}>
-              <option value="all">All branches</option>
-              {ctx.branches.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-            <select value={filters.staff} onChange={(e) => setFilters({ ...filters, staff: e.target.value })} aria-label="Staff" className={field}>
-              <option value="all">All staff</option>
-              {ctx.staff.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            <select value={filters.service} onChange={(e) => setFilters({ ...filters, service: e.target.value })} aria-label="Service" className={`${field} max-w-[12rem]`}>
-              <option value="all">All services</option>
-              {serviceNames.map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
-            <select value={filters.appt} onChange={(e) => setFilters({ ...filters, appt: e.target.value })} aria-label="Appointment status" className={field}>
-              <option value="all">All appointments</option>
-              <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="conflict">Needs rescheduling</option>
-            </select>
-            <select value={filters.availability} onChange={(e) => setFilters({ ...filters, availability: e.target.value })} aria-label="Availability" className={field}>
-              <option value="all">Any availability</option>
-              <option value="available">Available</option>
-              <option value="busy">In service / on break</option>
-              <option value="off">Off / out / lent out</option>
-            </select>
-            <select value={filters.transfer} onChange={(e) => setFilters({ ...filters, transfer: e.target.value })} aria-label="Transfer status" className={field}>
-              <option value="all">Any transfer status</option>
-              <option value="pending">Awaiting client / availability</option>
-              <option value="confirmed">Confirmed / expected</option>
-              <option value="active">Checked in / in service</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled / no-show</option>
-            </select>
-            {filtered && (
-              <button onClick={() => setFilters(EMPTY_FILTERS)} className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-semibold text-coral-dark hover:bg-blush">
-                <RotateCcw className="h-3.5 w-3.5" /> Reset filters
-              </button>
-            )}
-          </div>
+        </label>
+        <input type="date" value={date} min={ctx?.today} onChange={(e) => e.target.value && setDate(e.target.value)} aria-label="Day" className={field} />
+        <button onClick={() => load(true)} aria-label="Refresh" className="grid h-10 w-10 place-items-center rounded-full border border-ink/10 bg-white text-ink/60 hover:border-coral hover:text-coral-dark">
+          <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+        </button>
+        {filtered && (
+          <button onClick={() => setFilters(EMPTY_FILTERS)} className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-semibold text-coral-dark hover:bg-blush">
+            <RotateCcw className="h-3.5 w-3.5" /> Clear all filters
+          </button>
         )}
       </div>
+
+      {/* At a glance */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard icon={CalendarCheck} label="Appointments" value={glance.appointments} note={date === ctx?.today ? "Booked for today" : "Booked that day"} tint="white" onClick={() => setView("appointments")} active={view === "appointments"} />
+        <StatCard icon={Footprints} label="Active walk-ins" value={glance.walkins} note="Waiting or in service" tint="peach" onClick={() => setView("walkins")} active={view === "walkins"} />
+        <StatCard icon={UserCheck} label="Available staff" value={summary?.available ?? "—"} note="Free to take clients" tint="sage" tone="good" onClick={() => setView("staff")} active={view === "staff"} />
+        <StatCard
+          icon={ArrowLeftRight}
+          label="Transfers waiting"
+          value={(summary?.pending ?? 0) + (summary?.pendingWalkins ?? 0) + (summary?.needs ?? 0)}
+          note={summary?.needs ? `${summary.needs} need rescheduling` : "Nothing to resolve"}
+          tint="rose"
+          tone={summary?.needs ? "alert" : "default"}
+          onClick={() => setView("transfers")}
+          active={view === "transfers"}
+        />
+      </div>
+
+      {/* Boards */}
+      <div role="tablist" aria-label="Boards" className="scrollbar-hidden flex max-w-full gap-1 overflow-x-auto rounded-full border border-[#e6d6ad] bg-[#fbf6ea] p-1">
+        {(
+          [
+            ["overview", "Overview", LayoutDashboard],
+            ["staff", "Staff", Users],
+            ["clients", "Client Users", UserRound],
+            ["services", "Services", Scissors],
+            ["appointments", "Appointments", CalendarCheck],
+            ["walkins", "Walk-ins", Footprints],
+            ["transfers", "Transfers", ArrowLeftRight],
+          ] as const
+        ).map(([k, label, Icon]) => (
+          <button
+            key={k}
+            role="tab"
+            aria-selected={view === k}
+            onClick={() => setView(k)}
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition ${view === k ? "bg-coral text-white shadow-sm" : "text-ink/80 hover:bg-white hover:text-ink"}`}
+          >
+            <Icon className="h-4 w-4" /> {label}
+          </button>
+        ))}
+      </div>
+
+      {view === "transfers" && ctx && (
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={filters.staff} onChange={(e) => setFilters({ ...filters, staff: e.target.value })} aria-label="Staff" className={field}>
+            <option value="all">All staff</option>
+            {ctx.staff.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          <select value={filters.service} onChange={(e) => setFilters({ ...filters, service: e.target.value })} aria-label="Service" className={`${field} max-w-[12rem]`}>
+            <option value="all">All services</option>
+            {serviceNames.map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+          <select value={filters.appt} onChange={(e) => setFilters({ ...filters, appt: e.target.value })} aria-label="Appointment status" className={field}>
+            <option value="all">All appointments</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="conflict">Needs rescheduling</option>
+          </select>
+          <select value={filters.availability} onChange={(e) => setFilters({ ...filters, availability: e.target.value })} aria-label="Availability" className={field}>
+            <option value="all">Any availability</option>
+            <option value="available">Available</option>
+            <option value="busy">In service / on break</option>
+            <option value="off">Off / out / lent out</option>
+          </select>
+          <select value={filters.transfer} onChange={(e) => setFilters({ ...filters, transfer: e.target.value })} aria-label="Transfer status" className={field}>
+            <option value="all">Any walk-in transfer</option>
+            <option value="pending">Awaiting client / availability</option>
+            <option value="confirmed">Confirmed / expected</option>
+            <option value="active">Checked in / in service</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled / no-show</option>
+          </select>
+        </div>
+      )}
 
       {loading || !ctx ? (
         <div className="flex gap-4 overflow-hidden">
@@ -473,19 +534,65 @@ export default function MultiBranchManager() {
             <div key={i} className="h-96 w-72 shrink-0 animate-pulse rounded-2xl bg-white/70" />
           ))}
         </div>
-      ) : view === "services" ? (
-        <ServicesPanel
+      ) : view === "overview" ? (
+        <OverviewPanel
           ctx={ctx}
           date={date}
-          onChanged={(text) => { setToast({ text, tone: "green" }); load(true); setHistoryKey((k) => k + 1); }}
-          onReschedule={(a) => { setView("board"); openAppt(a); }}
+          branchId={filters.branch}
+          needs={board?.conflicts.length ?? 0}
+          pendingStaffTransfers={board?.pendingTransferRequests ?? 0}
+          pendingWalkinTransfers={summary?.pendingWalkins ?? 0}
+          onGo={setView}
         />
-      ) : view === "promos" ? (
-        <PromosPanel ctx={ctx} onChanged={(text) => { setToast({ text, tone: "green" }); setHistoryKey((k) => k + 1); }} />
+      ) : view === "staff" ? (
+        <div className="space-y-3">
+          <SubSwitch value={staffSub} onChange={setStaffSub} options={[["board", "Staff board"], ["accounts", "Front desk accounts"]]} />
+          {staffSub === "accounts" ? (
+            <BranchBoard only="accounts" />
+          ) : (
+            <StaffBoard
+              ctx={ctx}
+              date={date}
+              branchId={filters.branch}
+              query={filters.q}
+              onOpen={(s, b) => setDetail({ kind: "staff", id: s.id, branchId: b })}
+              onTransfer={(s) => setPreview({ kind: "staff", id: s.id, toBranchId: null })}
+            />
+          )}
+          {previewStaff && preview?.kind === "staff" && (
+            <StaffPreview
+              key={`${previewStaff.id}-${preview.toBranchId}`}
+              ctx={ctx}
+              staff={previewStaff}
+              initialToBranchId={preview.toBranchId}
+              date={date}
+              drawer
+              onClose={() => setPreview(null)}
+              onDone={done}
+              onReschedule={(a) => { setView("transfers"); openAppt(a); }}
+            />
+          )}
+        </div>
       ) : view === "clients" ? (
-        <ClientsBoard ctx={ctx} refreshKey={historyKey} onDone={done} />
-      ) : view === "accounts" ? (
-        <BranchBoard only="accounts" />
+        <ClientsBoard ctx={ctx} refreshKey={historyKey} onDone={done} branchId={filters.branch} query={filters.q} />
+      ) : view === "services" ? (
+        <div className="space-y-3">
+          <SubSwitch value={servicesSub} onChange={setServicesSub} options={[["services", "Services"], ["promos", "Promos"]]} />
+          {servicesSub === "promos" ? (
+            <PromosPanel ctx={ctx} onChanged={(text) => { setToast({ text, tone: "green" }); setHistoryKey((k) => k + 1); }} />
+          ) : (
+            <ServicesPanel
+              ctx={ctx}
+              date={date}
+              onChanged={(text) => { setToast({ text, tone: "green" }); load(true); setHistoryKey((k) => k + 1); }}
+              onReschedule={(a) => { setView("transfers"); openAppt(a); }}
+            />
+          )}
+        </div>
+      ) : view === "appointments" ? (
+        <DayTimeline ctx={ctx} refreshKey={historyKey} onDone={done} defaultMode="kanban" defaultKind="booking" branchId={filters.branch} query={filters.q} />
+      ) : view === "walkins" ? (
+        <WalkinBoard ctx={ctx} branchId={filters.branch} query={filters.q} refreshKey={historyKey} onDone={done} />
       ) : (
         <>
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink/50">
@@ -688,22 +795,19 @@ export default function MultiBranchManager() {
   );
 }
 
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  tone,
-  onClick,
-}: {
-  icon: typeof Users;
-  label: string;
-  value: number | string | undefined;
-  hint?: string;
-  tone: Tone;
-  onClick?: () => void;
-}) {
-  // Same summary box as every other page; colour only where it needs attention.
-  const statTone = tone === "red" ? "alert" : tone === "amber" ? "warn" : tone === "green" ? "good" : "default";
-  return <StatCard icon={Icon} label={label} value={value ?? "—"} note={hint} tone={statTone} onClick={onClick} />;
+function SubSwitch<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: [T, string][] }) {
+  return (
+    <div className="flex w-fit rounded-full bg-white p-1 shadow-sm">
+      {options.map(([k, label]) => (
+        <button
+          key={k}
+          onClick={() => onChange(k)}
+          aria-pressed={value === k}
+          className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition ${value === k ? "bg-coral text-white shadow-sm" : "text-ink/60 hover:text-ink"}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
 }

@@ -9,7 +9,11 @@ import { Avatar, Badge, DetailDrawer, DetailRows, DetailSection, Spinner, TONE, 
 import { useCardDrag, type DragItem } from "./useCardDrag";
 import { Empty } from "./BoardColumn";
 import { Panel, Side, type Done } from "./TransferPreview";
-import DayTimeline from "./DayTimeline";
+import { CLIENT_LANES, clientLane, type ClientLane } from "@/lib/multiBranch/boards";
+import { Lane, LaneBoard, LaneCard, type LaneTone } from "./Lanes";
+
+const CLIENT_TONE: Record<ClientLane, LaneTone> = { recent: "lilac", active: "sage", inactive: "gray", assist: "rose" };
+type Account = { id: string; email: string | null; createdAt: string | null; isRestricted: boolean; phone: string | null };
 
 const NONE = "none";
 const peso = (n: number) => `₱${Math.round(n).toLocaleString()}`;
@@ -22,7 +26,20 @@ const SOURCE: Record<ClientCard["branchSource"], string> = {
 
 /** Clients (accounts and walk-ins) by branch; drag one to another branch to
  * transfer them — their records go with them. */
-export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context; refreshKey: number; onDone: Done }) {
+export default function ClientsBoard({
+  ctx,
+  refreshKey,
+  onDone,
+  branchId = "all",
+  query = "",
+}: {
+  ctx: Context;
+  refreshKey: number;
+  onDone: Done;
+  /** From the page header. */
+  branchId?: string;
+  query?: string;
+}) {
   const [clients, setClients] = useState<ClientCard[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -31,7 +48,19 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // Per column: show only accounts, walk-ins or clients with upcoming bookings.
   const [groupBy, setGroupBy] = useState<Record<string, Group | undefined>>({});
-  const [sub, setSub] = useState<"branches" | "day">("branches");
+  const [sub, setSub] = useState<"status" | "branches">("status");
+  // Account details (sign-up date, restricted) for the status columns.
+  const [accounts, setAccounts] = useState<Map<string, Account>>(new Map());
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/admin/clients")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json: { clients?: Account[] } | null) => alive && json && setAccounts(new Map((json.clients ?? []).map((a) => [a.id, a]))))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [refreshKey]);
   const [detailKey, setDetailKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,13 +82,13 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
   }, [refreshKey]);
 
   const shown = useMemo(() => {
-    const s = q.trim().toLowerCase();
+    const s = (q.trim() || query.trim()).toLowerCase();
     return (clients ?? []).filter(
       (c) =>
         (type === "all" || (type === "account" ? !!c.clientId : type === "walkin" ? !c.clientId : c.upcoming > 0)) &&
         (!s || `${c.name} ${c.phone ?? ""}`.toLowerCase().includes(s))
     );
-  }, [clients, q, type]);
+  }, [clients, q, query, type]);
 
   const columns = useMemo(() => {
     const map = new Map<string, ClientCard[]>(ctx.branches.map((b) => [b.id, []]));
@@ -93,8 +122,8 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
     <div role="tablist" aria-label="Clients view" className="flex w-fit rounded-full bg-white p-1 shadow-sm">
       {(
         [
-          ["branches", "Clients by branch", Users],
-          ["day", "Day timeline", Rows3],
+          ["status", "By status", Users],
+          ["branches", "By branch", Rows3],
         ] as const
       ).map(([k, label, Icon]) => (
         <button
@@ -110,11 +139,99 @@ export default function ClientsBoard({ ctx, refreshKey, onDone }: { ctx: Context
     </div>
   );
 
-  if (sub === "day") {
+  if (sub === "status") {
+    const lanes = new Map<ClientLane, ClientCard[]>(CLIENT_LANES.map((l) => [l.key, []]));
+    for (const c of shown) {
+      if (branchId !== "all" && c.branchId !== branchId) continue;
+      const acc = c.clientId ? accounts.get(c.clientId) : undefined;
+      lanes
+        .get(clientLane({ upcoming: c.upcoming, lastVisit: c.lastVisit, createdAt: acc?.createdAt ?? null, restricted: acc?.isRestricted, phone: c.phone ?? acc?.phone ?? null, hasAccount: !!c.clientId }, ctx.today))!
+        .push(c);
+    }
+    const branchName = (id: string | null) => ctx.branches.find((b) => b.id === id)?.name ?? "No branch yet";
     return (
       <div className="space-y-3">
-        {switcher}
-        <DayTimeline ctx={ctx} refreshKey={refreshKey} onDone={onDone} />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {switcher}
+          <p className="text-xs text-ink/55">
+            {shown.length} client{shown.length === 1 ? "" : "s"} · groups are for follow-up only — moving a client between branches is done with <b>Transfer</b>.
+          </p>
+        </div>
+        {error && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
+        {!clients && !error ? (
+          <p className="flex items-center gap-2 text-sm text-ink/50"><Spinner /> Loading clients…</p>
+        ) : (
+          <LaneBoard>
+            {CLIENT_LANES.map((lane) => {
+              const list = (lanes.get(lane.key) ?? []).sort((a, b) => (b.lastVisit ?? "").localeCompare(a.lastVisit ?? "") || a.name.localeCompare(b.name));
+              return (
+                <Lane key={lane.key} title={lane.label} hint={lane.hint} count={list.length} tone={CLIENT_TONE[lane.key]} empty="No clients here">
+                  {list.map((c) => {
+                    const acc = c.clientId ? accounts.get(c.clientId) : undefined;
+                    return (
+                      <LaneCard key={c.key} onClick={() => setDetailKey(c.key)}>
+                        <div className="flex items-center gap-2.5">
+                          <Avatar name={c.name} url={c.avatarUrl} size={36} />
+                          <div className="min-w-0 flex-1">
+                            <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink">
+                              {c.name} {c.vip && <Crown className="h-3.5 w-3.5 shrink-0 text-[#C9A44A]" aria-label="VIP" />}
+                            </p>
+                            <p className="truncate text-[11px] text-ink/55">{acc?.email ?? (c.clientId ? "Account" : "Walk-in (no account)")}</p>
+                          </div>
+                        </div>
+                        <p className="mt-1.5 truncate text-[11px] text-ink/60">
+                          {c.phone ?? acc?.phone ?? "No phone"} · {branchName(c.branchId)}
+                        </p>
+                        <p className="mt-1 flex items-center gap-2 text-[11px] text-ink/55">
+                          <span>{c.visits} visit{c.visits === 1 ? "" : "s"}</span>
+                          <span>· last {c.lastVisit ? shortDay(c.lastVisit) : "—"}</span>
+                          {c.upcoming > 0 && <span className="ml-auto rounded-full bg-[#F6ECD2] px-1.5 font-semibold text-[#8A6A1C]">{c.upcoming} upcoming</span>}
+                          {acc?.isRestricted && <span className="ml-auto rounded-full bg-[#F6E3E3] px-1.5 font-semibold text-[#9A5257]">Restricted</span>}
+                        </p>
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreview({ key: c.key, toBranchId: null });
+                            }}
+                            className="flex items-center gap-1 rounded-full border border-ink/10 px-2.5 py-1 text-[11px] font-semibold text-ink/70 hover:border-coral hover:text-coral-dark"
+                          >
+                            <ArrowLeftRight className="h-3 w-3" /> Transfer
+                          </button>
+                        </div>
+                      </LaneCard>
+                    );
+                  })}
+                </Lane>
+              );
+            })}
+          </LaneBoard>
+        )}
+        {previewClient && preview && (
+          <ClientPreview
+            key={`${previewClient.key}-${preview.toBranchId}`}
+            ctx={ctx}
+            client={previewClient}
+            initialToBranchId={preview.toBranchId}
+            drawer
+            onClose={() => setPreview(null)}
+            onDone={(text, logId) => {
+              setPreview(null);
+              onDone(text, logId);
+            }}
+          />
+        )}
+        {detailKey && clients?.find((c) => c.key === detailKey) && (
+          <ClientDetails
+            ctx={ctx}
+            client={clients.find((c) => c.key === detailKey)!}
+            onClose={() => setDetailKey(null)}
+            onTransfer={(c) => {
+              setDetailKey(null);
+              setPreview({ key: c.key, toBranchId: null });
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -532,12 +649,14 @@ function ClientPreview({
   ctx,
   client,
   initialToBranchId,
+  drawer = false,
   onClose,
   onDone,
 }: {
   ctx: Context;
   client: ClientCard;
   initialToBranchId: string | null;
+  drawer?: boolean;
   onClose: () => void;
   onDone: Done;
 }) {
@@ -601,7 +720,7 @@ function ClientPreview({
   }
 
   return (
-    <Panel title={`Transfer ${client.name}`} onClose={onClose}>
+    <Panel title={`Transfer ${client.name}`} onClose={onClose} drawer={drawer}>
       <div className="flex items-center gap-3">
         <Avatar name={client.name} url={client.avatarUrl} size={44} />
         <div className="min-w-0">

@@ -7,6 +7,7 @@ import { layoutLanes, visitState, type DayVisit } from "@/lib/multiBranch/day";
 import { Badge, Spinner, postJson } from "./ui";
 import { AppointmentPreview, type ApptPreview, type Done, type Pick } from "./TransferPreview";
 import { useCardDrag, type DragItem, type DropPoint } from "./useCardDrag";
+import { PaymentChip } from "./WalkinBoard";
 import { KANBAN_COLUMNS, kanbanColumn, planStatusChange, type KanbanColumn, type StatusAction } from "@/lib/multiBranch/kanban";
 import { createClient } from "@/lib/supabase/client";
 import { checkInClient, confirmAppointment, markArrived, updateSessionStatus } from "@/lib/supabase/queries/appointments";
@@ -36,12 +37,30 @@ const SNAP = 15;
 /** Who walked in and who was booked on a day, per branch, on a timeline or as a list.
  * Drag a booking or walk-in to another branch (or time) to move it — the move is
  * previewed and checked first, exactly like on the Staff board. */
-export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context; refreshKey: number; onDone: Done }) {
+export default function DayTimeline({
+  ctx,
+  refreshKey,
+  onDone,
+  defaultMode = "timeline",
+  defaultKind = "all",
+  branchId = "all",
+  query = "",
+}: {
+  ctx: Context;
+  refreshKey: number;
+  onDone: Done;
+  defaultMode?: "timeline" | "kanban" | "list";
+  defaultKind?: Kind;
+  /** From the page header: one branch or all. */
+  branchId?: string;
+  /** From the page header search. */
+  query?: string;
+}) {
   const [date, setDate] = useState(ctx.today);
   const [visits, setVisits] = useState<DayVisit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [kind, setKind] = useState<Kind>("all");
-  const [mode, setMode] = useState<"timeline" | "kanban" | "list">("timeline");
+  const [kind, setKind] = useState<Kind>(defaultKind);
+  const [mode, setMode] = useState<"timeline" | "kanban" | "list">(defaultMode);
   const [statusMove, setStatusMove] = useState<{ visit: DayVisit; to: KanbanColumn; action: StatusAction; question: string } | null>(null);
   const [applying, setApplying] = useState(false);
   const [showCancelled, setShowCancelled] = useState(false);
@@ -68,7 +87,17 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
     };
   }, [date, refreshKey]);
 
-  const day = useMemo(() => (visits ?? []).filter((v) => showCancelled || v.status !== "cancelled"), [visits, showCancelled]);
+  const q = query.trim().toLowerCase();
+  const day = useMemo(
+    () =>
+      (visits ?? []).filter(
+        (v) =>
+          (showCancelled || v.status !== "cancelled") &&
+          (branchId === "all" || v.branchId === branchId) &&
+          (!q || `${v.clientName} ${v.phone ?? ""} ${v.code ?? ""} ${v.service} ${v.staffName ?? ""}`.toLowerCase().includes(q))
+      ),
+    [visits, showCancelled, branchId, q]
+  );
   const counts = { all: day.length, walk_in: day.filter((v) => v.kind === "walk_in").length, booking: day.filter((v) => v.kind === "booking").length };
   const shown = useMemo(() => day.filter((v) => kind === "all" || v.kind === kind), [day, kind]);
   const branchName = (id: string) => ctx.branches.find((b) => b.id === id)?.name ?? "—";
@@ -482,7 +511,7 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
                                 {KIND_STYLE[v.kind].label}
                               </span>
                               <span className="truncate text-[11px] text-ink/45">{v.staffName ?? "Any staff"}</span>
-                              {v.paid && <Wallet className="h-3 w-3 text-green-600" aria-label="Paid" />}
+                              <PaymentChip state={v.payment} />
                             </span>
                           </button>
                         );
@@ -587,7 +616,7 @@ export default function DayTimeline({ ctx, refreshKey, onDone }: { ctx: Context;
                       <td className="px-3 py-2.5 text-ink/70">{branchName(v.branchId)}</td>
                       <td className="px-3 py-2.5">
                         <Badge tone={s.tone}>{s.label}</Badge>
-                        {v.paid && <Wallet className="ml-1 inline h-3.5 w-3.5 text-green-600" aria-label="Paid" />}
+                        <span className="ml-1 inline-block align-middle"><PaymentChip state={v.payment} /></span>
                       </td>
                     </tr>
                   );
@@ -650,7 +679,7 @@ function VisitDetails({
       </div>
       <div className="mt-3 flex flex-wrap gap-1.5">
         <Badge tone={s.tone}>{s.label}</Badge>
-        {v.paid && <Badge tone="green"><Wallet className="h-3 w-3" /> Paid</Badge>}
+        <PaymentChip state={v.payment} />
         {v.code && <Badge tone="gray">#{v.code}</Badge>}
       </div>
       {(onMove || onNext) && (

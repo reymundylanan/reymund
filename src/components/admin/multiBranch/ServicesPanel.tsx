@@ -16,6 +16,12 @@ import {
 } from "@/lib/multiBranch/engine";
 import { Badge, DetailDrawer, DetailRows, DetailSection, Spinner, TONE, postJson, type Tone } from "./ui";
 import { useCardDrag, type DragItem } from "./useCardDrag";
+import Image from "next/image";
+import { promoImage } from "@/lib/promoImage";
+import { SERVICE_LANES, serviceLane, type ServiceLane } from "@/lib/multiBranch/boards";
+import { Lane, LaneBoard, type LaneTone } from "./Lanes";
+
+const SERVICE_TONE: Record<ServiceLane, LaneTone> = { active: "sage", inactive: "gray", setup: "peach" };
 
 type Row = { name: string; category: string; department: string; byBranch: Map<string, Service> };
 
@@ -38,7 +44,7 @@ export default function ServicesPanel({
   const [confirm, setConfirm] = useState<{ service: Service; affected: Appointment[] } | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<"board" | "table">("board");
+  const [view, setView] = useState<"status" | "board" | "table">("status");
   // A service dropped on another branch: offer it there (copy), or there and off here (move).
   const [drop, setDrop] = useState<{ service: Service; to: string } | null>(null);
   // The card whose details are open.
@@ -168,7 +174,8 @@ export default function ServicesPanel({
         <div className="flex rounded-full bg-cream p-1">
           {(
             [
-              ["board", "Board", LayoutGrid],
+              ["status", "Status", LayoutGrid],
+              ["board", "By branch", LayoutGrid],
               ["table", "Table", Rows3],
             ] as const
           ).map(([k, label, Icon]) => (
@@ -188,12 +195,104 @@ export default function ServicesPanel({
           ))}
         </select>
         <p className="w-full text-xs text-ink/50">
+          {view === "status" && (
+            <>Click a branch chip on a card to switch the service on or off there (✓ = offered, + = add it). Switching off asks first and lists any bookings to review. </>
+          )}
           Drag a service onto another branch to offer it there too, or move it. Open slots are for {formatDay(date, ctx.today)}{" "}with qualified staff (same department), for the service&apos;s full duration. Turning a service off never moves
           existing bookings — they&apos;re listed for you to review. Rooms and equipment aren&apos;t tracked in GlowSync.
         </p>
       </div>
 
       {error && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
+
+      {view === "status" && (
+        <LaneBoard>
+          {SERVICE_LANES.map((lane) => {
+            const list = shown
+              .map((row) => {
+                const all = [...row.byBranch.values()];
+                const main = all.find((s) => s.status === "Active") ?? all[0];
+                const offeredAt = all.filter((s) => s.status === "Active");
+                const qualified = new Set(
+                  offeredAt.flatMap((s) => candidateStaff(ctx, s.branchId, date, row.department ? [row.department] : []).map((p) => p.id))
+                ).size;
+                const issues = [
+                  main && main.price <= 0 && !main.hairPrices ? "No price" : null,
+                  main && parseDuration(main.duration) <= 0 ? "No duration" : null,
+                  offeredAt.length && qualified === 0 ? `No ${row.department || "qualified"} staff` : null,
+                ].filter((x): x is string => !!x);
+                const laneKey = serviceLane({
+                  offered: offeredAt.length > 0,
+                  price: main?.price ?? 0,
+                  hasSizePrices: !!main?.hairPrices,
+                  duration: parseDuration(main?.duration),
+                  qualifiedStaff: qualified,
+                });
+                return { row, main, qualified, issues, laneKey };
+              })
+              .filter((x) => x.laneKey === lane.key && x.main);
+            return (
+              <Lane key={lane.key} title={lane.label} hint={lane.hint} count={list.length} tone={SERVICE_TONE[lane.key]}>
+                {list.map(({ row, main, qualified, issues }) => (
+                  <div
+                    key={row.name}
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest("button")) return;
+                      setDetailId(main!.id);
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && setDetailId(main!.id)}
+                    className="cursor-pointer overflow-hidden rounded-xl border border-[#f1e4c4] bg-white transition hover:-translate-y-0.5 hover:border-coral/50 hover:shadow-md"
+                  >
+                    <div className="flex gap-2.5 p-2.5">
+                      <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl ring-1 ring-[#efe3c6]">
+                        <Image src={promoImage({ title: row.name, category: row.category })} alt="" fill sizes="48px" className="object-cover" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-ink" title={row.name}>{row.name}</p>
+                        <p className="truncate text-[11px] text-ink/55">{row.category}</p>
+                        <p className="text-[11px] text-ink/70">
+                          {main!.price > 0 ? `₱${main!.price.toLocaleString()}` : main!.hairPrices ? "Price by size" : "No price"} · {parseDuration(main!.duration)} min · {qualified} qualified
+                        </p>
+                      </div>
+                    </div>
+                    {issues.length > 0 && (
+                      <p className="mx-2.5 mb-2 rounded-lg bg-[#F9E8D9] px-2 py-1 text-[11px] font-semibold text-[#94602F]">Needs: {issues.join(" · ")}</p>
+                    )}
+                    <div className="flex flex-wrap gap-1 border-t border-[#f4ecd9] px-2.5 py-2">
+                      {branches.map((b) => {
+                        const svc = row.byBranch.get(b.id);
+                        const on = svc?.status === "Active";
+                        const key = `${row.name}-${b.id}`;
+                        return (
+                          <button
+                            key={b.id}
+                            disabled={busy === key || (!svc && !isBranchActive(b))}
+                            title={on ? `Offered at ${b.name} — click to switch off` : svc ? `Off at ${b.name} — click to switch on` : `Not offered at ${b.name} — click to offer it`}
+                            onClick={() =>
+                              on
+                                ? setConfirm({ service: svc!, affected: affectedBy(svc!) })
+                                : svc
+                                  ? run(key, { action: "toggle", serviceId: svc.id, active: true, reason: "Re-enabled from Multi-Branch" }, `${row.name} is offered at ${b.name} again.`)
+                                  : run(key, { action: "offer", serviceId: main!.id, branchId: b.id, reason: "Offered from Multi-Branch" }, `${row.name} is now offered at ${b.name}.`)
+                            }
+                            className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition disabled:opacity-50 ${
+                              on ? "bg-[#E6EDE2] text-[#4F6B4A] hover:bg-[#d8e3d2]" : "border border-dashed border-ink/20 text-ink/50 hover:border-coral hover:text-coral-dark"
+                            }`}
+                          >
+                            {busy === key ? <Spinner /> : on ? "✓" : "+"} {b.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </Lane>
+            );
+          })}
+        </LaneBoard>
+      )}
 
       {view === "board" && (
         <div ref={scroller} className="scrollbar-hidden -mx-1 flex snap-x gap-4 overflow-x-auto px-1 pb-4">

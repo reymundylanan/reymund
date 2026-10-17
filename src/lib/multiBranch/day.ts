@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 import { toMinutes } from "./engine";
+import { paymentState, type PaymentState } from "./boards";
+import { parseBookingNotes } from "@/lib/bookingNotes";
 
 /** One visit on a day's timeline (walk-in or booked appointment). */
 export type DayVisit = {
@@ -19,6 +21,12 @@ export type DayVisit = {
   sessionStatus: string | null;
   arrivedAt: string | null;
   paid: boolean;
+  /** Separate from the booking status: unpaid, advance, partly paid, paid, GCash to verify. */
+  payment: PaymentState;
+  /** Booked total when known (from the booking summary or promo price). */
+  price: number | null;
+  /** When the service actually started (walk-in timer). */
+  serviceStartedAt: string | null;
 };
 
 type Rel<T> = T | T[] | null;
@@ -37,11 +45,13 @@ type Row = {
   status: string;
   session_status: string | null;
   arrival_time: string | null;
+  service_started_at: string | null;
+  promo_price: number | null;
   notes: string | null;
   client: Rel<{ full_name: string | null; phone: string | null }>;
   professional: Rel<{ full_name: string | null }>;
   appointment_services: { service_name: string; position: number }[] | null;
-  payments: { status: string }[] | null;
+  payments: { status: string; amount: number | null; payment_type: string | null }[] | null;
 };
 
 /** Every walk-in and booking on one date, at every branch (cancelled ones too, so the day is complete). */
@@ -49,7 +59,7 @@ export async function loadDay(supabase: SupabaseClient, date: string): Promise<D
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, booking_code, branch_id, client_id, walkin_name, walkin_phone, visit_type, start_time, duration_minutes, status, session_status, arrival_time, notes, client:profiles!appointments_client_id_fkey(full_name, phone), professional:staff_members(full_name), appointment_services(service_name, position), payments(status)"
+      "id, booking_code, branch_id, client_id, walkin_name, walkin_phone, visit_type, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, promo_price, notes, client:profiles!appointments_client_id_fkey(full_name, phone), professional:staff_members(full_name), appointment_services(service_name, position), payments(status, amount, payment_type)"
     )
     .eq("scheduled_date", date)
     .order("start_time");
@@ -59,6 +69,8 @@ export async function loadDay(supabase: SupabaseClient, date: string): Promise<D
     const lines = [...(r.appointment_services ?? [])].sort((a, b) => a.position - b.position);
     const client = one(r.client);
     const walkIn = r.visit_type === "walk_in" || (!r.client_id && !!r.walkin_name);
+    const price = parseBookingNotes(r.notes).price ?? (r.promo_price != null ? Number(r.promo_price) : null);
+    const pays = (r.payments ?? []).map((p) => ({ status: p.status, amount: Number(p.amount ?? 0), type: p.payment_type }));
     return {
       id: r.id,
       code: r.booking_code,
@@ -75,6 +87,9 @@ export async function loadDay(supabase: SupabaseClient, date: string): Promise<D
       sessionStatus: r.session_status,
       arrivedAt: r.arrival_time,
       paid: (r.payments ?? []).some((p) => p.status === "settled"),
+      payment: paymentState(price, pays),
+      price,
+      serviceStartedAt: r.service_started_at,
     };
   });
 }
