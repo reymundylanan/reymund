@@ -58,6 +58,31 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  // The row menu is placed on screen (not inside the table, which scrolls
+  // sideways and would cut it off), opening upward near the bottom.
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  useEffect(() => {
+    if (!menuOpenId) return;
+    // Ignore the scroll that a click itself can cause, right after opening.
+    const openedAt = Date.now();
+    const close = () => {
+      if (Date.now() - openedAt > 300) setMenuOpenId(null);
+    };
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [menuOpenId]);
+  function toggleMenu(id: string, button: HTMLElement) {
+    if (menuOpenId === id) return setMenuOpenId(null);
+    const r = button.getBoundingClientRect();
+    const MENU_H = 240;
+    const top = r.bottom + 4 + MENU_H > window.innerHeight ? Math.max(8, r.top - 4 - MENU_H) : r.bottom + 4;
+    setMenuPos({ top, right: Math.max(8, window.innerWidth - r.right) });
+    setMenuOpenId(id);
+  }
   const [leaveTarget, setLeaveTarget] = useState<StaffMember | null>(null);
   const [leaveSavedMsg, setLeaveSavedMsg] = useState<string | null>(null);
   const [transferTarget, setTransferTarget] = useState<StaffMember | null>(null);
@@ -330,15 +355,17 @@ export default function StaffMembersPanel({ query = "" }: { query?: string }) {
                   </td>
                   <td className="relative px-4 py-3 text-right">
                     <button
-                      onClick={() => setMenuOpenId(menuOpenId === m.id ? null : m.id)}
+                      onClick={(e) => toggleMenu(m.id, e.currentTarget)}
+                      aria-label={`Actions for ${m.full_name}`}
+                      aria-expanded={menuOpenId === m.id}
                       className="rounded-full p-2 text-ink/40 hover:bg-blush hover:text-ink"
                     >
                       <MoreHorizontal className="h-5 w-5" />
                     </button>
-                    {menuOpenId === m.id && (
+                    {menuOpenId === m.id && menuPos && (
                       <>
-                        <div className="fixed inset-0 z-10" onClick={() => setMenuOpenId(null)} />
-                        <div className="absolute right-4 top-full z-20 mt-1 w-44 overflow-hidden rounded-xl border border-ink/10 bg-white text-left shadow-lg">
+                        <div className="fixed inset-0 z-40" onClick={() => setMenuOpenId(null)} />
+                        <div role="menu" className="fixed z-50 w-44 overflow-hidden rounded-xl border border-ink/10 bg-white text-left shadow-lg" style={{ top: menuPos.top, right: menuPos.right }}>
                           <button
                             onClick={() => { setMenuOpenId(null); setTransferTarget(m); }}
                             className="flex w-full items-center gap-2.5 px-4 py-2.5 text-base text-ink/70 hover:bg-blush"

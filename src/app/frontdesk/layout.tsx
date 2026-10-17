@@ -7,7 +7,7 @@ export default function FrontDeskLayout({ children }: { children: React.ReactNod
       <FrontDeskSidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <FrontDeskTopbar />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-28">{children}</main>
       </div>
     </div>
   );
