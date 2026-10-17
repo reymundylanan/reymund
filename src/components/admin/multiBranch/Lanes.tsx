@@ -17,7 +17,7 @@ export type LaneTone = keyof typeof LANE_TONE;
 /** Columns side by side; scrolls sideways when there are more than fit. */
 export function LaneBoard({ children, scrollerRef }: { children: ReactNode; scrollerRef?: Ref<HTMLDivElement> }) {
   return (
-    <div ref={scrollerRef} className="scrollbar-hidden -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-3">
+    <div ref={scrollerRef} className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-3 [scrollbar-color:rgba(201,168,74,0.6)_transparent] [scrollbar-width:thin]">
       {children}
     </div>
   );
@@ -47,7 +47,7 @@ export function Lane({
     <section
       ref={laneRef}
       aria-label={title}
-      className={`flex max-h-[calc(100dvh-15rem)] min-h-56 w-[17.5rem] shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-white shadow-[0_10px_30px_-24px_rgba(90,60,20,0.5)] ring-1 transition ${
+      className={`flex max-h-[calc(100dvh-15rem)] min-h-56 min-w-[12.5rem] flex-1 basis-0 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_10px_30px_-24px_rgba(90,60,20,0.5)] ring-1 transition ${
         highlight === "ok" ? "ring-2 ring-[#8FA98A]" : highlight === "no" ? "ring-2 ring-[#C98E92]" : "ring-[#efe3c6]"
       }`}
     >

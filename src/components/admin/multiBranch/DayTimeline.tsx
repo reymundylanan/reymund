@@ -487,7 +487,7 @@ export default function DayTimeline({
             label="Drag a booking onto a branch to move it — free staff are picked for you"
           />
           <div ref={scroller} className="overflow-x-auto pb-2 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
-            <div className="flex min-w-max gap-3">
+            <div className="flex gap-3">
               {KANBAN_COLUMNS.filter((c) => c.key !== "closed" || showCancelled).map((col) => {
                 const cards = shown.filter((v) => kanbanColumn(v) === col.key).sort((a, b) => a.start - b.start);
                 const isOver = !!dragging && over === `k:${col.key}`;
@@ -495,7 +495,7 @@ export default function DayTimeline({
                   <section
                     key={col.key}
                     aria-label={col.label}
-                    className={`flex w-64 shrink-0 flex-col rounded-2xl border bg-white/70 transition ${isOver ? "border-coral bg-[#fff8e6] shadow-md" : "border-ink/5"}`}
+                    className={`flex min-w-[12.5rem] flex-1 basis-0 flex-col rounded-2xl border bg-white/70 transition ${isOver ? "border-coral bg-[#fff8e6] shadow-md" : "border-ink/5"}`}
                   >
                     <header className="flex items-center justify-between rounded-t-2xl border-b border-ink/5 bg-white px-3 py-2.5">
                       <h3 className="text-sm font-semibold text-ink">{col.label}</h3>
