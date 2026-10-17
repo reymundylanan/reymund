@@ -10,10 +10,12 @@ import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { useLoginModal } from "@/components/auth/LoginModalContext";
 import { useBooking } from "@/components/booking/BookingContext";
 import { promoImage } from "@/lib/promoImage";
+import { getPromoPhotoPaths } from "@/lib/supabase/queries/promoPhotos";
 import BookPromoButton from "@/components/promos/BookPromoButton";
 import { rankPromos, readDismissedPromos, type ClientHistory, type PromoCandidate } from "@/lib/promoPicker";
 
 type AdPromo = PromoCandidate & {
+  imagePath?: string | null;
   description: string | null;
   badge: string | null;
   branchName: string | null;
@@ -137,7 +139,10 @@ export default function PromoSideAd() {
         bookedCategories: appts.flatMap((a) => (one(a.service)?.category ? [one(a.service)!.category!] : [])),
       };
 
-      setData({ promos, history });
+      // Uploaded photos (080) where there are any.
+      getPromoPhotoPaths(supabase, promos).then((photos) => {
+        if (!cancelled) setData({ promos: promos.map((p) => ({ ...p, imagePath: photos.get(p.id) ?? null })), history });
+      });
     });
 
     return () => {

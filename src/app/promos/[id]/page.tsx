@@ -10,6 +10,7 @@ import { getPromoById } from "@/lib/supabase/queries/promos";
 import { getPromoPackage } from "@/lib/supabase/queries/promoPackages";
 import { formatMinutes, packageMinutes, promoLengths, regularPrice } from "@/lib/promoPackage";
 import { promoImage } from "@/lib/promoImage";
+import { getPromoPhotoPaths } from "@/lib/supabase/queries/promoPhotos";
 
 export const dynamic = "force-dynamic";
 
@@ -20,8 +21,9 @@ export default async function PromoDetailPage({ params }: { params: Promise<{ id
   const supabase = await createClient();
   const [promo, pkg] = await Promise.all([getPromoById(supabase, id), getPromoPackage(supabase, id)]);
   if (!promo || !pkg) notFound();
+  const photos = await getPromoPhotoPaths(supabase, [{ id, title: promo.title }]);
 
-  const image = promoImage({ title: promo.title, category: promo.category, department: promo.department });
+  const image = promoImage({ title: promo.title, category: promo.category, department: promo.department, imagePath: photos.get(id) });
   const servicesHref = promo.category ? `/services?category=${encodeURIComponent(promo.category)}` : "/services";
   const regular = regularPrice(pkg);
   const lengths = promoLengths(pkg);

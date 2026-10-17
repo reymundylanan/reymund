@@ -6,6 +6,7 @@ import { getServiceImage } from "@/lib/serviceImage";
 import { Gift, Pencil, Plus, Search, Tag, Trash2, X } from "lucide-react";
 import { durationMinutes, formatMinutes } from "@/lib/promoPackage";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
+import PromoPhoto from "@/components/admin/branches/PromoPhoto";
 
 /** An existing branch service a promo package can include (067). */
 type IncludableService = { id: string; name: string; category: string; duration: string | null; price: number };
@@ -27,6 +28,8 @@ type Promotion = {
   valid_until: string | null;
   is_active: boolean;
   created_at: string;
+  /** Uploaded photo (080); null = the category picture. */
+  image_path?: string | null;
 };
 
 type PromoStatus = "Scheduled" | "Active" | "Expired" | "Inactive";
@@ -693,7 +696,8 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
           const inclusions = isSpa ? (p.description ?? "").split("\n").filter(Boolean) : [];
           return (
             <div className={`flex flex-col rounded-2xl bg-white p-5 shadow-sm transition-opacity ${p.is_active ? "" : "opacity-60"}`}>
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start justify-between gap-3">
+                <PromoPhoto titles={[p.title]} imagePath={p.image_path} category={p.category} size="h-14 w-14" onChanged={(m) => { setAnnounceNote(m); load(); }} />
                 <div className="flex-1 min-w-0">
                   {isSpa ? (
                     <>
@@ -841,8 +845,13 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
                                 {mesolipoGroups.map(({ rf: rfPromo, exislim: exislimPromo, baseName }) => (
                                   <tr key={`mesolipo-${rfPromo.id}`} className="border-b border-ink/5 last:border-0">
                                     <td className="px-5 py-4 align-middle">
-                                      <p className="font-semibold text-ink">{baseName}</p>
-                                      <p className="text-sm text-ink/50 mt-0.5">MesoLipo</p>
+                                      <div className="flex items-center gap-3">
+                                        <PromoPhoto titles={[rfPromo.title, exislimPromo.title]} imagePath={rfPromo.image_path} category={rfPromo.category} onChanged={(m) => { setAnnounceNote(m); load(); }} />
+                                        <div>
+                                          <p className="font-semibold text-ink">{baseName}</p>
+                                          <p className="text-sm text-ink/50 mt-0.5">MesoLipo</p>
+                                        </div>
+                                      </div>
                                     </td>
                                     <td className="px-5 py-4 align-middle text-ink/60">{rfPromo.department ?? "—"}</td>
                                     <td className="px-5 py-4 align-middle font-semibold text-ink">{rfPromo.category ?? "—"}</td>
@@ -872,8 +881,7 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
                                   <tr key={p.id} className="border-b border-ink/5 last:border-0">
                                     <td className="px-5 py-4">
                                       <div className="flex items-center gap-3">
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={getServiceImage(p.category ?? p.title)} alt={p.title} className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                                        <PromoPhoto titles={[p.title]} imagePath={p.image_path} category={p.category} onChanged={(m) => { setAnnounceNote(m); load(); }} />
                                         <div>
                                           <p className="font-semibold text-ink">{p.title}</p>
                                           {p.badge && <p className="text-sm text-ink/50 mt-0.5">{p.badge}</p>}

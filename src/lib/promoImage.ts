@@ -1,5 +1,5 @@
-// Picks a photo for a promotion from its title / category / department, so
-// promo cards get a matching picture without uploading one per promo.
+// A promotion's photo: the one Admin uploaded (080), otherwise a picture
+// picked from its title / category / department.
 
 const RULES: [RegExp, string][] = [
   [/lipo|non[-\s]?surgical/i, "/images/services/non-surgical-liposuction.jpeg"],
@@ -19,7 +19,17 @@ const RULES: [RegExp, string][] = [
 
 export const PROMO_FALLBACK_IMAGE = "/images/hero/clinic.jpeg";
 
-export function promoImage(p: { title: string; category?: string | null; department?: string | null }): string {
+/** Folder in the public service-media bucket (074) holding promo photos. */
+export const PROMO_PHOTO_FOLDER = "promos";
+
+/** Public URL of an uploaded promo photo. */
+export function promoPhotoUrl(path: string): string {
+  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "");
+  return `${base}/storage/v1/object/public/service-media/${path.split("/").map(encodeURIComponent).join("/")}`;
+}
+
+export function promoImage(p: { title: string; category?: string | null; department?: string | null; imagePath?: string | null }): string {
+  if (p.imagePath) return promoPhotoUrl(p.imagePath);
   // Category / department are more reliable than the title, so check them first.
   for (const text of [p.category ?? "", p.department ?? "", p.title]) {
     if (!text) continue;
