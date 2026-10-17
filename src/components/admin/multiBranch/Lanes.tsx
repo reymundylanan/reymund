@@ -68,6 +68,58 @@ export function Lane({
   );
 }
 
+/**
+ * "Drag here to transfer": one drop zone per branch above a board. While a
+ * card is dragged, each zone says whether that branch can take it.
+ */
+export function BranchDropBar({
+  branches,
+  dragging,
+  over,
+  zoneRef,
+  keyFor = (id) => id,
+  check,
+  label = "Drag a card onto a branch to transfer it",
+}: {
+  branches: { id: string; name: string }[];
+  dragging: boolean;
+  over: string | null;
+  zoneRef: (key: string) => (el: HTMLElement | null) => void;
+  keyFor?: (branchId: string) => string;
+  /** Can the dragged card go to this branch? Text explains either way. */
+  check?: (branchId: string) => { ok: boolean; text: string } | null;
+  label?: string;
+}) {
+  return (
+    <div className={`rounded-2xl border-2 border-dashed p-2 transition ${dragging ? "border-coral/60 bg-[#fffaf0]" : "border-[#e6d6ad] bg-white/60"}`}>
+      <p className="px-1 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-coral-dark">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {branches.map((b) => {
+          const key = keyFor(b.id);
+          const c = dragging && check ? check(b.id) : null;
+          const isOver = dragging && over === key;
+          return (
+            <div
+              key={b.id}
+              ref={zoneRef(key)}
+              className={`min-w-[12rem] flex-1 rounded-xl px-3 py-2.5 text-sm transition ${
+                !dragging
+                  ? "bg-[#fbf6ea] text-ink/60"
+                  : c && !c.ok
+                    ? `bg-[#F6E3E3] text-[#9A5257] ${isOver ? "ring-2 ring-[#C98E92]" : ""}`
+                    : `bg-[#E6EDE2] text-[#4F6B4A] ${isOver ? "scale-[1.02] ring-2 ring-[#8FA98A]" : ""}`
+              }`}
+            >
+              <p className="font-semibold">{b.name}</p>
+              <p className="text-[11px] opacity-80">{dragging ? (c?.text ?? "Drop to transfer here") : "Drop here to transfer"}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /** A clickable card shell used by every board. */
 export function LaneCard({ children, onClick, className = "", dim = false }: { children: ReactNode; onClick?: () => void; className?: string; dim?: boolean }) {
   return (

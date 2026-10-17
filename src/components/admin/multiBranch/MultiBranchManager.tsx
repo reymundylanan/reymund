@@ -556,7 +556,7 @@ export default function MultiBranchManager() {
               branchId={filters.branch}
               query={filters.q}
               onOpen={(s, b) => setDetail({ kind: "staff", id: s.id, branchId: b })}
-              onTransfer={(s) => setPreview({ kind: "staff", id: s.id, toBranchId: null })}
+              onTransfer={(s, to) => setPreview({ kind: "staff", id: s.id, toBranchId: to })}
             />
           )}
           {previewStaff && preview?.kind === "staff" && (

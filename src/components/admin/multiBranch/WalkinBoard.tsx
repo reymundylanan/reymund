@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeftRight, CheckCheck, Link2, Play, Plus, Timer, UserRound, Wallet, X } from "lucide-react";
-import { formatTime, type Appointment, type Context } from "@/lib/multiBranch/engine";
+import { formatTime, isBranchActive, type Appointment, type Context } from "@/lib/multiBranch/engine";
 import type { DayVisit } from "@/lib/multiBranch/day";
 import { PAYMENT_LABEL, WALKIN_LANES, walkinLane, type PaymentState, type WalkinLane } from "@/lib/multiBranch/boards";
 import { createClient } from "@/lib/supabase/client";
 import { checkInClient, updateSessionStatus } from "@/lib/supabase/queries/appointments";
 import { Spinner, postJson } from "./ui";
-import { Lane, LaneBoard, LaneCard, type LaneTone } from "./Lanes";
+import { BranchDropBar, Lane, LaneBoard, LaneCard, type LaneTone } from "./Lanes";
 import { AppointmentPreview, type ApptPreview, type Done } from "./TransferPreview";
 import { useCardDrag, type DragItem } from "./useCardDrag";
 
@@ -58,7 +58,7 @@ export default function WalkinBoard({
   const [ask, setAsk] = useState<{ v: DayVisit; action: "start" | "complete" } | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [move, setMove] = useState<Appointment | null>(null);
+  const [move, setMove] = useState<{ appt: Appointment; to: string | null } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -127,11 +127,11 @@ export default function WalkinBoard({
     setReload((n) => n + 1);
   }
 
-  async function openTransfer(v: DayVisit) {
+  async function openTransfer(v: DayVisit, to: string | null = null) {
     setNotice(null);
     try {
       const res = await postJson<ApptPreview>("/api/admin/multi-branch/preview", { type: "appointment", appointmentId: v.id, date: ctx.today });
-      setMove(res.appointment);
+      setMove({ appt: res.appointment, to });
     } catch (e) {
       setNotice((e as Error).message);
     }
@@ -139,7 +139,12 @@ export default function WalkinBoard({
 
   const onDrop = (item: DragItem, key: string) => {
     const v = visits?.find((x) => x.id === item.id);
-    if (v) request(v, key as WalkinLane);
+    if (!v) return;
+    if (key.startsWith("b:")) {
+      if (laneOf(v) !== "waiting") return setNotice(`${v.clientName}'s service has started, so they can't be transferred now.`);
+      return openTransfer(v, key.slice(2));
+    }
+    request(v, key as WalkinLane);
   };
   const { ghost, over, scroller, cardProps, columnRef, dragging } = useCardDrag(onDrop);
   const draggingVisit = dragging ? visits?.find((x) => x.id === dragging.id) ?? null : null;
@@ -167,6 +172,20 @@ export default function WalkinBoard({
           <button onClick={() => setNotice(null)} aria-label="Dismiss"><X className="h-4 w-4" /></button>
         </p>
       )}
+      <BranchDropBar
+        branches={ctx.branches}
+        dragging={!!draggingVisit}
+        over={over}
+        zoneRef={columnRef}
+        keyFor={(id) => `b:${id}`}
+        check={(id) => {
+          if (!draggingVisit) return null;
+          if (laneOf(draggingVisit) !== "waiting") return { ok: false, text: "Service started — can't transfer" };
+          if (!isBranchActive(ctx.branches.find((b) => b.id === id))) return { ok: false, text: "Branch isn't open" };
+          return { ok: true, text: id === draggingVisit.branchId ? "Drop to change staff or time here" : "Drop to see free staff there" };
+        }}
+        label="Drag a waiting walk-in onto a branch to transfer them"
+      />
       {!visits && !error ? (
         <p className="flex items-center gap-2 px-1 text-sm text-ink/50"><Spinner /> Loading walk-ins…</p>
       ) : (
@@ -280,11 +299,11 @@ export default function WalkinBoard({
 
       {move && (
         <AppointmentPreview
-          key={move.id}
+          key={`${move.appt.id}-${move.to ?? ""}`}
           ctx={ctx}
-          appt={move}
+          appt={move.appt}
           conflict={null}
-          initialBranchId={null}
+          initialBranchId={move.to}
           drawer
           onClose={() => setMove(null)}
           onDone={(text, logId) => {

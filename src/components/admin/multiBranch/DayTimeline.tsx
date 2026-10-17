@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Columns3, Footprints, GripVertical, List, Move, Phone, Rows3, Scissors, UserRound, Wallet, X } from "lucide-react";
-import { addDays, branchHours, formatDay, formatTime, type Appointment, type Context } from "@/lib/multiBranch/engine";
+import { addDays, branchHours, formatDay, formatTime, isBranchActive, type Appointment, type Context } from "@/lib/multiBranch/engine";
 import { layoutLanes, visitState, type DayVisit } from "@/lib/multiBranch/day";
 import { Badge, Spinner, postJson } from "./ui";
 import { AppointmentPreview, type ApptPreview, type Done, type Pick } from "./TransferPreview";
 import { useCardDrag, type DragItem, type DropPoint } from "./useCardDrag";
 import { PaymentChip } from "./WalkinBoard";
+import { BranchDropBar } from "./Lanes";
 import { KANBAN_COLUMNS, kanbanColumn, planStatusChange, type KanbanColumn, type StatusAction } from "@/lib/multiBranch/kanban";
 import { createClient } from "@/lib/supabase/client";
 import { checkInClient, confirmAppointment, markArrived, updateSessionStatus } from "@/lib/supabase/queries/appointments";
@@ -125,6 +126,11 @@ export default function DayTimeline({
     const v = (visits ?? []).find((x) => x.id === item.id);
     if (!v) return;
     if (key.startsWith("k:")) return askStatus(v, key.slice(2) as KanbanColumn);
+    // Kanban: dropped on a branch in the transfer strip — same time, that branch.
+    if (key.startsWith("kb:")) {
+      if (!canMove(v)) return setMoveError(`${v.clientName}'s visit has started or passed, so it can't be moved.`);
+      return openMove(v, { branchId: key.slice(3), start: v.start });
+    }
     const branchId = key;
     const start = snapStart(at);
     if (branchId === v.branchId && start === v.start) return;
@@ -465,6 +471,21 @@ export default function DayTimeline({
 
       {visits && mode === "kanban" && (
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="min-w-0 space-y-3">
+          <BranchDropBar
+            branches={ctx.branches}
+            dragging={!!draggingVisit}
+            over={over}
+            zoneRef={columnRef}
+            keyFor={(id) => `kb:${id}`}
+            check={(id) => {
+              if (!draggingVisit) return null;
+              if (!canMove(draggingVisit)) return { ok: false, text: "Started or past — can't move" };
+              if (!isBranchActive(ctx.branches.find((b) => b.id === id))) return { ok: false, text: "Branch isn't open" };
+              return { ok: true, text: id === draggingVisit.branchId ? "Drop to change time or staff here" : "Drop to see free staff and times" };
+            }}
+            label="Drag a booking onto a branch to move it — free staff are picked for you"
+          />
           <div ref={scroller} className="overflow-x-auto pb-2 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
             <div className="flex min-w-max gap-3">
               {KANBAN_COLUMNS.filter((c) => c.key !== "closed" || showCancelled).map((col) => {
@@ -522,6 +543,7 @@ export default function DayTimeline({
                 );
               })}
             </div>
+          </div>
           </div>
           {chosen && (
             <VisitDetails

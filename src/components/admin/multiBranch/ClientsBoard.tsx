@@ -10,7 +10,7 @@ import { useCardDrag, type DragItem } from "./useCardDrag";
 import { Empty } from "./BoardColumn";
 import { Panel, Side, type Done } from "./TransferPreview";
 import { CLIENT_LANES, clientLane, type ClientLane } from "@/lib/multiBranch/boards";
-import { Lane, LaneBoard, LaneCard, type LaneTone } from "./Lanes";
+import { BranchDropBar, Lane, LaneBoard, LaneCard, type LaneTone } from "./Lanes";
 
 const CLIENT_TONE: Record<ClientLane, LaneTone> = { recent: "lilac", active: "sage", inactive: "gray", assist: "rose" };
 type Account = { id: string; email: string | null; createdAt: string | null; isRestricted: boolean; phone: string | null };
@@ -158,10 +158,21 @@ export default function ClientsBoard({
           </p>
         </div>
         {error && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
+        <BranchDropBar
+          branches={ctx.branches}
+          dragging={!!draggingClient}
+          over={over}
+          zoneRef={columnRef}
+          check={(id) => {
+            const h = hint(id);
+            return h ? { ok: h.tone !== "red", text: h.text } : null;
+          }}
+          label="Drag a client onto a branch to transfer them (their records go with them)"
+        />
         {!clients && !error ? (
           <p className="flex items-center gap-2 text-sm text-ink/50"><Spinner /> Loading clients…</p>
         ) : (
-          <LaneBoard>
+          <LaneBoard scrollerRef={scroller}>
             {CLIENT_LANES.map((lane) => {
               const list = (lanes.get(lane.key) ?? []).sort((a, b) => (b.lastVisit ?? "").localeCompare(a.lastVisit ?? "") || a.name.localeCompare(b.name));
               return (
@@ -169,7 +180,8 @@ export default function ClientsBoard({
                   {list.map((c) => {
                     const acc = c.clientId ? accounts.get(c.clientId) : undefined;
                     return (
-                      <LaneCard key={c.key} onClick={() => setDetailKey(c.key)}>
+                      <div key={c.key} {...cardProps({ kind: "client", id: c.key })} className={`touch-none ${dragging?.id === c.key ? "opacity-40" : ""}`}>
+                      <LaneCard onClick={() => setDetailKey(c.key)} className="cursor-grab active:cursor-grabbing">
                         <div className="flex items-center gap-2.5">
                           <Avatar name={c.name} url={c.avatarUrl} size={36} />
                           <div className="min-w-0 flex-1">
@@ -200,6 +212,7 @@ export default function ClientsBoard({
                           </button>
                         </div>
                       </LaneCard>
+                      </div>
                     );
                   })}
                 </Lane>
@@ -231,6 +244,12 @@ export default function ClientsBoard({
               setPreview({ key: c.key, toBranchId: null });
             }}
           />
+        )}
+        {ghost && draggingClient && (
+          <div className="pointer-events-none fixed left-0 top-0 z-[90] rounded-xl border border-coral bg-white p-2.5 shadow-2xl" style={{ width: ghost.w, transform: `translate(${ghost.x - ghost.ox}px, ${ghost.y - ghost.oy}px) rotate(2deg)` }}>
+            <p className="text-sm font-semibold text-ink">{draggingClient.name}</p>
+            <p className="text-xs text-ink/50">Drop on a branch to transfer</p>
+          </div>
         )}
       </div>
     );

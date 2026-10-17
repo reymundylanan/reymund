@@ -19,7 +19,7 @@ import { useCardDrag, type DragItem } from "./useCardDrag";
 import Image from "next/image";
 import { promoImage } from "@/lib/promoImage";
 import { SERVICE_LANES, serviceLane, type ServiceLane } from "@/lib/multiBranch/boards";
-import { Lane, LaneBoard, type LaneTone } from "./Lanes";
+import { BranchDropBar, Lane, LaneBoard, type LaneTone } from "./Lanes";
 
 const SERVICE_TONE: Record<ServiceLane, LaneTone> = { active: "sage", inactive: "gray", setup: "peach" };
 
@@ -120,8 +120,9 @@ export default function ServicesPanel({
   const onDrop = useCallback(
     (item: DragItem, branchId: string) => {
       const s = ctx.services.find((x) => x.id === item.id);
-      if (!s || branchId === s.branchId) return;
-      if (rowOf(s)?.byBranch.get(branchId)?.status === "Active") {
+      if (!s) return;
+      // Already offered there: say so instead of doing nothing.
+      if (branchId === s.branchId || rowOf(s)?.byBranch.get(branchId)?.status === "Active") {
         setError(`${s.name} is already offered at ${branches.find((b) => b.id === branchId)?.name ?? "that branch"}.`);
         return;
       }
@@ -206,7 +207,22 @@ export default function ServicesPanel({
       {error && <p className="rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p>}
 
       {view === "status" && (
-        <LaneBoard>
+        <BranchDropBar
+          branches={branches}
+          dragging={!!dragged}
+          over={over}
+          zoneRef={columnRef}
+          check={(id) => {
+            const h = hint(id);
+            if (!dragged) return null;
+            if (id === dragged.branchId) return { ok: false, text: "Already offered here" };
+            return h ? { ok: h.tone !== "red", text: h.text } : null;
+          }}
+          label="Drag a service onto a branch to offer it there too, or move it"
+        />
+      )}
+      {view === "status" && (
+        <LaneBoard scrollerRef={scroller}>
           {SERVICE_LANES.map((lane) => {
             const list = shown
               .map((row) => {
@@ -236,6 +252,7 @@ export default function ServicesPanel({
                 {list.map(({ row, main, qualified, issues }) => (
                   <div
                     key={row.name}
+                    {...cardProps({ kind: "service", id: main!.id })}
                     role="button"
                     tabIndex={0}
                     onClick={(e) => {
@@ -243,7 +260,7 @@ export default function ServicesPanel({
                       setDetailId(main!.id);
                     }}
                     onKeyDown={(e) => e.key === "Enter" && setDetailId(main!.id)}
-                    className="cursor-pointer overflow-hidden rounded-xl border border-[#f1e4c4] bg-white transition hover:-translate-y-0.5 hover:border-coral/50 hover:shadow-md"
+                    className={`cursor-grab touch-none overflow-hidden rounded-xl border border-[#f1e4c4] bg-white transition active:cursor-grabbing hover:-translate-y-0.5 hover:border-coral/50 hover:shadow-md ${dragging?.id === main!.id ? "opacity-40" : ""}`}
                   >
                     <div className="flex gap-2.5 p-2.5">
                       <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl ring-1 ring-[#efe3c6]">

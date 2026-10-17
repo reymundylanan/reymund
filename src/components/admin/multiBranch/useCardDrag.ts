@@ -101,6 +101,10 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string, at: Drop
         justDragged.current = true;
         if (to && at) onDrop(p.item, to, at);
       },
+      // Photos inside a card would start the browser's own image drag and cancel ours.
+      onDragStart(e: React.DragEvent) {
+        e.preventDefault();
+      },
       onClickCapture(e: React.MouseEvent) {
         if (!justDragged.current) return;
         justDragged.current = false;
