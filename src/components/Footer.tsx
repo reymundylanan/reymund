@@ -31,9 +31,6 @@ export default function Footer() {
           <p className="mt-3 text-sm leading-relaxed">
             Elevating your wellness journey through synchronized care and glowing results.
           </p>
-          <span className="mt-4 inline-block rounded-full border border-champagne/30 bg-white/10 px-3 py-1.5 text-xs font-medium text-champagne">
-            Official GCash Partner
-          </span>
         </div>
 
         <div>
