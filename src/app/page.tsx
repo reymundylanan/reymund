@@ -8,6 +8,7 @@ import Team from "@/components/home/Team";
 import Reviews from "@/components/home/Reviews";
 import Branches from "@/components/home/Branches";
 import Cta from "@/components/home/Cta";
+import BusinessJsonLd from "@/components/home/BusinessJsonLd";
 import { createClient } from "@/lib/supabase/server";
 import { getHomeOverview } from "@/lib/supabase/queries/homeOverview";
 import { openNow } from "@/lib/ai/spaKnowledge";
@@ -34,6 +35,7 @@ export default async function Home() {
     <>
       <Header />
       <main className="flex-1">
+        <BusinessJsonLd />
         <Hero facts={hero} />
         <Promotions />
         <Services departments={overview.departments} />

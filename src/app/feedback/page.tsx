@@ -1,7 +1,7 @@
 import InfoPage from "@/components/InfoPage";
 import FeedbackForm from "@/components/FeedbackForm";
 
-export const metadata = { title: "Submit Feedback — Blush Spa & Aesthetics" };
+export const metadata = { title: "Submit Feedback" };
 
 export default function FeedbackPage() {
   return (

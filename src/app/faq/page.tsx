@@ -1,7 +1,7 @@
 import Link from "next/link";
 import InfoPage, { SPA_EMAIL, SPA_PHONE } from "@/components/InfoPage";
 
-export const metadata = { title: "FAQs — Blush Spa & Aesthetics" };
+export const metadata = { title: "FAQs" };
 
 const FAQS: { q: string; a: React.ReactNode }[] = [
   {

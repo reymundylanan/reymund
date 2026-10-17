@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ResetPasswordForm from "@/components/auth/ResetPasswordForm";
 
-export const metadata = { title: "Reset Password — Blush Spa & Aesthetics" };
+export const metadata = { title: "Reset Password", robots: { index: false } };
 
 export default function ResetPasswordPage() {
   return (

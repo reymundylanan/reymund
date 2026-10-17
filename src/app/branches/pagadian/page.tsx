@@ -4,6 +4,12 @@ import Footer from "@/components/Footer";
 import BranchGallery from "@/components/branches/BranchGallery";
 import BranchExplorer, { type DbBranchService, type BranchCategory, type BranchInfo } from "@/components/branches/BranchExplorer";
 
+export const metadata = {
+  title: "One Cecilia Center Branch",
+  description: "Blush Spa & Aesthetics at One Cecilia Center, Pagadian City — hours, location and services. Book your visit online.",
+  alternates: { canonical: "/branches/pagadian" },
+};
+
 type BranchRow = { id: string; name: string; address: string; phone: string; hours: string | null; facebook: string | null; facebook_label: string | null; instagram: string | null; instagram_label: string | null };
 
 async function fetchBranchData(branchName: string): Promise<{ info: BranchInfo; categories: BranchCategory[]; galleryPhotos: string[] }> {

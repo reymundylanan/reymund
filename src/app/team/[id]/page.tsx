@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import StaffReviewList from "@/components/reviews/StaffReviewList";
 import { createClient } from "@/lib/supabase/server";
 import { getPublicStaffProfile } from "@/lib/supabase/queries/staffProfiles";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,18 @@ function StarRow({ value, size = "h-4 w-4" }: { value: number; size?: string }) 
       ))}
     </span>
   );
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const profile = await getPublicStaffProfile(await createClient(), id);
+  if (!profile) return { title: "Team member not found", robots: { index: false } };
+  const { staff } = profile;
+  return {
+    title: `${staff.fullName} — ${staff.department}`,
+    description: `Meet ${staff.fullName}, ${staff.department} specialist at Blush Spa & Aesthetics, Pagadian City. See reviews and book with them online.`,
+    alternates: { canonical: `/team/${id}` },
+  };
 }
 
 export default async function StaffProfilePage({ params }: { params: Promise<{ id: string }> }) {

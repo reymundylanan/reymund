@@ -12,6 +12,7 @@ import { getServiceMediaMap } from "@/lib/serviceMedia";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceImage } from "@/lib/serviceImage";
 import { signPublicReviewPhotos } from "@/lib/supabase/reviewPhotoUrls";
+import type { Metadata } from "next";
 import {
   getPublicService,
   getServicePhotoStrip,
@@ -30,6 +31,24 @@ function StarRow({ value, size = "h-4 w-4" }: { value: number; size?: string }) 
       ))}
     </span>
   );
+}
+
+const short = (text: string | null | undefined, max = 155) => {
+  const t = (text ?? "").replace(/\s+/g, " ").trim();
+  return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
+};
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const service = await getPublicService(await createClient(), id);
+  if (!service) return { title: "Service not found", robots: { index: false } };
+  const price = service.price ? ` From ₱${Number(service.price).toLocaleString("en-PH")}.` : "";
+  const time = service.duration ? ` ${service.duration.replace(/\.$/, "")}.` : "";
+  return {
+    title: `${service.name} — ${service.category}`,
+    description: short(`${service.description ?? `${service.name} at Blush Spa & Aesthetics, Pagadian City.`}${price}${time} Book online.`),
+    alternates: { canonical: `/services/${id}` },
+  };
 }
 
 export default async function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {

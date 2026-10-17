@@ -1,7 +1,7 @@
 import Link from "next/link";
 import InfoPage, { InfoSection, SPA_EMAIL } from "@/components/InfoPage";
 
-export const metadata = { title: "Terms of Service — Blush Spa & Aesthetics" };
+export const metadata = { title: "Terms of Service" };
 
 export default function TermsPage() {
   return (

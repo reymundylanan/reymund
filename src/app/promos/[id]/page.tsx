@@ -11,10 +11,28 @@ import { getPromoPackage } from "@/lib/supabase/queries/promoPackages";
 import { formatMinutes, packageMinutes, promoLengths, regularPrice } from "@/lib/promoPackage";
 import { promoImage } from "@/lib/promoImage";
 import { getPromoPhotoPaths } from "@/lib/supabase/queries/promoPhotos";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
 const LENGTH_LABEL = { short: "Short", medium: "Medium", long: "Long" } as const;
+
+const short = (text: string | null | undefined, max = 155) => {
+  const t = (text ?? "").replace(/\s+/g, " ").trim();
+  return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
+};
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const promo = await getPromoById(await createClient(), id);
+  if (!promo) return { title: "Promo not found", robots: { index: false } };
+  const price = promo.price != null ? ` Now ₱${Number(promo.price).toLocaleString("en-PH")}.` : "";
+  return {
+    title: `${promo.title} — Promo`,
+    description: short(`${promo.description ? `${promo.description} ` : ""}${promo.title} at Blush Spa & Aesthetics${promo.branchName ? `, ${promo.branchName}` : ""}.${price} Book online.`),
+    alternates: { canonical: `/promos/${id}` },
+  };
+}
 
 export default async function PromoDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

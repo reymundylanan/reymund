@@ -12,6 +12,12 @@ import { getActivePromotions } from "@/lib/supabase/queries/publicContent";
 import { getSpaPartyPackages } from "@/lib/supabase/queries/spaParty";
 import SpaPartySection from "@/components/services/SpaPartySection";
 
+export const metadata = {
+  title: "Services & Prices",
+  description: "Every treatment at Blush Spa & Aesthetics with prices and times — facials, hair, nails, brows and lashes, laser, slimming, IV drips, doctor's procedures and Spa Party packages. Book online.",
+  alternates: { canonical: "/services" },
+};
+
 async function fetchServices(): Promise<DbService[]> {
   const supabase = await createClient();
 

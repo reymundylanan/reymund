@@ -9,6 +9,7 @@ import ClientNotificationToaster from "@/components/notifications/ClientNotifica
 import PromoSideAd from "@/components/promos/PromoSideAd";
 import InlineScript from "@/components/InlineScript";
 import "./globals.css";
+import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from "@/lib/siteUrl";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,10 +28,30 @@ const playfair = Playfair_Display({
   weight: ["400", "500", "600", "700"],
 });
 
+// What search engines and share previews (Messenger, Facebook) show.
 export const metadata: Metadata = {
-  title: "Blush Spa & Aesthetics",
-  description:
-    "Book wellness spa services, manage appointments, and synchronize your glow with GlowSync.",
+  metadataBase: new URL(siteUrl()),
+  title: { default: `${SITE_NAME} — Pagadian City`, template: `%s | ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  applicationName: "GlowSync",
+  keywords: [
+    "Blush Spa", "Blush Spa & Aesthetics", "spa Pagadian", "Pagadian City spa", "facial Pagadian", "aesthetic clinic Pagadian",
+    "hair salon Pagadian", "nails Pagadian", "lash extensions Pagadian", "laser Pagadian", "botox Pagadian", "fillers Pagadian",
+    "IV drip Pagadian", "slimming Pagadian", "One Cecilia Center", "Robinsons Pagadian", "GlowSync",
+  ],
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en_PH",
+    url: "/",
+    title: `${SITE_NAME} — Pagadian City`,
+    description: SITE_DESCRIPTION,
+    images: [{ url: "/images/hero/clinic.jpeg", alt: SITE_NAME }],
+  },
+  twitter: { card: "summary_large_image", title: SITE_NAME, description: SITE_DESCRIPTION, images: ["/images/hero/clinic.jpeg"] },
+  // Google Search Console: set NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION to the code Google gives.
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } : undefined,
   icons: {
     icon: "/images/logo/cropblushicon2.png",
   },

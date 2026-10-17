@@ -1,7 +1,7 @@
 import Link from "next/link";
 import InfoPage, { InfoSection, SPA_EMAIL, SPA_PHONE } from "@/components/InfoPage";
 
-export const metadata = { title: "Privacy Policy — Blush Spa & Aesthetics" };
+export const metadata = { title: "Privacy Policy" };
 
 export default function PrivacyPage() {
   return (
