@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Columns3, Footprints, GripVertical, List, Move, Phone, Rows3, Scissors, UserRound, Wallet, X } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { ArrowRight, CalendarClock, CalendarDays, ChevronLeft, ChevronRight, Columns3, Footprints, GripVertical, History, List, Move, Phone, Rows3, Scissors, UserRound, Wallet, X } from "lucide-react";
 import { addDays, branchHours, formatDay, formatTime, isBranchActive, type Appointment, type Context } from "@/lib/multiBranch/engine";
 import { layoutLanes, visitState, type DayVisit } from "@/lib/multiBranch/day";
 import { Badge, Spinner, postJson } from "./ui";
@@ -16,6 +16,9 @@ import { checkInClient, confirmAppointment, markArrived, updateSessionStatus } f
 const NEXT_COLUMN: Partial<Record<KanbanColumn, KanbanColumn>> = { pending: "confirmed", confirmed: "checked_in", checked_in: "in_service", in_service: "completed" };
 
 type Kind = "all" | "walk_in" | "booking";
+type Scope = "past" | "day" | "upcoming";
+/** How far Past and Upcoming reach. */
+const RANGE_DAYS = 30;
 const PX_PER_MIN = 1.5;
 // Walk-ins in gold, bookings in blue (inside .status-colors these are real hues).
 const KIND_STYLE = {
@@ -58,6 +61,8 @@ export default function DayTimeline({
   query?: string;
 }) {
   const [date, setDate] = useState(ctx.today);
+  // One day, or every visit coming up / gone by (a list grouped by date).
+  const [scope, setScope] = useState<Scope>("day");
   const [visits, setVisits] = useState<DayVisit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<Kind>(defaultKind);
@@ -72,7 +77,13 @@ export default function DayTimeline({
 
   useEffect(() => {
     let alive = true;
-    fetch(`/api/admin/multi-branch/day?date=${date}`)
+    const url =
+      scope === "upcoming"
+        ? `/api/admin/multi-branch/day?from=${ctx.today}&to=${addDays(ctx.today, RANGE_DAYS)}`
+        : scope === "past"
+          ? `/api/admin/multi-branch/day?from=${addDays(ctx.today, -RANGE_DAYS)}&to=${addDays(ctx.today, -1)}`
+          : `/api/admin/multi-branch/day?date=${date}`;
+    fetch(url)
       .then(async (r) => {
         const json = (await r.json()) as { visits?: DayVisit[]; error?: string };
         if (!alive) return;
@@ -86,7 +97,7 @@ export default function DayTimeline({
     return () => {
       alive = false;
     };
-  }, [date, refreshKey]);
+  }, [date, refreshKey, scope, ctx.today]);
 
   const q = query.trim().toLowerCase();
   const day = useMemo(
@@ -103,6 +114,9 @@ export default function DayTimeline({
   const shown = useMemo(() => day.filter((v) => kind === "all" || v.kind === kind), [day, kind]);
   const branchName = (id: string) => ctx.branches.find((b) => b.id === id)?.name ?? "—";
   const chosen = shown.find((v) => v.id === selected) ?? null;
+  // Past / Upcoming are lists; the calendar and Kanban are for one day.
+  const view = scope === "day" ? mode : "list";
+  const ranged = scope !== "day";
 
   // One shared time axis: earliest opening to latest closing (and any visit outside it).
   const range = useMemo(() => {
@@ -203,6 +217,33 @@ export default function DayTimeline({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white p-3 shadow-sm">
+        <div role="tablist" aria-label="Which visits" className="flex rounded-full bg-cream p-1">
+          {(
+            [
+              ["past", "Past", History],
+              ["day", "Day", CalendarDays],
+              ["upcoming", "Upcoming", CalendarClock],
+            ] as const
+          ).map(([s, label, Icon]) => (
+            <button
+              key={s}
+              role="tab"
+              aria-selected={scope === s}
+              onClick={() => {
+                setScope(s);
+                setVisits(null);
+              }}
+              className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold transition ${scope === s ? "bg-white text-ink shadow-sm" : "text-ink/50 hover:text-ink"}`}
+            >
+              <Icon className="h-4 w-4" /> {label}
+            </button>
+          ))}
+        </div>
+        {ranged ? (
+          <p className="px-1 text-sm text-ink/60">
+            {scope === "upcoming" ? `Today and the next ${RANGE_DAYS} days` : `The last ${RANGE_DAYS} days`}
+          </p>
+        ) : (
         <div className="flex items-center gap-1">
           <button onClick={() => setDate((d) => addDays(d, -1))} aria-label="Previous day" className="grid h-9 w-9 place-items-center rounded-full border border-ink/10 text-ink/60 hover:border-coral">
             <ChevronLeft className="h-4 w-4" />
@@ -221,6 +262,7 @@ export default function DayTimeline({
             </button>
           )}
         </div>
+        )}
 
         <div className="flex flex-wrap items-center gap-1 rounded-full bg-cream p-1">
           {chip("all", "All", <Rows3 className="h-4 w-4" />)}
@@ -233,7 +275,7 @@ export default function DayTimeline({
             <input type="checkbox" checked={showCancelled} onChange={(e) => setShowCancelled(e.target.checked)} className="h-4 w-4 accent-coral" />
             Show cancelled
           </label>
-          <div className="flex rounded-full bg-cream p-1">
+          <div className={`flex rounded-full bg-cream p-1 ${ranged ? "hidden" : ""}`}>
             {(
               [
                 ["timeline", "Calendar", Rows3],
@@ -263,10 +305,10 @@ export default function DayTimeline({
           </button>
         </p>
       )}
-      {visits && mode !== "list" && (mode === "kanban" || date >= ctx.today) && (
+      {visits && view !== "list" && (mode === "kanban" || date >= ctx.today) && (
         <p className="flex flex-wrap items-center gap-1.5 px-1 text-xs text-ink/50">
           <Move className="h-3.5 w-3.5 text-coral-dark" />
-          {mode === "kanban"
+          {view === "kanban"
             ? "Drag a card to the next status (or open it and use “Next step”) — you’ll confirm before anything changes."
             : "Drag a booking or walk-in to another branch or time to move it — GlowSync picks free staff and checks everything before you confirm."}
           {opening && (
@@ -282,7 +324,7 @@ export default function DayTimeline({
         </p>
       )}
 
-      {visits && mode !== "list" && (
+      {visits && view !== "list" && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-[11px] text-ink/55" aria-label="Legend">
           <span className="flex items-center gap-1.5"><span className="h-3 w-1.5 rounded-sm bg-blue-500" /> Booking</span>
           <span className="flex items-center gap-1.5"><span className="h-3 w-1.5 rounded-sm bg-[#C9A84A]" /> Walk-in</span>
@@ -300,7 +342,7 @@ export default function DayTimeline({
               <span className={`h-2 w-2 rounded-full ${dot(tone)}`} /> {label}
             </span>
           ))}
-          {mode === "timeline" && (
+          {view === "timeline" && (
             <>
               <span className="h-3 w-px bg-ink/10" aria-hidden />
               <span className="flex items-center gap-1.5"><span className="h-3 w-4 rounded-sm bg-[repeating-linear-gradient(135deg,rgba(43,26,16,0.07)_0_4px,transparent_4px_8px)] ring-1 ring-ink/10" /> Branch closed</span>
@@ -309,7 +351,7 @@ export default function DayTimeline({
         </div>
       )}
 
-      {visits && mode === "timeline" && (
+      {visits && view === "timeline" && (
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div ref={scroller} className="max-h-[calc(100dvh-12rem)] overflow-auto rounded-2xl bg-white shadow-sm [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
             <div className="flex min-w-full">
@@ -469,7 +511,7 @@ export default function DayTimeline({
       )}
 
 
-      {visits && mode === "kanban" && (
+      {visits && view === "kanban" && (
         <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0 space-y-3">
           <BranchDropBar
@@ -596,7 +638,7 @@ export default function DayTimeline({
         </div>
       )}
 
-      {visits && mode === "list" && (
+      {visits && view === "list" && (
         <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
           <table className="w-full min-w-[48rem] text-sm">
             <thead>
@@ -612,10 +654,27 @@ export default function DayTimeline({
             </thead>
             <tbody>
               {[...shown]
-                .sort((a, b) => a.start - b.start || branchName(a.branchId).localeCompare(branchName(b.branchId)))
-                .map((v) => {
+                .sort(
+                  (a, b) =>
+                    (scope === "past" ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date)) ||
+                    a.start - b.start ||
+                    branchName(a.branchId).localeCompare(branchName(b.branchId))
+                )
+                .map((v, i, all) => {
                   const s = visitState(v);
+                  const newDay = ranged && (i === 0 || all[i - 1].date !== v.date);
                   return (
+                    <Fragment key={v.id}>
+                    {newDay && (
+                      <tr className="bg-cream/70">
+                        <td colSpan={7} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-coral-dark">
+                          {formatDay(v.date, ctx.today)}
+                          <span className="ml-2 font-normal normal-case tracking-normal text-ink/45">
+                            {all.filter((x) => x.date === v.date).length} visit{all.filter((x) => x.date === v.date).length === 1 ? "" : "s"}
+                          </span>
+                        </td>
+                      </tr>
+                    )}
                     <tr key={v.id} className={`border-b border-ink/5 ${v.status === "cancelled" ? "opacity-50" : ""}`}>
                       <td className="whitespace-nowrap px-4 py-2.5 font-semibold text-ink">
                         {formatTime(v.start)}
@@ -641,12 +700,14 @@ export default function DayTimeline({
                         <span className="ml-1 inline-block align-middle"><PaymentChip state={v.payment} /></span>
                       </td>
                     </tr>
+                    </Fragment>
                   );
                 })}
               {shown.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-8 text-center text-sm text-ink/45">
-                    No {kind === "walk_in" ? "walk-ins" : kind === "booking" ? "bookings" : "visits"} on {formatDay(date, ctx.today)}.
+                    No {kind === "walk_in" ? "walk-ins" : kind === "booking" ? "bookings" : "visits"}{" "}
+                    {scope === "upcoming" ? `coming up in the next ${RANGE_DAYS} days` : scope === "past" ? `in the last ${RANGE_DAYS} days` : `on ${formatDay(date, ctx.today)}`}.
                   </td>
                 </tr>
               )}

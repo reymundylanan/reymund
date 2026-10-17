@@ -7,6 +7,8 @@ import { parseBookingNotes } from "@/lib/bookingNotes";
 /** One visit on a day's timeline (walk-in or booked appointment). */
 export type DayVisit = {
   id: string;
+  /** "YYYY-MM-DD" — lists that span several days group by it. */
+  date: string;
   code: string | null;
   branchId: string;
   kind: "walk_in" | "booking";
@@ -40,6 +42,7 @@ type Row = {
   walkin_name: string | null;
   walkin_phone: string | null;
   visit_type: string | null;
+  scheduled_date: string;
   start_time: string;
   duration_minutes: number | null;
   status: string;
@@ -55,14 +58,22 @@ type Row = {
 };
 
 /** Every walk-in and booking on one date, at every branch (cancelled ones too, so the day is complete). */
-export async function loadDay(supabase: SupabaseClient, date: string): Promise<DayVisit[]> {
+export function loadDay(supabase: SupabaseClient, date: string): Promise<DayVisit[]> {
+  return loadVisits(supabase, date, date);
+}
+
+/** Every walk-in and booking from one date to another (inclusive), by date and time. */
+export async function loadVisits(supabase: SupabaseClient, from: string, to: string): Promise<DayVisit[]> {
   const { data, error } = await supabase
     .from("appointments")
     .select(
-      "id, booking_code, branch_id, client_id, walkin_name, walkin_phone, visit_type, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, promo_price, notes, client:profiles!appointments_client_id_fkey(full_name, phone), professional:staff_members(full_name), appointment_services(service_name, position), payments(status, amount, payment_type)"
+      "id, booking_code, branch_id, client_id, walkin_name, walkin_phone, visit_type, scheduled_date, start_time, duration_minutes, status, session_status, arrival_time, service_started_at, promo_price, notes, client:profiles!appointments_client_id_fkey(full_name, phone), professional:staff_members(full_name), appointment_services(service_name, position), payments(status, amount, payment_type)"
     )
-    .eq("scheduled_date", date)
-    .order("start_time");
+    .gte("scheduled_date", from)
+    .lte("scheduled_date", to)
+    .order("scheduled_date")
+    .order("start_time")
+    .limit(3000);
   if (error) logQueryError("multiBranch.loadDay", error);
 
   return ((data ?? []) as unknown as Row[]).map((r) => {
@@ -73,6 +84,7 @@ export async function loadDay(supabase: SupabaseClient, date: string): Promise<D
     const pays = (r.payments ?? []).map((p) => ({ status: p.status, amount: Number(p.amount ?? 0), type: p.payment_type }));
     return {
       id: r.id,
+      date: r.scheduled_date,
       code: r.booking_code,
       branchId: r.branch_id,
       kind: walkIn ? "walk_in" : "booking",
