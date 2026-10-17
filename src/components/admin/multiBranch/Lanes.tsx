@@ -60,7 +60,7 @@ export function Lane({
         </div>
         {hint && <p className="mt-0.5 text-[11px] text-ink/55">{hint}</p>}
       </header>
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden p-2 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
         {children}
         {count === 0 && <p className="rounded-xl border-2 border-dashed border-ink/10 py-6 text-center text-xs text-ink/35">{empty}</p>}
       </div>

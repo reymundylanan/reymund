@@ -212,7 +212,7 @@ export default function PromosPanel({ ctx, onChanged }: { ctx: Context; onChange
                   </p>
                   {over === b.id && h && <p className={`mt-2 rounded-lg px-2 py-1.5 text-xs font-semibold ${TONE[h.tone].badge}`}>{h.text}</p>}
                 </header>
-                <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2.5 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
+                <ul className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden p-2.5 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
                   {list.map((p) => {
                     const st = promoState(p, today);
                     const cellKey = `${p.title.toLowerCase().trim()}-${b.id}`;

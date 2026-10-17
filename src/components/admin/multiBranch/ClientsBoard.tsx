@@ -358,7 +358,7 @@ export default function ClientsBoard({
                   </header>
 
                   {!isCollapsed && (
-                    <ul className="min-h-0 flex-1 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin] space-y-2 overflow-y-auto overscroll-contain p-2.5">
+                    <ul className="min-h-0 flex-1 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin] space-y-2 overflow-y-auto overflow-x-hidden p-2.5">
                       {visible.map((c) => (
                         <li
                           key={c.key}
