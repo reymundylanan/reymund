@@ -40,6 +40,7 @@ import {
   type Staff,
 } from "@/lib/multiBranch/engine";
 import { manilaNow } from "@/lib/multiBranch/load";
+import { overdueWalkins } from "@/lib/multiBranch/boards";
 import BranchBoard from "@/components/admin/branchBoard/BranchBoard";
 import { AppointmentCard, BranchColumn, Empty, MOVABLE, Section, type ColumnStats } from "./BoardColumn";
 import { AppointmentPreview, StaffPreview } from "./TransferPreview";
@@ -95,7 +96,7 @@ export default function MultiBranchManager() {
   const [preview, setPreview] = useState<Preview | null>(null);
   // A closed branch whose bookings are being moved elsewhere.
   const [branchMove, setBranchMove] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ text: string; logId?: string | null; tone?: Tone } | null>(null);
+  const [toast, setToast] = useState<{ text: string; logId?: string | null; tone?: Tone; goTo?: Tab } | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
   // Card whose details panel is open (staff: with the branch column it was opened from).
   const [detail, setDetail] = useState<{ kind: "staff"; id: string; branchId: string } | { kind: "appointment"; id: string } | null>(null);
@@ -154,6 +155,31 @@ export default function MultiBranchManager() {
   }, [toast]);
 
   const ctx = board?.context ?? null;
+
+  // Walk-ins running past their time: a red count on the Walk-ins tab, and
+  // one alert per walk-in (whatever board is open), so nobody is forgotten.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const overdue = useMemo(
+    () => (ctx ? overdueWalkins(ctx.appointments, ctx.today, nowMs).filter((a) => filters.branch === "all" || a.branchId === filters.branch) : []),
+    [ctx, nowMs, filters.branch]
+  );
+  const alerted = useRef(new Set<string>());
+  useEffect(() => {
+    const fresh = overdue.filter((a) => !alerted.current.has(a.id));
+    if (!fresh.length || !ctx) return;
+    fresh.forEach((a) => alerted.current.add(a.id));
+    const first = fresh[0];
+    const where = ctx.branches.find((b) => b.id === first.branchId)?.name ?? "the branch";
+    setToast({
+      text: fresh.length === 1 ? `Overdue: ${first.clientName}'s walk-in at ${where} is past its time.` : `${fresh.length} walk-ins are past their time.`,
+      tone: "red",
+      goTo: "walkins",
+    });
+  }, [overdue, ctx]);
   const conflicts = useMemo(() => new Map((board?.conflicts ?? []).map((c) => [c.appointmentId, c.reason])), [board]);
 
   // ── Filters ──
@@ -492,6 +518,11 @@ export default function MultiBranchManager() {
             className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition ${view === k ? "bg-coral text-white shadow-sm" : "text-ink/80 hover:bg-white hover:text-ink"}`}
           >
             <Icon className="h-4 w-4" /> {label}
+            {k === "walkins" && overdue.length > 0 && (
+              <span title={`${overdue.length} overdue`} aria-label={`${overdue.length} overdue`} className="ml-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
+                {overdue.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -819,6 +850,11 @@ export default function MultiBranchManager() {
         <div role="status" className={`fixed bottom-6 left-1/2 z-[95] flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-full px-5 py-3 text-sm text-white shadow-xl ${toast.tone === "red" ? "bg-red-700" : "bg-ink"}`}>
           {toast.text === "Undoing…" && <Spinner />}
           <span>{toast.text}</span>
+          {toast.goTo && view !== toast.goTo && (
+            <button onClick={() => { setView(toast.goTo!); setToast(null); }} className="whitespace-nowrap font-semibold text-champagne hover:underline">
+              View
+            </button>
+          )}
           {toast.logId && (
             <button onClick={() => undo(toast.logId!)} className="font-semibold text-champagne hover:underline">
               Undo

@@ -11,7 +11,7 @@ import { PaymentChip } from "./WalkinBoard";
 import { BranchDropBar } from "./Lanes";
 import { KANBAN_COLUMNS, kanbanColumn, planStatusChange, type KanbanColumn, type StatusAction } from "@/lib/multiBranch/kanban";
 import { createClient } from "@/lib/supabase/client";
-import { checkInClient, confirmAppointment, markArrived, updateSessionStatus } from "@/lib/supabase/queries/appointments";
+import { cancelAppointment, checkInClient, confirmAppointment, markArrived, updateSessionStatus } from "@/lib/supabase/queries/appointments";
 
 const NEXT_COLUMN: Partial<Record<KanbanColumn, KanbanColumn>> = { pending: "confirmed", confirmed: "checked_in", checked_in: "in_service", in_service: "completed" };
 
@@ -67,7 +67,7 @@ export default function DayTimeline({
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<Kind>(defaultKind);
   const [mode, setMode] = useState<"timeline" | "kanban" | "list">(defaultMode);
-  const [statusMove, setStatusMove] = useState<{ visit: DayVisit; to: KanbanColumn; action: StatusAction; question: string } | null>(null);
+  const [statusMove, setStatusMove] = useState<{ visit: DayVisit; to: KanbanColumn; action: StatusAction; question: string; noShow?: boolean } | null>(null);
   const [applying, setApplying] = useState(false);
   const [showCancelled, setShowCancelled] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
@@ -169,19 +169,26 @@ export default function DayTimeline({
 
   // Kanban: a status change is explained and confirmed before it's applied.
   function askStatus(v: DayVisit, to: KanbanColumn) {
-    const plan = planStatusChange(kanbanColumn(v), to, { isToday: date === ctx.today, clientName: v.clientName });
+    if (kanbanColumn(v) === to) return; // dropped back where it was
+    const isToday = date === ctx.today;
+    const plan = planStatusChange(kanbanColumn(v), to, { isToday, clientName: v.clientName, started: isToday && v.start <= ctx.nowMinutes });
     if (!plan.ok) return setMoveError(plan.reason);
     setMoveError(null);
-    setStatusMove({ visit: v, to, action: plan.action, question: plan.question });
+    setStatusMove({ visit: v, to, action: plan.action, question: plan.question, noShow: plan.noShow });
   }
 
-  async function applyStatus() {
+  async function applyStatus(chosen?: StatusAction) {
     if (!statusMove) return;
-    const { visit: v, action, to } = statusMove;
+    const { visit: v, to } = statusMove;
+    const action = chosen ?? statusMove.action;
     setApplying(true);
     const sb = createClient();
     const res =
-      action === "confirm"
+      action === "cancel"
+        ? await cancelAppointment(sb, v.id)
+        : action === "no_show"
+          ? await updateSessionStatus(sb, v.id, "no_show")
+          : action === "confirm"
         ? await confirmAppointment(sb, v.id)
         : action === "check_in"
           ? await markArrived(sb, v.id)
@@ -193,9 +200,10 @@ export default function DayTimeline({
     setApplying(false);
     setStatusMove(null);
     if (res.error) return setMoveError(res.error);
-    onDone(`${v.clientName} → ${KANBAN_COLUMNS.find((c) => c.key === to)?.label}.`, null);
+    const label = action === "cancel" ? "Cancelled" : action === "no_show" ? "No-show" : KANBAN_COLUMNS.find((c) => c.key === to)?.label;
+    onDone(`${v.clientName} → ${label}.`, null);
   }
-  const { ghost, over, overPoint, scroller, cardProps, columnRef, dragging } = useCardDrag(onDrop);
+  const { ghost, over, overPoint, scroller, cardProps, columnRef, dragging } = useCardDrag(onDrop, { sameColumn: true });
   const draggingVisit = dragging ? ((visits ?? []).find((x) => x.id === dragging.id) ?? null) : null;
 
   const nowTop = date === ctx.today && ctx.nowMinutes >= range.start && ctx.nowMinutes <= range.end ? (ctx.nowMinutes - range.start) * PX_PER_MIN : null;
@@ -530,7 +538,7 @@ export default function DayTimeline({
           />
           <div ref={scroller} className="overflow-x-auto pb-2 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
             <div className="flex gap-3">
-              {KANBAN_COLUMNS.filter((c) => c.key !== "closed" || showCancelled).map((col) => {
+              {KANBAN_COLUMNS.filter((c) => c.key !== "closed" || showCancelled || !!draggingVisit).map((col) => {
                 const cards = shown.filter((v) => kanbanColumn(v) === col.key).sort((a, b) => a.start - b.start);
                 const isOver = !!dragging && over === `k:${col.key}`;
                 return (
@@ -626,14 +634,30 @@ export default function DayTimeline({
               {KANBAN_COLUMNS.find((c) => c.key === kanbanColumn(statusMove.visit))?.label} → {KANBAN_COLUMNS.find((c) => c.key === statusMove.to)?.label}
             </p>
             <p className="mt-2 text-sm text-ink">{statusMove.question}</p>
-            <div className="mt-4 flex gap-2">
-              <button onClick={() => setStatusMove(null)} disabled={applying} className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70">
-                Cancel
-              </button>
-              <button onClick={applyStatus} disabled={applying} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
-                {applying && <Spinner />} Yes, update
-              </button>
-            </div>
+            {statusMove.action === "cancel" ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button onClick={() => setStatusMove(null)} disabled={applying} className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70">
+                  Keep
+                </button>
+                {statusMove.noShow && (
+                  <button onClick={() => applyStatus("no_show")} disabled={applying} className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-red-300 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-60">
+                    Mark no-show
+                  </button>
+                )}
+                <button onClick={() => applyStatus("cancel")} disabled={applying} className="flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-60">
+                  {applying && <Spinner />} Cancel booking
+                </button>
+              </div>
+            ) : (
+              <div className="mt-4 flex gap-2">
+                <button onClick={() => setStatusMove(null)} disabled={applying} className="flex-1 rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold text-ink/70">
+                  Cancel
+                </button>
+                <button onClick={() => applyStatus()} disabled={applying} className="flex flex-1 items-center justify-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+                  {applying && <Spinner />} Yes, update
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

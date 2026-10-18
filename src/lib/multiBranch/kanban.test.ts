@@ -28,6 +28,27 @@ describe("planStatusChange", () => {
     expect(planStatusChange("confirmed", "completed", today)).toMatchObject({ ok: false });
     expect(planStatusChange("in_service", "confirmed", today)).toMatchObject({ ok: false });
     expect(planStatusChange("confirmed", "checked_in", { ...today, isToday: false })).toMatchObject({ ok: false });
-    expect(planStatusChange("confirmed", "closed", today)).toMatchObject({ ok: false });
+    expect(planStatusChange("closed", "confirmed", today)).toMatchObject({ ok: false });
+  });
+});
+
+describe("Cancelled / No-show", () => {
+  const today = { isToday: true, clientName: "Maria" };
+
+  it("cancels a booking that hasn't arrived", () => {
+    expect(planStatusChange("confirmed", "closed", today)).toMatchObject({ ok: true, action: "cancel" });
+    expect(planStatusChange("pending", "closed", { ...today, isToday: false })).toMatchObject({ ok: true, action: "cancel" });
+    expect(planStatusChange("confirmed", "closed", today)).not.toHaveProperty("noShow");
+  });
+
+  it("offers no-show once today's start time has passed", () => {
+    expect(planStatusChange("confirmed", "closed", { ...today, started: true })).toMatchObject({ ok: true, noShow: true });
+    expect(planStatusChange("confirmed", "closed", { ...today, isToday: false, started: true })).not.toHaveProperty("noShow");
+  });
+
+  it("refuses visits that already arrived", () => {
+    expect(planStatusChange("checked_in", "closed", today)).toMatchObject({ ok: false });
+    expect(planStatusChange("in_service", "closed", today)).toMatchObject({ ok: false });
+    expect(planStatusChange("completed", "closed", today)).toMatchObject({ ok: false });
   });
 });

@@ -28,6 +28,7 @@ type ApptRow = {
   duration_minutes: number;
   status: string;
   session_status: string | null;
+  service_started_at: string | null;
   visit_type: string | null;
   service_id: string | null;
   notes: string | null;
@@ -54,7 +55,7 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
     supabase
       .from("appointments")
       .select(
-        "id, booking_code, branch_id, professional_id, client_id, walkin_name, walkin_phone, scheduled_date, start_time, duration_minutes, status, session_status, visit_type, service_id, notes, client:profiles!appointments_client_id_fkey(full_name), appointment_services(service_id, service_name, position), payments(id)"
+        "id, booking_code, branch_id, professional_id, client_id, walkin_name, walkin_phone, scheduled_date, start_time, duration_minutes, status, session_status, service_started_at, visit_type, service_id, notes, client:profiles!appointments_client_id_fkey(full_name), appointment_services(service_id, service_name, position), payments(id)"
       )
       .gte("scheduled_date", from)
       .lte("scheduled_date", until)
@@ -89,6 +90,7 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
       duration: r.duration_minutes || 60,
       status: String(r.status),
       sessionStatus: r.session_status,
+      serviceStartedAt: r.service_started_at,
       visitType: r.visit_type ?? "appointment",
       serviceLabel: lines.length ? lines.map((l) => l.service_name).join(", ") : linked.map((s) => s.name).join(", ") || (r.notes ?? "").split(" with ")[0] || "Appointment",
       services: [...new Set(linked.map((s) => s.name))],

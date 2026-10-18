@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clientLane, paymentState, serviceLane, staffLane, walkinLane } from "./boards";
+import { clientLane, paymentState, serviceLane, staffLane, walkinLane, overdueWalkins } from "./boards";
 
 describe("staffLane", () => {
   it("maps live statuses to columns", () => {
@@ -57,5 +57,36 @@ describe("walkinLane", () => {
     expect(walkinLane(v(), start + 600 * 60_000).lane).toBe("overdue");
     expect(walkinLane(v({ sessionStatus: "completed" }), start).lane).toBe("completed");
     expect(walkinLane(v({ status: "cancelled" }), start).lane).toBeNull();
+  });
+});
+
+describe("overdueWalkins", () => {
+  const now = Date.parse("2026-10-18T05:00:00Z"); // 1:00 PM Manila
+  const w = (id: string, over: Record<string, unknown> = {}) => ({
+    id,
+    date: "2026-10-18",
+    visitType: "walk_in",
+    status: "confirmed",
+    sessionStatus: "in_service",
+    serviceStartedAt: "2026-10-18T03:30:00Z", // 90 min ago
+    duration: 60,
+    ...over,
+  });
+
+  it("lists only today's walk-ins running past the estimate and grace", () => {
+    const list = overdueWalkins(
+      [
+        w("late"),
+        w("onTime", { duration: 120 }),
+        w("justOver", { duration: 85 }), // 5 min over: still Time Reached
+        w("done", { sessionStatus: "completed" }),
+        w("booking", { visitType: "appointment" }),
+        w("yesterday", { date: "2026-10-17" }),
+        w("noTimer", { serviceStartedAt: null }),
+      ],
+      "2026-10-18",
+      now
+    );
+    expect(list.map((x) => x.id)).toEqual(["late"]);
   });
 });

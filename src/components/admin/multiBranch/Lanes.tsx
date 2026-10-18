@@ -1,6 +1,9 @@
 "use client";
 
-import type { ReactNode, Ref } from "react";
+import { Children, useState, type ReactNode, type Ref } from "react";
+
+/** Cards shown per column before "Show more" (long lists stay easy to scan). */
+export const LANE_PAGE = 20;
 
 /** Soft column colours for the Multi-Branch boards (spa palette). */
 export const LANE_TONE = {
@@ -23,7 +26,8 @@ export function LaneBoard({ children, scrollerRef }: { children: ReactNode; scro
   );
 }
 
-/** One Kanban column: coloured header with a count and a one-line hint. */
+/** One Kanban column: coloured header with a count and a one-line hint.
+ * Long columns show LANE_PAGE (20) cards at a time with a "Show more" button. */
 export function Lane({
   title,
   hint,
@@ -43,6 +47,9 @@ export function Lane({
   highlight?: "ok" | "no" | null;
   empty?: string;
 }) {
+  const [shown, setShown] = useState(LANE_PAGE);
+  const cards = Children.toArray(children);
+  const hidden = cards.length - shown;
   return (
     <section
       ref={laneRef}
@@ -61,7 +68,16 @@ export function Lane({
         {hint && <p className="mt-0.5 text-[11px] text-ink/55">{hint}</p>}
       </header>
       <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overflow-x-hidden p-2 [scrollbar-color:rgba(201,168,74,0.5)_transparent] [scrollbar-width:thin]">
-        {children}
+        {hidden > 0 ? cards.slice(0, shown) : cards}
+        {hidden > 0 && (
+          <button
+            type="button"
+            onClick={() => setShown((n) => n + LANE_PAGE)}
+            className="w-full rounded-xl border border-dashed border-[#e6d6ad] bg-[#fffaf0] py-2 text-xs font-semibold text-coral-dark hover:border-coral hover:bg-[#fbf3dc]"
+          >
+            Show {Math.min(hidden, LANE_PAGE)} more <span className="font-normal text-ink/45">({hidden} hidden)</span>
+          </button>
+        )}
         {count === 0 && <p className="rounded-xl border-2 border-dashed border-ink/10 py-6 text-center text-xs text-ink/35">{empty}</p>}
       </div>
     </section>

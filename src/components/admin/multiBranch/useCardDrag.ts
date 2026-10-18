@@ -9,11 +9,13 @@ export type DropPoint = { key: string; top: number };
 
 /** Pointer-based drag (mouse, pen, finger) between board columns. Fingers drag
  * from a `[data-grip]` so the board still scrolls; a mouse drags the card.
- * Near the scroller's edges the board scrolls sideways while dragging. */
-export function useCardDrag(onDrop: (item: DragItem, columnKey: string, at: DropPoint) => void) {
+ * Near the scroller's edges the board scrolls sideways while dragging.
+ * Esc cancels a drag; dropping a card back on its own column does nothing
+ * (unless `sameColumn`, where the drop point matters — the day timeline). */
+export function useCardDrag(onDrop: (item: DragItem, columnKey: string, at: DropPoint) => void, opts: { sameColumn?: boolean } = {}) {
   const columns = useRef(new Map<string, HTMLElement>());
   const scroller = useRef<HTMLDivElement>(null);
-  const pending = useRef<{ item: DragItem; x: number; y: number; el: HTMLElement; started: boolean } | null>(null);
+  const pending = useRef<{ item: DragItem; x: number; y: number; el: HTMLElement; started: boolean; from: string | null } | null>(null);
   // The click that ends a drag must not also open the card.
   const justDragged = useRef(false);
   const pointer = useRef({ x: 0, y: 0 });
@@ -56,7 +58,20 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string, at: Drop
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      pending.current = null;
+      justDragged.current = true;
+      setGhost(null);
+      setOver(null);
+      setOverPoint(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("keydown", onKey);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- track only reads refs and setters
   }, [dragging]);
 
@@ -71,7 +86,7 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string, at: Drop
         const control = target.closest("button, select, a, input, label");
         if (control && control !== e.currentTarget) return;
         if (e.pointerType === "touch" && !target.closest("[data-grip]")) return;
-        pending.current = { item, x: e.clientX, y: e.clientY, el: e.currentTarget, started: false };
+        pending.current = { item, x: e.clientX, y: e.clientY, el: e.currentTarget, started: false, from: columnAt(e.clientX, e.clientY) };
         pointer.current = { x: e.clientX, y: e.clientY };
         e.currentTarget.setPointerCapture?.(e.pointerId);
       },
@@ -99,6 +114,7 @@ export function useCardDrag(onDrop: (item: DragItem, columnKey: string, at: Drop
         setOver(null);
         setOverPoint(null);
         justDragged.current = true;
+        if (to === p.from && !opts.sameColumn) return;
         if (to && at) onDrop(p.item, to, at);
       },
       // Photos inside a card would start the browser's own image drag and cancel ours.

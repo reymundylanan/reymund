@@ -48,6 +48,8 @@ export type Appointment = {
   duration: number;
   status: string;
   sessionStatus: string | null;
+  /** When the service was started (walk-in timers). */
+  serviceStartedAt?: string | null;
   visitType: string;
   /** What was booked, for display ("Hair Rebond · Short, Manicure"). */
   serviceLabel: string;

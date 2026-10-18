@@ -98,3 +98,14 @@ export function walkinLane(
   const lane: WalkinLane = remaining > 0 ? "in_service" : -remaining < GRACE_MIN ? "time_reached" : "overdue";
   return { lane, elapsed, remaining };
 }
+
+/** Today's walk-ins still in service past their estimate + grace (the Overdue lane). */
+export function overdueWalkins<T extends { id: string; date: string; visitType: string; status: string; sessionStatus: string | null; serviceStartedAt?: string | null; duration: number }>(
+  appts: T[],
+  today: string,
+  nowMs: number
+): T[] {
+  return appts.filter(
+    (a) => a.date === today && a.visitType === "walk_in" && walkinLane({ ...a, serviceStartedAt: a.serviceStartedAt ?? null }, nowMs).lane === "overdue"
+  );
+}
