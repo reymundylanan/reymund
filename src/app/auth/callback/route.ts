@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { recordLoginConsent } from "@/lib/auth/consent";
-import { authErrorPath, postLoginPath } from "@/lib/auth/oauthRedirect";
+import { finishLogin } from "@/lib/auth/finishLogin";
+import { authErrorPath } from "@/lib/auth/oauthRedirect";
 
 /**
  * Google / Facebook come back here. Supabase exchanges the one-time code on
@@ -20,31 +20,7 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error && data.user) {
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("id, role")
-        .eq("id", data.user.id)
-        .single();
-
-      if (!existingProfile) {
-        await supabase.from("profiles").insert({
-          id: data.user.id,
-          full_name:
-            data.user.user_metadata?.full_name ??
-            data.user.user_metadata?.name ??
-            data.user.email,
-          email: data.user.email,
-          role: "customer",
-          gdpr_consented: true,
-        });
-      }
-
-      // Set by the login window once the Terms box is ticked.
-      if (searchParams.get("consent") === "1") {
-        await recordLoginConsent(supabase, searchParams.get("offers") === "1");
-      }
-
-      return NextResponse.redirect(`${origin}${postLoginPath(existingProfile?.role ?? "customer", next)}`);
+      return NextResponse.redirect(`${origin}${await finishLogin(supabase, data.user, searchParams)}`);
     }
   }
 
