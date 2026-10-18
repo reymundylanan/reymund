@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planDayOff } from "./dayOff";
+import { planDayOff, planStaffDrop } from "./dayOff";
 import { toMinutes, type Appointment, type Context, type Staff } from "./engine";
 
 const TODAY = "2026-10-12";
@@ -51,5 +51,24 @@ describe("Staff board day off by dragging", () => {
 
   it("still refuses the attendance lanes", () => {
     expect(planDayOff(ctx(), ana, TODAY, "available").ok).toBe(false);
+  });
+});
+
+describe("Staff board attendance by dragging", () => {
+  const at = (status: string) => ctx({ attendance: [{ staffId: "ana", date: TODAY, status }] });
+
+  it("punches in, starts and ends a break, and punches out today", () => {
+    expect(planStaffDrop(ctx(), ana, "A", TODAY, "available")).toMatchObject({ ok: true, action: "punch_in" });
+    expect(planStaffDrop(at("available"), ana, "A", TODAY, "on_break")).toMatchObject({ ok: true, action: "start_break" });
+    expect(planStaffDrop(at("on_break"), ana, "A", TODAY, "available")).toMatchObject({ ok: true, action: "end_break" });
+    expect(planStaffDrop(at("available"), ana, "A", TODAY, "out")).toMatchObject({ ok: true, action: "punch_out" });
+  });
+
+  it("refuses other days, In Service, and steps out of order", () => {
+    expect(planStaffDrop(ctx(), ana, "A", "2026-10-14", "available")).toMatchObject({ ok: false });
+    expect(planStaffDrop(ctx(), ana, "A", TODAY, "in_service")).toMatchObject({ ok: false });
+    expect(planStaffDrop(ctx(), ana, "A", TODAY, "on_break")).toMatchObject({ ok: false });
+    expect(planStaffDrop(ctx(), ana, "A", TODAY, "out")).toMatchObject({ ok: false });
+    expect(planStaffDrop(at("available"), ana, "A", TODAY, "scheduled")).toMatchObject({ ok: false });
   });
 });

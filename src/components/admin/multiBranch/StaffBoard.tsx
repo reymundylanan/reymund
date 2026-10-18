@@ -8,7 +8,8 @@ import { Avatar } from "./ui";
 import { BranchDropBar, Lane, LaneBoard, LaneCard, type LaneTone } from "./Lanes";
 import { useCardDrag, type DragItem } from "./useCardDrag";
 import { Spinner } from "./ui";
-import { planDayOff } from "@/lib/multiBranch/dayOff";
+import { planStaffDrop, type StaffAction } from "@/lib/multiBranch/dayOff";
+import { endBreak, punchIn, punchOut, startBreak } from "@/lib/supabase/queries/staffAttendance";
 import { createClient } from "@/lib/supabase/client";
 import { upsertStaffOff } from "@/lib/supabase/queries/staffShifts";
 
@@ -22,10 +23,11 @@ const TONE: Record<StaffLane, LaneTone> = {
 };
 
 /**
- * Staff by what they're doing right now. Columns follow Punch In, Break,
- * services and days off — dragging into a column never changes a status.
- * Drag a card onto a branch (or press Transfer) to lend or move someone,
- * with the usual availability checks.
+ * Staff by what they're doing right now. Dragging a card (asked first):
+ * onto Available / On Break / Out runs today's Punch In, break or Punch Out
+ * (the same actions as the Front Desk); onto Day Off gives a day off, back
+ * to Scheduled removes it. In Service follows the services themselves.
+ * Drag a card onto a branch (or press Transfer) to lend or move someone.
  */
 export default function StaffBoard({
   ctx,
@@ -42,12 +44,12 @@ export default function StaffBoard({
   query: string;
   onOpen: (s: Staff, branchId: string) => void;
   onTransfer: (s: Staff, toBranchId: string | null) => void;
-  /** A day off was given or taken away (reload the board). */
+  /** A day off or attendance changed (reload the board). */
   onChanged: (text: string) => void;
 }) {
   const [notice, setNotice] = useState<string | null>(null);
-  // Day off by dragging: asked first, then saved.
-  const [ask, setAsk] = useState<{ s: Staff; action: "add" | "remove"; question: string } | null>(null);
+  // Day off / attendance by dragging: asked first, then saved.
+  const [ask, setAsk] = useState<{ s: Staff; action: StaffAction; question: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const q = query.trim().toLowerCase();
   const branchName = (id: string | null) => ctx.branches.find((b) => b.id === id)?.name ?? "No branch";
@@ -65,7 +67,7 @@ export default function StaffBoard({
     const s = ctx.staff.find((x) => x.id === item.id);
     if (!s) return;
     if (key.startsWith("lane:")) {
-      const plan = planDayOff(ctx, s, date, key.slice(5) as StaffLane);
+      const plan = planStaffDrop(ctx, s, whereOf(s), date, key.slice(5) as StaffLane);
       if (!plan.ok) return setNotice(plan.reason);
       setNotice(null);
       return setAsk({ s, action: plan.action, question: plan.question });
@@ -82,7 +84,19 @@ export default function StaffBoard({
     setSaving(true);
     const supabase = createClient();
     let error: string | null = null;
-    if (ask.action === "add") {
+    const att = { staffMemberId: ask.s.id, branchId: whereOf(ask.s) ?? ask.s.branchId, dateKey: date };
+    const ATTENDANCE = { punch_in: punchIn, punch_out: punchOut, start_break: startBreak, end_break: endBreak } as const;
+    const DONE: Record<StaffAction, string> = {
+      add: " has the day off.",
+      remove: "'s day off was removed.",
+      punch_in: " is punched in.",
+      punch_out: " is punched out.",
+      start_break: " is on break.",
+      end_break: "'s break has ended.",
+    };
+    if (ask.action in ATTENDANCE) {
+      ({ error } = await ATTENDANCE[ask.action as keyof typeof ATTENDANCE](supabase, att));
+    } else if (ask.action === "add") {
       ({ error } = await upsertStaffOff(supabase, { staffMemberId: ask.s.id, branchId: ask.s.branchId, shiftDate: date, period: "full_day", source: "manual" }));
     } else {
       const res = await supabase.from("staff_shifts").delete().eq("staff_member_id", ask.s.id).eq("shift_date", date).eq("source", "manual");
@@ -92,7 +106,8 @@ export default function StaffBoard({
     const who = ask.s.name;
     setAsk(null);
     if (error) return setNotice(`Couldn't save: ${error}`);
-    onChanged(ask.action === "add" ? `${who} has the day off.` : `${who}'s day off was removed.`);
+    const done = DONE[ask.action];
+    onChanged(`${who}${done}`);
   }
   const dragged = dragging ? ctx.staff.find((s) => s.id === dragging.id) ?? null : null;
   const check = (to: string) => {
@@ -113,7 +128,7 @@ export default function StaffBoard({
         zoneRef={columnRef}
         keyFor={(id) => `b:${id}`}
         check={check}
-        label="Drag a staff card onto a branch to lend or move them — or onto Day Off for a day off"
+        label="Drag a staff card onto a branch to lend or move them — or onto a column to punch in, break, punch out or give a day off"
       />
       {ask && (
         <div role="alertdialog" className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#fbf3dc] px-4 py-3 text-sm text-ink ring-1 ring-[#efd9a6]">
@@ -123,7 +138,7 @@ export default function StaffBoard({
               Cancel
             </button>
             <button onClick={applyDayOff} disabled={saving} className="flex items-center gap-1.5 rounded-full bg-coral px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-coral-dark disabled:opacity-60">
-              {saving && <Spinner />} {ask.action === "add" ? "Yes, day off" : "Yes, remove it"}
+              {saving && <Spinner />} {{ add: "Yes, day off", remove: "Yes, remove it", punch_in: "Yes, punch in", punch_out: "Yes, punch out", start_break: "Yes, start break", end_break: "Yes, end break" }[ask.action]}
             </button>
           </span>
         </div>
@@ -138,7 +153,7 @@ export default function StaffBoard({
         {STAFF_LANES.map((lane) => {
           const list = lanes.get(lane.key)!.sort((a, b) => a.s.name.localeCompare(b.s.name));
           return (
-            <Lane key={lane.key} title={lane.label} hint={lane.hint} count={list.length} tone={TONE[lane.key]} empty="No one here" laneRef={columnRef(`lane:${lane.key}`)} highlight={dragged && over === `lane:${lane.key}` ? (planDayOff(ctx, dragged, date, lane.key).ok ? "ok" : "no") : null}>
+            <Lane key={lane.key} title={lane.label} hint={lane.hint} count={list.length} tone={TONE[lane.key]} empty="No one here" laneRef={columnRef(`lane:${lane.key}`)} highlight={dragged && over === `lane:${lane.key}` ? (planStaffDrop(ctx, dragged, whereOf(dragged), date, lane.key).ok ? "ok" : "no") : null}>
               {list.map(({ s, where }) => {
                 const today = ctx.appointments
                   .filter((a) => a.professionalId === s.id && a.date === date && (a.status === "pending" || a.status === "confirmed"))
