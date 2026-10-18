@@ -44,9 +44,10 @@ export default function Header() {
       )}
     </span>
   ) : null;
+  // First name only, so the header doesn't get crowded (full name on hover).
   const nameLabel = user ? (
-    <span className="hidden text-sm font-medium text-ink sm:inline">
-      {user.fullName}
+    <span title={user.fullName} className="hidden max-w-[9rem] truncate text-sm font-medium text-ink sm:inline">
+      {firstName(user.fullName)}
     </span>
   ) : null;
 
@@ -76,7 +77,7 @@ export default function Header() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className={`transition hover:text-coral-dark ${
+                    className={`whitespace-nowrap transition hover:text-coral-dark ${
                       isActive ? "text-xl font-bold text-coral-dark" : ""
                     }`}
                   >
@@ -148,4 +149,11 @@ export default function Header() {
       </div>
     </header>
   );
+}
+
+/** "Ocean Dwain Baga Cantillas" → "Ocean"; "Llavore, C." → "C." (surname-first). */
+function firstName(full: string): string {
+  const name = full.trim();
+  const given = name.includes(",") ? name.split(",")[1]?.trim() || name : name;
+  return given.split(/\s+/)[0] || name;
 }
