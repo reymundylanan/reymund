@@ -3,41 +3,16 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Briefcase, Sparkles, X } from "lucide-react";
+import { X } from "lucide-react";
 import LoginCard from "@/components/auth/LoginCard";
 import StaffLoginForm from "@/components/auth/StaffLoginForm";
 import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 
-type Mode = "client" | "staff";
-const MODE_KEY = "glowsync-login-mode";
-
-const COPY: Record<Mode, { title: string; subtitle: string }> = {
-  client: {
-    title: "Welcome back",
-    subtitle: "Continue with Google or Facebook to book and manage your appointments. New here? Your account is created automatically.",
-  },
-  staff: {
-    title: "Staff & Admin",
-    subtitle: "Sign in with the username and password from your administrator.",
-  },
-};
 
 export default function LoginModal({ onClose, notice = null }: { onClose: () => void; notice?: string | null }) {
   const [offers, setOffers] = useState(false);
   // "Forgot password?" swaps the login options for the reset form.
   const [forgot, setForgot] = useState(false);
-  // Clients by default; staff who used the staff tab last get it again.
-  const [mode, setMode] = useState<Mode>("client");
-
-  useEffect(() => {
-    if (notice) return; // Coming back from Google / Facebook: stay on Client.
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- remembered choice, read once on open
-      if (localStorage.getItem(MODE_KEY) === "staff") setMode("staff");
-    } catch {
-      /* storage blocked: keep the default */
-    }
-  }, [notice]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -45,14 +20,6 @@ export default function LoginModal({ onClose, notice = null }: { onClose: () => 
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  function choose(next: Mode) {
-    setMode(next);
-    try {
-      localStorage.setItem(MODE_KEY, next);
-    } catch {
-      /* not remembered — fine */
-    }
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#2b1a10]/45 px-4 backdrop-blur-[2px]">
@@ -71,9 +38,13 @@ export default function LoginModal({ onClose, notice = null }: { onClose: () => 
           <div aria-hidden className="pointer-events-none absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-coral/15 blur-2xl" />
           <Image src="/images/logo/cropblushicon2.png" alt="Blush Spa & Aesthetics" width={64} height={64} className="relative mx-auto h-16 w-16 rounded-full bg-white object-contain p-1.5 shadow-sm ring-1 ring-champagne" priority />
           <h1 id="login-title" className="relative mt-4 font-display text-[1.7rem] font-semibold leading-tight text-ink">
-            {forgot ? "Reset password" : COPY[mode].title}
+            {forgot ? "Reset password" : "Welcome back"}
           </h1>
-          {!forgot && <p className="relative mx-auto mt-2 max-w-xs text-sm leading-relaxed text-ink/60">{COPY[mode].subtitle}</p>}
+          {!forgot && (
+            <p className="relative mx-auto mt-2 max-w-xs text-sm leading-relaxed text-ink/60">
+              Log in to book and manage your appointments. New here? Continue with Google or Facebook — your account is created automatically.
+            </p>
+          )}
         </div>
 
         <div className="px-8 pb-7 pt-5">
@@ -87,37 +58,20 @@ export default function LoginModal({ onClose, notice = null }: { onClose: () => 
             <ForgotPasswordForm onBack={() => setForgot(false)} />
           ) : (
             <>
-              <div role="tablist" aria-label="Log in as" className="mb-6 grid grid-cols-2 rounded-full bg-[#f6efe0] p-1 text-sm">
-                {(
-                  [
-                    ["client", "Client", Sparkles],
-                    ["staff", "Staff & Admin", Briefcase],
-                  ] as const
-                ).map(([k, label, Icon]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    role="tab"
-                    aria-selected={mode === k}
-                    onClick={() => choose(k)}
-                    className={`flex items-center justify-center gap-1.5 rounded-full py-2 font-semibold transition ${
-                      mode === k ? "bg-white text-ink shadow-sm ring-1 ring-[#efe3c6]" : "text-ink/50 hover:text-ink"
-                    }`}
-                  >
-                    <Icon className={`h-4 w-4 ${mode === k ? "text-coral-dark" : ""}`} /> {label}
-                  </button>
-                ))}
+              {/* Staff, admins and anyone with a username */}
+              <StaffLoginForm onSuccess={onClose} offers={offers} onForgot={() => setForgot(true)} />
+
+              <div className="my-6 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/40">
+                <span className="h-px flex-1 bg-gradient-to-r from-transparent to-[#e8dcc0]" />
+                or continue with
+                <span className="h-px flex-1 bg-gradient-to-l from-transparent to-[#e8dcc0]" />
               </div>
 
-              {mode === "client" ? (
-                <LoginCard offers={offers} />
-              ) : (
-                <StaffLoginForm onSuccess={onClose} offers={offers} onForgot={() => setForgot(true)} />
-              )}
+              {/* Clients */}
+              <LoginCard offers={offers} />
 
               <div className="mt-6 space-y-3 border-t border-[#f1e4c4] pt-5 text-xs text-ink/60">
-                {mode === "client" && (
-                  <label className="flex cursor-pointer items-start gap-2.5">
+                <label className="flex cursor-pointer items-start gap-2.5">
                     <input
                       type="checkbox"
                       checked={offers}
@@ -126,7 +80,6 @@ export default function LoginModal({ onClose, notice = null }: { onClose: () => 
                     />
                     <span>Send me exclusive offers and beauty trends from GlowSync. (optional)</span>
                   </label>
-                )}
                 <p className="text-center leading-relaxed text-ink/45">
                   By continuing, you agree to our{" "}
                   <Link href="/terms" target="_blank" className="font-medium text-coral-dark underline-offset-2 hover:underline">

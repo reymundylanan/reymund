@@ -5,14 +5,17 @@ import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import ChatWidget from "@/components/ChatWidget";
 import PageHelpButton from "@/components/PageHelpButton";
 import { useBooking } from "@/components/booking/BookingContext";
+import { useLoginModal } from "@/components/auth/LoginModalContext";
 
 export default function ChatWidgetWrapper() {
   const { user, loading } = useCurrentUser();
   const pathname = usePathname();
   const { isOpen: bookingOpen } = useBooking();
-  // Visitors who aren't signed in get page help instead of the AI chat.
+  const { isOpen: loginOpen } = useLoginModal();
+  // Visitors who aren't signed in get page help instead of the AI chat
+  // (out of the way while the login window is open, so it covers no buttons).
   if (!loading && !user && !pathname?.startsWith("/auth")) {
-    return <div className={bookingOpen ? "hidden" : undefined}><PageHelpButton /></div>;
+    return <div className={bookingOpen || loginOpen ? "hidden" : undefined}><PageHelpButton /></div>;
   }
   if (user?.role !== "customer") return null;
   // My Glow already has its own inline AssistantPanel — avoid showing two
