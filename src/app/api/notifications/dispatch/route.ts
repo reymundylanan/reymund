@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { safeEqual } from "@/lib/messenger/signature";
 import { buildEmail, buildPushPayload, isGonePushStatus, retryDelayMinutes, type NoticeForDelivery } from "@/lib/notifications/delivery";
 import { getEmailSender, getPushSender } from "@/lib/notifications/senders";
+import { siteUrl as publicSiteUrl } from "@/lib/siteUrl";
 
 // Called every minute by pg_cron (068 notify_ping_dispatcher) while email or
 // push deliveries are due. Uses the same bearer secret as review evaluation.
@@ -39,7 +40,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "").trim() || new URL(request.url).origin;
+  // Links in emails and pushes: the real site address (never localhost).
+  const configured = publicSiteUrl();
+  const siteUrl = configured.includes("localhost") ? new URL(request.url).origin : configured;
   const sendEmail = getEmailSender();
   const sendPush = getPushSender();
 
