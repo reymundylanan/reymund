@@ -7,14 +7,16 @@ import { cleanPaymentNotice, PAYMENT_NOTICE_COOLDOWN_HOURS, PAYMENT_NOTICE_TITLE
 type Rel<T> = T | T[] | null;
 const one = <T,>(v: Rel<T>): T | null => (Array.isArray(v) ? (v[0] ?? null) : v);
 
-/** Admin → Payments → "Notify client": a bell notice (plus email and push)
- * telling the client about a pending payment. Admins only. */
+/** Payments → "Notify client": a bell notice (plus email and push) telling
+ * the client about a pending payment. Admins, and the Front Desk for their
+ * own branch's payments. */
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  const { data: me } = await supabase.from("profiles").select("role").eq("id", auth.user.id).single();
-  if (me?.role !== "admin") return NextResponse.json({ error: "Only Admins can notify clients about payments." }, { status: 403 });
+  const { data: me } = await supabase.from("profiles").select("role, branch_id").eq("id", auth.user.id).single();
+  const role = me?.role as string | undefined;
+  if (role !== "admin" && role !== "front_desk") return NextResponse.json({ error: "Only Admin or Front Desk can notify clients about payments." }, { status: 403 });
 
   const body = (await request.json().catch(() => ({}))) as { paymentId?: string; message?: string };
   const message = cleanPaymentNotice(body.message);
@@ -24,14 +26,17 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const { data: pay, error } = await admin
     .from("payments")
-    .select("id, status, appointment:appointments(id, client_id, walkin_name, walkin_phone)")
+    .select("id, status, appointment:appointments(id, branch_id, client_id, walkin_name, walkin_phone)")
     .eq("id", body.paymentId)
     .maybeSingle();
   if (error) logQueryError("payments notify", error);
   if (!pay) return NextResponse.json({ error: "That payment could not be found." }, { status: 404 });
   if (pay.status !== "pending") return NextResponse.json({ error: "This payment isn't pending any more." }, { status: 409 });
 
-  const appt = one(pay.appointment as Rel<{ id: string; client_id: string | null; walkin_name: string | null; walkin_phone: string | null }>);
+  const appt = one(pay.appointment as Rel<{ id: string; branch_id: string | null; client_id: string | null; walkin_name: string | null; walkin_phone: string | null }>);
+  if (role === "front_desk" && (!me?.branch_id || appt?.branch_id !== me.branch_id)) {
+    return NextResponse.json({ error: "This payment belongs to another branch." }, { status: 403 });
+  }
   if (!appt?.client_id) {
     const phone = appt?.walkin_phone ? ` — call or text them at ${appt.walkin_phone}` : "";
     return NextResponse.json({ error: `${appt?.walkin_name ?? "This client"} has no GlowSync account, so they can't get notices${phone}.` }, { status: 409 });

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { CreditCard, Search, Wallet, X } from "lucide-react";
+import { BellRing, CreditCard, Search, Wallet, X } from "lucide-react";
+import NotifyClientDialog from "@/components/admin/payments/NotifyClientDialog";
 import { cashReceiptNo } from "@/lib/supabase/queries/frontdeskPayments";
 import { createClient } from "@/lib/supabase/client";
 import { getOnlinePayments, type OnlinePayment } from "@/lib/supabase/queries/payNow";
@@ -59,6 +60,9 @@ export default function OnlinePaymentsTable({ branchId, method = "gcash" }: { br
     return { from: key, to: key };
   });
   const [query, setQuery] = useState("");
+  // "Notify" on payments still waiting to be verified.
+  const [notify, setNotify] = useState<OnlinePayment | null>(null);
+  const [notified, setNotified] = useState<Record<string, true>>({});
   const [rows, setRows] = useState<OnlinePayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [migrated, setMigrated] = useState(true);
@@ -225,9 +229,28 @@ export default function OnlinePaymentsTable({ branchId, method = "gcash" }: { br
                     </td>
                     <td className="whitespace-nowrap py-3 text-ink/60">{apptStamp(p)}</td>
                     <td className="py-3 text-right">
-                      <button type="button" className="rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/70 hover:border-coral">
-                        View
-                      </button>
+                      <span className="inline-flex items-center gap-1.5">
+                        {p.status === "pending" && p.clientId && (
+                          notified[p.id] ? (
+                            <span className="text-xs font-semibold text-green-700">✓ Notified</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNotify(p);
+                              }}
+                              title="Send the client a notice about this payment"
+                              className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-coral/50 px-2.5 py-1 text-xs font-semibold text-coral-dark hover:bg-coral hover:text-white"
+                            >
+                              <BellRing className="h-3 w-3" /> Notify
+                            </button>
+                          )
+                        )}
+                        <button type="button" className="rounded-full border border-ink/15 px-3 py-1 text-xs font-semibold text-ink/70 hover:border-coral">
+                          View
+                        </button>
+                      </span>
                     </td>
                   </tr>
                 );
@@ -237,6 +260,16 @@ export default function OnlinePaymentsTable({ branchId, method = "gcash" }: { br
       </div>
 
       {current && <PaymentDetailsModal payment={current} cash={isCash} onClose={() => setSelected(null)} />}
+      {notify && (
+        <NotifyClientDialog
+          payment={{ id: notify.id, clientName: notify.clientName, bookingCode: null, amount: notify.amount, method: notify.method, branchName: notify.branchName ?? "the branch" }}
+          onClose={() => setNotify(null)}
+          onSent={() => {
+            setNotified((n) => ({ ...n, [notify.id]: true }));
+            setNotify(null);
+          }}
+        />
+      )}
     </div>
   );
 }
