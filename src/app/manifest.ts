@@ -11,6 +11,6 @@ export default function manifest(): MetadataRoute.Manifest {
     display: "standalone",
     background_color: "#FBF6E8",
     theme_color: "#C9A84A",
-    icons: [{ src: "/images/logo/cropblushicon2.png", sizes: "1057x1058", type: "image/png", purpose: "any" }],
+    icons: [{ src: "/icon.png", sizes: "192x192", type: "image/png", purpose: "any" }],
   };
 }

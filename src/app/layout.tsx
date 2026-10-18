@@ -52,9 +52,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: SITE_NAME, description: SITE_DESCRIPTION, images: ["/images/hero/clinic.jpeg"] },
   // Google Search Console: set NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION to the code Google gives.
   verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } : undefined,
-  icons: {
-    icon: "/images/logo/cropblushicon2.png",
-  },
+  // Icons: app/favicon.ico, app/icon.png (192px) and app/apple-icon.png — small and square, as Google needs.
 };
 
 export default function RootLayout({

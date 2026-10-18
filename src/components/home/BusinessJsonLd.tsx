@@ -7,7 +7,8 @@ const pad = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${Str
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 /** Tells Google the spa is a local business with two branches (address,
- * phone, opening hours, map pin), for search and Maps results. */
+ * phone, opening hours, map pin), for search and Maps results — and the
+ * site's name, so results say "Blush Spa & Aesthetics" rather than the host. */
 export default async function BusinessJsonLd() {
   const supabase = await createClient();
   const { data, error } = await supabase.from("branches").select("name, address, phone, hours, status, lat, lng").order("name");
@@ -39,12 +40,22 @@ export default async function BusinessJsonLd() {
 
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "Organization",
-    name: SITE_NAME,
-    url: base,
-    logo: `${base}/images/logo/cropblushicon2.png`,
-    description: SITE_DESCRIPTION,
-    subOrganization: branches,
+    "@graph": [
+      {
+        "@type": "WebSite",
+        name: SITE_NAME,
+        alternateName: ["Blush Spa", "Blush Spa Pagadian", "GlowSync"],
+        url: `${base}/`,
+      },
+      {
+        "@type": "Organization",
+        name: SITE_NAME,
+        url: base,
+        logo: `${base}/icon.png`,
+        description: SITE_DESCRIPTION,
+        subOrganization: branches,
+      },
+    ],
   };
 
   return (
