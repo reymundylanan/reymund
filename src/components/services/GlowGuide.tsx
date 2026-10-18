@@ -81,6 +81,7 @@ export default function GlowGuide({
   onBook,
   onDetails,
   hoverOnly = false,
+  greetingText = "Looking for the perfect service? I'm here to help you find what you need!",
 }: {
   containerRef: RefObject<HTMLElement | null>;
   items: GuideFacts[];
@@ -89,6 +90,7 @@ export default function GlowGuide({
   /** Desktop: only show while the pointer is on a card or the guide itself
    * (few, large cards — so it never sits over the other one). */
   hoverOnly?: boolean;
+  greetingText?: string;
 }) {
   const { isOpen: bookingOpen } = useBooking();
   const { open: openLogin } = useLoginModal();
@@ -399,14 +401,14 @@ export default function GlowGuide({
     <div className="space-y-2.5">
       <p className="guide-rise flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">
         <span aria-hidden className="guide-live-dot" />
-        {greeting ? "GlowSync AI" : mode === "intro" ? `GlowSync AI · ${item.kind === "category" ? "Category" : "Treatment"}` : item.title}
+        {greeting ? "GlowSync AI" : mode === "intro" ? `GlowSync AI · ${item.label ?? (item.kind === "category" ? "Category" : "Treatment")}` : item.title}
       </p>
 
       {greeting && mode === "intro" && (
         <div className="guide-rise space-y-1">
           <p className="guide-display guide-title text-[19px] leading-tight">Hi! I&apos;m GlowSync AI ✨</p>
           <p className="text-[14.5px] font-semibold leading-relaxed text-ink/85">
-            <TypeText key="greet" text="Looking for the perfect service? I'm here to help you find what you need!" />
+            <TypeText key="greet" text={greetingText} />
           </p>
         </div>
       )}
@@ -539,7 +541,7 @@ export default function GlowGuide({
             </Link>
           )}
           {locked && mode !== "ask" && (
-            <p className="w-full text-center text-[11px] font-semibold text-ink/45">Click another service to move on</p>
+            <p className="w-full text-center text-[11px] font-semibold text-ink/45">Click another card to move on</p>
           )}
           {mode === "intro" && !locked && (
             <button type="button" onClick={openMenu} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition min-w-[60%] flex-1 bg-gradient-to-r from-[#f5effd] to-[#fdf0f7] px-3 text-[#7b3fc4] ring-1 ring-[#e3d6f7] hover:ring-[#c9b0f0]">

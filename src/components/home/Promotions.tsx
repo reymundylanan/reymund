@@ -6,15 +6,19 @@ import { createClient } from "@/lib/supabase/server";
 import { getActivePromotions } from "@/lib/supabase/queries/publicContent";
 import { promoImage } from "@/lib/promoImage";
 import { branchLabel, pickHomePromotions } from "@/lib/homePromos";
+import PromoGuideSection from "@/components/home/PromoGuideSection";
 
 /** Home → Active Promotions: the real promotions Admin creates per branch,
- * a varied random six on every visit (each deal once, categories mixed). */
+ * a varied random six on every visit (each deal once, categories mixed),
+ * introduced by the GlowSync mascot like the service cards. */
 export default async function Promotions() {
   const promos = pickHomePromotions(await getActivePromotions(await createClient(), 300), 6);
 
   return (
-    <section id="promotions" className="mx-auto max-w-7xl scroll-mt-28 px-6 py-20">
-      <SectionHeading eyebrow="Special Offers" title="Active Promotions" subtitle="Exclusive deals for our synchronized members." />
+    <PromoGuideSection
+      promos={promos.map(({ id, title, badge, description, price, validUntil, category, department, branchNames }) => ({ id, title, badge, description, price, validUntil, category, department, branchNames }))}
+      heading={<SectionHeading eyebrow="Special Offers" title="Active Promotions" subtitle="Exclusive deals for our synchronized members." />}
+    >
 
       {promos.length === 0 ? (
         <p className="rounded-2xl bg-skin/60 p-8 text-center text-ink/70">No promotions running right now — check back soon!</p>
@@ -24,6 +28,7 @@ export default async function Promotions() {
             <Link
               key={promo.id}
               href={`/promos/${promo.id}`}
+              data-guide-id={promo.id}
               className="group relative isolate flex min-h-64 flex-col overflow-hidden rounded-3xl p-6 text-white border-2 border-coral shadow-sm ring-1 ring-champagne/60 ring-offset-2 ring-offset-cream transition duration-300 hover:-translate-y-1 hover:border-coral-dark hover:shadow-xl hover:shadow-[#a8843a]/20"
             >
               <Image
@@ -65,6 +70,6 @@ export default async function Promotions() {
           ))}
         </div>
       )}
-    </section>
+    </PromoGuideSection>
   );
 }

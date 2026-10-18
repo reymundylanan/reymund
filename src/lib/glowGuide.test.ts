@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { categoryFacts, firstSentence, hookFor, moodFor, priceLabel, promoFor, reactionFor, serviceFacts, type GuideService } from "./glowGuide";
+import { categoryFacts, promoCardFacts, type GuidePromoCard, firstSentence, hookFor, moodFor, priceLabel, promoFor, reactionFor, serviceFacts, type GuideService } from "./glowGuide";
 
 const svc = (o: Partial<GuideService>): GuideService => ({
   id: "s1",
@@ -58,5 +58,35 @@ describe("GlowSync guide", () => {
     expect(moodFor("Deep Glow Facial Facial Services")).toBe("cheek");
     expect(moodFor("Hair Color Hair Services")).toBe("excited");
     expect(moodFor("Tummy Slimming Services")).toBe("point");
+  });
+});
+
+describe("promo card facts (home page)", () => {
+  const card = (o: Partial<GuidePromoCard>): GuidePromoCard => ({
+    id: "p1",
+    title: "Airy Lashes + Brow Thread",
+    badge: null,
+    description: "Fuller lashes and clean brows in one visit. Ends soon.",
+    price: 1000,
+    validUntil: "2026-10-31",
+    category: "Lashes & Brows",
+    department: null,
+    branchNames: ["One Cecilia Center", "Robinsons Pagadian"],
+    ...o,
+  });
+
+  it("introduces the promo with its price, end date and branches", () => {
+    const f = promoCardFacts(card({}), [card({}), card({ id: "p2", title: "Gel Mani + Foot Spa", price: 600 })]);
+    expect(f.label).toBe("Promo");
+    expect(f.intro).toBe("Let me introduce our Airy Lashes + Brow Thread promo at both branches! Fuller lashes and clean brows in one visit.");
+    expect(f.meta).toEqual(["₱1,000", "Until Oct 31", "Both branches"]);
+    expect(f.answers.compare).toContain("Gel Mani + Foot Spa is ₱600");
+  });
+
+  it("uses the admin's badge as the headline", () => {
+    const f = promoCardFacts(card({ badge: "20% OFF", branchNames: ["Robinsons Pagadian"] }), []);
+    expect(f.hook).toBe("20% OFF — don't miss it!");
+    expect(f.meta).toContain("Robinsons Pagadian");
+    expect(f.answers.compare).toBe("It's our only promo right now.");
   });
 });

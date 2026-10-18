@@ -23,6 +23,8 @@ export type GuideMood = "point" | "relax" | "cheek" | "hands" | "excited";
 export type GuideFacts = {
   id: string;
   kind: "category" | "service";
+  /** Bubble header label; defaults to "Category" / "Treatment". */
+  label?: string;
   title: string;
   category: string;
   reaction: string;
@@ -221,6 +223,59 @@ export function spaPackageFacts(p: GuidePartyPackage, all: GuidePartyPackage[]):
       compare: others.length
         ? others.map((o) => `${o.tier} is ${peso(o.price)}${o.inclusions.length !== p.inclusions.length ? ` with ${o.inclusions.length} inclusions` : ""}`).join("; ") + ` — this one has ${p.inclusions.length}.`
         : "It's our only Spa Party package right now.",
+    },
+  };
+}
+
+// ── Active Promotions (home page) ──
+
+export type GuidePromoCard = {
+  id: string;
+  title: string;
+  badge: string | null;
+  description: string | null;
+  price: number | null;
+  validUntil: string | null;
+  category: string | null;
+  department: string | null;
+  branchNames: string[];
+};
+
+/** One promo card on the home page. */
+export function promoCardFacts(p: GuidePromoCard, all: GuidePromoCard[]): GuideFacts {
+  const kind = p.category ?? p.department ?? "Promo";
+  const text = `${p.title} ${kind}`;
+  const where = p.branchNames.length > 1 ? "at both branches" : p.branchNames.length ? `at ${p.branchNames[0]}` : "";
+  const until = p.validUntil
+    ? new Date(`${p.validUntil}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : "";
+  const price = p.price != null && p.price > 0 ? peso(p.price) : "";
+  const about = firstSentence(p.description);
+  const others = all.filter((o) => o.id !== p.id && o.price != null && o.price > 0);
+  const cheaper = p.price ? others.filter((o) => o.price! < p.price!).sort((a, b) => a.price! - b.price!)[0] : undefined;
+  return {
+    id: p.id,
+    kind: "service",
+    label: "Promo",
+    title: p.title,
+    category: kind,
+    reaction: "🎁",
+    hook: p.badge ? `${p.badge} — don't miss it!` : hookFor(text),
+    mood: moodFor(text),
+    intro: `Let me introduce our ${p.title} promo${where ? ` ${where}` : ""}! ${about}`.trim(),
+    why: until ? `A limited-time deal — it runs until ${until}.` : "A special deal for our members while it lasts.",
+    meta: [price, p.badge ?? "", until ? `Until ${until}` : "", where ? where.replace(/^at /, "").replace(/^both branches$/, "Both branches") : ""].filter(Boolean),
+    promo: null,
+    answers: {
+      price: price ? `${p.title} is ${price} on promo.` : "The promo price shows when you book.",
+      duration: "The time depends on the treatments in this promo — you'll see it when you book.",
+      benefits: firstSentence(p.description, 220) || `${p.title} in one visit, at a special price. Tap View Details for everything included.`,
+      promotions: `🎁 This is a promo already${until ? `, until ${until}` : ""}!${where ? ` Available ${where}.` : ""}`,
+      compare: others.length
+        ? cheaper
+          ? `${p.title} is ${price}. For something lighter on the budget, ${cheaper.title} is ${peso(cheaper.price!)}.`
+          : `${p.title} is one of the most affordable promos here${price ? ` (${price})` : ""}.`
+        : "It's our only promo right now.",
     },
   };
 }
