@@ -5,7 +5,9 @@ export type ProfileField = "fullName" | "phone" | "gender" | "address";
 export type ProfileForm = Record<ProfileField, string>;
 
 export const PROFILE_MESSAGES = {
-  fullName: "Enter your full name (2–80 letters).",
+  fullName: "Enter your real first and last name (up to 50 letters).",
+  fullNameLong: "That name is too long — use your first and last name (up to 50 letters).",
+  fullNameReal: "Please use your real name so the spa can identify you.",
   phone: "Enter an 11-digit PH mobile number starting with 09, e.g. 0917 123 4567.",
   gender: "Choose a gender option.",
   address: "Enter your address (5–200 characters).",
@@ -25,11 +27,24 @@ export function normalizeName(s: string): string {
   return s.trim().replace(/\s+/g, " ");
 }
 
+export const NAME_MAX = 50;
+// Not names: what people type to skip the field or to hide who they are.
+const NOT_A_NAME = new Set(["test", "testing", "user", "client", "customer", "admin", "glowsync", "blush", "guest", "unknown", "anonymous", "none", "name", "sample", "asdf", "qwerty"]);
+
+/** A real name the spa can identify: letters only, first and last name,
+ *  not too long, no stretched letters or placeholder words. */
 export function validateFullName(s: string): string | null {
   const n = normalizeName(s);
-  return n.length >= 2 && n.length <= 80 && /^[\p{L} .'-]+$/u.test(n) && /\p{L}.*\p{L}/u.test(n)
-    ? null
-    : PROFILE_MESSAGES.fullName;
+  if (n.length > NAME_MAX) return PROFILE_MESSAGES.fullNameLong;
+  if (!/^[\p{L} .'-]+$/u.test(n)) return PROFILE_MESSAGES.fullName;
+  const words = n.split(" ").filter((w) => /\p{L}/u.test(w));
+  // First and last name; an initial ("Ma.", "C.") counts as a word when there's a full one too.
+  const full = words.filter((w) => w.replace(/[^\p{L}]/gu, "").length >= 2);
+  if (words.length < 2 || full.length < 1 || words.length > 5) return PROFILE_MESSAGES.fullName;
+  if (words.some((w) => w.length > 20)) return PROFILE_MESSAGES.fullNameLong;
+  if (/(\p{L})\1{3,}/iu.test(n)) return PROFILE_MESSAGES.fullNameReal;
+  if (words.some((w) => NOT_A_NAME.has(w.toLowerCase().replace(/[.'-]/g, "")))) return PROFILE_MESSAGES.fullNameReal;
+  return null;
 }
 
 /** "+63 9XX XXX XXXX", or null if not a PH mobile number. */

@@ -13,6 +13,7 @@ import {
   normalizeName,
   normalizePhone,
   validateProfile,
+  NAME_MAX,
   validatePhotoFile,
   type ProfileField,
   type ProfileForm,
@@ -276,7 +277,8 @@ export default function ProfileEditor({ initial }: { initial: MyProfile }) {
               onChange={(e) => set("fullName", e.target.value)}
               onBlur={() => setTouched((t) => ({ ...t, fullName: true }))}
               autoComplete="name"
-              maxLength={80}
+              maxLength={NAME_MAX}
+              placeholder="First and last name"
             />
             {errorText("fullName")}
           </div>

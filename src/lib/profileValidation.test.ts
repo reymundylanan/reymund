@@ -12,11 +12,17 @@ import {
 } from "./profileValidation";
 
 describe("validateFullName", () => {
-  it.each(["Ana Cruz", "José Mari Dela Cruz-Santos", "O'Neil", "Ma. Theresa", "Li"])("accepts %s", (n) => {
+  it.each(["Ana Cruz", "José Mari Dela Cruz-Santos", "Shane O'Neil", "Ma. Theresa", "Li Na", "Llavore, C.".replace(",", ""), "Ocean Dwain Baga Cantillas"])("accepts %s", (n) => {
     expect(validateFullName(n)).toBeNull();
   });
-  it.each(["A", "J0hn", "Ana 😀", "x".repeat(81), "   ", "--", "..", "A.", "' -"])("rejects %s", (n) => {
-    expect(validateFullName(n)).toBe("Enter your full name (2–80 letters).");
+  it.each(["A", "Arnel", "J0hn Cruz", "Ana 😀", "   ", "--", "..", "A. B.", "' -", "a b c d e f"])("asks for a real first and last name: %s", (n) => {
+    expect(validateFullName(n)).toBe("Enter your real first and last name (up to 50 letters).");
+  });
+  it.each(["Maria " + "x".repeat(50), "Maria Supercalifragilisticexpialidocious"])("rejects a too-long name: %s", (n) => {
+    expect(validateFullName(n)).toBe("That name is too long — use your first and last name (up to 50 letters).");
+  });
+  it.each(["Aaaaarnel Almenio", "Test User", "Guest Client", "Admin Cruz"])("rejects names that don't identify the person: %s", (n) => {
+    expect(validateFullName(n)).toBe("Please use your real name so the spa can identify you.");
   });
 });
 
@@ -54,7 +60,7 @@ describe("address", () => {
 describe("validateProfile", () => {
   it("returns a message per invalid field", () => {
     expect(validateProfile({ fullName: "A", phone: "123", gender: "x", address: "ab" })).toEqual({
-      fullName: "Enter your full name (2–80 letters).",
+      fullName: "Enter your real first and last name (up to 50 letters).",
       phone: "Enter an 11-digit PH mobile number starting with 09, e.g. 0917 123 4567.",
       gender: "Choose a gender option.",
       address: "Enter your address (5–200 characters).",
