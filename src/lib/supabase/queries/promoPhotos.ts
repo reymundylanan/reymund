@@ -1,6 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 
+/** Promos ticked "Show on home page" (083), by id. Empty before 083. */
+export async function getHomePromoIds(supabase: SupabaseClient, ids: string[]): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const { data, error } = await supabase.from("branch_promotions").select("id").in("id", ids).eq("show_on_home", true);
+  if (error) {
+    logQueryError("getHomePromoIds", error);
+    return new Set();
+  }
+  return new Set(((data ?? []) as { id: string }[]).map((r) => r.id));
+}
+
 /** Uploaded photos (080) for these promotions, by promo id. A promo with the
  * same name as one that has a photo (e.g. at another branch) shares it.
  * Empty — so every promo keeps its category picture — before 080 is applied. */

@@ -4,7 +4,8 @@ export type HomePromo = ActivePromotion & { branchNames: string[] };
 
 /** Home → Active Promotions: a varied, random pick on every visit.
  *  - the same deal at several branches is one card (all its branches listed),
- *  - one deal per category first (so it isn't all hair), then the rest,
+ *  - deals Admin ticked "Show on home page" always first,
+ *  - then one deal per category (so it isn't all hair), then the rest,
  *  - shuffled, so returning visitors see different deals. */
 export function pickHomePromotions(promos: ActivePromotion[], count: number, random: () => number = Math.random): HomePromo[] {
   const byDeal = new Map<string, HomePromo>();
@@ -13,18 +14,21 @@ export function pickHomePromotions(promos: ActivePromotion[], count: number, ran
     const seen = byDeal.get(key);
     if (seen) {
       if (!seen.branchNames.includes(p.branchName)) seen.branchNames.push(p.branchName);
-      // Keep a photo if either copy has one.
+      // Keep a photo / the home tick if either copy has one.
       if (!seen.imagePath && p.imagePath) seen.imagePath = p.imagePath;
+      if (p.showOnHome) seen.showOnHome = true;
     } else {
       byDeal.set(key, { ...p, branchNames: [p.branchName] });
     }
   }
 
   const shuffled = shuffle([...byDeal.values()], random);
-  const picked: HomePromo[] = [];
-  const categories = new Set<string>();
+  const picked: HomePromo[] = shuffled.filter((p) => p.showOnHome).slice(0, count);
+  if (picked.length === count) return picked;
+  const categories = new Set<string>(picked.map((p) => (p.category ?? p.department ?? "Other").toLowerCase()));
   // First pass: one deal per category.
   for (const p of shuffled) {
+    if (picked.includes(p)) continue;
     const cat = (p.category ?? p.department ?? "Other").toLowerCase();
     if (categories.has(cat)) continue;
     categories.add(cat);

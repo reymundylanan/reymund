@@ -51,3 +51,15 @@ describe("home promotions", () => {
     expect(branchLabel(["A", "B"])).toBe("Both branches");
   });
 });
+
+describe("home promotions — Show on home page", () => {
+  it("always includes the deals Admin ticked", () => {
+    const list = [
+      { ...promo("a", "Gel Mani", "Nail Care"), showOnHome: true },
+      promo("b", "Glow Facial", "Facial Services"),
+      promo("c", "Gluta Drip", "Cocktail Drips"),
+      promo("d", "Rebond", "Hair Services"),
+    ];
+    for (const r of [0.1, 0.5, 0.9]) expect(pickHomePromotions(list, 2, () => r).map((p) => p.id)).toContain("a");
+  });
+});

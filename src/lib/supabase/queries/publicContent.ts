@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
-import { getPromoPhotoPaths } from "@/lib/supabase/queries/promoPhotos";
+import { getHomePromoIds, getPromoPhotoPaths } from "@/lib/supabase/queries/promoPhotos";
 
 // Public site content from real data: review highlights, active promotions
 // and the announcement bar (065).
@@ -72,6 +72,8 @@ export type ActivePromotion = {
   department: string | null;
   /** Uploaded photo (080), if any. */
   imagePath?: string | null;
+  /** Admin ticked "Show on home page" (083). */
+  showOnHome?: boolean;
 };
 
 export async function getActivePromotions(supabase: SupabaseClient, limit = 6): Promise<ActivePromotion[]> {
@@ -87,7 +89,7 @@ export async function getActivePromotions(supabase: SupabaseClient, limit = 6): 
   logQueryError("getActivePromotions", error);
   type Row = { id: string; title: string; badge: string | null; description: string | null; price: number | null; valid_until: string | null; category: string | null; department: string | null; branch: { name: string } | { name: string }[] | null };
   const rows = (data ?? []) as unknown as Row[];
-  const photos = await getPromoPhotoPaths(supabase, rows);
+  const [photos, home] = await Promise.all([getPromoPhotoPaths(supabase, rows), getHomePromoIds(supabase, rows.map((p) => p.id))]);
   return rows.map((p) => ({
     id: p.id,
     title: p.title,
@@ -99,6 +101,7 @@ export async function getActivePromotions(supabase: SupabaseClient, limit = 6): 
     category: p.category,
     department: p.department,
     imagePath: photos.get(p.id) ?? null,
+    showOnHome: home.has(p.id),
   }));
 }
 

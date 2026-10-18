@@ -30,6 +30,8 @@ type Promotion = {
   created_at: string;
   /** Uploaded photo (080); null = the category picture. */
   image_path?: string | null;
+  /** Always on the home page's Active Promotions (083). */
+  show_on_home?: boolean | null;
 };
 
 type PromoStatus = "Scheduled" | "Active" | "Expired" | "Inactive";
@@ -152,6 +154,7 @@ const emptyForm = {
   valid_from: "",
   valid_until: "",
   is_active: true,
+  show_on_home: false,
   extra_branch_ids: [] as string[],
   // Names of the existing services this promo includes (matched by name at each branch).
   included: [] as string[],
@@ -342,6 +345,7 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
       valid_from: p.valid_from ?? "",
       valid_until: p.valid_until ?? "",
       is_active: p.is_active,
+      show_on_home: !!p.show_on_home,
       extra_branch_ids: [],
       included: [],
       serviceType: "" as "" | "MesoLipo",
@@ -497,6 +501,17 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
 
     await syncIncluded(payload.title, [branchId, ...form.extra_branch_ids]);
 
+    // "Show on home page" (083), on this promo at every branch it's saved to.
+    // Saved separately so promos still save before the migration is applied.
+    const { error: homeError } = await supabase
+      .from("branch_promotions")
+      .update({ show_on_home: form.show_on_home })
+      .eq("title", payload.title)
+      .in("branch_id", [branchId, ...form.extra_branch_ids]);
+    if (homeError && form.show_on_home) {
+      setAnnounceNote(isNotMigratedError(homeError) ? "Saved — but \"Show on home page\" needs database migration 083 before it can be turned on." : `Saved — but "Show on home page" couldn't be set: ${homeError.message}`);
+    }
+
     setSaving(false);
     setModalOpen(false);
     load();
@@ -584,6 +599,8 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
   }
 
   function computeBadge() {
+    // What Admin typed in Badge wins; older promos fall back to their discount.
+    if (form.badge.trim()) return form.badge.trim();
     if (form.discount_type === "percent") return `${form.discount_value}% OFF`;
     if (form.discount_type === "fixed") return `₱${form.discount_value} OFF`;
     if (form.discount_type === "bogo") return "BOGO FREE";
@@ -1383,6 +1400,38 @@ export default function PromotionsTab({ branchId }: { branchId: string }) {
                   </div>
                 );
               })()}
+
+              {/* What the card says */}
+              <div className="grid gap-3 sm:grid-cols-[10rem_1fr]">
+                <div>
+                  <label className="text-xs font-medium uppercase text-ink/40">Badge <span className="normal-case text-ink/30">(optional)</span></label>
+                  <input
+                    value={form.badge}
+                    onChange={(e) => setForm({ ...form, badge: e.target.value.slice(0, 20) })}
+                    placeholder="e.g. 20% OFF"
+                    className="mt-1 w-full rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
+                  />
+                </div>
+                {form.category !== "Slimming Services" && (
+                  <div>
+                    <label className="text-xs font-medium uppercase text-ink/40">Description <span className="normal-case text-ink/30">(optional)</span></label>
+                    <textarea
+                      value={form.description}
+                      onChange={(e) => setForm({ ...form, description: e.target.value.slice(0, 240) })}
+                      rows={2}
+                      placeholder="One or two lines clients see on the promo card"
+                      className="mt-1 w-full resize-y rounded-lg border border-ink/15 px-3 py-2 text-sm outline-none focus:border-coral"
+                    />
+                  </div>
+                )}
+              </div>
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl border border-ink/10 bg-[#fffaf0] px-4 py-3 text-sm text-ink/75">
+                <input type="checkbox" checked={form.show_on_home} onChange={(e) => setForm({ ...form, show_on_home: e.target.checked })} className="mt-0.5 h-4 w-4 accent-coral" />
+                <span>
+                  <span className="font-semibold text-ink">Show on home page</span>
+                  <span className="block text-xs text-ink/50">Always one of the six Active Promotions on the home page. Unticked promos take turns at random.</span>
+                </span>
+              </label>
 
               {/* Promo Availability */}
               <div className="rounded-xl border border-ink/10 bg-ink/[0.02] p-4 space-y-3">
