@@ -7,6 +7,10 @@ import { STAFF_LANES, staffLane, type StaffLane } from "@/lib/multiBranch/boards
 import { Avatar } from "./ui";
 import { BranchDropBar, Lane, LaneBoard, LaneCard, type LaneTone } from "./Lanes";
 import { useCardDrag, type DragItem } from "./useCardDrag";
+import { Spinner } from "./ui";
+import { planDayOff } from "@/lib/multiBranch/dayOff";
+import { createClient } from "@/lib/supabase/client";
+import { upsertStaffOff } from "@/lib/supabase/queries/staffShifts";
 
 const TONE: Record<StaffLane, LaneTone> = {
   available: "sage",
@@ -30,6 +34,7 @@ export default function StaffBoard({
   query,
   onOpen,
   onTransfer,
+  onChanged,
 }: {
   ctx: Context;
   date: string;
@@ -37,8 +42,13 @@ export default function StaffBoard({
   query: string;
   onOpen: (s: Staff, branchId: string) => void;
   onTransfer: (s: Staff, toBranchId: string | null) => void;
+  /** A day off was given or taken away (reload the board). */
+  onChanged: (text: string) => void;
 }) {
   const [notice, setNotice] = useState<string | null>(null);
+  // Day off by dragging: asked first, then saved.
+  const [ask, setAsk] = useState<{ s: Staff; action: "add" | "remove"; question: string } | null>(null);
+  const [saving, setSaving] = useState(false);
   const q = query.trim().toLowerCase();
   const branchName = (id: string | null) => ctx.branches.find((b) => b.id === id)?.name ?? "No branch";
   const whereOf = (s: Staff) => ctx.lends.find((l) => l.staffId === s.id && l.dates.includes(date))?.branchId ?? s.branchId;
@@ -54,8 +64,11 @@ export default function StaffBoard({
   const onDrop = (item: DragItem, key: string) => {
     const s = ctx.staff.find((x) => x.id === item.id);
     if (!s) return;
-    if (!key.startsWith("b:")) {
-      return setNotice("Statuses follow Punch In, breaks and services, so they can't be changed by dragging. Drop the card on a branch above to transfer.");
+    if (key.startsWith("lane:")) {
+      const plan = planDayOff(ctx, s, date, key.slice(5) as StaffLane);
+      if (!plan.ok) return setNotice(plan.reason);
+      setNotice(null);
+      return setAsk({ s, action: plan.action, question: plan.question });
     }
     const to = key.slice(2);
     if (to === s.branchId) return setNotice(`${s.name} already belongs to ${branchName(to)}.`);
@@ -63,6 +76,24 @@ export default function StaffBoard({
     onTransfer(s, to);
   };
   const { ghost, over, scroller, cardProps, columnRef, dragging } = useCardDrag(onDrop);
+
+  async function applyDayOff() {
+    if (!ask?.s.branchId) return;
+    setSaving(true);
+    const supabase = createClient();
+    let error: string | null = null;
+    if (ask.action === "add") {
+      ({ error } = await upsertStaffOff(supabase, { staffMemberId: ask.s.id, branchId: ask.s.branchId, shiftDate: date, period: "full_day", source: "manual" }));
+    } else {
+      const res = await supabase.from("staff_shifts").delete().eq("staff_member_id", ask.s.id).eq("shift_date", date).eq("source", "manual");
+      error = res.error?.message ?? null;
+    }
+    setSaving(false);
+    const who = ask.s.name;
+    setAsk(null);
+    if (error) return setNotice(`Couldn't save: ${error}`);
+    onChanged(ask.action === "add" ? `${who} has the day off.` : `${who}'s day off was removed.`);
+  }
   const dragged = dragging ? ctx.staff.find((s) => s.id === dragging.id) ?? null : null;
   const check = (to: string) => {
     if (!dragged) return null;
@@ -82,8 +113,21 @@ export default function StaffBoard({
         zoneRef={columnRef}
         keyFor={(id) => `b:${id}`}
         check={check}
-        label="Drag a staff card onto a branch to lend or move them"
+        label="Drag a staff card onto a branch to lend or move them — or onto Day Off for a day off"
       />
+      {ask && (
+        <div role="alertdialog" className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#fbf3dc] px-4 py-3 text-sm text-ink ring-1 ring-[#efd9a6]">
+          <span>{ask.question}</span>
+          <span className="flex gap-2">
+            <button onClick={() => setAsk(null)} disabled={saving} className="rounded-full border border-ink/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-ink/70">
+              Cancel
+            </button>
+            <button onClick={applyDayOff} disabled={saving} className="flex items-center gap-1.5 rounded-full bg-coral px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-coral-dark disabled:opacity-60">
+              {saving && <Spinner />} {ask.action === "add" ? "Yes, day off" : "Yes, remove it"}
+            </button>
+          </span>
+        </div>
+      )}
       {notice && (
         <p className="flex items-center justify-between gap-2 rounded-xl bg-[#F6E3E3] px-4 py-2 text-sm text-[#9A5257]">
           {notice}
@@ -94,7 +138,7 @@ export default function StaffBoard({
         {STAFF_LANES.map((lane) => {
           const list = lanes.get(lane.key)!.sort((a, b) => a.s.name.localeCompare(b.s.name));
           return (
-            <Lane key={lane.key} title={lane.label} hint={lane.hint} count={list.length} tone={TONE[lane.key]} empty="No one here" laneRef={columnRef(`lane:${lane.key}`)} highlight={dragged && over === `lane:${lane.key}` ? "no" : null}>
+            <Lane key={lane.key} title={lane.label} hint={lane.hint} count={list.length} tone={TONE[lane.key]} empty="No one here" laneRef={columnRef(`lane:${lane.key}`)} highlight={dragged && over === `lane:${lane.key}` ? (planDayOff(ctx, dragged, date, lane.key).ok ? "ok" : "no") : null}>
               {list.map(({ s, where }) => {
                 const today = ctx.appointments
                   .filter((a) => a.professionalId === s.id && a.date === date && (a.status === "pending" || a.status === "confirmed"))
