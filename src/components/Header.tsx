@@ -59,11 +59,11 @@ export default function Header() {
         <nav className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4">
           <Link href="/" className="flex min-w-0 items-center gap-2">
             <Image
-              src="/images/logo/blushnewlogo.jpeg"
+              src="/images/logo/cropblushicon2.png"
               alt="Blush Spa & Aesthetics"
               width={46}
               height={46}
-              className="h-10 w-10 shrink-0 object-contain sm:h-[46px] sm:w-[46px]"
+              className="h-10 w-10 shrink-0 rounded-full bg-white object-contain ring-1 ring-champagne sm:h-[46px] sm:w-[46px]"
             />
             <span className="truncate font-display text-lg font-semibold text-coral-dark sm:text-2xl">
               Blush Spa & Aesthetics

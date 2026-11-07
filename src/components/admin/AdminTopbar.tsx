@@ -60,7 +60,6 @@ export default function AdminTopbar() {
   return (
     <header className="flex items-center justify-between gap-4 border-b border-nude/70 bg-[#FFFDF8]/90 px-6 py-3.5 backdrop-blur">
       <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-coral-dark">Admin</p>
         <p className="truncate text-lg font-semibold leading-tight text-ink">{section.title}</p>
         <p className="hidden truncate text-xs text-ink/50 md:block">{section.hint}</p>
       </div>
@@ -84,7 +83,8 @@ export default function AdminTopbar() {
           </span>
           <div className="hidden leading-tight md:block">
             <p className="text-sm font-semibold text-ink">{name}</p>
-            <p className="text-[11px] text-taupe">Super Administrator</p>
+            {/* The name often already says "Admin" — don't repeat it. */}
+            {!/admin/i.test(name) && <p className="text-[11px] text-taupe">Super Administrator</p>}
           </div>
         </div>
       </div>

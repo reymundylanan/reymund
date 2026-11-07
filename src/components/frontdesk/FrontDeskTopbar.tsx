@@ -408,11 +408,11 @@ export default function FrontDeskTopbar() {
     <header className="flex items-center justify-between border-b border-nude/70 bg-[#FFFDF8] px-6 py-4">
       <div className="flex items-center gap-2">
         <Image
-          src="/images/logo/blushnewlogo.jpeg"
+          src="/images/logo/cropblushicon2.png"
           alt="Blush Spa & Aesthetics"
           width={40}
           height={40}
-          className="h-10 w-10 shrink-0 rounded-full object-contain"
+          className="h-10 w-10 shrink-0 rounded-full bg-white object-contain ring-1 ring-champagne"
         />
         <span className="whitespace-nowrap text-xl text-coral-dark" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
           Blush Spa &amp; Aesthetics
