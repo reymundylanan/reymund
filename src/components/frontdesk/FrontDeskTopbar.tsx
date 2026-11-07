@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { Bell } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { ArrowLeftRight, Bell, CalendarCheck2, CalendarDays, CalendarOff, ChevronDown, MapPin } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { setAdminBranch } from "@/lib/adminBranch";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { createClient } from "@/lib/supabase/client";
@@ -38,11 +38,36 @@ function formatTime(date: Date) {
 function useLiveClock(): Date | null {
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
+    const tick = () => setNow(new Date());
+    const first = setTimeout(tick, 0);
+    const id = setInterval(tick, 1000);
+    return () => {
+      clearTimeout(first);
+      clearInterval(id);
+    };
   }, []);
   return now;
+}
+
+/** The Front Desk page you're on, from the sidebar's pages. */
+const SECTIONS: [string, string, string][] = [
+  ["/frontdesk/appointments", "Appointments", "Today's bookings, check-ins and new bookings"],
+  ["/frontdesk/payments", "Payments", "Online payments to verify and payments at the counter"],
+  ["/frontdesk/walk-ins", "Walk-Ins", "Clients who came in without a booking"],
+  ["/frontdesk/clients", "Clients", "Find a client, their visits and their account"],
+  ["/frontdesk/staff", "Staff Schedule", "Who's in, on break or off today"],
+];
+
+function sectionFor(pathname: string) {
+  const hit = SECTIONS.find(([href]) => pathname === href || pathname.startsWith(`${href}/`));
+  return hit ? { title: hit[1], hint: hit[2] } : { title: "Dashboard", hint: "Today at your branch" };
+}
+
+/** An icon for each kind of notice (from its id). */
+function noticeIcon(id: string) {
+  if (id.startsWith("leave-") || id.startsWith("shift-")) return { Icon: CalendarOff, tone: "bg-rose-50 text-rose-500" };
+  if (id.startsWith("transfer")) return { Icon: ArrowLeftRight, tone: "bg-skin text-coral-dark" };
+  return { Icon: CalendarCheck2, tone: "bg-green-50 text-green-600" };
 }
 
 function firstName(fullName: string | null | undefined) {
@@ -74,19 +99,43 @@ export default function FrontDeskTopbar() {
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
   const unreadCount = notifications.filter((n) => !readIds.has(n.id)).length;
+  const section = sectionFor(usePathname() ?? "/frontdesk");
+  const bellRef = useRef<HTMLDivElement>(null);
+  const loadedFor = useRef<string | null>(null);
+
+  // Click outside or press Escape to close the notifications.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!bellRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!profile?.branchId) return;
-    try {
-      const raw = localStorage.getItem(`frontdesk-read-notifications-${profile.branchId}`);
-      if (raw) setReadIds(new Set(JSON.parse(raw)));
-    } catch {
-      // localStorage unavailable (private browsing, blocked storage) — read state just won't persist.
-    }
+    const key = `frontdesk-read-notifications-${profile.branchId}`;
+    const id = setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (raw) setReadIds(new Set(JSON.parse(raw)));
+      } catch {
+        // localStorage unavailable (private browsing, blocked storage) — read state just won't persist.
+      }
+      loadedFor.current = profile.branchId;
+    }, 0);
+    return () => clearTimeout(id);
   }, [profile?.branchId]);
 
   useEffect(() => {
-    if (!profile?.branchId) return;
+    // Don't save until this branch's saved read-state has been loaded.
+    if (!profile?.branchId || loadedFor.current !== profile.branchId) return;
     try {
       localStorage.setItem(
         `frontdesk-read-notifications-${profile.branchId}`,
@@ -404,47 +453,42 @@ export default function FrontDeskTopbar() {
     };
   }, [profile?.branchId]);
 
+  const name = profile?.fullName ?? "—";
+  const chip = "rounded-full bg-white ring-1 ring-[#efe3c6]";
+
   return (
-    <header className="flex items-center justify-between border-b border-nude/70 bg-[#FFFDF8] px-6 py-4">
-      <div className="flex items-center gap-2">
-        <Image
-          src="/images/logo/cropblushicon2.png"
-          alt="Blush Spa & Aesthetics"
-          width={40}
-          height={40}
-          className="h-10 w-10 shrink-0 rounded-full bg-white object-contain ring-1 ring-champagne"
-        />
-        <span className="whitespace-nowrap text-xl text-coral-dark" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
-          Blush Spa &amp; Aesthetics
-        </span>
+    <header className="flex items-center justify-between gap-4 border-b border-nude/70 bg-[#FFFDF8]/90 px-6 py-3.5 backdrop-blur">
+      <div className="min-w-0">
+        <p className="truncate text-lg font-semibold leading-tight text-ink">{section.title}</p>
+        <p className="hidden truncate text-xs text-ink/50 md:block">{section.hint}</p>
       </div>
 
-      <div className="flex items-center gap-4">
-        <div className="text-right leading-tight">
-          <p className="text-sm font-medium text-ink/70">
-            {clock
-              ? clock.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric" })
-              : " "}
-          </p>
-          <p className="text-sm text-ink/40">
-            {clock
-              ? clock.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })
-              : " "}
-          </p>
-        </div>
+      <div className="flex shrink-0 items-center gap-3">
+        {clock && (
+          <div className={`hidden items-center gap-2.5 px-4 py-2 xl:flex ${chip}`}>
+            <CalendarDays className="h-4 w-4 text-coral-dark" aria-hidden />
+            <span className="text-sm font-medium text-ink">
+              {clock.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+            </span>
+            <span className="h-4 w-px bg-ink/10" aria-hidden />
+            <span className="text-sm tabular-nums text-ink/60">
+              {clock.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })}
+            </span>
+          </div>
+        )}
 
         {profile?.role === "admin" && branches.length > 0 ? (
           // Admins pick which branch the Front Desk screens show.
-          <label className="flex items-center gap-2 rounded-full bg-blush py-1.5 pl-5 pr-2 text-base font-semibold text-coral-dark">
-            Branch:
+          <label className={`relative flex items-center gap-2 py-2 pl-3.5 pr-3 ${chip} focus-within:ring-coral/60`}>
+            <MapPin className="h-4 w-4 shrink-0 text-coral-dark" aria-hidden />
+            <span className="sr-only">Branch to view</span>
             <select
               value={profile.branchId ?? ""}
               onChange={(e) => {
                 setAdminBranch(e.target.value);
                 router.refresh();
               }}
-              aria-label="Branch to view"
-              className="cursor-pointer rounded-full border border-champagne bg-white px-3 py-1 text-sm font-semibold text-coral-dark outline-none focus:border-coral"
+              className="max-w-[12rem] cursor-pointer appearance-none truncate bg-transparent pr-5 text-sm font-semibold text-ink outline-none"
             >
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -452,76 +496,91 @@ export default function FrontDeskTopbar() {
                 </option>
               ))}
             </select>
+            <ChevronDown className="pointer-events-none absolute right-3 h-4 w-4 text-ink/40" aria-hidden />
           </label>
         ) : (
-          <span className="rounded-full bg-blush px-5 py-2.5 text-base font-semibold text-coral-dark">
-            Branch: {profile?.branchName ?? "Not assigned"}
+          <span className={`flex items-center gap-2 px-3.5 py-2 ${chip}`}>
+            <MapPin className="h-4 w-4 shrink-0 text-coral-dark" aria-hidden />
+            <span className="max-w-[12rem] truncate text-sm font-semibold text-ink">{profile?.branchName ?? "No branch assigned"}</span>
           </span>
         )}
 
-        <div className="relative">
+        <div ref={bellRef} className="relative">
           <button
             onClick={toggleOpen}
-            aria-label="Notifications"
-            className="relative rounded-full p-2 text-ink/60 transition hover:bg-blush"
+            aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} new` : "Notifications"}
+            aria-expanded={open}
+            className={`relative grid h-10 w-10 place-items-center text-ink/55 transition hover:text-coral-dark hover:ring-coral/50 ${chip} ${open ? "text-coral-dark ring-coral/50" : ""}`}
           >
-            <Bell className="h-6 w-6" />
+            <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-coral text-[10px] font-semibold text-white">
-                {unreadCount}
+              <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-coral px-1 text-[10px] font-bold text-white ring-2 ring-[#FFFDF8]">
+                {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
           </button>
           {open && (
-            <div className="absolute right-0 z-50 mt-2 w-72 rounded-2xl border border-ink/10 bg-white p-3 shadow-lg">
-              <div className="flex items-center justify-between px-1 pb-2">
-                <p className="text-sm font-semibold text-ink">Notifications</p>
+            <div className="glowy-msg absolute right-0 z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-[#efe3c6] bg-white shadow-[0_24px_48px_-24px_rgba(70,48,18,0.35)]">
+              <div className="flex items-center justify-between border-b border-[#f3ead6] px-4 py-3">
+                <p className="text-sm font-semibold text-ink">
+                  Notifications
+                  {notifications.length > 0 && <span className="ml-1.5 font-normal text-ink/40">{notifications.length}</span>}
+                </p>
                 {notifications.length > 0 && (
                   <button
                     onClick={() => {
                       setNotifications([]);
                       setReadIds(new Set());
                     }}
-                    className="text-xs font-medium text-coral-dark"
+                    className="text-xs font-semibold text-coral-dark hover:underline"
                   >
-                    Clear
+                    Clear all
                   </button>
                 )}
               </div>
-              <div className="max-h-72 space-y-1 overflow-y-auto">
+              <div className="max-h-80 overflow-y-auto p-2">
                 {notifications.length === 0 ? (
-                  <p className="px-1 py-4 text-center text-sm text-ink/40">
-                    No new notifications yet.
-                  </p>
+                  <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+                    <span className="grid h-10 w-10 place-items-center rounded-full bg-cream text-coral-dark">
+                      <Bell className="h-5 w-5" aria-hidden />
+                    </span>
+                    <p className="text-sm font-medium text-ink">You&apos;re all caught up</p>
+                    <p className="text-xs text-ink/50">New bookings, leaves and transfers for this branch show here.</p>
+                  </div>
                 ) : (
-                  notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      className="rounded-xl border border-ink/10 p-2 text-sm"
-                    >
-                      <p className="text-ink">{n.message}</p>
-                      <p className="mt-0.5 text-sm text-ink/40">{n.createdAt}</p>
-                    </div>
-                  ))
+                  <ul className="space-y-1">
+                    {notifications.map((n) => {
+                      const { Icon, tone } = noticeIcon(n.id);
+                      return (
+                        <li key={n.id} className="flex gap-3 rounded-xl p-2.5 transition hover:bg-cream">
+                          <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${tone}`}>
+                            <Icon className="h-4 w-4" aria-hidden />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm leading-snug text-ink">{n.message}</p>
+                            <p className="mt-0.5 text-xs text-ink/40">{n.createdAt}</p>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 )}
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex items-center gap-3">
-          <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blush text-base font-semibold text-coral-dark">
+        <div className={`flex items-center gap-3 py-1 pl-1 pr-1 md:pr-4 ${chip}`}>
+          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-champagne bg-skin text-base font-semibold text-coral-dark">
             {profile?.avatarUrl ? (
-              <Image src={profile.avatarUrl} alt={profile.fullName ?? ""} fill sizes="44px" className="object-cover" />
+              <Image src={profile.avatarUrl} alt={name} fill sizes="36px" className="object-cover" />
             ) : (
               profile?.fullName?.charAt(0) ?? "?"
             )}
           </span>
-          <div>
-            <p className="text-lg font-medium text-ink">{profile?.fullName ?? "—"}</p>
-            <p className="text-base text-ink/50">
-              {profile ? roleLabels[profile.role] : ""}
-            </p>
+          <div className="hidden leading-tight md:block">
+            <p className="max-w-[10rem] truncate text-sm font-semibold text-ink">{name}</p>
+            <p className="text-[11px] text-taupe">{profile ? roleLabels[profile.role] : ""}</p>
           </div>
         </div>
       </div>

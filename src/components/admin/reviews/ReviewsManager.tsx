@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Building2, Scissors, Star, UserRound } from "lucide-react";
+import { Bell, Building2, Gift, Scissors, Star, UserRound } from "lucide-react";
 import GlowMascot from "@/components/GlowMascot";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -102,25 +102,64 @@ export default function ReviewsManager({
   }, [reload]);
 
   const pages = Math.max(1, Math.ceil(list.total / PAGE_SIZE));
-  const select = "rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm";
+  // Every visible review across services, staff and branches.
+  const overall = (() => {
+    const parts = Object.values(stats.byType);
+    const count = parts.reduce((n, p) => n + p.count, 0);
+    const average = count ? parts.reduce((sum, p) => sum + Number(p.average) * p.count, 0) / count : 0;
+    return { count, average };
+  })();
+  const select ="rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm";
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => setAssistantOpen(true)}
-          className="flex items-center gap-2 rounded-full bg-gradient-to-r from-coral to-coral-dark py-1.5 pl-1.5 pr-4 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-        >
-          <span className="rounded-full bg-white p-0.5">
-            <GlowMascot size={26} />
-          </span>
-          AI Review Assistant
-        </button>
-        <Link href="/admin/reviews/rewards" className="rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
-          Rewards
-        </Link>
-      </div>
+      <section className="relative isolate overflow-hidden rounded-3xl border border-[#efe3c6] bg-gradient-to-br from-white via-[#fffaf0] to-[#f7ecd2] p-6 shadow-[0_24px_48px_-36px_rgba(70,48,18,0.45)] sm:p-7">
+        {/* Soft gold glow and faint stars behind the heading. */}
+        <span aria-hidden className="pointer-events-none absolute -right-16 -top-20 -z-10 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(201,164,74,0.28),transparent_65%)]" />
+        <Star aria-hidden className="pointer-events-none absolute right-48 top-5 -z-10 h-5 w-5 fill-champagne/60 text-transparent max-lg:hidden" />
+        <Star aria-hidden className="pointer-events-none absolute right-36 bottom-6 -z-10 h-3.5 w-3.5 fill-champagne/70 text-transparent max-lg:hidden" />
+
+        <div className="flex flex-wrap items-center justify-between gap-5">
+          <div className="flex min-w-0 items-center gap-4">
+            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#e9c868] to-coral-dark text-white shadow-[0_12px_24px_-12px_rgba(168,137,48,0.8)]">
+              <Star className="h-7 w-7 fill-white" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-coral-dark">Client feedback</p>
+              <h1 className="text-2xl font-semibold leading-tight text-ink sm:text-3xl">Reviews</h1>
+              <p className="mt-0.5 text-sm text-ink/55">Service, staff and branch reviews from completed visits.</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            {overall.count > 0 && (
+              <span className="flex items-center gap-1.5 rounded-full bg-white/80 px-3.5 py-2 text-sm ring-1 ring-[#efe3c6] backdrop-blur">
+                <Star className="h-4 w-4 fill-gold text-gold" aria-hidden />
+                <span className="font-semibold text-ink">{overall.average.toFixed(1)}</span>
+                <span className="text-ink/50">
+                  · {overall.count} review{overall.count === 1 ? "" : "s"}
+                </span>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setAssistantOpen(true)}
+              className="lux-sheen flex items-center gap-2 rounded-full bg-gradient-to-r from-coral to-coral-dark py-1.5 pl-1.5 pr-4 text-sm font-semibold text-white shadow-[0_10px_20px_-10px_rgba(168,137,48,0.9)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_14px_26px_-12px_rgba(168,137,48,0.9)]"
+            >
+              <span className="rounded-full bg-white p-0.5">
+                <GlowMascot size={26} />
+              </span>
+              AI Review Assistant
+            </button>
+            <Link
+              href="/admin/reviews/rewards"
+              className="flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-semibold text-coral-dark ring-1 ring-champagne transition duration-300 hover:-translate-y-0.5 hover:bg-coral hover:text-white hover:ring-coral"
+            >
+              <Gift className="h-4 w-4" aria-hidden /> Rewards
+            </Link>
+          </div>
+        </div>
+      </section>
       {assistantOpen && (
         <ReviewAssistantPanel
           onClose={() => setAssistantOpen(false)}

@@ -29,12 +29,6 @@ export default async function AdminReviewsPage({
   ]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink">Reviews</h1>
-        <p className="text-sm text-ink/50">Service, staff and branch reviews from completed visits.</p>
-      </div>
-      <ReviewsManager initialFilters={filters} initialList={list} initialStats={stats} options={options} />
-    </div>
+    <ReviewsManager initialFilters={filters} initialList={list} initialStats={stats} options={options} />
   );
 }
