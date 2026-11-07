@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from "react";
-import { ArrowDown, CalendarPlus, ChevronLeft, Gift, Loader2, MessageCircleQuestion, Send, Volume2, VolumeX } from "lucide-react";
-import { chimeIfOn, MorphHeight, TiltLayer, useGuideSound } from "@/components/guide/boxMotion";
+import { ArrowDown, CalendarPlus, ChevronLeft, Gift, Loader2, MessageCircleQuestion, Send } from "lucide-react";
 import Link from "next/link";
 import { GUIDE_FONTS, MASCOT_DESKTOP, MASCOT_PHONE, mascotWidth, TypeText } from "@/components/guide/guideKit";
 import { MascotFigure, SpringDrag, useMascotPlay } from "@/components/guide/MascotPlay";
@@ -23,7 +22,7 @@ const HOVER_RESUME_MS = 6000; // auto-tour resumes this long after the mouse lea
 const GREETING_MS = 4500; // "Hi! I'm GlowSync AI" before the tour starts
 const ARRIVE_MS = 450; // the arrow reaches the card first; the mascot follows
 const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
-const CLOSE_MS = 650; // the speech box shrinking into the mascot (matches .guide-box-out + spark)
+const TURN_OUT_MS = 420; // the speech box turning away (matches .guide-turn-out)
 
 const sameName = (a?: string | null, b?: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 const MINIMIZED_KEY = "glowguide-minimized";
@@ -398,33 +397,9 @@ export default function GlowGuide({
     }
   }
 
-  // hoverOnly: tucked away (and click-through) unless pointed at or being asked something.
-  const away = hoverOnly && !present && mode !== "ask" && !asking;
-  const boxOpen = wide && !minimized && !!item && !away;
-
-  // Each time the box opens the mascot gives a small nod (and a soft chime,
-  // if the visitor turned sound on).
-  useEffect(() => {
-    if (!boxOpen) return;
-    chimeIfOn();
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    mascotRef.current?.animate(
-      [
-        { rotate: "0deg", scale: "1" },
-        { rotate: "-7deg", scale: "1.04", offset: 0.35 },
-        { rotate: "3deg", scale: "1", offset: 0.7 },
-        { rotate: "0deg", scale: "1" },
-      ],
-      { duration: 700, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
-    );
-  }, [boxOpen]);
-
-  const [soundOn, setSoundOn] = useGuideSound();
-
   if (!item) return null;
 
-  // While travelling, the box keeps the card it's leaving, dimmed, then the
-  // new card's text unrolls in when the mascot lands.
+  // While travelling, the box keeps the card it's leaving until it has turned away.
   const view = (moving && leavingIndex !== null && items[leavingIndex]) || item;
 
   // ── The speech bubble (same content in both layouts) ──
@@ -432,19 +407,7 @@ export default function GlowGuide({
     <div className="space-y-2.5">
       <p className="guide-rise flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">
         <span aria-hidden className="guide-live-dot" />
-        <span className="min-w-0 flex-1 truncate">
-          {greeting ? "GlowSync AI" : mode === "intro" ? `GlowSync AI · ${view.label ?? (view.kind === "category" ? "Category" : "Treatment")}` : view.title}
-        </span>
-        <button
-          type="button"
-          onClick={() => setSoundOn(!soundOn)}
-          aria-label={soundOn ? "Turn the guide's chime off" : "Turn the guide's chime on"}
-          aria-pressed={soundOn}
-          title={soundOn ? "Chime on" : "Chime off"}
-          className="-my-1 grid h-6 w-6 shrink-0 place-items-center rounded-full text-[#a97c1c]/60 transition hover:bg-[#fff6e6] hover:text-[#a97c1c]"
-        >
-          {soundOn ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-        </button>
+        {greeting ? "GlowSync AI" : mode === "intro" ? `GlowSync AI · ${view.label ?? (view.kind === "category" ? "Category" : "Treatment")}` : view.title}
       </p>
 
       {greeting && mode === "intro" && (
@@ -685,11 +648,10 @@ export default function GlowGuide({
   const bubbleX = side === "right" ? mascotX + MASCOT_W - TUCK : Math.max(mascotX + TUCK - BUBBLE_W, 0);
   const bubbleY = Math.max(card.top, 0);
   const follow = { transitionDelay: `${ARRIVE_MS}ms` };
+  // hoverOnly: tucked away (and click-through) unless pointed at or being asked something.
+  const away = hoverOnly && !present && mode !== "ask" && !asking;
   const fade = away ? "pointer-events-none !opacity-0" : "";
-  // The box grows out of the mascot and shrinks back into it: the mascot's
-  // middle, measured from the box's own corner.
-  const growX = Math.round(mascotX + MASCOT_W / 2 - bubbleX);
-  const growY = Math.round(mascotY + MASCOT / 2 - bubbleY);
+  const boxHidden = moving || away;
 
   return (
     <>
@@ -700,32 +662,26 @@ export default function GlowGuide({
       </span>
 
       <div
-        className={`guide-fly absolute left-0 top-0 z-30 ${away ? "pointer-events-none opacity-0" : "opacity-100"} ${moving ? "pointer-events-none" : ""}`}
+        className={`guide-fly absolute left-0 top-0 z-30 ${boxHidden ? "pointer-events-none opacity-0" : "opacity-100"}`}
         style={{
           transform: `translate(${bubbleX}px, ${bubbleY}px)`,
           width: BUBBLE_W,
-          // The box animates itself in and out; this layer only drops away
-          // once it has shrunk into the mascot (and shows at once on open).
-          transition: `transform 900ms var(--ease-lux-inout) ${ARRIVE_MS}ms, opacity 0s linear ${away ? CLOSE_MS : 0}ms`,
-          ...({ "--grow-x": `${growX}px`, "--grow-y": `${growY}px` } as CSSProperties),
+          // The box turns itself out and in; this layer only drops away once
+          // the turn has finished (and shows at once so the turn-in is seen).
+          transition: `transform 900ms var(--ease-lux-inout) ${ARRIVE_MS}ms, opacity 0s linear ${boxHidden ? TURN_OUT_MS : 0}ms`,
         }}
       >
-        <TiltLayer>
-          <div data-guide-ui className={`guide-bubble ${away ? "guide-box-out" : "guide-box-in"} ${GUIDE_FONTS}`}>
-            <div className="guide-bubble-inner relative">
-              {/* Travels with the mascot and reshapes to fit the next card's text. */}
-              <MorphHeight>
-                <div className="p-4 pt-4" style={side === "right" ? { paddingLeft: TUCK + 12 } : { paddingRight: TUCK + 12 }}>
-                  <div key={`${view.id}-${mode}-${greeting}`} className={`guide-unroll relative ${moving ? "guide-travel" : ""}`}>
-                    <span aria-hidden className="guide-unroll-line" />
-                    {bubble}
-                  </div>
-                </div>
-              </MorphHeight>
-            </div>
+        <div
+          key={`${view.id}-${mode}-${greeting}`}
+          data-guide-ui
+          className={`guide-bubble ${boxHidden ? "guide-turn-out" : "glowy-pop"} ${GUIDE_FONTS}`}
+          // Hinged on the mascot's side, like a page turning out from it.
+          style={{ "--turn-origin": side === "right" ? "0% 55%" : "100% 55%", "--turn-dir": side === "right" ? 1 : -1 } as CSSProperties}
+        >
+          <div className="guide-bubble-inner p-4 pt-4" style={side === "right" ? { paddingLeft: TUCK + 12 } : { paddingRight: TUCK + 12 }}>
+            {bubble}
           </div>
-        </TiltLayer>
-        {away && <span aria-hidden className="guide-close-spark" />}
+        </div>
       </div>
 
       <button
