@@ -20,7 +20,7 @@ const SERIF = { fontFamily: "Georgia, 'Times New Roman', serif" };
 
 const badgeText = (n: number) => (n > 99 ? "99+" : String(n));
 
-/** Shared Admin / Front Desk sidebar: GlowSync brand, gold active item,
+/** Shared Admin / Front Desk sidebar: the spa logo and name, gold active item,
  * cream background. `rootHref` is only active on its exact path.
  * `badges` (by href) shows a count beside an item that needs attention —
  * a small dot on the icon when the sidebar is collapsed or on phones,
@@ -28,12 +28,10 @@ const badgeText = (n: number) => (n > 99 ? "99+" : String(n));
 export default function PortalSidebar({
   items,
   rootHref,
-  portalLabel,
   badges = {},
 }: {
   items: PortalNavItem[];
   rootHref: string;
-  portalLabel: string;
   badges?: Record<string, number>;
 }) {
   const pathname = usePathname();
@@ -55,17 +53,11 @@ export default function PortalSidebar({
     >
       <div className={`flex items-center gap-3 px-5 py-6 max-md:justify-center max-md:px-2 ${collapsed ? "justify-center" : ""}`}>
         <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-champagne bg-white max-md:h-10 max-md:w-10">
-          <Image src="/images/logo/cropblushicon2.png" alt="GlowSync" fill sizes="44px" className="object-contain p-1" />
+          <Image src="/images/logo/cropblushicon2.png" alt="Blush Spa & Aesthetics" fill sizes="44px" className="object-contain p-1" />
         </span>
         {!collapsed && (
-          <span className="min-w-0 max-md:hidden">
-            <span className="block text-2xl leading-tight text-coral-dark" style={SERIF}>
-              GlowSync
-            </span>
-            <span className="block truncate text-[11px] font-medium tracking-wide text-taupe">Blush Spa &amp; Aesthetics</span>
-            <span className="mt-1 inline-block rounded-full bg-[#f8efd9] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-coral-dark">
-              {portalLabel} portal
-            </span>
+          <span className="min-w-0 text-xl leading-tight text-coral-dark max-md:hidden" style={SERIF}>
+            Blush Spa &amp; Aesthetics
           </span>
         )}
       </div>

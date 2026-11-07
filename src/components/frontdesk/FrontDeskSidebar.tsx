@@ -19,5 +19,5 @@ export default function FrontDeskSidebar() {
   const badges = usePortalBadges("frontdesk");
   // Staff Schedule is for Front Desk and Admin (055).
   const items = navItems.filter((item) => !item.staffSchedule || profile?.role === "front_desk" || profile?.role === "admin");
-  return <PortalSidebar items={items} rootHref="/frontdesk" portalLabel="Front Desk" badges={badges} />;
+  return <PortalSidebar items={items} rootHref="/frontdesk" badges={badges} />;
 }

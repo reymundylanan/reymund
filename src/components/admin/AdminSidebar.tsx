@@ -17,5 +17,5 @@ const navItems = [
 
 export default function AdminSidebar() {
   const badges = usePortalBadges("admin");
-  return <PortalSidebar items={navItems} rootHref="/admin" portalLabel="Admin" badges={badges} />;
+  return <PortalSidebar items={navItems} rootHref="/admin" badges={badges} />;
 }
