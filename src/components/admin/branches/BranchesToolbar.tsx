@@ -1,14 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { BarChart3, Plus, Search } from "lucide-react";
-import { regionFilters } from "@/lib/adminData";
 
 export default function BranchesToolbar({
+  regions,
+  onAdd,
   region,
   onRegionChange,
   query,
   onQueryChange,
 }: {
+  regions: { label: string; count: number }[];
+  onAdd: () => void;
   region: string;
   onRegionChange: (r: string) => void;
   query: string;
@@ -26,10 +30,10 @@ export default function BranchesToolbar({
           </p>
         </div>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
+          <Link href="/admin/reports" className="flex items-center gap-2 rounded-full border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 hover:border-coral">
             <BarChart3 className="h-4 w-4" /> View Regional Analytics
-          </button>
-          <button className="flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
+          </Link>
+          <button type="button" onClick={onAdd} className="flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark">
             <Plus className="h-4 w-4" /> Add New Branch
           </button>
         </div>
@@ -46,7 +50,7 @@ export default function BranchesToolbar({
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {regionFilters.map((r) => (
+          {regions.map((r) => (
             <button
               key={r.label}
               onClick={() => onRegionChange(r.label)}
