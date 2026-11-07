@@ -5,6 +5,7 @@ import Image from "next/image";
 import { ShieldOff, ShieldCheck, X } from "lucide-react";
 import type { ClientUser } from "@/components/admin/users/types";
 import { GENDER_OPTIONS } from "@/lib/profileValidation";
+import RewardAccessSwitch from "@/components/admin/users/RewardAccessSwitch";
 
 export default function ClientViewPanel({
   client,
@@ -46,7 +47,7 @@ export default function ClientViewPanel({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-ink">Client Profile</h2>
           <button onClick={onClose} className="text-ink/40 hover:text-ink">
@@ -109,6 +110,8 @@ export default function ClientViewPanel({
             </span>
           </div>
         </div>
+
+        <RewardAccessSwitch clientId={client.id} clientName={client.fullName} />
 
         <p className="mt-4 text-sm text-ink/40">
           Customers register and sign in themselves via Google or Facebook —
