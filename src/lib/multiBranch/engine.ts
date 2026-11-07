@@ -77,6 +77,8 @@ export type Context = {
   nowMinutes: number;
   /** Fallback hours when a branch's text can't be read (spa booking window). */
   fallbackHours: { open: number; close: number };
+  /** Minutes kept free between a therapist's bookings (spa_settings 088; 0 = none). */
+  bufferMinutes?: number;
 };
 
 // ── Time helpers ──
@@ -139,6 +141,8 @@ export function isBranchActive(branch: Branch | undefined): boolean {
 }
 
 const overlaps = (a1: number, a2: number, b1: number, b2: number) => a1 < b2 && b1 < a2;
+/** Like overlaps, but also too close: less than `gap` minutes apart. */
+const tooClose = (a1: number, a2: number, b1: number, b2: number, gap: number) => a1 < b2 + gap && b1 < a2 + gap;
 
 // ── Where someone works ──
 
@@ -266,11 +270,18 @@ export function checkSlot(ctx: Context, req: SlotRequest): CheckResult {
       }
       if (req.departments.length && !req.departments.every((d) => d === staff.department))
         fail("qualified", "NOT_QUALIFIED", `${staff.name} (${staff.department || "no department"}) isn't qualified for ${req.departments.join(", ")}.`);
+      const gap = Math.max(0, ctx.bufferMinutes ?? 0);
       const clash = activeAppointmentsOf(ctx, req.staffId, req.date, req.excludeAppointmentId).find((a) =>
-        overlaps(req.start, end, toMinutes(a.start), toMinutes(a.start) + a.duration)
+        tooClose(req.start, end, toMinutes(a.start), toMinutes(a.start) + a.duration, gap)
       );
-      if (clash)
-        fail("slotFree", "SLOT_TAKEN", `${staff.name} already has ${clash.visitType === "walk_in" ? "a walk-in" : "a booking"} ${formatTime(clash.start)}–${formatTime(toMinutes(clash.start) + clash.duration)}.`);
+      if (clash) {
+        const touching = !overlaps(req.start, end, toMinutes(clash.start), toMinutes(clash.start) + clash.duration);
+        fail(
+          "slotFree",
+          "SLOT_TAKEN",
+          `${staff.name} already has ${clash.visitType === "walk_in" ? "a walk-in" : "a booking"} ${formatTime(clash.start)}–${formatTime(toMinutes(clash.start) + clash.duration)}${touching ? ` — bookings need ${gap} min between them` : ""}.`
+        );
+      }
     }
   }
 

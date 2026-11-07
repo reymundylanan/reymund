@@ -27,6 +27,7 @@ import {
   type BookedSlot,
 } from "@/lib/supabase/queries/availability";
 import { toAppointmentServiceRows } from "@/lib/bookedServices";
+import { getBookingBufferMinutes } from "@/lib/supabase/queries/spaSettings";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 import { preselectService } from "@/lib/bookingPreselect";
 import {
@@ -320,6 +321,15 @@ export default function BookingModal({
   const [showSelectedPanel, setShowSelectedPanel] = useState(false);
   const [staffOffDays, setStaffOffDays] = useState<StaffOffRecord[]>([]);
   const [professionalBookings, setProfessionalBookings] = useState<Record<string, BookedSlot[]>>({});
+  // Minutes kept free between a therapist's bookings (Admin setting, 088).
+  const [bufferMinutes, setBufferMinutes] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    getBookingBufferMinutes(createClient()).then((n) => alive && setBufferMinutes(n));
+    return () => {
+      alive = false;
+    };
+  }, []);
   const [transferGuestIds, setTransferGuestIds] = useState<Set<string>>(new Set());
   const [transferAllowedDates, setTransferAllowedDates] = useState<Set<string>>(new Set());
   const [branchHours, setBranchHours] = useState<string | null>(null);
@@ -1551,7 +1561,7 @@ export default function BookingModal({
                       if (offPeriod === "morning" ? !afterCutoff : afterCutoff) return false;
                     }
                     if (professionalId && professionalId !== "any") {
-                      return isSlotFree(bookedOnDate, to24Hour(time), totalDuration);
+                      return isSlotFree(bookedOnDate, to24Hour(time), totalDuration, undefined, bufferMinutes);
                     }
                     return true;
                   });

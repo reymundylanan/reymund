@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logQueryError } from "@/lib/supabase/logQueryError";
+import { getBookingBufferMinutes } from "@/lib/supabase/queries/spaSettings";
 import { addDays, clientKey, toMinutes, type Appointment, type ClientCard, type Context, type Service } from "./engine";
 
 type Rel<T> = T | T[] | null;
@@ -44,7 +45,7 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
   const from = today;
   const until = addDays(opts.date && opts.date > today ? opts.date : today, opts.days ?? 14);
 
-  const [branches, staff, offs, lends, attendance, breaks, services, appts, settings] = await Promise.all([
+  const [branches, staff, offs, lends, attendance, breaks, services, appts, settings, bufferMinutes] = await Promise.all([
     supabase.from("branches").select("id, name, address, phone, hours, status, lat, lng").order("name"),
     supabase.from("staff_members").select("id, full_name, department, branch_id, avatar_url").order("full_name"),
     supabase.from("staff_shifts").select("staff_member_id, shift_date, period, source").gte("shift_date", from).lte("shift_date", until),
@@ -61,6 +62,7 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
       .lte("scheduled_date", until)
       .in("status", ["pending", "confirmed"]),
     supabase.from("spa_settings").select("booking_window_start, booking_window_end").maybeSingle(),
+    getBookingBufferMinutes(supabase),
   ]);
 
   for (const [label, res] of Object.entries({ branches, staff, offs, lends, attendance, services, appts })) {
@@ -146,6 +148,7 @@ export async function loadContext(supabase: SupabaseClient, opts: { date?: strin
     fallbackHours: window
       ? { open: toMinutes(window.booking_window_start), close: toMinutes(window.booking_window_end) }
       : { open: 8 * 60, close: 18 * 60 },
+    bufferMinutes,
   };
 }
 

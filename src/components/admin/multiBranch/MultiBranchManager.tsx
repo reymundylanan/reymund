@@ -53,6 +53,9 @@ import Link from "next/link";
 import StaffBoard from "./StaffBoard";
 import WalkinBoard from "./WalkinBoard";
 import DayTimeline from "./DayTimeline";
+import BufferSetting from "./BufferSetting";
+import RunningLatePanel from "@/components/portal/RunningLatePanel";
+import { findRunningLate } from "@/lib/runningLate";
 import OverviewPanel, { type Tab } from "./OverviewPanel";
 import BranchMovePanel from "./BranchMovePanel";
 import { upcomingAt } from "@/lib/multiBranch/branchMove";
@@ -167,6 +170,38 @@ export default function MultiBranchManager() {
     () => (ctx ? overdueWalkins(ctx.appointments, ctx.today, nowMs).filter((a) => filters.branch === "all" || a.branchId === filters.branch) : []),
     [ctx, nowMs, filters.branch]
   );
+  // Services (bookings and walk-ins) past their time, and the next clients they delay.
+  const runningLate = useMemo(() => {
+    if (!ctx) return [];
+    const staffName = (id: string | null) => ctx.staff.find((s) => s.id === id)?.name ?? null;
+    const visits = ctx.appointments
+      .filter((a) => a.date === ctx.today && (filters.branch === "all" || a.branchId === filters.branch))
+      .map((a) => ({
+        id: a.id,
+        professionalId: a.professionalId,
+        professionalName: staffName(a.professionalId),
+        clientId: a.clientId,
+        clientName: a.clientName,
+        startTime: a.start,
+        durationMinutes: a.duration,
+        status: a.status,
+        sessionStatus: a.sessionStatus,
+        serviceStartedAt: a.serviceStartedAt ?? null,
+        visitType: a.visitType,
+      }));
+    const mins = new Date(nowMs).toLocaleString("en-GB", { timeZone: "Asia/Manila", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).split(":").map(Number);
+    return findRunningLate(visits, mins[0] * 60 + mins[1]);
+  }, [ctx, nowMs, filters.branch]);
+  const lateBranch = (staffId: string) => {
+    if (!ctx || filters.branch !== "all") return null;
+    const a = ctx.appointments.find((x) => x.professionalId === staffId && x.date === ctx.today && x.sessionStatus === "in_service");
+    return ctx.branches.find((b) => b.id === a?.branchId)?.name ?? null;
+  };
+  // The move tool lives on the Transfers board; it picks a free, qualified therapist.
+  const lateMove = (d: { id: string }) => {
+    setView("transfers");
+    setPreview({ kind: "appointment", id: d.id, branchId: null });
+  };
   const alerted = useRef(new Set<string>());
   useEffect(() => {
     const fresh = overdue.filter((a) => !alerted.current.has(a.id));
@@ -571,6 +606,8 @@ export default function MultiBranchManager() {
           ))}
         </div>
       ) : view === "overview" ? (
+        <>
+        <RunningLatePanel items={runningLate} onMove={lateMove} showBranch={lateBranch} />
         <OverviewPanel
           ctx={ctx}
           date={date}
@@ -581,6 +618,7 @@ export default function MultiBranchManager() {
           onGo={setView}
           onMoveBookings={setBranchMove}
         />
+        </>
       ) : view === "staff" ? (
         <div className="space-y-3">
           <SubSwitch value={staffSub} onChange={setStaffSub} options={[["board", "Staff board"], ["accounts", "Front desk accounts"]]} />
@@ -631,7 +669,15 @@ export default function MultiBranchManager() {
           )}
         </div>
       ) : view === "appointments" ? (
-        <DayTimeline ctx={ctx} refreshKey={historyKey} onDone={done} defaultMode="kanban" defaultKind="booking" branchId={filters.branch} query={filters.q} />
+        <>
+          <RunningLatePanel items={runningLate} onMove={lateMove} showBranch={lateBranch} />
+          <BufferSetting
+            key={ctx.bufferMinutes ?? 0}
+            minutes={ctx.bufferMinutes ?? 0}
+            onSaved={(text, tone) => (tone ? setToast({ text, tone }) : done(text, null))}
+          />
+          <DayTimeline ctx={ctx} refreshKey={historyKey} onDone={done} defaultMode="kanban" defaultKind="booking" branchId={filters.branch} query={filters.q} />
+        </>
       ) : view === "walkins" ? (
         <WalkinBoard ctx={ctx} branchId={filters.branch} query={filters.q} refreshKey={historyKey} onDone={done} />
       ) : (

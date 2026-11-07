@@ -1,12 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getBookingBufferMinutes } from "@/lib/supabase/queries/spaSettings";
 
 function toMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
 }
 
-function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number) {
-  return aStart < bEnd && bStart < aEnd;
+/** Two bookings clash when they overlap or are less than `buffer` minutes
+ * apart (the gap kept between a therapist's bookings, spa_settings 088). */
+export function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: number, buffer = 0) {
+  return aStart < bEnd + buffer && bStart < aEnd + buffer;
 }
 
 const ACTIVE_STATUSES = ["pending", "confirmed"];
@@ -52,7 +55,8 @@ export function isSlotFree(
   bookedOnDate: BookedSlot[] | undefined,
   startTime: string,
   durationMinutes: number,
-  excludeAppointmentId?: string
+  excludeAppointmentId?: string,
+  bufferMinutes = 0
 ): boolean {
   if (!bookedOnDate || bookedOnDate.length === 0) return true;
   const newStart = toMinutes(startTime);
@@ -60,7 +64,7 @@ export function isSlotFree(
   return !bookedOnDate.some((row) => {
     if (excludeAppointmentId && row.id === excludeAppointmentId) return false;
     const start = toMinutes(row.start_time);
-    return overlaps(newStart, newEnd, start, start + row.duration_minutes);
+    return overlaps(newStart, newEnd, start, start + row.duration_minutes, bufferMinutes);
   });
 }
 
@@ -75,13 +79,16 @@ export async function isProfessionalFreeNow(
     excludeAppointmentId?: string;
   }
 ): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("appointments")
-    .select("id, start_time, duration_minutes")
-    .eq("professional_id", params.professionalId)
-    .eq("scheduled_date", params.scheduledDate)
-    .in("status", ACTIVE_STATUSES)
-    .or("session_status.is.null,session_status.neq.no_show");
+  const [{ data, error }, buffer] = await Promise.all([
+    supabase
+      .from("appointments")
+      .select("id, start_time, duration_minutes")
+      .eq("professional_id", params.professionalId)
+      .eq("scheduled_date", params.scheduledDate)
+      .in("status", ACTIVE_STATUSES)
+      .or("session_status.is.null,session_status.neq.no_show"),
+    getBookingBufferMinutes(supabase),
+  ]);
 
   if (error) {
     console.error("isProfessionalFreeNow failed:", error);
@@ -89,7 +96,7 @@ export async function isProfessionalFreeNow(
   }
 
   if (
-    !isSlotFree(data as BookedSlot[], params.startTime, params.durationMinutes, params.excludeAppointmentId)
+    !isSlotFree(data as BookedSlot[], params.startTime, params.durationMinutes, params.excludeAppointmentId, buffer)
   ) {
     return false;
   }
@@ -110,7 +117,7 @@ export async function getBusyProfessionalIds(
   supabase: SupabaseClient,
   params: { branchId: string; scheduledDate: string; startTime: string; durationMinutes: number }
 ): Promise<Set<string>> {
-  const [{ data, error }, { data: attendanceRows }] = await Promise.all([
+  const [{ data, error }, { data: attendanceRows }, buffer] = await Promise.all([
     supabase
       .from("appointments")
       .select("professional_id, start_time, duration_minutes")
@@ -125,6 +132,7 @@ export async function getBusyProfessionalIds(
       .eq("branch_id", params.branchId)
       .eq("attendance_date", params.scheduledDate)
       .in("status", BLOCKING_ATTENDANCE_STATUSES),
+    getBookingBufferMinutes(supabase),
   ]);
 
   if (error) {
@@ -137,7 +145,7 @@ export async function getBusyProfessionalIds(
   const busy = new Set<string>();
   for (const row of (data ?? []) as { professional_id: string; start_time: string; duration_minutes: number }[]) {
     const start = toMinutes(row.start_time);
-    if (overlaps(newStart, newEnd, start, start + row.duration_minutes)) {
+    if (overlaps(newStart, newEnd, start, start + row.duration_minutes, buffer)) {
       busy.add(row.professional_id);
     }
   }

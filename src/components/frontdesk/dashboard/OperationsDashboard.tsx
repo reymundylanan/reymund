@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useSecondClock } from "@/lib/serviceTiming";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
-import { buildOps, type OpsInput } from "@/lib/frontdeskOps";
+import { buildOps, visitHref, type OpsInput } from "@/lib/frontdeskOps";
+import { findRunningLate, manilaMinutes } from "@/lib/runningLate";
+import RunningLatePanel from "@/components/portal/RunningLatePanel";
 import { loadFrontDeskOps } from "@/lib/supabase/queries/frontdeskOps";
 import {
   ComingUpCard,
@@ -73,6 +75,12 @@ export default function OperationsDashboard({ branchId }: { branchId: string }) 
   }, [branchId, load, scheduleReload]);
 
   const ops = useMemo(() => (input ? buildOps(input, now) : null), [input, now]);
+  // Services past their time and the next clients they delay (checked each minute).
+  const minute = Math.floor(now.getTime() / 60_000);
+  const late = useMemo(
+    () => (input ? findRunningLate(input.visits, manilaMinutes(new Date(minute * 60_000).toISOString())) : []),
+    [input, minute]
+  );
 
   if (!ops) {
     return (
@@ -91,6 +99,8 @@ export default function OperationsDashboard({ branchId }: { branchId: string }) 
       )}
 
       <OverviewCards ops={ops} />
+
+      <RunningLatePanel items={late} openHref={(d) => visitHref({ id: d.id, visitType: d.visitType === "walk_in" ? "walk_in" : "appointment" })} />
 
       <div className="grid gap-6 xl:grid-cols-[1.55fr_1fr]">
         <TodayScheduleCard ops={ops} branchName={profile?.branchName ?? null} />

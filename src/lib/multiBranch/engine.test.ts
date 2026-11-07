@@ -271,3 +271,22 @@ describe("automatic staff choice", () => {
     expect(checkSlot(ctx(), req({ staffId: null })).ok).toBe(true);
   });
 });
+
+describe("buffer between bookings", () => {
+  // Bea has 12:00–13:00; Admin keeps 10 minutes between bookings.
+  const c = (bufferMinutes: number) => ctx({ bufferMinutes, appointments: [appt({ id: "x", professionalId: "bea", start: "12:00:00", duration: 60 })] });
+
+  it("back-to-back is fine without a buffer", () => {
+    expect(checkSlot(c(0), req({ start: toMinutes("13:00"), duration: 60 })).ok).toBe(true);
+    expect(checkSlot(c(0), req({ start: toMinutes("11:00"), duration: 60 })).ok).toBe(true);
+  });
+
+  it("keeps the gap after and before an existing booking", () => {
+    const after = checkSlot(c(10), req({ start: toMinutes("13:00"), duration: 60 }));
+    expect(after.checks.slotFree).toBe(false);
+    expect(after.reasons.join(" ")).toContain("bookings need 10 min between them");
+    expect(checkSlot(c(10), req({ start: toMinutes("13:10"), duration: 60 })).ok).toBe(true);
+    expect(checkSlot(c(10), req({ start: toMinutes("11:00"), duration: 60 })).checks.slotFree).toBe(false);
+    expect(checkSlot(c(10), req({ start: toMinutes("10:50"), duration: 60 })).ok).toBe(true);
+  });
+});
