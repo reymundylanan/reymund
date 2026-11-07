@@ -309,30 +309,90 @@ body {
 /* Words fade in one after another (was a typewriter). */
 .guide-word { display: inline-block; animation: guide-word 0.7s var(--ease-lux) both; }
 @keyframes guide-word { from { opacity: 0; transform: translateY(5px); filter: blur(4px); } }
-/* The speech box turns open (hinged on the mascot's side) and turns away
-   when it closes or leaves for another card. Without a hinge set it turns
-   about its middle, like a card. */
+/* ── The mascot's speech box ──
+   Opens: grows out of the mascot (a circle from its middle), clearing from
+   frosted to sharp, then one band of light sweeps across the gold.
+   Closes: shrinks back into the mascot with a soft gold ring.
+   Between cards it stays open, travels along and reshapes (MorphHeight);
+   new text unrolls top-to-bottom behind a fine gold line. It leans a little
+   toward the pointer. Other guide boxes (home, about, My Glow) clear from
+   frosted and grow from their middle. */
+.guide-bubble.guide-box-in {
+  animation: guide-box-in 900ms var(--ease-lux) backwards, guide-spin 16s linear infinite;
+}
+.guide-bubble.guide-box-out {
+  animation: guide-box-out 480ms cubic-bezier(0.55, 0, 0.75, 0.2) forwards, guide-spin 16s linear infinite;
+}
+@keyframes guide-box-in {
+  0% { clip-path: circle(0px at var(--grow-x, 50%) var(--grow-y, 50%)); filter: blur(12px) saturate(0.6); opacity: 0.4; }
+  45% { opacity: 1; }
+  70% { filter: blur(0) saturate(1); }
+  100% { clip-path: circle(150% at var(--grow-x, 50%) var(--grow-y, 50%)); filter: blur(0) saturate(1); opacity: 1; }
+}
+@keyframes guide-box-out {
+  0% { clip-path: circle(150% at var(--grow-x, 50%) var(--grow-y, 50%)); filter: blur(0); opacity: 1; }
+  100% { clip-path: circle(0px at var(--grow-x, 50%) var(--grow-y, 50%)); filter: blur(8px); opacity: 0; }
+}
 .guide-bubble.glowy-pop {
-  transform-origin: var(--turn-origin, 50% 50%);
-  animation: guide-turn-in 820ms var(--ease-lux) both, guide-spin 16s linear infinite;
+  animation: guide-frost-in 850ms var(--ease-lux) backwards, guide-spin 16s linear infinite;
 }
-.guide-bubble.guide-turn-out {
-  transform-origin: var(--turn-origin, 50% 50%);
-  animation: guide-turn-out 420ms cubic-bezier(0.55, 0, 0.75, 0.2) both, guide-spin 16s linear infinite;
+@keyframes guide-frost-in {
+  from { opacity: 0; transform: scale(0.94); filter: blur(12px) saturate(0.6); }
 }
-@keyframes guide-turn-in {
-  0% { opacity: 0; transform: perspective(1200px) rotateY(calc(var(--turn-dir, 1) * -78deg)) scale(0.92); filter: blur(4px); }
-  55% { opacity: 1; filter: blur(0); }
-  100% { opacity: 1; transform: perspective(1200px) rotateY(0deg) scale(1); filter: blur(0); }
+
+/* One band of light across the box once it has opened (the light is a
+   gradient sliding across a layer the box's own shape, so nothing clips). */
+.guide-bubble.guide-box-in, .guide-bubble.glowy-pop { position: relative; }
+.guide-bubble.guide-box-in::after, .guide-bubble.glowy-pop::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 248, 222, 0.8) 46%, rgba(233, 200, 104, 0.3) 54%, transparent 65%);
+  background-size: 300% 100%; background-repeat: no-repeat;
+  animation: guide-sweep 1.4s var(--ease-lux) 0.55s both;
 }
-@keyframes guide-turn-out {
-  0% { opacity: 1; transform: perspective(1200px) rotateY(0deg) scale(1); filter: blur(0); }
-  100% { opacity: 0; transform: perspective(1200px) rotateY(calc(var(--turn-dir, 1) * 72deg)) scale(0.92); filter: blur(3px); }
+@keyframes guide-sweep {
+  0% { background-position: 120% 0; opacity: 0; }
+  15% { opacity: 1; }
+  100% { background-position: -20% 0; opacity: 0; }
 }
+
+/* Reshapes to fit new text. */
+.guide-morph { overflow: hidden; transition: height 650ms var(--ease-lux); }
+
+/* New text unrolls top-to-bottom behind a fine gold line. */
+.guide-unroll { animation: guide-unroll 750ms var(--ease-lux) backwards; }
+@keyframes guide-unroll { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+.guide-unroll-line {
+  position: absolute; left: 0; right: 0; top: 0; height: 1px; pointer-events: none; z-index: 2;
+  background: linear-gradient(90deg, transparent, #c9a44a 20%, #f3dc9a 50%, #c9a44a 80%, transparent);
+  box-shadow: 0 0 10px 1px rgba(201, 164, 74, 0.45);
+  animation: guide-unroll-line 750ms var(--ease-lux) both;
+}
+@keyframes guide-unroll-line { 0% { top: 0; opacity: 1; } 85% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+
+/* While the mascot flies to the next card, the text it's leaving dims. */
+.guide-travel { opacity: 0.35; filter: blur(2px); transition: opacity 350ms ease, filter 350ms ease; }
+
+/* Leans a little toward the pointer. */
+.guide-tilt {
+  transform: perspective(1000px) rotateX(var(--tilt-y, 0deg)) rotateY(var(--tilt-x, 0deg));
+  transition: transform 500ms var(--ease-lux);
+}
+
+/* A soft gold ring where the box disappears into the mascot. */
+.guide-close-spark {
+  position: absolute; left: var(--grow-x); top: var(--grow-y); width: 40px; height: 40px; margin: -20px 0 0 -20px;
+  border-radius: 999px; border: 1.5px solid rgba(201, 164, 74, 0.8); box-shadow: 0 0 18px rgba(233, 200, 104, 0.6);
+  pointer-events: none; animation: guide-close-spark 600ms var(--ease-lux) 200ms both;
+}
+@keyframes guide-close-spark { 0% { transform: scale(0.4); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(4); opacity: 0; } }
+
 @media (prefers-reduced-motion: reduce) {
   .guide-bubble, .guide-bubble-still, .guide-live-dot, .guide-caret, .guide-rise, .guide-word,
-  .guide-bubble.glowy-pop, .guide-bubble.guide-turn-out { animation: none; }
-  .guide-bubble.guide-turn-out { opacity: 0; }
+  .guide-bubble.guide-box-in, .guide-bubble.glowy-pop, .guide-unroll, .guide-unroll-line,
+  .guide-bubble.guide-box-in::after, .guide-bubble.glowy-pop::after { animation: none; opacity: 0; }
+  .guide-bubble.guide-box-out { animation: none; opacity: 0; }
+  .guide-close-spark, .guide-unroll-line { display: none; }
+  .guide-morph, .guide-tilt { transition: none; transform: none; }
 }
 
 /* ── Home page: luxury entrance, slow video drift, scroll reveals ── */
