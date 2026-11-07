@@ -1,7 +1,8 @@
 import type { ComponentType, ReactNode } from "react";
 
 /** Card shell shared by the Notifications page. */
-export const CARD = "rounded-3xl bg-white p-6 shadow-[0_14px_34px_-26px_rgba(90,60,20,0.55)] ring-1 ring-[#efe3c6]";
+export const CARD =
+  "rounded-[24px] bg-white p-6 sm:p-7 ring-1 ring-[#ebdfc3] shadow-[0_18px_40px_-34px_rgba(70,48,18,0.55)]";
 
 /** Icon tile + title + one-line description, with an optional control on the right. */
 export function CardHeader({
@@ -19,15 +20,15 @@ export function CardHeader({
 }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="flex min-w-0 items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#f8efd9] text-coral-dark">
-          <Icon className="h-5 w-5" />
+      <div className="flex min-w-0 items-start gap-3.5">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#e4d2a8] bg-[#fffaf0] text-coral-dark">
+          <Icon className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0">
-          <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-ink">
+          <h2 className="flex flex-wrap items-center gap-2 font-display text-xl font-normal leading-tight tracking-[-0.01em] text-ink">
             {title} {badge}
           </h2>
-          {subtitle && <p className="text-sm text-ink/55">{subtitle}</p>}
+          {subtitle && <p className="mt-0.5 text-sm text-ink/55">{subtitle}</p>}
         </div>
       </div>
       {right}
