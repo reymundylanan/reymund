@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import {
   X,
@@ -12,6 +12,7 @@ import {
   CreditCard,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { bookingSourceLabel } from "@/lib/bookingSource";
 import {
   confirmAppointment,
   cancelAppointment,
@@ -102,6 +103,20 @@ export default function AppointmentDetailPanel({
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // How it was booked (085) — looked up on its own so the list loads before the migration.
+  const [source, setSource] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    createClient()
+      .from("appointments")
+      .select("booking_source")
+      .eq("id", appointment.id)
+      .maybeSingle()
+      .then(({ data, error: e }) => !cancelled && !e && setSource((data as { booking_source: string | null } | null)?.booking_source ?? null));
+    return () => {
+      cancelled = true;
+    };
+  }, [appointment.id]);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [confirmConfirm, setConfirmConfirm] = useState(false);
   const [rescheduling, setRescheduling] = useState(startInReschedule);
@@ -219,6 +234,11 @@ export default function AppointmentDetailPanel({
             <div>
               <p className="font-semibold text-ink">{client.full_name}</p>
               <p className="text-sm text-ink/50">{client.phone ?? "No phone on file"}</p>
+              {bookingSourceLabel(source) && (
+                <span className="mt-1 inline-block rounded-full bg-[#fbf3dc] px-2 py-0.5 text-[11px] font-semibold text-[#8A6A1C]">
+                  Booked via: {bookingSourceLabel(source)}
+                </span>
+              )}
             </div>
           </div>
           <button onClick={onClose} aria-label="Close" className="text-ink/40 hover:text-ink">

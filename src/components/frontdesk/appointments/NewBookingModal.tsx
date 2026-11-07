@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarPlus, Search, X } from "lucide-react";
+import { CalendarPlus, Clock, History, Search, UserCheck, X } from "lucide-react";
 import PhoneInput from "@/components/PhoneInput";
 import { isPhMobile, phMobileDigits, PH_MOBILE_HINT } from "@/lib/phMobile";
 import { createClient } from "@/lib/supabase/client";
@@ -10,6 +10,9 @@ import { isProfessionalFreeNow } from "@/lib/supabase/queries/availability";
 import { toAppointmentServiceRows } from "@/lib/bookedServices";
 import ClientAccountSearch from "@/components/frontdesk/payments/ClientAccountSearch";
 import type { ClientMatch } from "@/lib/walkinLinking";
+import { searchClientAccounts } from "@/lib/supabase/queries/walkins";
+import { BOOKING_SOURCES } from "@/lib/bookingSource";
+import type { OpenTime } from "@/lib/frontdesk/openTimes";
 
 type Service = { id: string; name: string; price: number; duration: string | null };
 type Staff = { id: string; full_name: string };
@@ -35,6 +38,15 @@ function newBookingCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+/** "13:30" → "1:30 PM". */
+function label12(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`;
+}
+
+/** Past visits booked under a guest's mobile number (no account). */
+type GuestHistory = { name: string; visits: number; last: string };
+
 function todayKey() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 }
@@ -53,6 +65,14 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
   const [date, setDate] = useState(todayKey);
   const [time, setTime] = useState("10:00");
   const [notes, setNotes] = useState("");
+  // How the booking came in (085) — this form is for calls, messages and visits.
+  const [source, setSource] = useState<string>("phone");
+  // Free start times for the chosen services / therapist / date (null = couldn't check).
+  const [slots, setSlots] = useState<OpenTime[] | null>(null);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  // Someone the mobile number already belongs to.
+  const [phoneAccounts, setPhoneAccounts] = useState<ClientMatch[]>([]);
+  const [guestHistory, setGuestHistory] = useState<GuestHistory | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,6 +102,68 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
     [services, serviceQuery]
   );
 
+  // Open times: re-checked whenever the services, therapist or date change.
+  const pickedKey = picked.join(",");
+  useEffect(() => {
+    if (!picked.length || !date) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- nothing to check yet
+      setSlots(null);
+      return;
+    }
+    let cancelled = false;
+    setSlotsLoading(true);
+    const timer = setTimeout(() => {
+      fetch("/api/frontdesk/open-times", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branchId, date, duration: minutes, serviceIds: picked, staffId: staffId || null }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { slots?: OpenTime[] } | null) => !cancelled && setSlots(d?.slots ?? null))
+        .catch(() => !cancelled && setSlots(null))
+        .finally(() => !cancelled && setSlotsLoading(false));
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pickedKey stands for picked
+  }, [pickedKey, staffId, date, minutes, branchId]);
+
+  // Returning clients: an account or earlier guest visits with this number.
+  const phoneDigits = isPhMobile(phone) ? phMobileDigits(phone) : "";
+  useEffect(() => {
+    if (linked || !phoneDigits) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear when there's nothing to look up
+      setPhoneAccounts([]);
+      setGuestHistory(null);
+      return;
+    }
+    let cancelled = false;
+    const supabase = createClient();
+    searchClientAccounts(supabase, phoneDigits).then((r) => !cancelled && setPhoneAccounts(r.status === "ok" ? r.matches.slice(0, 2) : []));
+    supabase
+      .from("appointments")
+      .select("walkin_name, scheduled_date")
+      .eq("walkin_phone", phoneDigits)
+      .is("client_id", null)
+      .order("scheduled_date", { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const rows = (data ?? []) as { walkin_name: string | null; scheduled_date: string }[];
+        setGuestHistory(rows.length && rows[0].walkin_name ? { name: rows[0].walkin_name, visits: rows.length, last: rows[0].scheduled_date } : null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [phoneDigits, linked]);
+
+  // "Any professional": the best free therapist at the chosen time.
+  const slotAtTime = slots?.find((s) => s.start === time) ?? null;
+  const assignedId = staffId || slotAtTime?.staffIds[0] || "";
+  const assignedName = staff.find((s) => s.id === assignedId)?.full_name ?? null;
+
   async function save() {
     setError(null);
     const clientName = linked?.fullName ?? name.trim();
@@ -91,6 +173,7 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
     if (!date || !time) return setError("Choose the date and time.");
     const start = new Date(`${date}T${time}:00+08:00`);
     if (isPast(start)) return setError("That time has already passed.");
+    if (!staffId && slots && !slotAtTime) return setError("No therapist is free for the whole service at that time. Pick one of the open times, or choose a therapist.");
 
     setSaving(true);
     const supabase = createClient();
@@ -102,14 +185,14 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
         return setError("That therapist already has a booking at this time. Pick another time or therapist.");
       }
     }
-    const staffName = staff.find((s) => s.id === staffId)?.full_name ?? "any professional";
+    const staffName = assignedName ?? "any professional";
     const row: Record<string, unknown> = {
       booking_code: newBookingCode(),
       branch_id: branchId,
       client_id: linked?.id ?? null,
       walkin_name: linked ? null : clientName.slice(0, 80),
       walkin_phone: linked ? null : phMobileDigits(phone),
-      professional_id: staffId || null,
+      professional_id: assignedId || null,
       service_id: chosen[0].id,
       appointment_type: "solo",
       scheduled_date: date,
@@ -119,7 +202,9 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
       notes: `${chosen.map((s) => s.name).join(", ")} with ${staffName} — ₱${total.toLocaleString()}.00`,
       staff_notes: notes.trim() || null,
     };
-    let res = await supabase.from("appointments").insert({ ...row, visit_type: "appointment" }).select("id").single();
+    // Newest columns first; leave out what isn't migrated yet.
+    let res = await supabase.from("appointments").insert({ ...row, visit_type: "appointment", booking_source: source }).select("id").single();
+    if (res.error && isNotMigratedError(res.error)) res = await supabase.from("appointments").insert({ ...row, visit_type: "appointment" }).select("id").single();
     if (res.error && isNotMigratedError(res.error)) res = await supabase.from("appointments").insert(row).select("id").single();
     if (res.error || !res.data) {
       setSaving(false);
@@ -147,6 +232,24 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
 
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
           <div>
+            <p className="text-sm font-semibold text-ink">Booked by</p>
+            <div className="mt-2 flex flex-wrap gap-2" role="radiogroup" aria-label="How the client booked">
+              {BOOKING_SOURCES.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={source === s.value}
+                  onClick={() => setSource(s.value)}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm transition ${source === s.value ? "border-coral bg-[#fbf3dc] font-semibold text-ink" : "border-nude text-ink/60 hover:border-coral/60"}`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <p className="text-sm font-semibold text-ink">Client</p>
             <p className="text-xs text-ink/55">Type the name — pick their account if they have one, or continue as a guest.</p>
             <div className="mt-2">
@@ -163,6 +266,33 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
                 Mobile number (guest)
                 <PhoneInput value={phone} onChange={setPhone} className={field} />
               </label>
+            )}
+            {!linked &&
+              phoneAccounts.map((m) => (
+                <div key={m.id} className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-[#E6EDE2] px-3 py-2 text-sm text-[#4F6B4A]">
+                  <span className="flex items-center gap-2">
+                    <UserCheck className="h-4 w-4 shrink-0" /> This number has an account: <b>{m.fullName}</b>
+                  </span>
+                  <button type="button" onClick={() => setLinked(m)} className="shrink-0 font-semibold hover:underline">
+                    Use account
+                  </button>
+                </div>
+              ))}
+            {!linked && !phoneAccounts.length && guestHistory && (
+              <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-[#fbf3dc] px-3 py-2 text-sm text-[#8A6A1C]">
+                <span className="flex items-center gap-2">
+                  <History className="h-4 w-4 shrink-0" />
+                  <span>
+                    Returning guest: <b>{guestHistory.name}</b> · {guestHistory.visits} visit{guestHistory.visits === 1 ? "" : "s"}, last{" "}
+                    {new Date(`${guestHistory.last}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </span>
+                {name.trim().toLowerCase() !== guestHistory.name.trim().toLowerCase() && (
+                  <button type="button" onClick={() => setName(guestHistory.name)} className="shrink-0 font-semibold hover:underline">
+                    Use this name
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -213,6 +343,46 @@ export default function NewBookingModal({ branchId, onClose, onCreated }: { bran
               Time
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={field} />
             </label>
+          </div>
+
+          <div>
+            <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+              <Clock className="h-4 w-4 text-coral-dark" /> Open times {date === todayKey() ? "today" : "that day"}
+              {slotsLoading && <span className="text-xs font-normal text-ink/45">checking…</span>}
+            </p>
+            {!picked.length ? (
+              <p className="mt-1 text-xs text-ink/50">Choose the services first to see when someone is free.</p>
+            ) : slots === null && !slotsLoading ? (
+              <p className="mt-1 text-xs text-ink/50">Couldn&apos;t check free times — type the time above.</p>
+            ) : slots && slots.length === 0 ? (
+              <p className="mt-1 rounded-xl bg-[#F6E3E3] px-3 py-2 text-xs text-[#9A5257]">
+                No free time for {minutes} min{staffId ? " with this therapist" : ""} that day. Try another day{staffId ? " or Any professional" : ""}.
+              </p>
+            ) : (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(slots ?? []).map((s) => (
+                  <button
+                    key={s.start}
+                    type="button"
+                    onClick={() => setTime(s.start)}
+                    title={staffId ? undefined : `${s.staffIds.length} free`}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium tabular-nums transition ${time === s.start ? "border-coral bg-coral text-white" : "border-nude text-ink/70 hover:border-coral"}`}
+                  >
+                    {label12(s.start)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {picked.length > 0 && !staffId && assignedName && (
+              <p className="mt-2 text-xs text-[#4F6B4A]">
+                <b>{assignedName}</b> is free at {label12(time)} — assigned automatically. Choose a therapist above to change it.
+              </p>
+            )}
+            {picked.length > 0 && slots && slots.length > 0 && time && !slotAtTime && (
+              <p className="mt-2 text-xs text-[#9A5257]">
+                {label12(time)} isn&apos;t open{staffId ? " for this therapist" : " for anyone"} — pick one of the times above.
+              </p>
+            )}
           </div>
 
           <label className="block text-sm font-medium text-ink/80">
