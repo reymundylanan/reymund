@@ -22,7 +22,7 @@ const HOVER_RESUME_MS = 6000; // auto-tour resumes this long after the mouse lea
 const GREETING_MS = 4500; // "Hi! I'm GlowSync AI" before the tour starts
 const ARRIVE_MS = 450; // the arrow reaches the card first; the mascot follows
 const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
-const TURN_OUT_MS = 420; // the speech box turning away (matches .guide-turn-out)
+const TURN_OUT_MS = 260; // the speech box popping away (matches .guide-turn-out)
 
 const sameName = (a?: string | null, b?: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 const MINIMIZED_KEY = "glowguide-minimized";
@@ -675,7 +675,7 @@ export default function GlowGuide({
           key={`${view.id}-${mode}-${greeting}`}
           data-guide-ui
           className={`guide-bubble ${boxHidden ? "guide-turn-out" : "glowy-pop"} ${GUIDE_FONTS}`}
-          // Hinged on the mascot's side, like a page turning out from it.
+          // Pops out of (and back into) the mascot's side.
           style={{ "--turn-origin": side === "right" ? "0% 55%" : "100% 55%", "--turn-dir": side === "right" ? 1 : -1 } as CSSProperties}
         >
           <div className="guide-bubble-inner p-4 pt-4" style={side === "right" ? { paddingLeft: TUCK + 12 } : { paddingRight: TUCK + 12 }}>
