@@ -309,8 +309,30 @@ body {
 /* Words fade in one after another (was a typewriter). */
 .guide-word { display: inline-block; animation: guide-word 0.7s var(--ease-lux) both; }
 @keyframes guide-word { from { opacity: 0; transform: translateY(5px); filter: blur(4px); } }
+/* The speech box turns open (hinged on the mascot's side) and turns away
+   when it closes or leaves for another card. Without a hinge set it turns
+   about its middle, like a card. */
+.guide-bubble.glowy-pop {
+  transform-origin: var(--turn-origin, 50% 50%);
+  animation: guide-turn-in 820ms var(--ease-lux) both, guide-spin 16s linear infinite;
+}
+.guide-bubble.guide-turn-out {
+  transform-origin: var(--turn-origin, 50% 50%);
+  animation: guide-turn-out 420ms cubic-bezier(0.55, 0, 0.75, 0.2) both, guide-spin 16s linear infinite;
+}
+@keyframes guide-turn-in {
+  0% { opacity: 0; transform: perspective(1200px) rotateY(calc(var(--turn-dir, 1) * -78deg)) scale(0.92); filter: blur(4px); }
+  55% { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: perspective(1200px) rotateY(0deg) scale(1); filter: blur(0); }
+}
+@keyframes guide-turn-out {
+  0% { opacity: 1; transform: perspective(1200px) rotateY(0deg) scale(1); filter: blur(0); }
+  100% { opacity: 0; transform: perspective(1200px) rotateY(calc(var(--turn-dir, 1) * 72deg)) scale(0.92); filter: blur(3px); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .guide-bubble, .guide-bubble-still, .guide-live-dot, .guide-caret, .guide-rise, .guide-word { animation: none; }
+  .guide-bubble, .guide-bubble-still, .guide-live-dot, .guide-caret, .guide-rise, .guide-word,
+  .guide-bubble.glowy-pop, .guide-bubble.guide-turn-out { animation: none; }
+  .guide-bubble.guide-turn-out { opacity: 0; }
 }
 
 /* ── Home page: luxury entrance, slow video drift, scroll reveals ── */

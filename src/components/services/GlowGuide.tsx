@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from "react";
 import { ArrowDown, CalendarPlus, ChevronLeft, Gift, Loader2, MessageCircleQuestion, Send } from "lucide-react";
 import Link from "next/link";
 import { GUIDE_FONTS, MASCOT_DESKTOP, MASCOT_PHONE, mascotWidth, TypeText } from "@/components/guide/guideKit";
@@ -22,6 +22,7 @@ const HOVER_RESUME_MS = 6000; // auto-tour resumes this long after the mouse lea
 const GREETING_MS = 4500; // "Hi! I'm GlowSync AI" before the tour starts
 const ARRIVE_MS = 450; // the arrow reaches the card first; the mascot follows
 const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
+const TURN_OUT_MS = 420; // the speech box turning away (matches .guide-turn-out)
 
 const sameName = (a?: string | null, b?: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 const MINIMIZED_KEY = "glowguide-minimized";
@@ -112,6 +113,7 @@ export default function GlowGuide({
   const [inView, setInView] = useState(false);
   const [layout, setLayout] = useState<Layout>(null);
   const [moving, setMoving] = useState(false);
+  const [leavingIndex, setLeavingIndex] = useState<number | null>(null);
   const [celebrate, setCelebrate] = useState(false);
   const [landing, setLanding] = useState(false);
   const mascotRef = useRef<HTMLButtonElement>(null);
@@ -214,6 +216,7 @@ export default function GlowGuide({
   const travel = useCallback(
     (next: number) => {
       if (next === index) return;
+      setLeavingIndex(index); // the box turns away still showing this card
       setMoving(true);
       window.setTimeout(() => {
         setMoving(false);
@@ -396,12 +399,15 @@ export default function GlowGuide({
 
   if (!item) return null;
 
+  // While travelling, the box keeps the card it's leaving until it has turned away.
+  const view = (moving && leavingIndex !== null && items[leavingIndex]) || item;
+
   // ── The speech bubble (same content in both layouts) ──
   const bubble = (
     <div className="space-y-2.5">
       <p className="guide-rise flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">
         <span aria-hidden className="guide-live-dot" />
-        {greeting ? "GlowSync AI" : mode === "intro" ? `GlowSync AI · ${item.label ?? (item.kind === "category" ? "Category" : "Treatment")}` : item.title}
+        {greeting ? "GlowSync AI" : mode === "intro" ? `GlowSync AI · ${view.label ?? (view.kind === "category" ? "Category" : "Treatment")}` : view.title}
       </p>
 
       {greeting && mode === "intro" && (
@@ -415,25 +421,25 @@ export default function GlowGuide({
 
       {!greeting && mode === "intro" && (
         <>
-          <p className="guide-rise guide-display guide-title text-[19px] leading-tight">✨ {item.hook}</p>
+          <p className="guide-rise guide-display guide-title text-[19px] leading-tight">✨ {view.hook}</p>
           <p className="guide-rise text-[14.5px] font-semibold leading-relaxed text-ink/85">
-            <TypeText key={item.id} text={item.intro} />
+            <TypeText key={view.id} text={view.intro} />
           </p>
           <p className="guide-rise rounded-2xl bg-[#fff6e6] px-3 py-2 text-[13px] leading-snug text-ink/75 ring-1 ring-[#f1dfb6]">
-            <span className="guide-display font-semibold text-[#a97c1c]">Why choose this?</span> {item.why}
+            <span className="guide-display font-semibold text-[#a97c1c]">Why choose this?</span> {view.why}
           </p>
-          {item.meta.length > 0 && (
+          {view.meta.length > 0 && (
             <div className="guide-rise flex flex-wrap gap-1.5">
-              {item.meta.map((m) => (
+              {view.meta.map((m) => (
                 <span key={m} className="rounded-full bg-gradient-to-r from-[#f7f0ff] to-[#fdf0f7] px-2.5 py-0.5 text-[11.5px] font-bold text-[#5b2d86] ring-1 ring-[#e6d8f8]">
                   {m}
                 </span>
               ))}
             </div>
           )}
-          {item.promo && (
+          {view.promo && (
             <p className="guide-rise flex items-start gap-1.5 rounded-xl bg-gradient-to-r from-[#fff0f7] to-[#fbf1dc] px-2.5 py-1.5 text-xs font-bold text-[#b83c78]">
-              <Gift className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {item.answers.promotions.replace(/^🎁\s*/, "")}
+              <Gift className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {view.answers.promotions.replace(/^🎁\s*/, "")}
             </p>
           )}
         </>
@@ -442,7 +448,7 @@ export default function GlowGuide({
       {mode === "menu" && (
         <>
           <p className="text-sm font-semibold text-ink">
-            {menuOpens <= 1 ? "Hi! What would you like to know? ✨" : `Anything else about ${item.title}? ✨`}
+            {menuOpens <= 1 ? "Hi! What would you like to know? ✨" : `Anything else about ${view.title}? ✨`}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {QUICK.map((q) => (
@@ -454,7 +460,7 @@ export default function GlowGuide({
               type="button"
               onClick={() => {
                 // Signed-in clients: the full chat opens about this service. Otherwise ask right here.
-                if (requestChat(item.title)) setMode("intro");
+                if (requestChat(view.title)) setMode("intro");
                 else setMode("ask");
               }}
               className="rounded-full border border-coral/50 bg-blush/60 px-2.5 py-1 text-xs font-semibold text-coral-dark hover:bg-blush"
@@ -474,7 +480,7 @@ export default function GlowGuide({
           className="space-y-2"
         >
           <p className="text-sm text-ink">
-            <span className="font-semibold">Of course! ✨</span> What would you like to know about {item.title}?
+            <span className="font-semibold">Of course! ✨</span> What would you like to know about {view.title}?
           </p>
           <div className="flex items-center gap-2 rounded-2xl border border-[#d9b968] bg-[#fffaf3] py-1.5 pl-3.5 pr-1.5 shadow-inner shadow-[#d9b968]/10 transition duration-200 focus-within:border-[#c9a24a] focus-within:bg-white focus-within:ring-4 focus-within:ring-[#d9b968]/25">
             <input
@@ -482,7 +488,7 @@ export default function GlowGuide({
               value={question}
               onChange={(e) => setQuestion(e.target.value.slice(0, 300))}
               placeholder="Ask me about this service..."
-              aria-label={`Ask about ${item.title}`}
+              aria-label={`Ask about ${view.title}`}
               disabled={asking}
               className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink/40"
             />
@@ -522,7 +528,7 @@ export default function GlowGuide({
         {/* Main actions: two equal buttons side by side. */}
         <div className="grid grid-cols-2 gap-2">
           <button type="button" onClick={() => onDetails(item)} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition border-[1.5px] border-[#d9b968] bg-white px-3 text-ink/80 hover:-translate-y-0.5 hover:shadow-[0_6px_14px_-8px_rgba(169,124,28,0.7)]">
-            {item.kind === "category" ? "See treatments" : "View Details"}
+            {view.kind === "category" ? "See treatments" : "View Details"}
           </button>
           <button type="button" onClick={book} className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-3 text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] hover:-translate-y-0.5 hover:brightness-105">
             <CalendarPlus className="h-3.5 w-3.5" /> Book Now
@@ -535,7 +541,7 @@ export default function GlowGuide({
               <ChevronLeft className="h-3.5 w-3.5" /> Back
             </button>
           )}
-          {item.promo && mode === "intro" && (
+          {view.promo && mode === "intro" && (
             <Link href="/#promotions" className="flex items-center justify-center gap-1 rounded-full py-1.5 text-xs font-extrabold transition border border-[#f3a6c8] bg-[#fff0f6] px-3 text-[#b83c78] hover:bg-[#ffe3ef]">
               <Gift className="h-3.5 w-3.5" /> View Promotion
             </Link>
@@ -645,6 +651,7 @@ export default function GlowGuide({
   // hoverOnly: tucked away (and click-through) unless pointed at or being asked something.
   const away = hoverOnly && !present && mode !== "ask" && !asking;
   const fade = away ? "pointer-events-none !opacity-0" : "";
+  const boxHidden = moving || away;
 
   return (
     <>
@@ -655,10 +662,22 @@ export default function GlowGuide({
       </span>
 
       <div
-        className={`guide-fly absolute left-0 top-0 z-30 ${moving ? "pointer-events-none opacity-0" : "opacity-100"} ${fade}`}
-        style={{ transform: `translate(${bubbleX}px, ${bubbleY}px)`, width: BUBBLE_W, ...follow }}
+        className={`guide-fly absolute left-0 top-0 z-30 ${boxHidden ? "pointer-events-none opacity-0" : "opacity-100"}`}
+        style={{
+          transform: `translate(${bubbleX}px, ${bubbleY}px)`,
+          width: BUBBLE_W,
+          // The box turns itself out and in; this layer only drops away once
+          // the turn has finished (and shows at once so the turn-in is seen).
+          transition: `transform 900ms var(--ease-lux-inout) ${ARRIVE_MS}ms, opacity 0s linear ${boxHidden ? TURN_OUT_MS : 0}ms`,
+        }}
       >
-        <div key={`${item.id}-${mode}-${greeting}`} data-guide-ui className={`guide-bubble glowy-pop ${GUIDE_FONTS}`}>
+        <div
+          key={`${view.id}-${mode}-${greeting}`}
+          data-guide-ui
+          className={`guide-bubble ${boxHidden ? "guide-turn-out" : "glowy-pop"} ${GUIDE_FONTS}`}
+          // Hinged on the mascot's side, like a page turning out from it.
+          style={{ "--turn-origin": side === "right" ? "0% 55%" : "100% 55%", "--turn-dir": side === "right" ? 1 : -1 } as CSSProperties}
+        >
           <div className="guide-bubble-inner p-4 pt-4" style={side === "right" ? { paddingLeft: TUCK + 12 } : { paddingRight: TUCK + 12 }}>
             {bubble}
           </div>
