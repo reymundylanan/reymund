@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   // webhooks locally) load the dev server's assets.
   allowedDevOrigins: ["*.trycloudflare.com"],
   images: {
+    // 90 for the large service photos, which looked muddy at the default 75.
+    qualities: [75, 90],
     remotePatterns: [
       {
         protocol: "https",

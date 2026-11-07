@@ -226,6 +226,7 @@ export default function ServiceCatalog({
                   fill
                   className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  quality={90}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#2b1a10]/90 via-[#3d2818]/45 to-transparent" />
                 <div className="relative p-5">
@@ -324,6 +325,7 @@ export default function ServiceCatalog({
                     fill
                     className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    quality={90}
                   />
                 )}
                 <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white/70 via-transparent to-transparent" />
