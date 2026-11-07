@@ -27,6 +27,8 @@ export default function StaffLoginForm({
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Signed in as staff: the portal is loading (the window stays open until it does).
+  const [opening, setOpening] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,11 +58,11 @@ export default function StaffLoginForm({
       return;
     }
 
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", authData.user.id)
-      .single();
+    // Role and Terms acceptance in one round trip.
+    const [{ data: profile, error: profileError }] = await Promise.all([
+      supabase.from("profiles").select("role").eq("id", authData.user.id).single(),
+      recordLoginConsent(supabase, offers),
+    ]);
 
     if (profileError || !profile) {
       setError("No staff account found for this login.");
@@ -69,16 +71,19 @@ export default function StaffLoginForm({
       return;
     }
 
-    await recordLoginConsent(supabase, offers);
-    onSuccess?.();
-
-    if (profile.role === "admin") {
-      router.push("/admin");
-    } else if (profile.role === "front_desk") {
-      router.push("/frontdesk");
-    } else {
-      router.push("/");
+    // Admin / Front Desk: a full page load into the portal. An in-app
+    // navigation could reuse the router's earlier "not signed in" answer (the
+    // portal sends signed-out visitors home), leaving staff on the public
+    // page. The window stays open, saying so, until the portal opens.
+    const portal = profile.role === "admin" ? "/admin" : profile.role === "front_desk" ? "/frontdesk" : null;
+    if (portal) {
+      setOpening(true);
+      window.location.assign(portal);
+      return;
     }
+
+    onSuccess?.();
+    router.refresh();
     setLoading(false);
   }
 
@@ -140,7 +145,7 @@ export default function StaffLoginForm({
         className="flex w-full items-center justify-center gap-2 rounded-full bg-coral py-3 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(168,132,58,0.9)] transition hover:bg-coral-dark disabled:opacity-50"
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-        {loading ? "Signing in..." : "Log in"}
+        {opening ? "Opening your portal…" : loading ? "Signing in..." : "Log in"}
       </button>
     </form>
   );
