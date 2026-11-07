@@ -1,6 +1,5 @@
 "use client";
 
-import { signOutSafely } from "@/lib/auth/signOut";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, Lock, LogIn, User } from "lucide-react";
@@ -36,46 +35,36 @@ export default function StaffLoginForm({
     setError(null);
     setLoading(true);
 
+    // Signed in on the server: the username never reveals the account's email.
+    let role: string | null = null;
+    try {
+      const res = await fetch("/api/auth/staff-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = (await res.json().catch(() => ({}))) as { role?: string; error?: string };
+      if (!res.ok || !data.role) {
+        setError(data.error ?? "Invalid username or password.");
+        setLoading(false);
+        return;
+      }
+      role = data.role;
+    } catch {
+      setError("Couldn't reach the server. Check your connection and try again.");
+      setLoading(false);
+      return;
+    }
+
+    // The session cookies are set now; record the Terms / offers choice.
     const supabase = createClient();
-
-    const { data: email, error: lookupError } = await supabase.rpc(
-      "get_email_for_username",
-      { p_username: username }
-    );
-
-    if (lookupError || !email) {
-      setError("Invalid username or password.");
-      setLoading(false);
-      return;
-    }
-
-    const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({ email, password });
-
-    if (authError || !authData.user) {
-      setError("Invalid username or password.");
-      setLoading(false);
-      return;
-    }
-
-    // Role and Terms acceptance in one round trip.
-    const [{ data: profile, error: profileError }] = await Promise.all([
-      supabase.from("profiles").select("role").eq("id", authData.user.id).single(),
-      recordLoginConsent(supabase, offers),
-    ]);
-
-    if (profileError || !profile) {
-      setError("No staff account found for this login.");
-      await signOutSafely(supabase);
-      setLoading(false);
-      return;
-    }
+    await recordLoginConsent(supabase, offers);
 
     // Admin / Front Desk: a full page load into the portal. An in-app
     // navigation could reuse the router's earlier "not signed in" answer (the
     // portal sends signed-out visitors home), leaving staff on the public
     // page. The window stays open, saying so, until the portal opens.
-    const portal = profile.role === "admin" ? "/admin" : profile.role === "front_desk" ? "/frontdesk" : null;
+    const portal = role === "admin" ? "/admin" : role === "front_desk" ? "/frontdesk" : null;
     if (portal) {
       setOpening(true);
       window.location.assign(portal);
