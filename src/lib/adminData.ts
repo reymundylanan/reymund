@@ -27,7 +27,7 @@ export const adminBranches = [
     manager: "",
     hours: "10:00 AM - 4:00 PM",
     status: "Active",
-    image: "/images/services/spaservice.jpg",
+    image: "/images/hero/clinic.jpeg",
     phone: "+63 916 560 6052",
     facebook: "profile.php?id=61559107005070",
     facebookLabel: "Blush Spa Aesthetics Robinsons",

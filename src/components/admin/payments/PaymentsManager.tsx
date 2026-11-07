@@ -39,7 +39,7 @@ export default function PaymentsManager() {
 
   return (
     <div className="space-y-6">
-      <PaymentsStats stats={stats} live={live} />
+      <PaymentsStats stats={stats} live={live} total={payments.length} />
       <OnlinePaymentsTable />
       <OnlinePaymentsTable method="cash" />
       {loading ? (

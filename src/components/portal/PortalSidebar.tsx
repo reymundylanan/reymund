@@ -8,7 +8,13 @@ import { useState, type ComponentType } from "react";
 import { ChevronLeft, Heart, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-export type PortalNavItem = { href: string; label: string; icon: ComponentType<{ className?: string }> };
+export type PortalNavItem = {
+  href: string;
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+  /** Small heading shown above the first item of each group. */
+  section?: string;
+};
 
 const SERIF = { fontFamily: "Georgia, 'Times New Roman', serif" };
 
@@ -56,20 +62,28 @@ export default function PortalSidebar({
             <span className="block text-2xl leading-tight text-coral-dark" style={SERIF}>
               GlowSync
             </span>
-            <span className="block truncate text-[11px] font-medium tracking-wide text-taupe">
-              Blush Spa &amp; Aesthetics · {portalLabel}
+            <span className="block truncate text-[11px] font-medium tracking-wide text-taupe">Blush Spa &amp; Aesthetics</span>
+            <span className="mt-1 inline-block rounded-full bg-[#f8efd9] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-coral-dark">
+              {portalLabel} portal
             </span>
           </span>
         )}
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 max-md:px-2">
-        {items.map((item) => {
+        {items.map((item, i) => {
           const Icon = item.icon;
+          const heading = item.section && item.section !== items[i - 1]?.section ? item.section : null;
           const active = isActive(item.href);
           const badge = badges[item.href] ?? 0;
           const label = badge > 0 ? `${item.label} (${badgeText(badge)} need attention)` : item.label;
           return (
+            <div key={item.href}>
+            {heading && (
+              <p className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/35 max-md:hidden ${i ? "pt-4" : "pt-1"} ${collapsed ? "hidden" : ""}`}>
+                {heading}
+              </p>
+            )}
             <Link
               key={item.href}
               href={item.href}
@@ -101,6 +115,7 @@ export default function PortalSidebar({
                 </span>
               )}
             </Link>
+            </div>
           );
         })}
       </nav>

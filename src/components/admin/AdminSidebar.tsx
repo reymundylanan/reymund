@@ -5,14 +5,14 @@ import PortalSidebar from "@/components/portal/PortalSidebar";
 import { usePortalBadges } from "@/lib/hooks/usePortalBadges";
 
 const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/users", label: "Users & Roles", icon: Users },
-  { href: "/admin/payments", label: "Payments & Financials", icon: Wallet },
-  { href: "/admin/branches", label: "Branches & Services", icon: Building2 },
-  { href: "/admin/multi-branch", label: "Multi-Branch", icon: SquareKanban },
-  { href: "/admin/notifications", label: "Notifications", icon: Bell },
-  { href: "/admin/reviews", label: "Reviews", icon: Star },
-  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, section: "Overview" },
+  { href: "/admin/users", label: "Users & Roles", icon: Users, section: "Manage" },
+  { href: "/admin/payments", label: "Payments & Financials", icon: Wallet, section: "Manage" },
+  { href: "/admin/branches", label: "Branches & Services", icon: Building2, section: "Manage" },
+  { href: "/admin/multi-branch", label: "Multi-Branch", icon: SquareKanban, section: "Manage" },
+  { href: "/admin/notifications", label: "Notifications", icon: Bell, section: "Clients" },
+  { href: "/admin/reviews", label: "Reviews", icon: Star, section: "Clients" },
+  { href: "/admin/reports", label: "Reports", icon: BarChart3, section: "Insights" },
 ];
 
 export default function AdminSidebar() {

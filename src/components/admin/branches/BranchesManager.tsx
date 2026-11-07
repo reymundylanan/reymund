@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { Clock, UserRound } from "lucide-react";
 import BranchesToolbar from "@/components/admin/branches/BranchesToolbar";
 import BranchDetailView from "@/components/admin/branches/BranchDetailView";
 import { adminBranches } from "@/lib/adminData";
@@ -99,20 +100,20 @@ export default function BranchesManager() {
 
       <div className="grid gap-6 sm:grid-cols-2">
         {filtered.map((branch) => (
-          <div key={branch.id} className="overflow-hidden rounded-2xl bg-white shadow-sm">
-            <div className="relative h-40 overflow-hidden">
+          <div key={branch.id} className="group overflow-hidden rounded-3xl bg-white shadow-[0_14px_34px_-26px_rgba(90,60,20,0.55)] ring-1 ring-[#efe3c6] transition hover:-translate-y-0.5 hover:shadow-lg">
+            <div className="relative h-44 overflow-hidden bg-[#f8efd9]">
               <Image
                 src={dbImages[branch.name] ?? branch.image}
                 alt={branch.name}
                 fill
-                className="object-cover"
+                className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
                 style={{ objectPosition: `${cardPositions[branch.name]?.x ?? 50}% ${cardPositions[branch.name]?.y ?? 50}%` }}
                 sizes="(max-width: 640px) 100vw, 50vw"
               />
             </div>
             <div className="p-5">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-ink">{branch.name}</h3>
+                <h3 className="text-lg font-semibold text-ink">{branch.name}</h3>
                 {branch.status === "Active" ? (
                   isOpenNow(dbHours[branch.name] ?? branch.hours, now) ? (
                     <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-700">Open</span>
@@ -128,12 +129,13 @@ export default function BranchesManager() {
                 )}
               </div>
               <p className="mt-1 text-sm text-ink/60">{branch.address}</p>
-              <p className="mt-2 text-xs text-ink/50">
-                Manager: {branch.manager || "—"} &bull; {dbHours[branch.name] ?? branch.hours}
-              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-ink/60">
+                <span className="flex items-center gap-1 rounded-full bg-cream px-2.5 py-1"><Clock className="h-3.5 w-3.5 text-coral-dark" /> {dbHours[branch.name] ?? branch.hours}</span>
+                <span className="flex items-center gap-1 rounded-full bg-cream px-2.5 py-1"><UserRound className="h-3.5 w-3.5 text-coral-dark" /> Manager: {branch.manager || "not set"}</span>
+              </div>
               <button
                 onClick={() => setSelected(branch)}
-                className="mt-4 w-full rounded-full bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark"
+                className="mt-4 w-full rounded-full border border-coral/50 bg-[#fffaf0] px-4 py-2.5 text-sm font-semibold text-coral-dark transition hover:bg-coral hover:text-white"
               >
                 Manage Branch
               </button>
