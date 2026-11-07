@@ -45,7 +45,7 @@ const FAQS: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: "Can walk-in clients use their account?",
-    a: "Yes. Tell the Front Desk the name on your GlowSync account when you arrive and they'll link your visit, so it appears in your history and you can review it.",
+    a: "Yes. Tell the Front Desk the name on your Blush Spa account when you arrive and they'll link your visit, so it appears in your history and you can review it.",
   },
   {
     q: "Where are your branches?",

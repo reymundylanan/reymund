@@ -4,8 +4,8 @@ import type { MetadataRoute } from "next";
 // notifications for sites added that way.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "GlowSync — Blush Spa & Aesthetics",
-    short_name: "GlowSync",
+    name: "Blush Spa & Aesthetics",
+    short_name: "Blush Spa",
     description: "Book and manage your Blush Spa & Aesthetics appointments.",
     start_url: "/my-glow",
     display: "standalone",

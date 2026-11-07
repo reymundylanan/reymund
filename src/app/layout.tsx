@@ -33,11 +33,11 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: { default: `${SITE_NAME} — Pagadian City`, template: `%s | ${SITE_NAME}` },
   description: SITE_DESCRIPTION,
-  applicationName: "GlowSync",
+  applicationName: SITE_NAME,
   keywords: [
     "Blush Spa", "Blush Spa & Aesthetics", "spa Pagadian", "Pagadian City spa", "facial Pagadian", "aesthetic clinic Pagadian",
     "hair salon Pagadian", "nails Pagadian", "lash extensions Pagadian", "laser Pagadian", "botox Pagadian", "fillers Pagadian",
-    "IV drip Pagadian", "slimming Pagadian", "One Cecilia Center", "Robinsons Pagadian", "GlowSync",
+    "IV drip Pagadian", "slimming Pagadian", "One Cecilia Center", "Robinsons Pagadian",
   ],
   alternates: { canonical: "/" },
   openGraph: {

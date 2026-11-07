@@ -8,7 +8,7 @@ export default function PrivacyPage() {
     <InfoPage
       eyebrow="Your Privacy"
       title="Privacy Policy"
-      intro="How Blush Spa & Aesthetics (GlowSync) collects, uses and protects your personal information."
+      intro="How Blush Spa & Aesthetics collects, uses and protects your personal information."
       updated="October 2026"
     >
       <InfoSection title="Who we are">

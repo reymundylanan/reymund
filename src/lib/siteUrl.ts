@@ -12,4 +12,4 @@ export function siteUrl(): string {
 
 export const SITE_NAME = "Blush Spa & Aesthetics";
 export const SITE_DESCRIPTION =
-  "Blush Spa & Aesthetics in Pagadian City — facials, hair, nails, lashes and brows, laser, slimming, IV drips and doctor's aesthetic procedures at One Cecilia Center and Robinsons Pagadian. Book online with GlowSync.";
+  "Blush Spa & Aesthetics in Pagadian City — facials, hair, nails, lashes and brows, laser, slimming, IV drips and doctor's aesthetic procedures at One Cecilia Center and Robinsons Pagadian. Book online.";

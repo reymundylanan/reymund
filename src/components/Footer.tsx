@@ -27,7 +27,7 @@ export default function Footer() {
     <footer className="bg-footer text-white/75">
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-16 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <p className="font-display text-2xl font-semibold text-white">GlowSync</p>
+          <p className="font-display text-2xl font-semibold text-white">Blush Spa &amp; Aesthetics</p>
           <p className="mt-3 text-sm leading-relaxed">
             Elevating your wellness journey through synchronized care and glowing results.
           </p>

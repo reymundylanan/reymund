@@ -5,7 +5,7 @@ export const metadata = { title: "Terms of Service" };
 
 export default function TermsPage() {
   return (
-    <InfoPage eyebrow="The Fine Print" title="Terms of Service" intro="The rules for booking and using GlowSync." updated="October 2026">
+    <InfoPage eyebrow="The Fine Print" title="Terms of Service" intro="The rules for booking with Blush Spa & Aesthetics and using our website." updated="October 2026">
       <InfoSection title="Bookings">
         <ul>
           <li>A booking is confirmed only when our Front Desk confirms it in GlowSync.</li>

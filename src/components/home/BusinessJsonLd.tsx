@@ -44,7 +44,7 @@ export default async function BusinessJsonLd() {
       {
         "@type": "WebSite",
         name: SITE_NAME,
-        alternateName: ["Blush Spa", "Blush Spa Pagadian", "GlowSync"],
+        alternateName: ["Blush Spa", "Blush Spa Pagadian"],
         url: `${base}/`,
       },
       {
