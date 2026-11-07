@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronsRight, Filter, Gauge, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsRight, Filter, Gauge, Plus, Search, UserCog } from "lucide-react";
+import PageHero, { HERO_CHIP } from "@/components/portal/PageHero";
 
 export default function StaffScheduleHeader({
   date,
@@ -37,11 +38,12 @@ export default function StaffScheduleHeader({
   });
 
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-ink">Staff Schedule</h1>
-          <div className="mt-1 flex items-center gap-2">
+    <PageHero
+      icon={UserCog}
+      eyebrow="Front desk"
+      title="Staff Schedule"
+      subtitle={
+          <div className="flex items-center gap-2">
             <button
               onClick={onPrevDay}
               aria-label="Previous day"
@@ -66,32 +68,33 @@ export default function StaffScheduleHeader({
               <ChevronsRight className="h-4 w-4" />
             </button>
           </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      }
+      actions={
+        <>
           {capacityPercent != null && (
-            <span className="flex items-center gap-1.5 rounded-full border border-ink/15 px-3 py-2 text-sm text-ink/60">
+            <span className={`${HERO_CHIP} text-ink/60`}>
               <Gauge className="h-4 w-4 text-coral-dark" /> Staff Capacity: {capacityPercent}%
             </span>
           )}
           <button
             onClick={() => setShowFilters((v) => !v)}
             className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold ${
-              showFilters ? "border-coral text-coral-dark" : "border-ink/15 text-ink/70 hover:border-ink/30"
+              showFilters ? "border-coral bg-white text-coral-dark" : "border-ink/15 bg-white text-ink/70 hover:border-ink/30"
             }`}
           >
             <Filter className="h-4 w-4" /> Filter Staff
           </button>
           <button
             onClick={onAddBlock}
-            className="flex items-center gap-2 rounded-full bg-coral px-4 py-2 text-sm font-semibold text-white hover:bg-coral-dark"
+            className="lux-sheen flex items-center gap-2 rounded-full bg-gradient-to-r from-coral to-coral-dark px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_20px_-10px_rgba(168,137,48,0.9)] transition duration-300 hover:-translate-y-0.5"
           >
             <Plus className="h-4 w-4" /> Add Block
           </button>
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {showFilters && (
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
             <input
@@ -99,13 +102,13 @@ export default function StaffScheduleHeader({
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search staff by name..."
-              className="w-64 rounded-full border border-ink/15 py-2 pl-9 pr-3 text-sm focus:border-coral focus:outline-none"
+              className="w-64 rounded-full border border-ink/15 bg-white py-2 pl-9 pr-3 text-sm focus:border-coral focus:outline-none"
             />
           </div>
           <select
             value={departmentFilter}
             onChange={(e) => onDepartmentFilterChange(e.target.value)}
-            className="rounded-full border border-ink/15 px-3 py-2 text-sm text-ink/70 outline-none focus:border-coral"
+            className="rounded-full border border-ink/15 bg-white px-3 py-2 text-sm text-ink/70 outline-none focus:border-coral"
           >
             <option value="">All departments</option>
             {departments.map((d) => (
@@ -116,6 +119,6 @@ export default function StaffScheduleHeader({
           </select>
         </div>
       )}
-    </div>
+    </PageHero>
   );
 }

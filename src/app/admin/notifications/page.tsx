@@ -15,6 +15,8 @@ import { getMessengerConfig, missingMessengerEnv } from "@/lib/messenger/config"
 import NotificationsManager from "@/components/admin/notifications/NotificationsManager";
 import FeedbackInbox from "@/components/admin/notifications/FeedbackInbox";
 import AnnouncementCard from "@/components/admin/notifications/AnnouncementCard";
+import { Bell, Mail, MessageCircle, Send } from "lucide-react";
+import PageHero, { HERO_CHIP } from "@/components/portal/PageHero";
 
 export default async function AdminNotificationsPage() {
   const supabase = await createClient();
@@ -41,39 +43,23 @@ export default async function AdminNotificationsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="relative overflow-hidden rounded-[28px] border border-[#e6d6b3] bg-[#fffdf8] px-7 py-8 shadow-[0_18px_40px_-34px_rgba(70,48,18,0.55)] sm:px-10 sm:py-10">
-        {/* A second fine rule inside the first, like letter paper. */}
-        <div aria-hidden className="pointer-events-none absolute inset-[7px] rounded-[22px] border border-[#f0e5cd]" />
-        <div className="relative grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div className="min-w-0">
-            <p className="flex items-center gap-3 text-[11px] font-medium uppercase tracking-[0.32em] text-coral-dark">
-              <span aria-hidden className="h-px w-8 bg-coral-dark/50" />
-              Client communication
-            </p>
-            <h1 className="mt-4 font-display text-[40px] font-normal leading-[1.05] tracking-[-0.015em] text-ink sm:text-[46px]">
-              Notifications
-            </h1>
-            <p className="mt-3 max-w-xl text-[15px] leading-relaxed text-ink/60">
-              Send news and promos to your clients, keep the website announcement current, and read what clients tell you.
-            </p>
-          </div>
-
-          <dl className="grid grid-cols-3 divide-x divide-[#eadcc0] border-t border-[#eadcc0] pt-6 lg:border-t-0 lg:pt-0">
-            {[
-              { label: "Reachable by email", value: recipientCount },
-              { label: "On Messenger", value: messengerConfigured ? audience.connected : null },
-              { label: "Broadcasts sent", value: history.length },
-            ].map((s) => (
-              <div key={s.label} className="px-5 first:pl-0 last:pr-0 lg:px-7">
-                <dt className="text-[10px] font-medium uppercase tracking-[0.22em] text-ink/45">{s.label}</dt>
-                <dd className="mt-2 font-display text-[32px] leading-none tabular-nums text-ink">
-                  {s.value == null ? <span className="text-ink/25">—</span> : s.value.toLocaleString()}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      </header>
+      <PageHero
+        icon={Bell}
+        eyebrow="Client communication"
+        title="Notifications"
+        subtitle="Send news and promos to clients, manage the website announcement bar, and read client feedback."
+        actions={[
+          { icon: Mail, value: recipientCount, label: "by email" },
+          ...(messengerConfigured ? [{ icon: MessageCircle, value: audience.connected, label: "on Messenger" }] : []),
+          { icon: Send, value: history.length, label: history.length === 1 ? "broadcast sent" : "broadcasts sent" },
+        ].map(({ icon: Icon, value, label }) => (
+          <span key={label} className={HERO_CHIP}>
+            <Icon className="h-4 w-4 text-coral-dark" aria-hidden />
+            <span className="font-semibold text-ink">{value.toLocaleString()}</span>
+            <span className="text-ink/50">{label}</span>
+          </span>
+        ))}
+      />
       <NotificationsManager
         initialRecipientCount={recipientCount}
         initialHistory={history}

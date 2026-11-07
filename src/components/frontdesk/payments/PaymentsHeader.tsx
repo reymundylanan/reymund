@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Hourglass, UserPlus, Wallet2 } from "lucide-react";
+import PageHero, { HERO_CHIP } from "@/components/portal/PageHero";
 import { createClient } from "@/lib/supabase/client";
 import { useStaffProfile } from "@/lib/hooks/useStaffProfile";
 import { toDateKey } from "@/lib/supabase/queries/staffShifts";
@@ -42,21 +44,25 @@ export default function PaymentsHeader() {
   }, [profile?.branchId]);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-6 shadow-sm">
-      <div>
-        <h1 className="text-lg font-semibold text-ink">Payments</h1>
-        <p className="text-sm text-ink/50">Online (GCash) and cash payment records.</p>
-      </div>
-      <div className="flex items-center divide-x divide-ink/10 text-right">
-        <div className="px-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-ink/40">Awaiting Verification</p>
-          <p className="text-xl font-semibold text-amber-600">{awaiting ?? "—"}</p>
-        </div>
-        <div className="px-4">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-ink/40">Walk-ins (Daily)</p>
-          <p className="text-xl font-semibold text-pink-600">{walkinsToday ?? "—"}</p>
-        </div>
-      </div>
-    </div>
+    <PageHero
+      icon={Wallet2}
+      eyebrow="Front desk"
+      title="Payments"
+      subtitle="Online (GCash) and cash payment records."
+      actions={
+        <>
+          <span className={HERO_CHIP}>
+            <Hourglass className="h-4 w-4 text-amber-600" aria-hidden />
+            <span className="font-semibold text-ink">{awaiting ?? "—"}</span>
+            <span className="text-ink/50">awaiting verification</span>
+          </span>
+          <span className={HERO_CHIP}>
+            <UserPlus className="h-4 w-4 text-coral-dark" aria-hidden />
+            <span className="font-semibold text-ink">{walkinsToday ?? "—"}</span>
+            <span className="text-ink/50">walk-ins today</span>
+          </span>
+        </>
+      }
+    />
   );
 }

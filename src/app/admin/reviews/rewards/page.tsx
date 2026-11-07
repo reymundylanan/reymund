@@ -1,3 +1,5 @@
+import { Gift } from "lucide-react";
+import PageHero from "@/components/portal/PageHero";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getRewardSettings, getRewardStats, listRewardQueue } from "@/lib/supabase/queries/adminRewards";
@@ -20,10 +22,12 @@ export default async function AdminRewardsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink">Review Rewards</h1>
-        <p className="text-sm text-ink/50">Approve uncertain AI grades, retry failed evaluations and tune the GlowPoints rubric.</p>
-      </div>
+      <PageHero
+        icon={Gift}
+        eyebrow="GlowPoints"
+        title="Review Rewards"
+        subtitle="Approve uncertain AI grades, retry failed evaluations and tune the GlowPoints rubric."
+      />
       <RewardsManager initialQueue={queue} initialSettings={settings} initialStats={stats} />
     </div>
   );

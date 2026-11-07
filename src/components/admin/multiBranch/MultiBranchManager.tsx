@@ -22,7 +22,9 @@ import {
   UserRound,
   Users,
   X,
+  Network,
 } from "lucide-react";
+import PageHero from "@/components/portal/PageHero";
 import { createClient } from "@/lib/supabase/client";
 import {
   checkStaffTransfer,
@@ -433,11 +435,12 @@ export default function MultiBranchManager() {
   return (
     <div className="status-colors space-y-4">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-ink">Multi-Branch Management</h1>
-          <p className="text-sm text-ink/55">Manage your branches, staff, clients, services, appointments, and walk-ins in one simple workspace.</p>
-        </div>
+      <PageHero
+        icon={Network}
+        eyebrow="All branches"
+        title="Multi-Branch Management"
+        subtitle="Manage your branches, staff, clients, services, appointments, and walk-ins in one simple workspace."
+        actions={
         <div className="relative flex items-center gap-2">
           <button
             onClick={() => setView("overview")}
@@ -472,7 +475,8 @@ export default function MultiBranchManager() {
             </div>
           )}
         </div>
-      </div>
+        }
+      />
 
       {board && !board.migrated && (
         <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">

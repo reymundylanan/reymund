@@ -21,6 +21,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import PageHero from "@/components/portal/PageHero";
 import { createClient } from "@/lib/supabase/client";
 import { isNotMigratedError, logQueryError } from "@/lib/supabase/logQueryError";
 import { loadReportData } from "@/lib/supabase/queries/reportData";
@@ -246,30 +247,26 @@ export default function ReportGenerator() {
   return (
     <div className="space-y-6">
       {/* Header + filters */}
-      <div className="rounded-2xl bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-skin text-coral-dark">
-              <BarChart3 className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="text-2xl font-semibold text-ink">Reports &amp; Analytics</h1>
-              <p className="text-sm text-ink/60">Generate detailed reports for sales, appointments, clients, staff, services, branches, and reviews.</p>
-            </div>
-          </div>
+      <PageHero
+        icon={BarChart3}
+        eyebrow="Insights"
+        title="Reports & Analytics"
+        subtitle="Generate detailed reports for sales, appointments, clients, staff, services, branches, and reviews."
+        actions={
           <button
             type="button"
             onClick={() => setAssistantOpen(true)}
-            className="flex items-center gap-2 rounded-full bg-gradient-to-r from-coral to-coral-dark py-1.5 pl-1.5 pr-4 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            className="lux-sheen flex items-center gap-2 rounded-full bg-gradient-to-r from-coral to-coral-dark py-1.5 pl-1.5 pr-4 text-sm font-semibold text-white shadow-[0_10px_20px_-10px_rgba(168,137,48,0.9)] transition duration-300 hover:-translate-y-0.5"
           >
             <span className="rounded-full bg-white p-0.5">
               <GlowMascot size={26} />
             </span>
             Ask AI about your reports
           </button>
-        </div>
-
-        <div className="mt-5 flex flex-wrap items-end gap-3">
+        }
+      />
+      <div className="rounded-2xl bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-end gap-3">
           <label className="text-xs font-semibold uppercase tracking-wide text-ink/60">
             Date From
             <input type="date" value={filters.from} onChange={(e) => update({ from: e.target.value })} className={`mt-1 block ${field}`} />

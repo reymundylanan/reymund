@@ -1,6 +1,7 @@
 "use client";
 
-import { CalendarDays, CalendarPlus, List, Search, X } from "lucide-react";
+import { CalendarClock, CalendarDays, CalendarPlus, List, Search, X } from "lucide-react";
+import PageHero from "@/components/portal/PageHero";
 import type { StaffRow, ServiceRow } from "@/components/frontdesk/appointments/AppointmentsManager";
 
 export type StatusFilter = "today" | "upcoming" | "past" | "completed" | "cancelled" | "no_show";
@@ -55,17 +56,14 @@ export default function AppointmentsToolbar({
   newBookingDisabled?: boolean;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold text-ink">Appointment Management</h1>
-          <p className="text-sm text-ink/50">
-            Manage and track daily bookings for {branchName ?? "your"} branch.
-          </p>
-        </div>
-
+    <PageHero
+      icon={CalendarClock}
+      eyebrow="Front desk"
+      title="Appointments"
+      subtitle={`Manage and track daily bookings for ${branchName ?? "your"} branch.`}
+      actions={
         <div className="flex items-center gap-2">
-          <div className="flex rounded-full border border-ink/15 p-1">
+          <div className="flex rounded-full border border-ink/15 bg-white p-1">
             <button
               onClick={() => onViewChange("calendar")}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium ${
@@ -88,15 +86,15 @@ export default function AppointmentsToolbar({
               type="button"
               onClick={onNewBooking}
               disabled={newBookingDisabled}
-              className="flex h-10 items-center gap-2 rounded-full bg-coral px-5 text-sm font-semibold text-white shadow-sm hover:bg-coral-dark disabled:opacity-50"
+              className="lux-sheen flex h-10 items-center gap-2 rounded-full bg-gradient-to-r from-coral to-coral-dark px-5 text-sm font-semibold text-white shadow-[0_10px_20px_-10px_rgba(168,137,48,0.9)] transition duration-300 hover:-translate-y-0.5 disabled:opacity-50"
             >
               <CalendarPlus className="h-4 w-4" /> New Booking
             </button>
           )}
         </div>
-      </div>
-
-      <div role="tablist" aria-label="Show" className="mt-5 flex w-fit max-w-full flex-wrap gap-1 rounded-full border border-[#e6d6ad] bg-[#fbf6ea] p-1">
+      }
+    >
+      <div role="tablist" aria-label="Show" className="flex w-fit max-w-full flex-wrap gap-1 rounded-full border border-[#e6d6ad] bg-[#fbf6ea] p-1">
         {STATUS_FILTERS.map((f) => (
           <button
             key={f.key}
@@ -169,6 +167,6 @@ export default function AppointmentsToolbar({
           )}
         </label>
       </div>
-    </div>
+    </PageHero>
   );
 }

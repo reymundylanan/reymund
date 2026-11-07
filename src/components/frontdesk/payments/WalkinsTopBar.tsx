@@ -1,4 +1,5 @@
-import { Plus, Users2 } from "lucide-react";
+import { Plus, UserPlus2 } from "lucide-react";
+import PageHero, { HERO_CHIP } from "@/components/portal/PageHero";
 
 export default function WalkinsTopBar({
   stats,
@@ -8,42 +9,33 @@ export default function WalkinsTopBar({
   onAddWalkin: () => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-white p-6 shadow-sm">
-      <div className="flex items-center gap-2">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-pink-50 text-pink-600">
-          <Users2 className="h-4.5 w-4.5" />
-        </span>
-        <div>
-          <h1 className="text-lg font-semibold text-ink">Walk-Ins</h1>
-          <p className="text-xs text-ink/50">Manage walk-in clients and track service progress in real time.</p>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="rounded-xl border border-ink/10 px-3 py-1.5 text-center">
-          <p className="text-[10px] text-ink/40">Total Walk-Ins</p>
-          <p className="text-sm font-semibold text-ink">{stats.total}</p>
-        </div>
-        <div className="rounded-xl border border-ink/10 px-3 py-1.5 text-center">
-          <p className="text-[10px] text-blue-500">In Service</p>
-          <p className="text-sm font-semibold text-blue-700">{stats.inService}</p>
-        </div>
-        <div className="rounded-xl border border-ink/10 px-3 py-1.5 text-center">
-          <p className="text-[10px] text-red-500">Overdue</p>
-          <p className="text-sm font-semibold text-red-700">{stats.overdue}</p>
-        </div>
-        <div className="rounded-xl border border-ink/10 px-3 py-1.5 text-center">
-          <p className="text-[10px] text-green-500">Completed</p>
-          <p className="text-sm font-semibold text-green-700">{stats.completed}</p>
-        </div>
-      </div>
-
-      <button
-        onClick={onAddWalkin}
-        className="flex items-center gap-1.5 rounded-full bg-coral px-4 py-2.5 text-sm font-semibold text-white hover:bg-coral-dark"
-      >
-        <Plus className="h-4 w-4" /> Add Walk-In
-      </button>
-    </div>
+    <PageHero
+      icon={UserPlus2}
+      eyebrow="Front desk"
+      title="Walk-Ins"
+      subtitle="Manage walk-in clients and track service progress in real time."
+      actions={
+        <>
+          {[
+            { label: "total", value: stats.total, dot: "bg-ink/40" },
+            { label: "in service", value: stats.inService, dot: "bg-blue-500" },
+            { label: "overdue", value: stats.overdue, dot: "bg-red-500" },
+            { label: "completed", value: stats.completed, dot: "bg-green-500" },
+          ].map((s) => (
+            <span key={s.label} className={HERO_CHIP}>
+              <span className={`h-2 w-2 rounded-full ${s.dot}`} aria-hidden />
+              <span className="font-semibold text-ink">{s.value}</span>
+              <span className="text-ink/50">{s.label}</span>
+            </span>
+          ))}
+          <button
+            onClick={onAddWalkin}
+            className="lux-sheen flex items-center gap-1.5 rounded-full bg-gradient-to-r from-coral to-coral-dark px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_20px_-10px_rgba(168,137,48,0.9)] transition duration-300 hover:-translate-y-0.5"
+          >
+            <Plus className="h-4 w-4" /> Add Walk-In
+          </button>
+        </>
+      }
+    />
   );
 }

@@ -17,6 +17,7 @@ import {
 import ReviewDetailPanel from "./ReviewDetailPanel";
 import ReviewAssistantPanel from "./ReviewAssistantPanel";
 import StatCard from "@/components/StatCard";
+import PageHero, { HERO_CHIP } from "@/components/portal/PageHero";
 
 type Stats = Awaited<ReturnType<typeof getAdminReviewStats>>;
 type Options = { staff: { id: string; name: string }[]; branches: { id: string; name: string }[]; services: { id: string; name: string }[] };
@@ -113,27 +114,15 @@ export default function ReviewsManager({
 
   return (
     <div className="space-y-6">
-      <section className="relative isolate overflow-hidden rounded-3xl border border-[#efe3c6] bg-gradient-to-br from-white via-[#fffaf0] to-[#f7ecd2] p-6 shadow-[0_24px_48px_-36px_rgba(70,48,18,0.45)] sm:p-7">
-        {/* Soft gold glow and faint stars behind the heading. */}
-        <span aria-hidden className="pointer-events-none absolute -right-16 -top-20 -z-10 h-64 w-64 rounded-full bg-[radial-gradient(circle,rgba(201,164,74,0.28),transparent_65%)]" />
-        <Star aria-hidden className="pointer-events-none absolute right-48 top-5 -z-10 h-5 w-5 fill-champagne/60 text-transparent max-lg:hidden" />
-        <Star aria-hidden className="pointer-events-none absolute right-36 bottom-6 -z-10 h-3.5 w-3.5 fill-champagne/70 text-transparent max-lg:hidden" />
-
-        <div className="flex flex-wrap items-center justify-between gap-5">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#e9c868] to-coral-dark text-white shadow-[0_12px_24px_-12px_rgba(168,137,48,0.8)]">
-              <Star className="h-7 w-7 fill-white" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-coral-dark">Client feedback</p>
-              <h1 className="text-2xl font-semibold leading-tight text-ink sm:text-3xl">Reviews</h1>
-              <p className="mt-0.5 text-sm text-ink/55">Service, staff and branch reviews from completed visits.</p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
+      <PageHero
+        icon={Star}
+        eyebrow="Client feedback"
+        title="Reviews"
+        subtitle="Service, staff and branch reviews from completed visits."
+        actions={
+          <>
             {overall.count > 0 && (
-              <span className="flex items-center gap-1.5 rounded-full bg-white/80 px-3.5 py-2 text-sm ring-1 ring-[#efe3c6] backdrop-blur">
+              <span className={HERO_CHIP}>
                 <Star className="h-4 w-4 fill-gold text-gold" aria-hidden />
                 <span className="font-semibold text-ink">{overall.average.toFixed(1)}</span>
                 <span className="text-ink/50">
@@ -157,9 +146,9 @@ export default function ReviewsManager({
             >
               <Gift className="h-4 w-4" aria-hidden /> Rewards
             </Link>
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
       {assistantOpen && (
         <ReviewAssistantPanel
           onClose={() => setAssistantOpen(false)}

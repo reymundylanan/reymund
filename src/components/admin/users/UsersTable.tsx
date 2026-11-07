@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapPin, MoreHorizontal, Plus, Search, Users, ShieldCheck, UserCog, MonitorSmartphone, UserCircle } from "lucide-react";
+import { MapPin, MoreHorizontal, Plus, Search, Users, UsersRound, ShieldCheck, UserCog, MonitorSmartphone, UserCircle } from "lucide-react";
+import PageHero from "@/components/portal/PageHero";
 import { TABLE_HEAD, TABLE_WRAP, TABLE_ROW } from "@/components/admin/users/tableStyle";
 import StatCard from "@/components/StatCard";
 import UserEditPanel from "@/components/admin/users/UserEditPanel";
@@ -160,15 +161,12 @@ export default function UsersTable({
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-2xl font-semibold text-ink">Users &amp; Roles</h2>
-          <p className="text-base text-ink/50">
-            Manage system users, assign roles, and control access permissions.
-          </p>
-        </div>
-      </div>
+      <PageHero
+        icon={UsersRound}
+        eyebrow="Accounts & access"
+        title="Users & Roles"
+        subtitle="Manage system users, assign roles, and control access permissions."
+      />
 
       {/* Stat cards — click one to open its tab */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
