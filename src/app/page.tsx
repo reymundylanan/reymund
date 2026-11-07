@@ -9,6 +9,7 @@ import Reviews from "@/components/home/Reviews";
 import Branches from "@/components/home/Branches";
 import Cta from "@/components/home/Cta";
 import BusinessJsonLd from "@/components/home/BusinessJsonLd";
+import Reveal from "@/components/motion/Reveal";
 import { createClient } from "@/lib/supabase/server";
 import { getHomeOverview } from "@/lib/supabase/queries/homeOverview";
 import { openNow } from "@/lib/ai/spaKnowledge";
@@ -37,13 +38,27 @@ export default async function Home() {
       <main className="flex-1">
         <BusinessJsonLd />
         <Hero facts={hero} />
-        <Promotions />
-        <Services departments={overview.departments} />
-        <HowItWorks />
-        <Team />
-        <Reviews />
-        <Branches />
-        <Cta overview={overview} />
+        <Reveal>
+          <Promotions />
+        </Reveal>
+        <Reveal>
+          <Services departments={overview.departments} />
+        </Reveal>
+        <Reveal>
+          <HowItWorks />
+        </Reveal>
+        <Reveal>
+          <Team />
+        </Reveal>
+        <Reveal>
+          <Reviews />
+        </Reveal>
+        <Reveal>
+          <Branches />
+        </Reveal>
+        <Reveal>
+          <Cta overview={overview} />
+        </Reveal>
       </main>
       <Footer />
     </>

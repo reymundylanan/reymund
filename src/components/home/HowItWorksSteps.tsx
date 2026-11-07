@@ -168,14 +168,14 @@ export default function HowItWorksSteps() {
               onPointerDown={(e) => (lastPointer.current = e.pointerType)}
               onClick={() => clickStep(i)}
               aria-expanded={active === i}
-              className={`group relative h-full w-full rounded-3xl border bg-white p-6 text-left shadow-sm transition ${
-                active === i ? "border-transparent shadow-[0_0_0_2px_#d9b968,0_14px_30px_-18px_rgba(168,132,58,0.6)]" : "border-nude/70 hover:-translate-y-0.5 hover:shadow-md"
+              className={`group lux-card relative h-full w-full rounded-3xl border bg-white p-6 text-left shadow-sm ${
+                active === i ? "border-transparent shadow-[0_0_0_2px_#d9b968,0_14px_30px_-18px_rgba(168,132,58,0.6)]" : "border-nude/70 hover:border-champagne"
               }`}
             >
               <span className="absolute right-5 top-4 font-display text-4xl font-semibold text-coral-dark/80" aria-hidden>
                 {i + 1}
               </span>
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-skin text-coral-dark transition group-hover:bg-coral group-hover:text-white">
+              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-skin text-coral-dark transition duration-700 group-hover:bg-coral group-hover:text-white">
                 <Icon className="h-5 w-5" aria-hidden />
               </span>
               <span className="mt-4 block font-semibold text-ink">
@@ -213,7 +213,7 @@ export default function HowItWorksSteps() {
                   />
                 </div>
                 <div className={`min-w-0 flex-1 space-y-2 transition-opacity duration-300 ${moving ? "opacity-0" : "opacity-100"}`}>
-                  <p className="guide-rise flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">
+                  <p className="guide-rise flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#a97c1c]">
                     <span aria-hidden className="guide-live-dot" />
                     GlowSync AI · Step {active + 1} of {STEPS.length}
                   </p>
@@ -232,7 +232,7 @@ export default function HowItWorksSteps() {
                           setActive(null);
                           open(branchServiceCategories[0].services[0]);
                         }}
-                        className="flex items-center gap-1 rounded-full bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-4 py-1.5 text-xs font-extrabold text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] transition hover:-translate-y-0.5 hover:brightness-105"
+                        className="flex items-center gap-1 rounded-full bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-4 py-1.5 text-xs font-semibold text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] lux-sheen transition duration-500 hover:brightness-110"
                       >
                         <CalendarPlus className="h-3.5 w-3.5" aria-hidden /> Book now
                       </button>
@@ -240,7 +240,7 @@ export default function HowItWorksSteps() {
                       <Link
                         href={step.action.href}
                         onClick={() => setActive(null)}
-                        className="flex items-center gap-1 rounded-full bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-4 py-1.5 text-xs font-extrabold text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] transition hover:-translate-y-0.5 hover:brightness-105"
+                        className="flex items-center gap-1 rounded-full bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-4 py-1.5 text-xs font-semibold text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] lux-sheen transition duration-500 hover:brightness-110"
                       >
                         {step.action.label} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                       </Link>
@@ -249,7 +249,7 @@ export default function HowItWorksSteps() {
                       <button
                         type="button"
                         onClick={() => show(active + 1)}
-                        className="rounded-full border-[1.5px] border-[#d9b968] bg-white px-4 py-1.5 text-xs font-extrabold text-ink/80 transition hover:-translate-y-0.5"
+                        className="rounded-full border-[1.5px] border-[#d9b968] bg-white px-4 py-1.5 text-xs font-semibold text-ink/80 transition duration-500 hover:border-coral hover:bg-cream"
                       >
                         Next step →
                       </button>

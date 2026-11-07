@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { CalendarCheck, ChevronLeft, ChevronRight, Clock, ShieldCheck, Sparkles, Star, Users, Wallet } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
@@ -18,6 +18,9 @@ export type HeroFacts = {
   /** Most-offered categories, for the quick links under the hero. */
   categories: string[];
 };
+
+/** Delay for a staged .lux-rise entrance. */
+const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
 
 const TRUST = [
   { icon: CalendarCheck, text: "Book online any time" },
@@ -40,44 +43,48 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
           loop
           playsInline
           aria-hidden
-          className="absolute inset-0 -z-20 h-full w-full object-cover"
+          className="lux-kenburns absolute inset-0 -z-20 h-full w-full object-cover"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#2b1a10]/75 via-[#4a3020]/50 to-[#a8843a]/30" />
 
         <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1fr_24rem]">
           <div className="flex flex-col items-start gap-6">
-            <p className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] backdrop-blur">
+            <p style={delay(100)} className="lux-rise inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-champagne" aria-hidden />
               Blush Spa &amp; Aesthetics · Pagadian City
             </p>
 
             <h1 className="max-w-2xl text-4xl font-semibold leading-tight sm:text-6xl">
-              Synchronized Care for
-              <br />
-              <span className="italic text-champagne">Your Natural Glow</span>
+              <span style={delay(250)} className="lux-rise block">
+                Synchronized Care for
+              </span>
+              <span style={delay(420)} className="lux-rise block italic text-champagne">
+                Your Natural Glow
+              </span>
             </h1>
+            <span aria-hidden style={delay(700)} className="lux-line -mt-2 block h-px w-24 bg-gradient-to-r from-champagne to-transparent" />
 
-            <p className="max-w-xl text-lg leading-relaxed text-white/90">
+            <p style={delay(600)} className="lux-rise max-w-xl text-lg leading-relaxed text-white/90">
               Facials, laser, doctor&rsquo;s procedures, slimming, hair and nails — under one roof, with specialists who
               know your history. Choose your treatment, branch and time in a few taps.
             </p>
 
-            <div className="flex flex-wrap gap-4 pt-1">
+            <div style={delay(780)} className="lux-rise flex flex-wrap gap-4 pt-1">
               <button
                 onClick={() => open(defaultService)}
-                className="rounded-full bg-coral px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-black/20 transition hover:bg-coral-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                className="lux-sheen rounded-full bg-coral px-7 py-3 text-sm font-semibold tracking-wide text-white shadow-lg shadow-black/20 transition duration-500 hover:bg-coral-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 Book an Experience
               </button>
               <button
                 onClick={() => setShowMenu(true)}
-                className="rounded-full border border-white/60 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                className="rounded-full border border-white/60 px-7 py-3 text-sm font-semibold tracking-wide text-white backdrop-blur-sm transition duration-500 hover:border-white hover:bg-white hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 View Menu
               </button>
             </div>
 
-            <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/85">
+            <ul style={delay(940)} className="lux-rise flex flex-wrap gap-x-6 gap-y-2 text-sm text-white/85">
               {TRUST.map(({ icon: Icon, text }) => (
                 <li key={text} className="flex items-center gap-2">
                   <Icon className="h-4 w-4 text-champagne" aria-hidden /> {text}
@@ -106,7 +113,7 @@ function TodayCard({ facts }: { facts: HeroFacts }) {
   ].filter((n) => n.value);
 
   return (
-    <aside className="rounded-3xl border border-white/25 bg-[#2b1a10]/35 p-5 shadow-2xl shadow-black/20 backdrop-blur-md">
+    <aside style={delay(850)} className="lux-rise rounded-3xl border border-white/25 bg-[#2b1a10]/35 p-5 shadow-2xl shadow-black/20 backdrop-blur-md">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-champagne">Today at Blush</p>
       <ul className="mt-3 space-y-2.5">
         {facts.branches.map((b) => (
@@ -199,7 +206,7 @@ function CategoryBar({ categories }: { categories: string[] }) {
             <Link
               key={c}
               href={`/services?category=${encodeURIComponent(c)}`}
-              className="shrink-0 rounded-full bg-skin/70 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-coral hover:text-white"
+              className="shrink-0 rounded-full bg-skin/70 px-4 py-2 text-sm font-medium text-ink/80 transition duration-500 hover:bg-coral hover:text-white"
             >
               {c}
             </Link>

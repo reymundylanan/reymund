@@ -1,14 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Fredoka, Nunito } from "next/font/google";
 
 // Shared pieces of GlowSync AI's speech bubbles (Services guide, Meet the Team).
 
-// Rounded, friendly faces for the speech bubble.
-const guideDisplay = Fredoka({ subsets: ["latin"], variable: "--font-guide-display" });
-const guideBody = Nunito({ subsets: ["latin"], variable: "--font-guide-body" });
-export const GUIDE_FONTS = `${guideDisplay.variable} ${guideBody.variable}`;
+// The bubble's fonts are the site's serif + sans (--font-guide-* in globals.css).
+export const GUIDE_FONTS = "";
 
 /** The full-body mascot's height everywhere: computers and phones. */
 export const MASCOT_DESKTOP = 208;
@@ -50,32 +47,32 @@ export function useGuideTravel(ms = 900) {
   return { moving, note };
 }
 
-/** Types its text out like the mascot is speaking. Remount (key) to replay. */
+const WORD_MS = 32;
+
+/** The mascot's line, its words easing in one after another. Remount (key)
+ * to replay. */
 export function TypeText({ text, onDone }: { text: string; onDone?: () => void }) {
-  const [shown, setShown] = useState(0);
+  const parts = text.split(/(\s+)/);
+  const words = parts.filter((p) => p && !/^\s+$/.test(p)).length;
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      const id = window.setTimeout(() => {
-        setShown(text.length);
-        onDone?.();
-      }, 0);
-      return () => window.clearTimeout(id);
-    }
-    const id = window.setInterval(() => {
-      setShown((n) => {
-        if (n + 1 >= text.length) {
-          window.clearInterval(id);
-          onDone?.();
-        }
-        return Math.min(n + 1, text.length);
-      });
-    }, 22);
-    return () => window.clearInterval(id);
-  }, [text, onDone]);
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const id = window.setTimeout(() => onDone?.(), reduce ? 0 : words * WORD_MS + 600);
+    return () => window.clearTimeout(id);
+  }, [text, words, onDone]);
+  const delays = parts.map((_, i) => parts.slice(0, i).filter((p) => p && !/^\s+$/.test(p)).length * WORD_MS);
   return (
     <>
-      <span>{text.slice(0, shown)}</span>
-      {shown < text.length && <span aria-hidden className="guide-caret" />}
+      <span aria-hidden>
+        {parts.map((p, i) =>
+          !p || /^\s+$/.test(p) ? (
+            p
+          ) : (
+            <span key={i} className="guide-word" style={{ animationDelay: `${delays[i]}ms` }}>
+              {p}
+            </span>
+          )
+        )}
+      </span>
       {/* Screen readers get the whole line at once. */}
       <span className="sr-only">{text}</span>
     </>

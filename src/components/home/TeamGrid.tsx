@@ -194,7 +194,7 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
                 />
               </div>
               <div className={`min-w-0 flex-1 space-y-2 transition-opacity duration-300 ${moving ? "opacity-0" : "opacity-100"}`}>
-                <p className="guide-rise flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#a97c1c]">
+                <p className="guide-rise flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#a97c1c]">
                   <span aria-hidden className="guide-live-dot" />
                   GlowSync AI · Meet the team
                 </p>
@@ -210,13 +210,13 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
                   <button
                     type="button"
                     onClick={book}
-                    className="flex items-center justify-center gap-1 rounded-full bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-3 py-1.5 text-xs font-extrabold text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] transition hover:-translate-y-0.5 hover:brightness-105"
+                    className="flex items-center justify-center gap-1 rounded-full bg-gradient-to-br from-[#e9bc4c] to-[#c58d1d] px-3 py-1.5 text-xs font-semibold text-white shadow-[0_8px_16px_-8px_rgba(169,124,28,0.8)] lux-sheen transition duration-500 hover:brightness-110"
                   >
                     <CalendarPlus className="h-3.5 w-3.5" /> Book with {active.fullName.replace(/^Ms\.?\s+|^Mr\.?\s+/i, "")}
                   </button>
                   <Link
                     href={`/team/${active.id}`}
-                    className="flex items-center justify-center rounded-full border-[1.5px] border-[#d9b968] bg-white px-3 py-1.5 text-xs font-extrabold text-ink/80 transition hover:-translate-y-0.5"
+                    className="flex items-center justify-center rounded-full border-[1.5px] border-[#d9b968] bg-white px-3 py-1.5 text-xs font-semibold text-ink/80 transition duration-500 hover:border-coral hover:bg-cream"
                   >
                     View Profile
                   </Link>

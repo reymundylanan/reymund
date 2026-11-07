@@ -53,10 +53,10 @@ export default function Services({ departments }: { departments: DepartmentSumma
             return (
               <div
                 key={cat.id}
-                className="flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-[#a8843a]/15"
+                className="group lux-card flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm hover:border-champagne"
               >
                 <div className="relative h-56 overflow-hidden">
-                  <Image src={cat.image} alt={cat.alt} fill className={cat.imgClass} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
+                  <Image src={cat.image} alt={cat.alt} fill className={`${cat.imgClass} lux-zoom`} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
                   <span className="absolute left-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-xs font-medium text-white">{cat.badge}</span>
                   {facts && (
                     <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-ink shadow-sm">

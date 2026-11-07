@@ -29,14 +29,14 @@ export default async function Promotions() {
               key={promo.id}
               href={`/promos/${promo.id}`}
               data-guide-id={promo.id}
-              className="group relative isolate flex min-h-64 flex-col overflow-hidden rounded-3xl p-6 text-white border-2 border-coral shadow-sm ring-1 ring-champagne/60 ring-offset-2 ring-offset-cream transition duration-300 hover:-translate-y-1 hover:border-coral-dark hover:shadow-xl hover:shadow-[#a8843a]/20"
+              className="group relative isolate flex min-h-64 flex-col overflow-hidden rounded-3xl p-6 text-white border-2 border-coral shadow-sm ring-1 ring-champagne/60 ring-offset-2 ring-offset-cream lux-card hover:border-coral-dark"
             >
               <Image
                 src={promoImage(promo)}
                 alt=""
                 fill
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                className="-z-20 object-cover transition-transform duration-500 group-hover:scale-105"
+                className="lux-zoom -z-20 object-cover"
               />
               {/* Warm shade so the text is always readable over the photo. */}
               <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#2b1a10]/90 via-[#4a3020]/55 to-[#a8843a]/25" />
