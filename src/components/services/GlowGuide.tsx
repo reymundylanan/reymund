@@ -22,7 +22,7 @@ const HOVER_RESUME_MS = 6000; // auto-tour resumes this long after the mouse lea
 const GREETING_MS = 4500; // "Hi! I'm GlowSync AI" before the tour starts
 const ARRIVE_MS = 450; // the arrow reaches the card first; the mascot follows
 const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
-const TURN_OUT_MS = 380; // the speech box sliding back behind the card (matches .guide-emerge-out)
+const TURN_OUT_MS = 420; // the speech box sliding back behind the card (matches .guide-emerge-out)
 
 const sameName = (a?: string | null, b?: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 const MINIMIZED_KEY = "glowguide-minimized";
@@ -683,7 +683,12 @@ export default function GlowGuide({
           data-guide-ui
           className={`guide-bubble ${boxHidden ? "guide-emerge-out" : "guide-emerge"} ${GUIDE_FONTS}`}
           // Slides out from behind the card (and back behind it).
-          style={{ "--emerge-x": `${emergeX}px`, "--emerge-tilt": side === "right" ? "-2.5deg" : "2.5deg" } as CSSProperties}
+          style={{
+            "--emerge-x": `${emergeX}px`,
+            "--emerge-tilt": side === "right" ? "-2.5deg" : "2.5deg",
+            // Grows out from the side nearest the card.
+            "--emerge-origin": side === "right" ? "0% 45%" : "100% 45%",
+          } as CSSProperties}
         >
           <div className="guide-bubble-inner p-4 pt-4" style={side === "right" ? { paddingLeft: TUCK + 12 } : { paddingRight: TUCK + 12 }}>
             {bubble}
