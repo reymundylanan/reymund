@@ -78,7 +78,7 @@ export default function SiteMotion() {
           if (card) { card.classList.add("m-i"); tl.fromTo(card, { "--my": "0px" }, { "--my": desktop ? "-35px" : "-15px" }, 0); }
           if (content) tl.fromTo(content, { opacity: 1 }, { opacity: 0.15, ease: "power1.in" }, 0.2);
           if (desktop) {
-            tl.fromTo(hero, { clipPath: "inset(0% 0% 0% 0% round 0px)" }, { clipPath: "inset(0% 1.5% 4% 1.5% round 28px)" }, 0);
+            tl.fromTo(hero, { clipPath: "inset(0% 0% 0% 0% round 0px 0px 0px 0px)" }, { clipPath: "inset(0% 1.5% 0% 1.5% round 0px 0px 28px 28px)" }, 0);
           }
         });
 

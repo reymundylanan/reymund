@@ -193,7 +193,7 @@ function CategoryBar({ categories }: { categories: string[] }) {
     "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-nude bg-white text-coral-dark shadow-sm transition hover:bg-coral hover:text-white";
 
   return (
-    <nav aria-label="Treatment categories" className="relative z-10 mx-auto -mt-7 max-w-7xl px-6">
+    <nav aria-label="Treatment categories" className="relative z-10 mx-auto -mt-9 max-w-7xl px-6">
       <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/90 p-2 shadow-[0_24px_48px_-28px_rgba(70,48,18,0.5)] ring-1 ring-[#efe3c6] backdrop-blur-xl">
         <span className="hidden shrink-0 items-center px-4 text-xs font-semibold uppercase tracking-[0.2em] text-coral-dark sm:flex">
           Explore
