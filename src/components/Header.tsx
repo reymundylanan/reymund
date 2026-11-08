@@ -11,6 +11,7 @@ import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import ClientNotificationBell from "@/components/notifications/ClientNotificationBell";
 import { createClient } from "@/lib/supabase/client";
 import MobileNavPanel from "@/components/MobileNavPanel";
+import SiteMotion from "@/components/motion/SiteMotion";
 
 const baseNavLinks = [
   { label: "Home", href: "/" },
@@ -53,6 +54,7 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50">
+      <SiteMotion />
       <AnnouncementBar />
 
       <div className="border-b border-nude/70 bg-white/95 backdrop-blur">

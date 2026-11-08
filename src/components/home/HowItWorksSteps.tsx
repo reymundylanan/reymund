@@ -157,7 +157,7 @@ export default function HowItWorksSteps() {
 
   return (
     <div ref={gridRef} className="relative">
-      <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <ol data-m="wave" data-m-v="tilt" className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {STEPS.map(({ icon: Icon, title, text }, i) => (
           <li key={title}>
             <button

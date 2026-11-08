@@ -10,7 +10,7 @@ export default function Leadership() {
   return (
     <section className="bg-blush px-6 py-20">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1fr_1.2fr]">
-        <div className="relative h-[420px] overflow-hidden rounded-3xl bg-gradient-to-br from-coral to-ink/40">
+        <div data-m="clip-photo" className="relative h-[420px] overflow-hidden rounded-3xl bg-gradient-to-br from-coral to-ink/40">
           {/* Her photo: public/images/about/liberose.jpg (gold background until it is added). */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -33,7 +33,7 @@ export default function Leadership() {
           <span className="inline-block rounded-full border border-coral/40 px-4 py-1.5 text-xs font-semibold text-coral-dark">
             Corporate Leadership
           </span>
-          <h2 className="mt-4 text-3xl font-semibold text-ink">
+          <h2 data-m="title" className="mt-4 text-3xl font-semibold text-ink">
             Driving Excellence Through{" "}
             <span className="text-coral">People-First</span> Management.
           </h2>
@@ -52,7 +52,7 @@ export default function Leadership() {
             the highest standards of professional ethics.
           </p>
 
-          <div className="mt-8 grid grid-cols-3 gap-6 border-t border-ink/10 pt-6">
+          <div data-m="wave" data-m-v="cascade" className="mt-8 grid grid-cols-3 gap-6 border-t border-ink/10 pt-6">
             {stats.map((stat) => (
               <div key={stat.label}>
                 <p className="text-2xl font-semibold text-coral-dark">

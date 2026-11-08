@@ -5,7 +5,7 @@ export default function JoinTeamCta() {
     <section className="mx-auto max-w-7xl px-6 pb-20">
       <div className="grid gap-8 rounded-3xl bg-gradient-to-br from-[#2c2018] via-[#3a2a22] to-[#c9836f] p-10 text-white lg:grid-cols-[1.3fr_1fr]">
         <div>
-          <h2 className="text-3xl font-semibold sm:text-4xl">
+          <h2 data-m="title" className="text-3xl font-semibold sm:text-4xl">
             Join Our Growing
             <br />
             <span className="text-coral">Professional Team</span>

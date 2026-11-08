@@ -19,7 +19,7 @@ export default function Commitment() {
     <section className="bg-blush px-6 py-20">
       <div className="mx-auto max-w-7xl">
         <div className="text-center">
-          <h2 className="text-3xl font-semibold text-ink">
+          <h2 data-m="title" className="text-3xl font-semibold text-ink">
             The <span className="text-coral">Blush</span> Commitment
           </h2>
           <p className="mx-auto mt-2 max-w-xl text-ink/60">
@@ -29,7 +29,7 @@ export default function Commitment() {
           <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-coral" />
         </div>
 
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div data-m="wave" data-m-v="cascade" className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {coreValues.map((value, i) => {
             const Icon = valueIcons[i % valueIcons.length];
             return (

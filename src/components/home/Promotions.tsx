@@ -23,12 +23,13 @@ export default async function Promotions() {
       {promos.length === 0 ? (
         <p className="rounded-2xl bg-skin/60 p-8 text-center text-ink/70">No promotions running right now — check back soon!</p>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div data-m="wave" className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {promos.map((promo) => (
             <Link
               key={promo.id}
               href={`/promos/${promo.id}`}
               data-guide-id={promo.id}
+              data-cursor="View"
               className="group relative isolate flex min-h-64 flex-col overflow-hidden rounded-3xl p-6 text-white border-2 border-coral shadow-sm ring-1 ring-champagne/60 ring-offset-2 ring-offset-cream lux-card hover:border-coral-dark"
             >
               <Image
@@ -36,7 +37,7 @@ export default async function Promotions() {
                 alt=""
                 fill
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                className="lux-zoom -z-20 object-cover"
+                className="m-par lux-zoom -z-20 object-cover"
               />
               {/* Warm shade so the text is always readable over the photo. */}
               <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#2b1a10]/90 via-[#4a3020]/55 to-[#a8843a]/25" />

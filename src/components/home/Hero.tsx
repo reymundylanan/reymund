@@ -35,7 +35,7 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
 
   return (
     <section className="relative">
-      <div className="relative isolate overflow-hidden px-6 pb-24 pt-16 text-white sm:pb-28">
+      <div data-m="hero" className="relative isolate overflow-hidden px-6 pb-24 pt-16 text-white sm:pb-28">
         <video
           src="/images/hero/blushspavid.mp4"
           autoPlay
@@ -43,12 +43,13 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
           loop
           playsInline
           aria-hidden
-          className="lux-kenburns absolute inset-0 -z-20 h-full w-full object-cover"
+          data-m-media
+          className="m-par lux-kenburns absolute inset-0 -z-20 h-full w-full object-cover"
         />
         <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#2b1a10]/75 via-[#4a3020]/50 to-[#a8843a]/30" />
 
-        <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1fr_24rem]">
-          <div className="flex flex-col items-start gap-6">
+        <div data-m-content className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1fr_24rem]">
+          <div data-m-copy className="flex flex-col items-start gap-6">
             <p style={delay(100)} className="lux-rise inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-champagne" aria-hidden />
               Blush Spa &amp; Aesthetics · Pagadian City
@@ -71,12 +72,14 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
 
             <div style={delay(780)} className="lux-rise flex flex-wrap gap-4 pt-1">
               <button
+                data-magnetic
                 onClick={() => open(defaultService)}
                 className="lux-sheen rounded-full bg-coral px-7 py-3 text-sm font-semibold tracking-wide text-white shadow-lg shadow-black/20 transition duration-500 hover:bg-coral-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 Book an Experience
               </button>
               <button
+                data-magnetic
                 onClick={() => setShowMenu(true)}
                 className="rounded-full border border-white/60 px-7 py-3 text-sm font-semibold tracking-wide text-white backdrop-blur-sm transition duration-500 hover:border-white hover:bg-white hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
@@ -113,7 +116,7 @@ function TodayCard({ facts }: { facts: HeroFacts }) {
   ].filter((n) => n.value);
 
   return (
-    <aside style={delay(850)} className="lux-rise rounded-3xl border border-white/25 bg-[#2b1a10]/35 p-5 shadow-2xl shadow-black/20 backdrop-blur-md">
+    <aside data-m-card style={delay(850)} className="lux-rise rounded-3xl border border-white/25 bg-[#2b1a10]/35 p-5 shadow-2xl shadow-black/20 backdrop-blur-md">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-champagne">Today at Blush</p>
       <ul className="mt-3 space-y-2.5">
         {facts.branches.map((b) => (

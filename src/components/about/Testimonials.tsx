@@ -9,7 +9,7 @@ export default async function Testimonials() {
   return (
     <section className="mx-auto max-w-7xl px-6 py-20">
       <div className="text-center">
-        <h2 className="text-3xl font-semibold text-ink">Voices of Relaxation</h2>
+        <h2 data-m="title" className="text-3xl font-semibold text-ink">Voices of Relaxation</h2>
         <p className="mx-auto mt-2 max-w-xl text-ink/60">Real stories from our beloved clients across Pagadian City.</p>
         <div className="mx-auto mt-4 h-1 w-16 rounded-full bg-coral" />
       </div>
@@ -19,7 +19,7 @@ export default async function Testimonials() {
           Client stories will appear here as reviews come in.
         </p>
       ) : (
-        <div className="mt-10 grid gap-6 sm:grid-cols-3">
+        <div data-m="fan" className="mt-10 grid gap-6 sm:grid-cols-3">
           {highlights.map((t) => (
             <div key={t.id} className="rounded-3xl border border-nude/70 bg-white p-6 shadow-sm">
               <div className="flex">

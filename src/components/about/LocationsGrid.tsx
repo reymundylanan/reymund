@@ -119,7 +119,7 @@ export default function LocationsGrid({ locations }: { locations: LocationCard[]
 
   return (
     <div ref={gridRef} className="relative mt-10">
-      <div className="grid gap-6 sm:grid-cols-2">
+      <div data-m="wave" data-m-v="tilt" className="grid gap-6 sm:grid-cols-2">
         {locations.map((loc) => {
           const on = activeId === loc.id;
           return (

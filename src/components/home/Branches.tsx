@@ -53,11 +53,11 @@ export default function Branches() {
   const contact = branchContacts.find((c) => c.id === selectedBranch.id);
 
   return (
-    <section id="branches" className="mx-auto max-w-7xl px-6 py-20">
+    <section id="branches" data-m="branches" className="mx-auto max-w-7xl px-6 py-20">
       <p className="text-xs font-semibold uppercase tracking-[0.25em] text-coral-dark">
         Find Us Near You
       </p>
-      <h2 className="mt-3 max-w-lg text-3xl font-semibold text-ink sm:text-4xl">
+      <h2 data-m="title" className="mt-3 max-w-lg text-3xl font-semibold text-ink sm:text-4xl">
         Luxury Comfort at Every Corner
       </h2>
       <p className="mt-2 max-w-xl text-ink/60">
@@ -67,7 +67,7 @@ export default function Branches() {
       </p>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
-        <div className="space-y-4">
+        <div data-m-list className="space-y-4">
           {branches.map((branch) => {
             const hoursStr = dbHours[branch.name] ?? branch.hours;
             const open = hoursStr ? isOpenNow(hoursStr, now) : branch.open;
@@ -107,7 +107,7 @@ export default function Branches() {
           })}
         </div>
 
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-nude/70 bg-skin/60">
+        <div data-m-map className="flex flex-col overflow-hidden rounded-2xl border border-nude/70 bg-skin/60">
           <iframe
             key={mapSrc}
             title={`Map to ${selectedBranch.name}`}

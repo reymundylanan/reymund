@@ -121,7 +121,7 @@ export default function TeamGrid({ staff, categories }: { staff: PublicStaff[]; 
 
   return (
     <div ref={gridRef} className="relative">
-      <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
+      <div data-m="wave" data-m-v="alt" className="grid grid-cols-2 gap-8 sm:grid-cols-4">
         {staff.map((m) => (
           <button
             key={m.id}

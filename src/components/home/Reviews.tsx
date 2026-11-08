@@ -8,9 +8,9 @@ export default async function Reviews() {
   const { highlights, stats } = await getReviewHighlights(await createClient(), 4);
 
   return (
-    <section id="reviews" className="mx-auto max-w-7xl scroll-mt-28 px-6 py-20">
+    <section id="reviews" data-m="hgallery" className="mx-auto max-w-7xl scroll-mt-28 px-6 py-20">
       <p className="text-xs font-semibold uppercase tracking-[0.25em] text-coral-dark">Client Love</p>
-      <h2 className="mt-2 text-3xl font-semibold text-ink sm:text-4xl">Reviews</h2>
+      <h2 data-m="title" className="mt-2 text-3xl font-semibold text-ink sm:text-4xl">Reviews</h2>
       {stats.count > 0 && (
         <div className="mt-3 flex items-center gap-2">
           <div className="flex">
@@ -30,7 +30,7 @@ export default async function Reviews() {
           Be the first to share your experience — reviews appear here after your visit.
         </p>
       ) : (
-        <div className="mt-8 grid gap-6 sm:grid-cols-2">
+        <div data-m-track className="mt-8 grid gap-6 sm:grid-cols-2">
           {highlights.map((r) => (
             <div key={r.id} className="rounded-3xl border border-nude/70 bg-white p-6 shadow-sm">
               <div className="flex items-center gap-3">

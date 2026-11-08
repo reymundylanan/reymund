@@ -38,7 +38,7 @@ const peso = (n: number) => `₱${n.toLocaleString("en-PH")}`;
 
 export default function Services({ departments }: { departments: DepartmentSummary[] }) {
   return (
-    <section id="services" className="bg-blush py-20">
+    <section id="services" data-m="widen" className="bg-blush py-20">
       <div className="mx-auto max-w-7xl px-6">
         <SectionHeading
           eyebrow="Blush Excellence"
@@ -46,17 +46,18 @@ export default function Services({ departments }: { departments: DepartmentSumma
           subtitle="Expertly curated treatments designed to restore balance to your body and mind."
         />
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div data-m="unveil" className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {categories.map((cat) => {
             const facts = departments.find((d) => d.department === cat.id);
             const first = facts?.categories[0]?.name;
             return (
               <div
                 key={cat.id}
+                data-cursor="View"
                 className="group lux-card flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm hover:border-champagne"
               >
                 <div className="relative h-56 overflow-hidden">
-                  <Image src={cat.image} alt={cat.alt} fill className={`${cat.imgClass} lux-zoom`} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
+                  <Image src={cat.image} alt={cat.alt} fill className={`${cat.imgClass} m-par lux-zoom`} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
                   <span className="absolute left-3 top-3 rounded-full bg-black/45 px-2.5 py-1 text-xs font-medium text-white">{cat.badge}</span>
                   {facts && (
                     <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-ink shadow-sm">
@@ -114,7 +115,7 @@ export default function Services({ departments }: { departments: DepartmentSumma
         </div>
 
         <div className="mt-10 text-center">
-          <Link href="/services" className="inline-block rounded-full bg-coral px-6 py-3 text-sm font-semibold text-white hover:bg-coral-dark">
+          <Link href="/services" data-magnetic className="inline-block rounded-full bg-coral px-6 py-3 text-sm font-semibold text-white hover:bg-coral-dark">
             Browse Full Catalog →
           </Link>
         </div>
