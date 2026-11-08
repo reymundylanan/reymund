@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { CalendarCheck, ChevronLeft, ChevronRight, Clock, ShieldCheck, Sparkles, Star, Users, Wallet } from "lucide-react";
+import { ArrowRight, CalendarCheck, ChevronLeft, ChevronRight, Clock, Play, ShieldCheck, Sparkles, Star, Users, Wallet } from "lucide-react";
 import { useBooking } from "@/components/booking/BookingContext";
 import { branchServiceCategories } from "@/lib/data";
 import MenuGalleryModal from "@/components/home/MenuGalleryModal";
@@ -46,24 +46,28 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
           data-m-media
           className="m-par lux-kenburns absolute inset-0 -z-20 h-full w-full object-cover"
         />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#2b1a10]/75 via-[#4a3020]/50 to-[#a8843a]/30" />
+        {/* Warm and dark behind the words, opening up toward the photo. */}
+        <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#2b1a10]/85 via-[#4a3020]/50 to-[#a8843a]/10" />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#2b1a10]/50 via-transparent to-transparent" />
 
         <div data-m-content className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1fr_24rem]">
           <div data-m-copy className="flex flex-col items-start gap-6">
-            <p style={delay(100)} className="lux-rise inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] backdrop-blur">
+            <p style={delay(100)} className="lux-rise inline-flex items-center gap-2 rounded-full border border-[#e9c868]/45 bg-[#2b1a10]/25 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] backdrop-blur">
               <Sparkles className="h-3.5 w-3.5 text-champagne" aria-hidden />
               Blush Spa &amp; Aesthetics · Pagadian City
             </p>
 
-            <h1 className="max-w-2xl text-4xl font-semibold leading-tight sm:text-6xl">
+            <h1 className="max-w-3xl font-display text-5xl font-medium leading-[1.05] tracking-tight sm:text-7xl">
               <span style={delay(250)} className="lux-rise block">
                 Synchronized Care for
               </span>
-              <span style={delay(420)} className="lux-rise block italic text-champagne">
-                Your Natural Glow
+              <span style={delay(420)} className="lux-rise block">
+                <span className="inline-block bg-gradient-to-r from-[#f7df9c] via-[#e9c060] to-[#c99a3c] bg-clip-text pb-1 pr-2 italic text-transparent">
+                  Your Natural Glow
+                </span>
               </span>
             </h1>
-            <span aria-hidden style={delay(700)} className="lux-line -mt-2 block h-px w-24 bg-gradient-to-r from-champagne to-transparent" />
+            <span aria-hidden style={delay(700)} className="lux-line -mt-1 block h-px w-28 bg-gradient-to-r from-[#e9c868] to-transparent" />
 
             <p style={delay(600)} className="lux-rise max-w-xl text-lg leading-relaxed text-white/90">
               Facials, laser, doctor&rsquo;s procedures, slimming, hair and nails — under one roof, with specialists who
@@ -74,16 +78,16 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
               <button
                 data-magnetic
                 onClick={() => open(defaultService)}
-                className="lux-sheen rounded-full bg-coral px-7 py-3 text-sm font-semibold tracking-wide text-white shadow-lg shadow-black/20 transition duration-500 hover:bg-coral-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                className="lux-sheen inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#f7df9c] via-[#ecc66e] to-[#d4a443] text-ink shadow-[0_12px_30px_-12px_rgba(233,198,110,0.75)] hover:brightness-105 px-7 py-3.5 text-[15px] font-semibold tracking-wide transition duration-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
-                Book an Experience
+                Book an Experience <ArrowRight className="h-4 w-4" aria-hidden />
               </button>
               <button
                 data-magnetic
                 onClick={() => setShowMenu(true)}
-                className="rounded-full border border-white/60 px-7 py-3 text-sm font-semibold tracking-wide text-white backdrop-blur-sm transition duration-500 hover:border-white hover:bg-white hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                className="inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/5 px-7 py-3.5 text-[15px] font-semibold tracking-wide text-white backdrop-blur-sm transition duration-500 hover:border-white hover:bg-white hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
-                View Menu
+                View Menu <Play className="h-3.5 w-3.5 fill-current" aria-hidden />
               </button>
             </div>
 
@@ -94,6 +98,11 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
                 </li>
               ))}
             </ul>
+
+            {/* Scroll hint (desktop). */}
+            <span aria-hidden style={delay(1100)} className="lux-rise mt-2 hidden h-10 w-6 justify-center rounded-full border-2 border-white/55 pt-1.5 lg:flex">
+              <span className="hero-scroll-dot h-2 w-1 rounded-full bg-white/80" />
+            </span>
           </div>
 
           <TodayCard facts={facts} />
@@ -116,8 +125,8 @@ function TodayCard({ facts }: { facts: HeroFacts }) {
   ].filter((n) => n.value);
 
   return (
-    <aside data-m-card style={delay(850)} className="lux-rise rounded-3xl border border-white/25 bg-[#2b1a10]/35 p-5 shadow-2xl shadow-black/20 backdrop-blur-md">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-champagne">Today at Blush</p>
+    <aside data-m-card style={delay(850)} className="lux-rise rounded-3xl border border-white/25 bg-[#5a3d26]/40 p-5 shadow-2xl shadow-black/25 backdrop-blur-xl">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#e9c868]">Today at Blush</p>
       <ul className="mt-3 space-y-2.5">
         {facts.branches.map((b) => (
           <li key={b.name} className="rounded-2xl bg-white/10 p-3">
@@ -158,7 +167,7 @@ function TodayCard({ facts }: { facts: HeroFacts }) {
         </div>
       )}
 
-      <Link href="/branches" className="mt-4 block text-center text-sm font-semibold text-champagne hover:underline">
+      <Link href="/branches" className="mt-4 block text-center text-sm font-semibold text-[#e9c868] hover:underline">
         Directions &amp; contact →
       </Link>
     </aside>
@@ -190,8 +199,8 @@ function CategoryBar({ categories }: { categories: string[] }) {
 
   return (
     <nav aria-label="Treatment categories" className="relative z-10 mx-auto -mt-7 max-w-7xl px-6">
-      <div className="flex items-center gap-2 rounded-2xl border border-nude/70 bg-white p-2.5 shadow-lg shadow-[#a8843a]/10">
-        <span className="hidden shrink-0 items-center px-3 text-xs font-semibold uppercase tracking-[0.18em] text-coral-dark sm:flex">
+      <div className="flex items-center gap-2 rounded-full border border-white/70 bg-white/90 p-2 shadow-[0_24px_48px_-28px_rgba(70,48,18,0.5)] ring-1 ring-[#efe3c6] backdrop-blur-xl">
+        <span className="hidden shrink-0 items-center px-4 text-xs font-semibold uppercase tracking-[0.2em] text-coral-dark sm:flex">
           Explore
         </span>
         {edges.left && (
@@ -209,7 +218,7 @@ function CategoryBar({ categories }: { categories: string[] }) {
             <Link
               key={c}
               href={`/services?category=${encodeURIComponent(c)}`}
-              className="shrink-0 rounded-full bg-skin/70 px-4 py-2 text-sm font-medium text-ink/80 transition duration-500 hover:bg-coral hover:text-white"
+              className="shrink-0 rounded-full bg-[#f6eee3] px-4 py-2 text-sm font-medium text-ink/80 transition duration-500 hover:bg-coral hover:text-white"
             >
               {c}
             </Link>

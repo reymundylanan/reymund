@@ -596,17 +596,7 @@ body {
 .kw { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.12em; margin-bottom: -0.12em; }
 .kw > span { display: inline-block; will-change: transform; }
 
-.m-cursor {
-  position: fixed; left: 0; top: 0; z-index: 9999; pointer-events: none;
-  width: 34px; height: 34px; border-radius: 999px;
-  border: 1.5px solid rgba(201, 164, 74, 0.85);
-  display: grid; place-items: center;
-  transition: width 0.45s var(--ease-lux), height 0.45s var(--ease-lux), background-color 0.45s var(--ease-lux), border-color 0.45s var(--ease-lux);
-}
-.m-cursor > span {
-  font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #fff;
-  opacity: 0; transition: opacity 0.3s ease;
-}
-.m-cursor[data-state="hot"] { width: 54px; height: 54px; background: rgba(201, 164, 74, 0.12); border-color: rgba(201, 164, 74, 0.55); }
-.m-cursor[data-state="view"] { width: 84px; height: 84px; background: rgba(168, 132, 58, 0.88); border-color: transparent; backdrop-filter: blur(4px); }
-.m-cursor[data-state="view"] > span { opacity: 1; }
+/* Home hero scroll hint: the dot drifts down the mouse outline and fades. */
+.hero-scroll-dot { animation: hero-scroll 2.4s var(--ease-lux) infinite; }
+@keyframes hero-scroll { 0% { transform: translateY(0); opacity: 0; } 25% { opacity: 1; } 70% { transform: translateY(12px); opacity: 0; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .hero-scroll-dot { animation: none; } }

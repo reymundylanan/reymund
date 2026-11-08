@@ -19,7 +19,7 @@ export default async function Testimonials() {
           Client stories will appear here as reviews come in.
         </p>
       ) : (
-        <div data-m="fan" className="mt-10 grid gap-6 sm:grid-cols-3">
+        <div data-m="wave" data-m-v="cascade" className="mt-10 grid gap-6 sm:grid-cols-3">
           {highlights.map((t) => (
             <div key={t.id} className="rounded-3xl border border-nude/70 bg-white p-6 shadow-sm">
               <div className="flex">

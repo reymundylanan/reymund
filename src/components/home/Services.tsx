@@ -53,7 +53,6 @@ export default function Services({ departments }: { departments: DepartmentSumma
             return (
               <div
                 key={cat.id}
-                data-cursor="View"
                 className="group lux-card flex flex-col overflow-hidden rounded-3xl border border-nude/70 bg-white shadow-sm hover:border-champagne"
               >
                 <div className="relative h-56 overflow-hidden">

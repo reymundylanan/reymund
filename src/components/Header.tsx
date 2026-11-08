@@ -57,7 +57,7 @@ export default function Header() {
       <SiteMotion />
       <AnnouncementBar />
 
-      <div className="border-b border-nude/70 bg-white/95 backdrop-blur">
+      <div className="border-b border-white/60 bg-white/80 shadow-[0_10px_30px_-24px_rgba(70,48,18,0.45)] backdrop-blur-xl">
         <nav className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-4 py-3 sm:px-6 sm:py-4">
           <Link href="/" className="flex min-w-0 items-center gap-2">
             <Image
@@ -72,18 +72,21 @@ export default function Header() {
             </span>
           </Link>
 
-          <ul className="hidden items-center gap-8 text-lg font-medium text-ink/80 md:flex">
+          <ul className="hidden items-center gap-1 text-[17px] font-medium text-ink/80 md:flex lg:gap-2">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
               return (
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className={`whitespace-nowrap transition hover:text-coral-dark ${
-                      isActive ? "text-xl font-bold text-coral-dark" : ""
+                    className={`relative block whitespace-nowrap rounded-full px-4 py-2 transition duration-300 hover:text-coral-dark ${
+                      isActive ? "bg-[#f7eedc] font-semibold text-coral-dark" : "hover:bg-[#fbf5ea]"
                     }`}
                   >
                     {link.label}
+                    {isActive && (
+                      <span aria-hidden className="absolute inset-x-5 -bottom-px h-0.5 rounded-full bg-gradient-to-r from-transparent via-coral to-transparent" />
+                    )}
                   </Link>
                 </li>
               );
@@ -120,7 +123,7 @@ export default function Header() {
             ) : (
               <button
                 onClick={open}
-                className="rounded-full bg-coral px-4 py-1.5 text-base font-semibold text-white transition hover:bg-coral-dark sm:px-5 sm:py-2 sm:text-lg"
+                className="rounded-full bg-gradient-to-b from-[#e9c868] to-[#c9a24a] px-4 py-1.5 text-base font-semibold text-white shadow-[0_10px_24px_-12px_rgba(168,132,58,0.9)] transition hover:brightness-105 sm:px-6 sm:py-2 sm:text-lg"
               >
                 Login
               </button>

@@ -29,7 +29,6 @@ export default async function Promotions() {
               key={promo.id}
               href={`/promos/${promo.id}`}
               data-guide-id={promo.id}
-              data-cursor="View"
               className="group relative isolate flex min-h-64 flex-col overflow-hidden rounded-3xl p-6 text-white border-2 border-coral shadow-sm ring-1 ring-champagne/60 ring-offset-2 ring-offset-cream lux-card hover:border-coral-dark"
             >
               <Image
