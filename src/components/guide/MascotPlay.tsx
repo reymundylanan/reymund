@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import GlowMascot, { type MascotFace, type MascotPose } from "@/components/GlowMascot";
+import Mascot3D from "@/components/guide/mascot3d/Mascot3D";
 
 // The GlowSync mascot's "alive" behaviour, shared by every full-size mascot
 // (Services guide, Meet the Team, Help pop-up, chat greeting): tap to tuck
@@ -190,6 +191,7 @@ export function MascotFigure({
   talking = false,
   extra,
   head = false,
+  three = false,
 }: {
   play: MascotPlay;
   size: number;
@@ -207,13 +209,19 @@ export function MascotFigure({
   extra?: React.ReactNode;
   /** Just the head (the floating chat character). */
   head?: boolean;
+  /** The real 3D model (Services guide on computers). */
+  three?: boolean;
 }) {
   const shownFace = face ?? play.mood?.face;
   const shownEmote = emote ?? play.mood?.emote;
   return (
     <span className="relative block">
-      <span className={`relative block drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)] ${play.twirl ? "guide-twirl" : motion ?? "glowy-bob"}`}>
-        <GlowMascot size={size} full={!head} wings={head} pose={pose} face={shownFace} look={play.look} flip={flip} alive={!still} blink={!still} talking={talking} tucked={play.tucked} />
+      <span className={`relative block ${three ? "" : "drop-shadow-[0_10px_12px_rgba(120,90,30,0.28)]"} ${play.twirl && !three ? "guide-twirl" : motion ?? "glowy-bob"}`}>
+        {three && !head ? (
+          <Mascot3D size={size} pose={pose} face={shownFace} look={play.look} flip={flip} still={still} talking={talking} tucked={play.tucked} twirl={play.twirl} />
+        ) : (
+          <GlowMascot size={size} full={!head} wings={head} pose={pose} face={shownFace} look={play.look} flip={flip} alive={!still} blink={!still} talking={talking} tucked={play.tucked} />
+        )}
         {shownEmote && (
           <span
             key={shownEmote + (shownFace ?? "")}

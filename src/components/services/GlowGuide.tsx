@@ -579,7 +579,7 @@ export default function GlowGuide({
 
   // Drag it anywhere; it springs back to its card with a giggle.
   const giggle = () => play.emote([{ face: "giggle", emote: "♪", ms: 1200 }]);
-  const mascot = (size: number, flip = false, dragged = false) => (
+  const mascot = (size: number, flip = false, dragged = false, three = false) => (
     <MascotFigure
       play={play}
       size={size}
@@ -587,6 +587,7 @@ export default function GlowGuide({
       face={dragged ? "surprised" : face}
       emote={dragged ? "!" : bubbleEmote}
       flip={flip}
+      three={three}
       motion={celebrate ? "guide-celebrate" : moving ? "guide-moving" : landing ? "guide-land" : undefined}
       still={moving || celebrate}
       talking={asking || greeting}
@@ -707,7 +708,7 @@ export default function GlowGuide({
         className={`guide-fly absolute left-0 top-0 z-40 rounded-full focus-visible:outline-2 focus-visible:outline-[#c9a24a] ${fade}`}
         style={{ transform: `translate(${mascotX}px, ${mascotY}px)`, ...follow }}
       >
-        <SpringDrag onLand={giggle}>{(dragged) => mascot(MASCOT, side === "right", dragged)}</SpringDrag>
+        <SpringDrag onLand={giggle}>{(dragged) => mascot(MASCOT, side === "right", dragged, true)}</SpringDrag>
       </button>
     </>
   );
