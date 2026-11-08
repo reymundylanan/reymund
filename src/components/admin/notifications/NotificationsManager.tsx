@@ -46,7 +46,8 @@ export default function NotificationsManager({
 }) {
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [linkTarget, setLinkTarget] = useState<"booking" | "promo">("booking");
+  // "none": an announcement with no button (e.g. "we're closed on Saturday").
+  const [linkTarget, setLinkTarget] = useState<"booking" | "promo" | "none">("booking");
   const [promoId, setPromoId] = useState("");
   const [useEmail, setUseEmail] = useState(true);
   const [useMessenger, setUseMessenger] = useState(messenger.configured);
@@ -84,7 +85,7 @@ export default function NotificationsManager({
   const channels = [...(useEmail ? ["email"] : []), ...(useMessenger ? ["messenger"] : [])];
   const emailCount = useEmail ? initialRecipientCount : 0;
   const messengerCount = useMessenger ? messenger.connected : 0;
-  const linkPath = linkTarget === "promo" ? `/promos/${promoId}` : "/?intent=booking";
+  const linkPath = linkTarget === "promo" ? `/promos/${promoId}` : linkTarget === "none" ? "" : "/?intent=booking";
 
   async function send() {
     setSending(true);
@@ -160,7 +161,7 @@ export default function NotificationsManager({
     message.trim().length > 0 &&
     channels.length > 0 &&
     emailCount + messengerCount > 0 &&
-    (linkTarget === "booking" || promoId !== "");
+    (linkTarget !== "promo" || promoId !== "");
 
   const promoLabel = promos.find((p) => p.id === promoId)?.label;
   const lastSent = history[0];
@@ -239,15 +240,16 @@ export default function NotificationsManager({
                   <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only" onChange={(e) => { chooseImage(e.target.files?.[0]); e.target.value = ""; }} />
                 </label>
               )}
-              {imagePreview && useMessenger && <p className="mt-1 text-xs text-ink/50">The image goes in the email. Messenger gets the text and button.</p>}
+              {imagePreview && useMessenger && <p className="mt-1 text-xs text-ink/50">The image goes in the email. Messenger gets the text{linkTarget === "none" ? "" : " and button"}.</p>}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className={LABEL}>
-                Button opens
-                <select value={linkTarget} onChange={(e) => setLinkTarget(e.target.value as "booking" | "promo")} className={FIELD}>
-                  <option value="booking">Booking page</option>
-                  <option value="promo" disabled={promos.length === 0}>A promo…</option>
+                Button
+                <select value={linkTarget} onChange={(e) => setLinkTarget(e.target.value as "booking" | "promo" | "none")} className={FIELD}>
+                  <option value="booking">Book now (opens booking)</option>
+                  <option value="promo" disabled={promos.length === 0}>View promo…</option>
+                  <option value="none">No button (just an announcement)</option>
                 </select>
               </label>
               {linkTarget === "promo" && (
@@ -297,9 +299,11 @@ export default function NotificationsManager({
                 <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink/70">
                   {message.trim() || <span className="text-ink/30">Your message to clients appears here.</span>}
                 </p>
-                <span className="mt-4 inline-block rounded-full bg-coral px-4 py-2 text-xs font-semibold text-white">
-                  {linkTarget === "promo" ? (promoLabel ? "View promo" : "Choose a promo") : "Book now"}
-                </span>
+                {linkTarget !== "none" && (
+                  <span className="mt-4 inline-block rounded-full bg-coral px-4 py-2 text-xs font-semibold text-white">
+                    {linkTarget === "promo" ? (promoLabel ? "View promo" : "Choose a promo") : "Book now"}
+                  </span>
+                )}
               </div>
             </div>
           </aside>

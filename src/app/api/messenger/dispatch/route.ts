@@ -5,7 +5,7 @@ import { getMessengerConfig, missingMessengerEnv, type MessengerConfig } from "@
 import { safeEqual } from "@/lib/messenger/signature";
 import { manilaScheduledAt, skipReason, type OutboxKind } from "@/lib/messenger/dispatchRules";
 import { classifyGraphResponse, retryDelayMinutes, type SendOutcome } from "@/lib/messenger/errors";
-import { appointmentButtonText, appointmentText, buildAppointmentTemplateMessage, buildButtonMessage } from "@/lib/messenger/messages";
+import { appointmentButtonText, appointmentText, buildAppointmentTemplateMessage, buildButtonMessage, buildTextMessage } from "@/lib/messenger/messages";
 import type { AppointmentTemplateKind } from "@/lib/messenger/templates";
 import { logQueryError } from "@/lib/supabase/logQueryError";
 import { sendToGraph } from "@/lib/messenger/graph";
@@ -204,6 +204,9 @@ async function processRow(row: OutboxRow, supabase: SupabaseClient, config: Mess
         )
       : messageData && isAppointmentMessage
       ? buildAppointmentTemplateMessage(sub.psid, kind as AppointmentTemplateKind, messageData)
+      : !row.link_path
+      ? // A broadcast with no button (an announcement): plain text.
+        buildTextMessage(sub.psid, row.custom_text ?? "")
       : buildButtonMessage(
           sub.psid,
           row.custom_text ?? "",

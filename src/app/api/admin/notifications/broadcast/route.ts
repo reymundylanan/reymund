@@ -17,16 +17,17 @@ function escapeHtml(text: string) {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-function buildEmailHtml(subject: string, message: string, linkUrl: string, buttonLabel: string, imageUrl: string | null, settingsUrl: string) {
+/** `linkUrl` null: an announcement with no button. */
+function buildEmailHtml(subject: string, message: string, linkUrl: string | null, buttonLabel: string, imageUrl: string | null, settingsUrl: string) {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
       <p style="font-size: 22px; font-weight: 700; color: #2b1a16; font-style: italic;">Blush Spa &amp; Aesthetics</p>
       <h1 style="font-size: 18px; color: #2b1a16;">${escapeHtml(subject)}</h1>
       <p style="font-size: 14px; color: #2b1a16; line-height: 1.6; white-space: pre-wrap;">${escapeHtml(message)}</p>
       ${imageUrl ? `<img src="${escapeHtml(imageUrl)}" alt="" style="display: block; width: 100%; max-width: 480px; height: auto; margin-top: 16px; border-radius: 12px;" />` : ""}
-      <a href="${linkUrl}" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background: ${BRAND_COLOR}; color: white; border-radius: 999px; text-decoration: none; font-weight: 600; font-size: 14px;">
+      ${linkUrl ? `<a href="${linkUrl}" style="display: inline-block; margin-top: 16px; padding: 12px 24px; background: ${BRAND_COLOR}; color: white; border-radius: 999px; text-decoration: none; font-weight: 600; font-size: 14px;">
         ${buttonLabel}
-      </a>
+      </a>` : ""}
       <p style="font-size: 11px; color: #8a7b77; margin-top: 32px;">
         You're getting this because you have a GlowSync account at Blush Spa &amp; Aesthetics.
         <a href="${escapeHtml(settingsUrl)}" style="color: #8a7b77;">Turn off emails</a>.<br />
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const subject = typeof body?.subject === "string" ? body.subject.trim() : "";
   const message = typeof body?.message === "string" ? body.message.trim() : "";
-  const linkTarget = body?.linkTarget === "promo" ? "promo" : "booking";
+  const linkTarget = body?.linkTarget === "promo" ? "promo" : body?.linkTarget === "none" ? "none" : "booking";
   const promoId = typeof body?.promoId === "string" ? body.promoId : null;
   const channels: Channel[] = Array.isArray(body?.channels)
     ? (body.channels as unknown[]).filter((c): c is Channel => c === "email" || c === "messenger")
@@ -71,7 +72,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Choose at least one channel." }, { status: 400 });
   }
 
-  let linkPath = "/?intent=booking";
+  // An empty link means no button: the email has none and Messenger gets plain text.
+  let linkPath = linkTarget === "none" ? "" : "/?intent=booking";
   if (linkTarget === "promo") {
     const today = new Date().toISOString().slice(0, 10);
     const { data: promo } = promoId
@@ -211,8 +213,8 @@ export async function POST(request: Request) {
   if (emails.length > 0 && sendGmail) {
     const origin = new URL(request.url).origin;
     const settingsUrl = `${origin}/my-glow/profile#notifications`;
-    const html = buildEmailHtml(subject, message, `${origin}${linkPath}`, linkTarget === "promo" ? "View Promo" : "Book Now", imageUrl, settingsUrl);
-    const text = `${subject}\n\n${message}\n\n${origin}${linkPath}\n\n—\n${SPA_FOOTER}\nTurn off emails: ${settingsUrl}`;
+    const html = buildEmailHtml(subject, message, linkPath ? `${origin}${linkPath}` : null, linkTarget === "promo" ? "View Promo" : "Book Now", imageUrl, settingsUrl);
+    const text = `${subject}\n\n${message}\n\n${linkPath ? `${origin}${linkPath}\n\n` : ""}—\n${SPA_FOOTER}\nTurn off emails: ${settingsUrl}`;
     // One email per client, so nobody sees the other addresses.
     for (const to of emails) {
       try {
@@ -228,7 +230,7 @@ export async function POST(request: Request) {
     const resend = new Resend(apiKey);
     const from = process.env.RESEND_FROM_EMAIL ?? "GlowSync <onboarding@resend.dev>";
     const origin = new URL(request.url).origin;
-    const html = buildEmailHtml(subject, message, `${origin}${linkPath}`, linkTarget === "promo" ? "View Promo" : "Book Now", imageUrl, `${origin}/my-glow/profile#notifications`);
+    const html = buildEmailHtml(subject, message, linkPath ? `${origin}${linkPath}` : null, linkTarget === "promo" ? "View Promo" : "Book Now", imageUrl, `${origin}/my-glow/profile#notifications`);
 
     const CHUNK_SIZE = 100;
     for (let i = 0; i < emails.length; i += CHUNK_SIZE) {
