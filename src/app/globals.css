@@ -329,10 +329,44 @@ body {
   0% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(0.55); }
 }
+/* Services guide: the speech box is drawn out from behind the service card
+   (its wrapper clips at the card's edge), glides past with a soft overshoot
+   and a slight tilt that settles, then a band of light crosses it. Leaving,
+   it slides quickly back behind the card. */
+.guide-bubble.guide-emerge {
+  animation: guide-emerge-in 900ms linear both, guide-spin 16s linear infinite;
+}
+.guide-bubble.guide-emerge-out {
+  animation: guide-emerge-out 380ms cubic-bezier(0.55, 0, 0.8, 0.3) both, guide-spin 16s linear infinite;
+}
+@keyframes guide-emerge-in {
+  0% { transform: translateX(var(--emerge-x)) rotate(var(--emerge-tilt)) scale(0.94); opacity: 0.6; animation-timing-function: cubic-bezier(0.2, 0.75, 0.25, 1); }
+  62% { transform: translateX(calc(var(--emerge-x) * -0.035)) rotate(calc(var(--emerge-tilt) * -0.3)) scale(1.01); opacity: 1; animation-timing-function: cubic-bezier(0.4, 0, 0.3, 1); }
+  100% { transform: none; opacity: 1; }
+}
+@keyframes guide-emerge-out {
+  0% { transform: none; opacity: 1; }
+  100% { transform: translateX(var(--emerge-x)) rotate(var(--emerge-tilt)) scale(0.95); opacity: 0.6; }
+}
+.guide-emerge .guide-bubble-inner { position: relative; overflow: hidden; }
+.guide-emerge .guide-bubble-inner::after {
+  content: ""; position: absolute; inset: -20% auto -20% 0; width: 45%; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(233, 195, 90, 0.16) 40%, rgba(255, 236, 180, 0.38) 50%, rgba(233, 195, 90, 0.16) 60%, transparent);
+  transform: translateX(-120%) skewX(-12deg); opacity: 0;
+  animation: guide-sheen 1100ms cubic-bezier(0.4, 0, 0.2, 1) 560ms both;
+}
+@keyframes guide-sheen {
+  0% { transform: translateX(-120%) skewX(-12deg); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translateX(320%) skewX(-12deg); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .guide-bubble, .guide-bubble-still, .guide-live-dot, .guide-caret, .guide-rise, .guide-word,
-  .guide-bubble.glowy-pop, .guide-bubble.guide-turn-out { animation: none; }
-  .guide-bubble.guide-turn-out { opacity: 0; }
+  .guide-bubble.glowy-pop, .guide-bubble.guide-turn-out,
+  .guide-bubble.guide-emerge, .guide-bubble.guide-emerge-out { animation: none; }
+  .guide-bubble.guide-turn-out, .guide-bubble.guide-emerge-out { opacity: 0; }
+  .guide-emerge .guide-bubble-inner::after { display: none; }
 }
 
 /* ── Home page: luxury entrance, slow video drift, scroll reveals ── */
@@ -543,3 +577,36 @@ body {
   --color-amber-50: #fffbeb; --color-amber-100: #fef3c7; --color-amber-200: #fde68a; --color-amber-300: #fcd34d; --color-amber-400: #fbbf24; --color-amber-500: #f59e0b; --color-amber-600: #d97706; --color-amber-700: #b45309; --color-amber-800: #92400e; --color-amber-900: #78350f;
   --color-gray-100: #f3f4f6; --color-gray-300: #d1d5db; --color-gray-500: #6b7280;
 }
+
+/* ── GSAP site motion hooks (src/components/motion/SiteMotion.tsx) ──
+   Motion is tweened through these custom properties, which feed the
+   individual translate/scale/rotate properties, so it stacks with the
+   cards' own hover transforms instead of fighting them. At rest every
+   value is neutral, so nothing looks different without JavaScript. */
+/* Registered so they don't inherit: a moving column must not push the
+   moving buttons inside it twice as far. */
+@property --mx { syntax: "<length-percentage>"; inherits: false; initial-value: 0px; }
+@property --my { syntax: "<length-percentage>"; inherits: false; initial-value: 0px; }
+@property --ms { syntax: "<number>"; inherits: false; initial-value: 1; }
+@property --mr { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --py { syntax: "<length-percentage>"; inherits: false; initial-value: 0%; }
+@property --ps { syntax: "<number>"; inherits: false; initial-value: 1; }
+.m-i { translate: var(--mx) var(--my); scale: var(--ms); rotate: var(--mr); }
+.m-par { translate: 0 var(--py); scale: var(--ps); }
+.kw { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.12em; margin-bottom: -0.12em; }
+.kw > span { display: inline-block; will-change: transform; }
+
+.m-cursor {
+  position: fixed; left: 0; top: 0; z-index: 9999; pointer-events: none;
+  width: 34px; height: 34px; border-radius: 999px;
+  border: 1.5px solid rgba(201, 164, 74, 0.85);
+  display: grid; place-items: center;
+  transition: width 0.45s var(--ease-lux), height 0.45s var(--ease-lux), background-color 0.45s var(--ease-lux), border-color 0.45s var(--ease-lux);
+}
+.m-cursor > span {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: #fff;
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.m-cursor[data-state="hot"] { width: 54px; height: 54px; background: rgba(201, 164, 74, 0.12); border-color: rgba(201, 164, 74, 0.55); }
+.m-cursor[data-state="view"] { width: 84px; height: 84px; background: rgba(168, 132, 58, 0.88); border-color: transparent; backdrop-filter: blur(4px); }
+.m-cursor[data-state="view"] > span { opacity: 1; }

@@ -22,7 +22,7 @@ const HOVER_RESUME_MS = 6000; // auto-tour resumes this long after the mouse lea
 const GREETING_MS = 4500; // "Hi! I'm GlowSync AI" before the tour starts
 const ARRIVE_MS = 450; // the arrow reaches the card first; the mascot follows
 const MOVE_MS = ARRIVE_MS + 900; // arrow + mascot travel time
-const TURN_OUT_MS = 260; // the speech box popping away (matches .guide-turn-out)
+const TURN_OUT_MS = 380; // the speech box sliding back behind the card (matches .guide-emerge-out)
 
 const sameName = (a?: string | null, b?: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
 const MINIMIZED_KEY = "glowguide-minimized";
@@ -647,6 +647,12 @@ export default function GlowGuide({
   const mascotY = card.top + Math.max((card.height - MASCOT) / 2 - 24, 0);
   const bubbleX = side === "right" ? mascotX + MASCOT_W - TUCK : Math.max(mascotX + TUCK - BUBBLE_W, 0);
   const bubbleY = Math.max(card.top, 0);
+  // The box slides out from behind the card: a clip stops at the card's edge,
+  // and the box starts tucked fully behind it.
+  const gap = side === "right" ? bubbleX - (card.left + card.width) : card.left - (bubbleX + BUBBLE_W);
+  const reach = Math.max(gap, 0);
+  const emergeX = side === "right" ? -(reach + BUBBLE_W) : reach + BUBBLE_W;
+  const clip = side === "right" ? `inset(-100px -100px -100px ${-reach}px)` : `inset(-100px ${-reach}px -100px -100px)`;
   const follow = { transitionDelay: `${ARRIVE_MS}ms` };
   // hoverOnly: tucked away (and click-through) unless pointed at or being asked something.
   const away = hoverOnly && !present && mode !== "ask" && !asking;
@@ -666,17 +672,18 @@ export default function GlowGuide({
         style={{
           transform: `translate(${bubbleX}px, ${bubbleY}px)`,
           width: BUBBLE_W,
-          // The box turns itself out and in; this layer only drops away once
-          // the turn has finished (and shows at once so the turn-in is seen).
+          clipPath: clip,
+          // The box slides itself out and in; this layer only drops away once
+          // the slide has finished (and shows at once so the slide-out is seen).
           transition: `transform 900ms var(--ease-lux-inout) ${ARRIVE_MS}ms, opacity 0s linear ${boxHidden ? TURN_OUT_MS : 0}ms`,
         }}
       >
         <div
           key={`${view.id}-${mode}-${greeting}`}
           data-guide-ui
-          className={`guide-bubble ${boxHidden ? "guide-turn-out" : "glowy-pop"} ${GUIDE_FONTS}`}
-          // Pops out of (and back into) the mascot's side.
-          style={{ "--turn-origin": side === "right" ? "0% 55%" : "100% 55%", "--turn-dir": side === "right" ? 1 : -1 } as CSSProperties}
+          className={`guide-bubble ${boxHidden ? "guide-emerge-out" : "guide-emerge"} ${GUIDE_FONTS}`}
+          // Slides out from behind the card (and back behind it).
+          style={{ "--emerge-x": `${emergeX}px`, "--emerge-tilt": side === "right" ? "-2.5deg" : "2.5deg" } as CSSProperties}
         >
           <div className="guide-bubble-inner p-4 pt-4" style={side === "right" ? { paddingLeft: TUCK + 12 } : { paddingRight: TUCK + 12 }}>
             {bubble}

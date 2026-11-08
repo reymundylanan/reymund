@@ -338,6 +338,8 @@ function Face({ face, blink, look, idleLook, talking }: { face: MascotFace; blin
       </g>
       <ellipse cx="39.5" cy="61" rx="5.6" ry="3.6" fill="url(#glowy-cheek)" />
       <ellipse cx="80.5" cy="61" rx="5.6" ry="3.6" fill="url(#glowy-cheek)" />
+      {/* Little blush strokes */}
+      <path d="M37 60.2l-1.3 2M40 60.2l-1.3 2M43 60.2l-1.3 2M78 60.2l-1.3 2M81 60.2l-1.3 2M84 60.2l-1.3 2" fill="none" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="0.8" strokeLinecap="round" />
       <g className={talking ? "glowy-talk" : undefined}>{mouth}</g>
     </>
   );
@@ -442,6 +444,10 @@ export default function GlowMascot({
           <stop offset="45%" stopColor="#f3a9de" />
           <stop offset="100%" stopColor="#b98af0" />
         </linearGradient>
+        <radialGradient id="glowy-halo" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#ffe9a8" stopOpacity="0.85" />
+          <stop offset="100%" stopColor="#ffe9a8" stopOpacity="0" />
+        </radialGradient>
         <linearGradient id="glowy-leg" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0%" stopColor="#ffffff" />
           <stop offset="70%" stopColor="#ece4dd" />
@@ -495,7 +501,8 @@ export default function GlowMascot({
       )}
 
       <g className={alive ? "glowy-head" : undefined}>
-        {/* Gold leaf sprout with veins */}
+        {/* Gold leaf sprout with veins, softly glowing */}
+        <ellipse cx="60" cy="5" rx="22" ry="9" fill="url(#glowy-halo)" className={alive ? "glowy-twinkle" : undefined} opacity="0.7" />
         <path d="M60 15q-1-4 0-8" fill="none" stroke="#8f6c22" strokeWidth="3" strokeLinecap="round" />
         <path d="M60 15q-1-4 0-8" fill="none" stroke="url(#glowy-gold)" strokeWidth="2" strokeLinecap="round" />
         <path d="M60 8C56 2 48 0 42.5 2C45.5 8.5 53.5 11 60 8z" fill="url(#glowy-gold)" stroke="#9a7428" strokeWidth="0.5" />
@@ -515,6 +522,9 @@ export default function GlowMascot({
         <path d="M91 30q9 14 5 34" fill="none" stroke="#ffffff" strokeOpacity="0.85" strokeWidth="1.8" strokeLinecap="round" />
         <ellipse cx="42" cy="25" rx="13" ry="7" fill="url(#glowy-spec)" transform="rotate(-30 42 25)" />
         <ellipse cx="37.5" cy="22" rx="3.6" ry="1.9" fill="#ffffff" transform="rotate(-30 37.5 22)" />
+        {/* Warm gold bounce light along the bottom of the helmet */}
+        <path d="M25.5 67q8 17 30 20" fill="none" stroke="#f1cf7a" strokeOpacity="0.7" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M94.5 67q-6 12 -19 17.5" fill="none" stroke="#f1cf7a" strokeOpacity="0.45" strokeWidth="1.2" strokeLinecap="round" />
 
         {/* Layered gold headphones */}
         {[20, 100].map((cx) => {
@@ -537,6 +547,7 @@ export default function GlowMascot({
         <path d="M35 47q2.5-14 21-16.5q-15 5.5-18.5 18z" fill="#ffffff" opacity="0.2" />
         <circle cx="81" cy="36" r="1.1" fill="#ffffff" opacity="0.7" />
         <circle cx="84.5" cy="40" r="0.6" fill="#ffffff" opacity="0.6" />
+        {alive && <path className="glowy-twinkle" d="M80 34.2l0.8 1.8 1.8 0.8-1.8 0.8-0.8 1.8-0.8-1.8-1.8-0.8 1.8-0.8z" fill="#ffffff" />}
         <ellipse cx="72" cy="73" rx="9" ry="1.8" fill="#ffffff" opacity="0.07" />
 
         <Face face={face ?? FACE_FOR_POSE[pose]} blink={blink} look={look} idleLook={alive} talking={talking} />
