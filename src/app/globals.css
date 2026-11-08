@@ -606,8 +606,3 @@ body {
 .m-par { translate: 0 var(--py); scale: var(--ps); }
 .kw { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: 0.12em; margin-bottom: -0.12em; }
 .kw > span { display: inline-block; will-change: transform; }
-
-/* Home hero scroll hint: the dot drifts down the mouse outline and fades. */
-.hero-scroll-dot { animation: hero-scroll 2.4s var(--ease-lux) infinite; }
-@keyframes hero-scroll { 0% { transform: translateY(0); opacity: 0; } 25% { opacity: 1; } 70% { transform: translateY(12px); opacity: 0; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .hero-scroll-dot { animation: none; } }

@@ -98,11 +98,6 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
                 </li>
               ))}
             </ul>
-
-            {/* Scroll hint (desktop). */}
-            <span aria-hidden style={delay(1100)} className="lux-rise mt-2 hidden h-10 w-6 justify-center rounded-full border-2 border-white/55 pt-1.5 lg:flex">
-              <span className="hero-scroll-dot h-2 w-1 rounded-full bg-white/80" />
-            </span>
           </div>
 
           <TodayCard facts={facts} />
