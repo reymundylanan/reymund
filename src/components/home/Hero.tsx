@@ -49,6 +49,8 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
         {/* Warm and dark behind the words, opening up toward the photo. */}
         <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#2b1a10]/85 via-[#4a3020]/50 to-[#a8843a]/10" />
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-[#2b1a10]/50 via-transparent to-transparent" />
+        {/* A fine gold line where the hero meets the navbar. */}
+        <span aria-hidden className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[#c9a24a] via-[#f3d98b] to-[#c9a24a]" />
 
         <div data-m-content className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[1fr_24rem]">
           <div data-m-copy className="flex flex-col items-start gap-6">
