@@ -54,20 +54,28 @@ export default function Branches() {
 
   return (
     <section id="branches" data-m="branches" className="mx-auto max-w-7xl px-6 py-20">
-      <p className="text-xs font-semibold uppercase tracking-[0.25em] text-coral-dark">
-        Find Us Near You
-      </p>
-      <h2 data-m="title" className="mt-3 max-w-lg text-3xl font-semibold text-ink sm:text-4xl">
-        Luxury Comfort at Every Corner
-      </h2>
-      <p className="mt-2 max-w-xl text-ink/60">
-        With 2 locations across Pagadian City, our sanctuary is never too far.
-        Each branch features our synchronized design language and premium
-        facilities.
-      </p>
+      {/* One warm, gold-edged panel: words and branches on the left, the map
+          in a gold frame on the right. */}
+      <div className="relative isolate overflow-hidden rounded-[2rem] border border-[#efe3c6] bg-gradient-to-br from-white via-[#fffaf0] to-[#f7ecd2] p-6 shadow-[0_30px_60px_-40px_rgba(70,48,18,0.45)] sm:p-10">
+        <span aria-hidden className="pointer-events-none absolute -left-24 -top-24 -z-10 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(201,164,74,0.22),transparent_65%)]" />
+        <span aria-hidden className="pointer-events-none absolute -bottom-28 -right-20 -z-10 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(201,164,74,0.18),transparent_65%)]" />
 
-      <div className="mt-10 grid gap-8 lg:grid-cols-2">
-        <div data-m-list className="space-y-4">
+        <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:items-stretch">
+          <div className="flex flex-col">
+            <p className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.25em] text-coral-dark">
+              <span aria-hidden className="h-px w-8 bg-champagne" />
+              Find Us Near You
+            </p>
+            <h2 data-m="title" className="mt-3 max-w-lg text-3xl font-semibold text-ink sm:text-4xl">
+              Luxury Comfort at Every Corner
+            </h2>
+            <p className="mt-3 max-w-xl text-ink/60">
+              With 2 locations across Pagadian City, our sanctuary is never too far.
+              Each branch features our synchronized design language and premium
+              facilities.
+            </p>
+
+            <div data-m-list className="mt-8 space-y-4">
           {branches.map((branch) => {
             const hoursStr = dbHours[branch.name] ?? branch.hours;
             const open = hoursStr ? isOpenNow(hoursStr, now) : branch.open;
@@ -75,10 +83,10 @@ export default function Branches() {
               <button
                 key={branch.id}
                 onClick={() => setSelected(branch.id)}
-                className={`flex w-full gap-4 rounded-2xl border p-4 text-left transition ${
+                className={`flex w-full gap-4 rounded-2xl border p-4 text-left transition duration-300 ${
                   selected === branch.id
-                    ? "border-coral bg-blush shadow-sm"
-                    : "border-ink/10 hover:border-coral/50"
+                    ? "border-coral bg-gradient-to-br from-[#fff8e8] to-[#f8ecd0] shadow-[0_14px_28px_-20px_rgba(168,132,58,0.7)]"
+                    : "border-[#efe3c6] bg-white/80 hover:border-coral/50 hover:bg-white"
                 }`}
               >
                 <span
@@ -105,9 +113,12 @@ export default function Branches() {
               </button>
             );
           })}
-        </div>
+            </div>
+          </div>
 
-        <div data-m-map className="flex flex-col overflow-hidden rounded-2xl border border-nude/70 bg-skin/60">
+        {/* The map in a fine gold frame. */}
+        <div data-m-map className="rounded-[1.6rem] bg-gradient-to-br from-[#e9c868] via-[#f7e7bd] to-[#c9a24a] p-[3px] shadow-[0_24px_48px_-28px_rgba(70,48,18,0.55)]">
+        <div className="flex h-full flex-col overflow-hidden rounded-[1.45rem] bg-skin/60">
           <iframe
             key={mapSrc}
             title={`Map to ${selectedBranch.name}`}
@@ -139,6 +150,8 @@ export default function Branches() {
               )}
             </div>
           </div>
+        </div>
+        </div>
         </div>
       </div>
     </section>
