@@ -57,7 +57,7 @@ export default function Hero({ facts }: { facts: HeroFacts }) {
               Blush Spa &amp; Aesthetics · Pagadian City
             </p>
 
-            <h1 className="max-w-3xl font-display text-5xl font-medium leading-[1.05] tracking-tight sm:text-7xl">
+            <h1 className="max-w-2xl font-display text-4xl font-semibold leading-tight sm:text-6xl">
               <span style={delay(250)} className="lux-rise block">
                 Synchronized Care for
               </span>
