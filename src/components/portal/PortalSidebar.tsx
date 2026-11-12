@@ -51,7 +51,7 @@ export default function PortalSidebar({
         collapsed ? "w-20" : "w-64 max-md:w-16"
       }`}
     >
-      <div className={`flex items-center gap-3 px-5 py-6 max-md:justify-center max-md:px-2 ${collapsed ? "justify-center" : ""}`}>
+      <div className={`flex items-center gap-3 px-5 py-5 max-md:justify-center max-md:px-2 ${collapsed ? "justify-center" : ""}`}>
         <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full border border-champagne bg-white max-md:h-10 max-md:w-10">
           <Image src="/images/logo/cropblushicon2.png" alt="Blush Spa & Aesthetics" fill sizes="44px" className="object-contain p-1" />
         </span>
@@ -62,7 +62,7 @@ export default function PortalSidebar({
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 max-md:px-2">
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3 max-md:px-2">
         {items.map((item, i) => {
           const Icon = item.icon;
           const heading = item.section && item.section !== items[i - 1]?.section ? item.section : null;
@@ -110,17 +110,18 @@ export default function PortalSidebar({
             </div>
           );
         })}
+        {/* After the links, so they always come first when the screen is short. */}
+        {!collapsed && (
+          <div className="pointer-events-none mt-auto px-3 pt-4 text-sm italic leading-snug text-coral-dark/80 max-md:hidden" style={SERIF} aria-hidden>
+            Look Good
+            <br />
+            Feel Good
+            <br />
+            Be You <Heart className="ml-0.5 inline h-3.5 w-3.5 align-[-2px]" />
+          </div>
+        )}
       </nav>
 
-      {!collapsed && (
-        <div className="pointer-events-none px-6 pb-3 text-sm italic max-md:hidden leading-snug text-coral-dark/80" style={SERIF} aria-hidden>
-          Look Good
-          <br />
-          Feel Good
-          <br />
-          Be You <Heart className="ml-0.5 inline h-3.5 w-3.5 align-[-2px]" />
-        </div>
-      )}
 
       <div className="space-y-1 border-t border-nude/70 px-3 py-3 max-md:px-2">
         <button
