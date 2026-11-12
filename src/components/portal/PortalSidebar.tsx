@@ -12,7 +12,7 @@ export type PortalNavItem = {
   href: string;
   label: string;
   icon: ComponentType<{ className?: string }>;
-  /** Small heading shown above the first item of each group. */
+  /** Which group the item belongs to (not shown). */
   section?: string;
 };
 
@@ -63,19 +63,13 @@ export default function PortalSidebar({
       </div>
 
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pb-3 max-md:px-2">
-        {items.map((item, i) => {
+        {items.map((item) => {
           const Icon = item.icon;
-          const heading = item.section && item.section !== items[i - 1]?.section ? item.section : null;
           const active = isActive(item.href);
           const badge = badges[item.href] ?? 0;
           const label = badge > 0 ? `${item.label} (${badgeText(badge)} need attention)` : item.label;
           return (
             <div key={item.href}>
-            {heading && (
-              <p className={`px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-ink/35 max-md:hidden ${i ? "pt-4" : "pt-1"} ${collapsed ? "hidden" : ""}`}>
-                {heading}
-              </p>
-            )}
             <Link
               key={item.href}
               href={item.href}
